@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config COMMON_CLK_WIN2030_TEST
+	bool "Win2030 Clock Driver Test"
+	default y
+	help
+	  Build the Eswin Win2030 clock test driver

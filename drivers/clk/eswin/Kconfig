@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config COMMON_CLK_WIN2030
+	bool "Win2030 Clock Driver"
+	help
+	  Build the Eswin Win2030 clock driver based on the common clock framework.
+
+if COMMON_CLK_WIN2030
+	source "drivers/clk/eswin/test/Kconfig"
+endif

@@ -319,6 +319,12 @@ config RESET_ZYNQ
 	  This enables the reset controller driver for Xilinx Zynq SoCs.
 
 source "drivers/reset/starfive/Kconfig"
+
+config RESET_ESWIN_WIN2030
+	tristate "Eswin Win2030 Reset Driver"
+	default n
+	help
+	  This enables the reset controller driver for Eswin Win2030 SoCs.
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"
 source "drivers/reset/tegra/Kconfig"
