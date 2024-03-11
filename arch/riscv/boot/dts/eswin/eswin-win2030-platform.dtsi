@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Include file for Configuration of Eswin EIC770x family SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/*
+CHIPLET_AND_DIE = ((CHIPLET_NUM << 1) | AVAILABLE_DIE)
+BIT1  BIT0
+0	0	CHIPLET_1 | DIE0
+0	1	CHIPLET_1 | DIE1
+1	X       CHIPLET_2 | X
+*/
+
+#define CHIPLET_NUM 0
+#define PLATFORM_HAPS
+#define MEMMODE_FLAT
+#define AVAILABLE_DIE 0
+
+#define CHIPLET_AND_DIE		((CHIPLET_NUM << 1) | AVAILABLE_DIE)
+
+/* VI related Macros */
+#define MIPI_CSI2_IMX290_ENBALE
+#define MIPI_CSI2_2LINE_ENABLE
+
+#if (CHIPLET_NUM==0)
+#if defined PLATFORM_HAPS
+#define RTCCLK_FREQ		1000000
+#define CPUCLK_FREQ		7500000
+#define LSPCLK_FREQ		5000000
+#define MEMORY_SIZE_H		0x2
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x10000000
+#elif defined PLATFORM_ZEBU
+#define RTCCLK_FREQ		1000000
+#define CPUCLK_FREQ		5000000
+#define LSPCLK_FREQ		5000000
+#define MEMORY_SIZE_H		0x2
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x10000000
+#elif defined PLATFORM_EIC7700_E_LX_G3_A1
+#define RTCCLK_FREQ		1000000
+#define CPUCLK_FREQ		5000000
+#define LSPCLK_FREQ		5000000
+#define MEMORY_SIZE_H		0x2
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x10000000
+#elif defined PLATFORM_EIC7700_E_L5_G2_A1
+#define RTCCLK_FREQ		1000000
+#define CPUCLK_FREQ		5000000
+#define LSPCLK_FREQ		5000000
+#define MEMORY_SIZE_H		0x1
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x10000000
+#endif
+#else /* CHIPLET_2 */
+#define RTCCLK_FREQ		1000000
+#define LSPCLK_FREQ		5000000
+#define CPUCLK_FREQ		5000000
+#ifdef MEMMODE_INTERLEAVE
+#define MEMORY_SIZE_H		0x4
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x8000000
+#else /* non-interleaving */
+#define MEMORY_SIZE_H		0x2
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x10000000
+#endif /* end of MEMMODE_INTERLEAVE */
+#endif /* end of (CHIPLET_NUM==0) */

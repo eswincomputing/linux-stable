@@ -1,0 +1,1503 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC770x family SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+#include "eswin-win2030-platform.dtsi"
+#include "eic7700-pinctrl.dtsi"
+
+#if ((CHIPLET_AND_DIE & 0x2) || (CHIPLET_AND_DIE == 0x0))
+#include "eswin-win2030-die0-soc.dtsi"
+#endif
+
+#if ((CHIPLET_AND_DIE & 0x2) || (CHIPLET_AND_DIE == 0x1))
+#include "eswin-win2030-die1-soc.dtsi"
+#endif
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/* Clock frequency (in Hz) of the PCB crystal for rtcclk */
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	/*model = "SiFive HiFive Unmatched A00";*/
+	model = "ESWIN WIN2030";
+	compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000",
+		     "sifive,fu740";
+
+#if ((CHIPLET_AND_DIE & 0x2) || (CHIPLET_AND_DIE == 0x0))
+    aliases {
+		serial0 = &d0_uart0;
+		ethernet0 = &d0_gmac0;
+		ethernet1 = &d0_gmac1;
+	};
+#endif
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	cpus {
+		timebase-frequency = <RTCCLK_FREQ>;
+	};
+#if (CHIPLET_NUM == 1)
+#ifdef MEMMODE_INTERLEAVE
+	memory@59000000 {
+		device_type = "memory";
+		reg = <0x0 0x59000000 0x0 0x400000>;
+		numa-node-id = <0>;
+	};
+
+	memory@79000000 {
+		device_type = "memory";
+		reg = <0x0 0x79000000 0x0 0x400000>;
+		numa-node-id = <1>;
+	};
+
+	memory@4000000000 {
+		device_type = "memory";
+		reg = <0x40 0x00000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		numa-node-id = <0>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 CMA_SIZE>;
+			alignment = <0x0 0x1000>;
+			alloc-ranges = <0x40 0x0 MEMORY_SIZE_H MEMORY_SIZE_L>;
+			linux,cma-default;
+		};
+
+		npu0_reserved: sprammemory@59000000 {
+			no-map;
+			reg = <0x0 0x59000000 0x0 0x400000>;
+		};
+		npu1_reserved: sprammemory@79000000 {
+			no-map;
+			reg = <0x0 0x79000000 0x0 0x400000>;
+		};
+		//WRAN: dsp reserved space is fixed to 0x90000000 and 0x91000000 in the code, the below space is not working for dsp,it's just for building
+		/*
+		dsp_reserved0: dsp@4010000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x40 0x10000000 0 0x1000000>;
+			reusable;
+			status = "okay";
+		};
+		*/
+
+		dsp_reserved1: dsp@4011000000 {
+			reg = <0x40 0x11000000 0 0x200000>;
+			no-map;
+		};
+
+		smpmemtest_rsv0@4011200000 {
+			reg = <0x40 0x11200000 0 0x2000000>;
+			no-map;
+		};
+
+		smpmemtest_rsv1@4013200000 {
+			reg = <0x40 0x13200000 0 0x2000000>;
+			no-map;
+		};
+
+		lpcpu0_reserved: lpcpu@4020000000 {
+			no-map;
+			reg = <0x40 0x20000000 0x0 0x100000>;
+		};
+
+		lpcpu1_reserved: lpcpu@4020100000 {
+			no-map;
+			reg = <0x40 0x20100000 0x0 0x100000>;
+		};
+
+		secure_memory_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x40 0xb0000000 0x0 0x10000000>;
+			no-map;
+		};
+
+		secure_memory_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x40 0xc0000000 0x0 0x10000000>;
+			no-map;
+		};
+	};
+#else
+	memory@59000000 {
+		device_type = "memory";
+		reg = <0x0 0x59000000 0x0 0x400000>;
+		numa-node-id = <0>;
+	};
+
+	memory@79000000 {
+		device_type = "memory";
+		reg = <0x0 0x79000000 0x0 0x400000>;
+		numa-node-id = <1>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		numa-node-id = <0>;
+	};
+
+	memory@2000000000 {
+		device_type = "memory";
+		reg = <0x20 0x00000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		numa-node-id = <1>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 CMA_SIZE>;
+			alignment = <0x0 0x1000>;
+			alloc-ranges = <0x20 0x00000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+			linux,cma-default;
+		};
+
+		npu0_reserved: sprammemory@59000000 {
+			no-map;
+			reg = <0x0 0x59000000 0x0 0x400000>;
+		};
+		npu1_reserved: sprammemory@79000000 {
+			no-map;
+			reg = <0x0 0x79000000 0x0 0x400000>;
+		};
+		/*
+		dsp_reserved0: dsp@90000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x90000000 0x0 0x1000000>;
+			reusable;
+			status = "okay";
+		};
+		*/
+
+		dsp_reserved1: dsp@91000000 {
+			reg = <0 0x91000000 0 0x200000>;
+			no-map;
+		};
+
+		smpmemtest_rsv0@91200000 {
+			reg = <0 0x91200000 0 0x2000000>;
+			no-map;
+		};
+
+		secure_memory_nid_0_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x0 0xb0000000 0x0 0x8000000>;
+			no-map;
+		};
+
+		secure_memory_nid_0_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x0 (0xb0000000 + 0x8000000) 0x0 0x8000000>;
+			no-map;
+		};
+
+		mmz_nid_0_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x0 0xc0000000 0x0 0x40000000>;
+			no-map;
+		};
+
+		mmz_nid_0_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x1 0x0 0x0 0x40000000>;
+			no-map;
+		};
+
+		mmz_nid_1_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0x0 0x0 0x40000000>;
+			no-map;
+		};
+
+		mmz_nid_1_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0x40000000 0x0 0x40000000>;
+			no-map;
+		};
+
+		smpmemtest_rsv1@2000000000 {
+			reg = <0x20 0x80000000 0 0x2000000>;
+			no-map;
+		};
+
+		lpcpu0_reserved: lpcpu@a0000000 {
+			no-map;
+			reg = <0x0 0xa0000000 0x0 0x100000>;
+		};
+
+		lpcpu1_reserved: lpcpu@20a0000000 {
+			no-map;
+			reg = <0x20 0xa0000000 0x0 0x100000>;
+		};
+
+		secure_memory_nid_1_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0xd0000000 0x0 0x8000000>;
+			no-map;
+		};
+
+		secure_memory_nid_1_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 (0xd0000000 + 0x8000000) 0x0 0x8000000>;
+			no-map;
+		};
+	};
+#endif
+	distance-map {
+		compatible = "numa-distance-map-v1";
+		distance-matrix = <0 0 10>,
+				<0 1 15>,
+				<1 0 15>,
+				<1 1 10>;
+	};
+#else //CHIPLET_1
+#if (AVAILABLE_DIE == 0)
+	memory@59000000 {
+		device_type = "memory";
+		reg = <0x0 0x59000000 0x0 0x400000>;
+		numa-node-id = <0>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		numa-node-id = <0>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 CMA_SIZE>;
+			alignment = <0x0 0x1000>;
+			alloc-ranges = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+			linux,cma-default;
+		};
+
+		npu0_reserved: sprammemory@59000000 {
+			no-map;
+			reg = <0x0 0x59000000 0x0 0x400000>;
+		};
+
+		/*
+		dsp_reserved0: dsp@90000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x90000000 0x0 0x1000000>;
+			reusable;
+			status = "okay";
+		};
+		*/
+
+		dsp_reserved1: dsp@91000000 {
+			reg = <0 0x91000000 0 0x200000>;
+			no-map;
+		};
+
+		smpmemtest_rsv0@91200000 {
+			reg = <0 0x91200000 0 0x2000000>;
+			no-map;
+		};
+
+		lpcpu0_reserved: lpcpu@a0000000 {
+			no-map;
+			reg = <0x0 0xa0000000 0x0 0x100000>;
+		};
+
+		secure_memory_nid_0_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x0 0xb0000000 0x0 0x8000000>;
+			no-map;
+		};
+
+		secure_memory_nid_0_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x0 (0xb0000000 + 0x8000000) 0x0 0x8000000>;
+			no-map;
+		};
+
+		mmz_nid_0_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x0 0xc0000000 0x1 0x40000000>;
+			no-map;
+		};
+
+		mmz_nid_0_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x2 0x0 0x0 0x8000000>;
+			no-map;
+		};
+	};
+
+	soc {
+		reset_test@1e00e000 {
+			compatible	= "reset_test";
+			resets = <&d0_reset SCPU_RST_CTRL SW_SCPU_BUS_RSTN>,
+					 <&d0_reset SCPU_RST_CTRL SW_SCPU_CORE_RSTN>,
+					 <&d0_reset SCPU_RST_CTRL SW_SCPU_DBG_RSTN>;
+			reset-names = "bus", "core", "dbg";
+		};
+	};
+#else
+	memory@79000000 {
+		device_type = "memory";
+		reg = <0x0 0x79000000 0x0 0x400000>;
+		numa-node-id = <1>;
+	};
+
+	memory@2000000000 {
+		device_type = "memory";
+		reg = <0x20 0x0 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		numa-node-id = <0>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 CMA_SIZE>;
+			alignment = <0x0 0x1000>;
+			alloc-ranges = <0x20 0x0 MEMORY_SIZE_H MEMORY_SIZE_L>;
+			linux,cma-default;
+		};
+
+		npu1_reserved: sprammemory@79000000 {
+			no-map;
+			reg = <0x0 0x79000000 0x0 0x400000>;
+		};
+		//WRAN: dsp reserved space is fixed to 0x90000000 and 0x91000000 in the code, the below space is not working for dsp,it's just for building
+		/*
+		dsp_reserved0: dsp@2010000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x20 0x10000000 0x0 0x1000000>;
+			reusable;
+			status = "okay";
+		};
+		*/
+
+		dsp_reserved1: dsp@2011000000 {
+			reg = <0x20 0x11000000 0 0x200000>;
+			no-map;
+		};
+
+		smpmemtest_rsv0@2011200000 {
+			reg = <0x20 0x11200000 0 0x2000000>;
+			no-map;
+		};
+
+		mmz_nid_1_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0x40000000 0x0 0x40000000>;
+			no-map;
+		};
+
+		mmz_nid_1_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0x80000000 0x0 0x40000000>;
+			no-map;
+		};
+
+		lpcpu1_reserved: lpcpu@20c0000000 {
+			no-map;
+			reg = <0x20 0xc0000000 0x0 0x100000>;
+		};
+
+		secure_memory_nid_1_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0xd0000000 0x0 0x8000000>;
+			no-map;
+		};
+
+		secure_memory_nid_1_part_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 (0xd0000000 + 0x8000000) 0x0 0x8000000>;
+			no-map;
+		};
+	};
+#endif /* end of (AVAILABLE_DIE == 0) */
+#endif /* end of (CHIPLET_NUM==1) */
+};
+
+#if ((CHIPLET_AND_DIE & 0x2) || (CHIPLET_AND_DIE == 0x0))
+&d0_uart0 {
+	status = "okay";
+};
+
+&d0_uart1 {
+	status = "okay";
+};
+
+&d0_uart2 {
+	status = "okay";
+};
+
+&d0_clock {
+	status = "okay";
+};
+
+&d0_reset {
+	status = "okay";
+};
+
+&smmu0 {
+	status = "okay";
+};
+
+&smmu_pmu0 {
+	status = "disabled";
+};
+
+&dev_foo_b {
+	status = "disabled";
+};
+
+&dev_foo_a {
+	status = "okay";
+};
+
+&d0_dmac0 {
+	status = "disabled";
+};
+
+&d0_aon_dmac {
+	status = "okay";
+};
+
+&d0_gmac0 {
+	status = "disabled";
+};
+
+&d0_gmac1 {
+	status = "disabled";
+};
+
+
+&d0_nvdla {
+	status = "okay";
+};
+
+&d0_dsp_subsys {
+	status = "okay";
+};
+
+&d0_dsp0 {
+	status = "okay";
+};
+
+&d0_dsp1 {
+	status = "disabled";
+};
+
+&d0_dsp2 {
+	status = "disabled";
+};
+
+&d0_dsp3 {
+	status = "disabled";
+};
+
+&d0_sofdsp {
+	status = "disabled";
+};
+
+&d0_i2s0 {
+	status = "disabled";
+	eswin-plat = <0>;
+	d0_i2s0_port: port {
+		d0_i2s0_endpoint: endpoint {
+			remote-endpoint = <&hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d0_i2s1 {
+	status = "disabled";
+	eswin-plat = <0>;
+	d0_i2s1_port: port {
+		d0_i2s1_endpoint: endpoint {
+			remote-endpoint = <&d0_codec_endpoint>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d0_i2s2 {
+	status = "disabled";
+	eswin-plat = <0>;
+	d0_i2s2_port: port {
+		d0_i2s2_endpoint: endpoint {
+			remote-endpoint = <&d0_dummy_endpoint2>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d0_soundcard {
+	status = "disabled";
+};
+
+&d0_graphcard0 {
+	status = "disabled";
+	dais = <&d0_i2s0_port
+			&d0_i2s1_port
+			&d0_i2s2_port>;
+};
+
+&d0_graphcard1 {
+	status = "disabled";
+};
+
+&d0_graphcard2 {
+	status = "disabled";
+};
+
+&d0_dummy_codec {
+	status = "disabled";
+	ports {
+		/*port@0 {
+			d0_dummy_endpoint0: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s0_endpoint>;
+			};
+		};
+		*/
+		/*
+		port@1 {
+			d0_dummy_endpoint1: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+		*/
+		port@2 {
+			d0_dummy_endpoint2: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s2_endpoint>;
+			};
+		};
+	};
+};
+
+&d0_thruout{
+	status = "disabled";
+};
+
+&gc820 {
+	status = "disabled";
+};
+
+&gpu0 {
+	status = "disabled";
+};
+
+&pcie {
+	status = "disabled";
+};
+
+&ssi0 {
+	status = "disabled";
+};
+
+&sdhci_emmc {
+	status = "disabled";
+};
+
+&sdio0 {
+	status = "disabled";
+};
+
+&sdio1 {
+	status = "disabled";
+};
+
+&vdec0 {
+	status = "disabled";
+};
+
+&venc0 {
+	status = "disabled";
+};
+
+&d0_mbox0 {
+	status = "okay";
+};
+
+&d0_mbox1 {
+	status = "disabled";
+};
+
+&d0_mbox2 {
+	status = "okay";
+};
+
+&d0_mbox3 {
+	status = "disabled";
+};
+
+&d0_mbox4 {
+	status = "okay";
+};
+
+&d0_mbox5 {
+	status = "okay";
+};
+
+&d0_mbox6 {
+	status = "okay";
+};
+
+&d0_mbox7 {
+	status = "okay";
+};
+
+&d0_ipc_scpu {
+	status = "okay";
+};
+
+&d0_lpcpu {
+	status = "disabled";
+};
+
+&dvb_widgets {
+	status = "disabled";
+	dw_name = "dvb-widgets";
+	dw_num = <8>;
+	led-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
+};
+
+&pvt0 {
+	status = "disabled";
+};
+
+&pvt1 {
+	status = "disabled";
+};
+
+&fan_control {
+	status = "disabled";
+};
+
+&d0_i2c0 {
+	status = "disabled";
+	eeprom@50 {
+		compatible = "atmel,24c1024";
+		reg = <0x50>;
+	};
+};
+
+&d0_pmu {
+	status = "disabled";
+};
+
+&d0_i2c1 {
+	status = "disabled";
+};
+
+&d0_i2c2 {
+	status = "disabled";
+	d0_es8316: es8316@10 {
+		compatible = "everest,es8316";
+		reg = <0x10>;
+		interrupts = <107>;
+		interrupt-parent = <&plic0>;
+		#sound-dai-cells = <0>;
+		port {
+			d0_codec_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
+};
+
+&d0_i2c3 {
+	status = "disabled";
+	eeprom@51 {
+		compatible = "atmel,24c02";
+		reg = <0x51>;
+	};
+};
+
+&d0_i2c4 {
+	status = "disabled";
+	i2c-slave-eeprom@51 {
+		compatible = "slave-24c02";
+		reg = <(I2C_OWN_SLAVE_ADDRESS | 0x51)>;
+	};
+};
+
+&d0_i2c5 {
+	status = "disabled";
+};
+
+&d0_i2c6 {
+	status = "disabled";
+};
+
+&d0_i2c7 {
+	status = "disabled";
+};
+
+&d0_i2c8 {
+	status = "disabled";
+};
+
+&d0_i2c9 {
+	status = "disabled";
+};
+
+&d0_aon_i2c0 {
+	status = "disabled";
+	aon_eeprom@50 {
+		compatible = "atmel,24c1024";
+		reg = <0x50>;
+	};
+};
+
+&d0_aon_i2c1 {
+	status = "disabled";
+};
+
+&pinctrl {
+	status = "disabled";
+	pinctrl_gpio27_default: gpio27-default{
+		mux{
+			groups = "gpio27_group";
+			function = "gpio27_func";
+		};
+		conf {
+			groups = "gpio27_group";
+			input-enable = <1>;
+		};
+	};
+};
+
+&gpio0 {
+	status = "disabled";
+	porta: gpio-port@0 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio27_default>;
+		gpio-ranges = <&pinctrl 27 55 111>;
+		interrupts = <303>,<311>,<312>,<313>,<314>,<331>;
+		interrupt-state = <0 1 1 1>,<8 0 1 1>,<9 0 1 1>,
+							<10 0 1 1>,<11 0 1 1>,<28 0 1 1>;
+		direction-input = <0 8 9 10 11 28>;
+		direction-output = <7 1 16 0>;
+		gpio-state = <11 1 12 1>;
+	};
+	portb: gpio-port@1 {
+		direction-input = <5 13 9 25>;
+		direction-output = <26 0 3 1>;
+		gpio-state = <11 1 17 1>;
+	};
+
+	portc: gpio-port@2 {
+		direction-input = <5 13 9 25>;
+		direction-output = <30 0 3 1>;
+		gpio-state = <11 1 17 1>;
+	};
+
+	portd: gpio-port@3 {
+		direction-input = <9 1 8 1>;
+		direction-output = <10 1 11 1 12 1 13 1 14 1 15 0>;
+		gpio-state = <6 1 5 1>;
+	};
+};
+
+&pwm0 {
+	status = "disabled";
+};
+
+&wdt0 {
+	status = "disabled";
+};
+
+&wdt1 {
+	status = "disabled";
+};
+
+&wdt2 {
+	status = "disabled";
+};
+
+&wdt3 {
+	status = "disabled";
+};
+
+&timer0 {
+	status = "disabled";
+};
+
+&timer1 {
+	status = "disabled";
+};
+
+&timer2 {
+	status = "disabled";
+};
+
+&timer3 {
+	status = "disabled";
+};
+
+&die0_rtc {
+	status = "disabled";
+};
+
+&d0_sata {
+	status = "disabled";
+};
+
+&d0_cfg_noc {
+	status = "okay";
+};
+
+&d0_llc_noc {
+	status = "okay";
+	stat,0 = "TracePort:ddr0_p0_req";
+	stat,1 = "TracePort:ddr1_p0_req";
+	//latency,0 = "TracePort:llcnoc_trans_probe";
+	//pending,0 = "TracePort:llcnoc_trans_probe";
+};
+
+&d0_sys_noc {
+	status = "okay";
+
+	//eswin,DSPT-qos-owner;
+	//eswin,NPU-qos-owner;
+	//eswin,SPISLV_TBU3-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p1_req",
+		 "InitFlow:mcput_snoc_mp/I/0";
+
+	stat,1 = "TracePort:ddr0_p2_req",
+		 "InitFlow:dspt_snoc/I/0",
+		 "AddrBase:0x81000000", "AddrSize:0x30",
+		 "Opcode:RdWrLockUrg", "Status:ReqRsp", "Length:0x8000", "Urgency:0x0";
+
+	stat,2 = "TracePort:ddr1_p1_req",
+		 "Status:Req", "AddrSize:0x28";
+
+	stat,3 = "TracePort:ddr1_p2_req";
+
+	latency,0 = "TracePort:sysnoc_trans_probe_0", "AddrSize:0x0";
+	latency,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x28","Opcode:RdWr";
+	//latency,2 = "TracePort:sysnoc_trans_probe_2";
+
+	//pending,0 = "TracePort:sysnoc_trans_probe_0";
+	//pending,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x0","Opcode:RdWr";
+	pending,0 = "TracePort:sysnoc_trans_probe_2", "AddrSize:0x3";
+};
+
+&d0_noc_wdt {
+	status = "okay";
+};
+
+&video_output {
+	status = "disabled";
+};
+
+&dc8k {
+	status = "disabled";
+};
+
+&virtual_display {
+    status = "disabled";
+};
+
+&dsi_output {
+    status = "disabled";
+};
+
+&dsi_controller {
+    status = "disabled";
+};
+
+&dc8k_test {
+    status = "disabled";
+};
+
+&dw_hdmi {
+    status = "disabled";
+    eswin-plat = <0>;
+	ports {
+		port@2 {
+			reg = <2>;
+			hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s0_endpoint>;
+			};
+		};
+	};
+};
+
+&dw_hdmi_hdcp2 {
+    status = "disabled";
+};
+
+&d0_media_noc {
+	status = "okay";
+
+	//eswin,GPU-qos-owner;
+	//eswin,TBU2-qos-owner;
+	//eswin,VC-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p3_req";
+	stat,1 = "TracePort:ddr1_p3_req";
+	//latency,0 = "TracePort:mnoc_trans_probe";
+	//pending,0 = "TracePort:mnoc_trans_probe";
+};
+&d0_realtime_noc {
+	status = "okay";
+
+	//eswin,TBU0-qos-owner;
+	//eswin,VO-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p4_req";
+	stat,1 = "TracePort:ddr1_p4_req";
+	//latency,0 = "TracePort:rnoc_trans_probe";
+	//pending,0 = "TracePort:rnoc_trans_probe";
+};
+
+&d0_usbdrd3_0 {
+	status = "disabled";
+};
+
+&d0_usbdrd_dwc3_0 {
+	status = "disabled";
+	dr_mode = "peripheral";
+};
+
+&d0_usbdrd3_1 {
+	status = "disabled";
+};
+
+&d0_usbdrd_dwc3_1 {
+	status = "disabled";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+};
+
+&isp_0 {
+	status = "disabled";
+};
+
+&isp_1 {
+	status = "disabled";
+};
+
+&dw200 {
+	status = "disabled";
+};
+
+&mipi_dphy_rx {
+	status = "disabled";
+};
+
+&csi_dma0 {
+	status = "disabled";
+};
+
+&csi_dma1 {
+	status = "disabled";
+};
+
+&csi2_0 {
+	status = "disabled";
+};
+
+&csi2_1 {
+	status = "disabled";
+};
+
+&d0_numa_sample {
+	status = "disabled";
+};
+
+#endif
+
+/* Devices on Die 1 */
+#if ((CHIPLET_AND_DIE & 0x2) || (CHIPLET_AND_DIE == 0x1))
+
+&d1_uart0 {
+	status = "okay";
+};
+
+&smmu1 {
+	status = "okay";
+};
+
+&smmu_pmu1 {
+	status = "disabled";
+};
+
+&dev_foo_for_die1_mapping {
+	status = "okay";
+};
+
+&d1_reset {
+	status = "okay";
+};
+
+&d1_clock {
+	status = "okay";
+};
+
+&d1_dmac0 {
+	status = "disabled";
+};
+
+&d1_aon_dmac {
+	status = "okay";
+};
+
+&vdec1 {
+	status = "disabled";
+};
+
+&venc1 {
+	status = "disabled";
+};
+
+&d1_mbox0 {
+	status = "disabled";
+};
+
+&d1_mbox1 {
+	status = "disabled";
+};
+
+&d1_mbox2 {
+	status = "disabled";
+};
+
+&d1_mbox3 {
+	status = "disabled";
+};
+
+&d1_mbox4 {
+	status = "okay";
+};
+
+&d1_mbox5 {
+	status = "okay";
+};
+
+&d1_mbox6 {
+	status = "okay";
+};
+
+&d1_mbox7 {
+	status = "okay";
+};
+
+&d1_ipc_scpu {
+	status = "disabled";
+};
+
+&d1_lpcpu {
+	status = "disabled";
+};
+
+&d1_i2c0 {
+	status = "disabled";
+	eeprom@50 {
+		compatible = "atmel,24c1024";
+		reg = <0x50>;
+	};
+};
+
+&d1_pmu {
+	status = "disabled";
+};
+
+&d1_i2c1 {
+	status = "disabled";
+};
+
+&d1_i2c2 {
+	status = "disabled";
+};
+
+&d1_i2c3 {
+	status = "disabled";
+};
+
+&d1_i2c4 {
+	status = "disabled";
+};
+
+&d1_i2c5 {
+	status = "disabled";
+};
+
+&d1_i2c6 {
+	status = "disabled";
+};
+
+&d1_i2c7 {
+	status = "disabled";
+};
+
+&d1_i2c8 {
+	status = "disabled";
+};
+
+&d1_i2c9 {
+	status = "disabled";
+};
+
+&d1_i2s0 {
+	status = "disabled";
+};
+
+&d1_i2s1 {
+	status = "disabled";
+};
+
+&d1_i2s2 {
+	status = "disabled";
+};
+
+&d1_sofdsp {
+	status = "disabled";
+};
+
+&d1_soundcard {
+	status = "disabled";
+};
+
+&d1_graphcard {
+	status = "disabled";
+};
+
+&d1_dummy_codec {
+	status = "disabled";
+};
+
+&d1_thruout {
+	status = "disabled";
+};
+
+&d1_aon_i2c0 {
+	status = "disabled";
+	aon_eeprom@50 {
+		compatible = "atmel,24c1024";
+		reg = <0x50>;
+	};
+};
+
+&d1_aon_i2c1 {
+	status = "disabled";
+};
+
+&d1_nvdla {
+	status = "disabled";
+};
+
+&d1_dsp_subsys {
+	status = "disabled";
+};
+
+&d1_dsp0 {
+	status = "disabled";
+};
+
+&d1_dsp1 {
+	status = "disabled";
+};
+
+&d1_dsp2 {
+	status = "disabled";
+};
+
+&d1_dsp3 {
+	status = "disabled";
+};
+
+&pcie_die1 {
+	status = "disabled";
+};
+
+&d1_cfg_noc {
+	status = "okay";
+};
+
+&d1_llc_noc {
+	status = "okay";
+	stat,0 = "ddr0_p0_req";
+	stat,1 = "ddr1_p0_req";
+	//latency,0 = "llcnoc_trans_probe";
+	//pending,0 = "llcnoc_trans_probe";
+};
+
+&d1_sys_noc {
+	status = "okay";
+
+	//eswin,DSPT-qos-owner;
+	//eswin,NPU-qos-owner;
+	//eswin,SPISLV_TBU3-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p1_req";
+	stat,1 = "TracePort:ddr0_p2_req";
+	stat,2 = "TracePort:ddr1_p1_req";
+	stat,3 = "TracePort:ddr1_p2_req";
+
+	//latency,0 = "TracePort:sysnoc_trans_probe_0";
+	latency,1 = "TracePort:sysnoc_trans_probe_1",
+		    "Mode:latency","AddrBase:0x82000000","AddrSize:0x0","Opcode:RdWr";
+	//latency,2 = "TracePort:sysnoc_trans_probe_2";
+
+	pending,0 = "TracePort:sysnoc_trans_probe_0";
+	//pending,1 = "TracePort:sysnoc_trans_probe_1", "Mode:latency","AddrBase:0x82000000","AddrSize:0x0","Opcode:RdWr";
+	pending,2 = "TracePort:sysnoc_trans_probe_2";
+};
+
+&d1_media_noc {
+	status = "okay";
+
+	//eswin,GPU-qos-owner;
+	//eswin,TBU2-qos-owner;
+	//eswin,VC-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p3_req";
+	stat,1 = "TracePort:ddr1_p3_req";
+	//latency,0 = "TracePort:mnoc_trans_probe";
+	//pending,0 = "TracePort:mnoc_trans_probe";
+};
+
+&d1_realtime_noc {
+	status = "okay";
+
+	//eswin,TBU0-qos-owner;
+	//eswin,VO-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p4_req";
+	stat,1 = "TracePort:ddr1_p4_req";
+	//latency,0 = "TracePort:rnoc_trans_probe";
+	//pending,0 = "TracePort:rnoc_trans_probe";
+};
+
+&d1_gmac0 {
+	status = "disabled";
+};
+
+&d1_gmac1 {
+	status = "disabled";
+};
+
+&d1_sdio0 {
+	status = "disabled";
+};
+
+&d1_sdio1 {
+	status = "disabled";
+};
+
+&d1_ssi0 {
+	status = "disabled";
+};
+
+&d1_gpu {
+	status = "disabled";
+};
+
+&d1_sata {
+	status = "disabled";
+};
+
+&d1_pinctrl {
+	status = "disabled";
+};
+
+&d1_gpio0 {
+	status = "disabled";
+};
+
+&d1_timer0 {
+	status = "disabled";
+};
+
+&d1_timer1 {
+	status = "disabled";
+};
+
+&d1_timer2 {
+	status = "disabled";
+};
+
+&d1_timer3 {
+	status = "disabled";
+};
+
+&die1_rtc {
+	status = "disabled";
+};
+
+&d1_pwm0 {
+	status = "disabled";
+};
+
+&d1_pvt0 {
+	status = "disabled";
+};
+
+&d1_pvt1 {
+	status = "disabled";
+};
+
+&d1_fan_control {
+       status = "disabled";
+};
+
+&d1_sdhci_emmc {
+	status = "disabled";
+};
+
+&d1_wdt0 {
+	status = "disabled";
+};
+
+&d1_video_output {
+	status = "disabled";
+};
+
+&d1_dc8k {
+	status = "disabled";
+};
+
+&d1_virtual_display {
+    status = "disabled";
+};
+
+&d1_dsi_output {
+    status = "disabled";
+};
+
+&d1_dsi_controller {
+    status = "disabled";
+};
+
+&d1_dc8k_test {
+    status = "disabled";
+};
+
+&d1_dw_hdmi {
+    status = "disabled";
+};
+
+&d1_dw_hdmi_hdcp2 {
+    status = "disabled";
+};
+
+&d1_wdt1 {
+	status = "disabled";
+};
+
+&d1_wdt2 {
+	status = "disabled";
+};
+
+&d1_wdt3 {
+	status = "disabled";
+};
+
+&d1_gc820 {
+	status = "disabled";
+};
+
+&d1_usbdrd3_0 {
+	status = "disabled";
+};
+
+&d1_usbdrd_dwc3_0 {
+	status = "disabled";
+};
+
+&d1_usbdrd3_1 {
+	status = "disabled";
+};
+
+&d1_usbdrd_dwc3_1 {
+	status = "disabled";
+};
+
+&d1_isp_0 {
+	status = "disabled";
+};
+
+&d1_isp_1 {
+	status = "disabled";
+};
+
+&d1_dw200 {
+	status = "disabled";
+};
+
+&d1_mipi_dphy_rx {
+	status = "disabled";
+};
+
+&d1_csi_dma0 {
+	status = "disabled";
+};
+
+&d1_csi_dma1 {
+	status = "disabled";
+};
+
+&d1_csi2_0 {
+	status = "disabled";
+};
+
+&d1_csi2_1 {
+	status = "disabled";
+};
+
+&d1_numa_sample {
+	status = "disabled";
+};
+
+#endif

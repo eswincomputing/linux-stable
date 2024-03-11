@@ -1,0 +1,869 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Include file for Eswin EIC7702 SoC's cpu.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/clock/win2030-clock.h>
+#include "eswin-win2030-platform.dtsi"
+
+#define UART0_INT	100
+#define UART1_INT	101
+#define UART2_INT	102
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	compatible = "SiFive,FU800-dev", "fu800-dev", "sifive-dev", "eic770x-dev";
+
+	L64: cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <RTCCLK_FREQ>;
+
+		cpu-map {
+		#if (CHIPLET_AND_DIE & 0x2)
+			cluster0 {
+				core0 {
+					cpu = <&cpu_0>;
+				};
+				core1 {
+					cpu = <&cpu_1>;
+				};
+				core2 {
+					cpu = <&cpu_2>;
+				};
+				core3 {
+					cpu = <&cpu_3>;
+				};
+			};
+		#endif
+			cluster1 {
+				core0 {
+					cpu = <&cpu_4>;
+				};
+			#ifndef PLATFORM_HAPS
+				core1 {
+					cpu = <&cpu_5>;
+				};
+				core2 {
+					cpu = <&cpu_6>;
+				};
+				core3 {
+					cpu = <&cpu_7>;
+				};
+			#endif
+			};
+
+		};
+
+		#if (CHIPLET_AND_DIE & 0x2)
+		cpu_0: cpu@0 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&L15>;
+			reg = <0x0>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			sifive,buserror = <&L16>;
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <0>;
+			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
+			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu0_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+			L13: pmu {
+				compatible = "riscv,pmu0", "riscv,pmu";
+				interrupts-extended = <&cpu0_intc 13>;
+			};
+		};
+		cpu_1: cpu@1 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&L20>;
+			reg = <0x1>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			sifive,buserror = <&L21>;
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <0>;
+			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
+			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu1_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+			L18: pmu {
+				compatible = "riscv,pmu0", "riscv,pmu";
+				interrupts-extended = <&cpu1_intc 13>;
+			};
+		};
+		cpu_2: cpu@2 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&L25>;
+			reg = <0x2>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			sifive,buserror = <&L26>;
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <0>;
+			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
+			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu2_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+			L23: pmu {
+				compatible = "riscv,pmu0", "riscv,pmu";
+				interrupts-extended = <&cpu2_intc 13>;
+			};
+		};
+		cpu_3: cpu@3 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&L30>;
+			reg = <0x3>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			sifive,buserror = <&L31>;
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <0>;
+			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
+			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu3_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+			L28: pmu {
+				compatible = "riscv,pmu0", "riscv,pmu";
+				interrupts-extended = <&cpu3_intc 13>;
+			};
+		};
+		#endif
+
+		cpu_4: cpu@4 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&D2L2_0>;
+		#if (CHIPLET_AND_DIE == 1)
+		#ifdef PLATFORM_HAPS
+			reg = <0x1>;
+		#else
+			reg = <0x4>;
+		#endif
+		#else
+			reg = <0x4>;
+		#endif
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			#if (CHIPLET_AND_DIE & 0x2)
+			sifive,buserror = <&L16>;
+			#endif
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <1>;
+			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
+			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu4_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+
+		};
+	#ifndef PLATFORM_HAPS
+		cpu_5: cpu@5 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&D2L2_1>;
+			reg = <0x5>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			#if (CHIPLET_AND_DIE & 0x2)
+			sifive,buserror = <&L21>;
+			#endif
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <1>;
+			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
+			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu5_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+
+		};
+		cpu_6: cpu@6 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&D2L2_2>;
+			reg = <0x6>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			#if (CHIPLET_AND_DIE & 0x2)
+			sifive,buserror = <&L26>;
+			#endif
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <1>;
+			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
+			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu6_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+
+		};
+		cpu_7: cpu@7 {
+			clock-frequency = <0>;
+			compatible = "eswin,eic770x", "riscv";
+			d-cache-block-size = <64>;
+			d-cache-sets = <128>;
+			d-cache-size = <32768>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <32>;
+			device_type = "cpu";
+			hardware-exec-breakpoint-count = <4>;
+			hwpf-distanceBits = <6>;
+			hwpf-hitCacheThrdBits = <5>;
+			hwpf-hitMSHRThrdBits = <4>;
+			hwpf-l2pfPoolSize = <10>;
+			hwpf-nIssQEnt = <6>;
+			hwpf-nPrefetchQueueEntries = <8>;
+			hwpf-nStreams = <16>;
+			hwpf-qFullnessThrdBits = <4>;
+			hwpf-windowBits = <6>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <128>;
+			i-cache-size = <32768>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <32>;
+			mmu-type = "riscv,sv48";
+			next-level-cache = <&D2L2_3>;
+			reg = <0x7>;
+			riscv,isa = "rv64imafdc_zicsr_zifencei_zba_zbb";
+			riscv,pmpgranularity = <4096>;
+			riscv,pmpregions = <8>;
+			#if (CHIPLET_AND_DIE & 0x2)
+			sifive,buserror = <&L31>;
+			#endif
+			status = "okay";
+			timebase-frequency = <RTCCLK_FREQ>;
+			tlb-split;
+			numa-node-id = <1>;
+			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
+			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu7_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+
+		};
+	#endif
+	};
+	//D1MEM: memory@80000000 {
+	//	compatible = "sifive,axi4-mem-port", "sifive,axi4-port", "sifive,mem-port";
+	//	device_type = "memory";
+	//	reg = <0x0 0x80000000 0xf 0x80000000>;
+	//	sifive,port-width-bytes = <32>;
+	//};
+
+	//D2MEM: memory@2000000000 {
+	//	compatible = "sifive,axi4-mem-port", "sifive,axi4-port", "sifive,mem-port";
+	//	device_type = "memory";
+	//	reg = <0x20 0x00000000 0x10 0x00000000>;
+	//	sifive,port-width-bytes = <32>;
+	//};
+
+	SOC: soc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "SiFive,FU800-soc", "fu800-soc", "sifive-soc", "simple-bus";
+		ranges;
+		L40: authentication-controller {
+			compatible = "sifive,authentication0";
+			sifive,auth-types = "fuse";
+		};
+		L51: axi4-sys-port@40000000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "sifive,axi4-sys-port", "sifive,axi4-port", "sifive,sys-port", "simple-external-bus", "simple-bus";
+			ranges = <0x40000000 0x0 0x40000000 0x40000000>;
+			sifive,port-width-bytes = <16>;
+		};
+		L52: axi4-sys-port@8000000000 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sifive,axi4-sys-port", "sifive,axi4-port", "sifive,sys-port", "simple-external-bus", "simple-bus";
+			ranges = <0x80 0x0 0x80 0x0 0x180 0x0>;
+			sifive,port-width-bytes = <16>;
+		};
+		L46: basic-bus-blocker@200000 {
+			compatible = "sifive,basic-bus-blocker1";
+			reg = <0x0 0x200000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L43: basic-bus-blocker@202000 {
+			compatible = "sifive,basic-bus-blocker1";
+			reg = <0x0 0x202000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L48: basic-bus-blocker@204000 {
+			compatible = "sifive,basic-bus-blocker1";
+			reg = <0x0 0x204000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L54: burst-bundler@10010000 {
+			compatible = "sifive,burst-bundler0";
+			reg = <0x0 0x10010000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		#if (CHIPLET_AND_DIE & 0x2)
+		L16: bus-error-unit@1700000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic0>;
+			interrupts = <517>;
+			reg = <0x0 0x1700000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L21: bus-error-unit@1701000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic0>;
+			interrupts = <518>;
+			reg = <0x0 0x1701000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L26: bus-error-unit@1702000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic0>;
+			interrupts = <519>;
+			reg = <0x0 0x1702000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L31: bus-error-unit@1703000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic0>;
+			interrupts = <520>;
+			reg = <0x0 0x1703000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		#endif
+
+		d1_bus_err0: bus-error-unit@21700000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic1>;
+			interrupts = <517>;
+			reg = <0x0 0x21700000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		d1_bus_err1: bus-error-unit@21701000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic1>;
+			interrupts = <518>;
+			reg = <0x0 0x21701000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		d1_bus_err2: bus-error-unit@21702000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic1>;
+			interrupts = <519>;
+			reg = <0x0 0x21702000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		d1_bus_err3: bus-error-unit@21703000 {
+			compatible = "sifive,buserror";
+			interrupt-parent = <&plic1>;
+			interrupts = <520>;
+			reg = <0x0 0x21703000 0x0 0x1000>;
+			reg-names = "control";
+		};
+
+		#if (CHIPLET_AND_DIE & 0x2)
+		D1CACHE: cache-controller@2010000 {
+			cache-block-size = <64>;
+			cache-level = <3>;
+			cache-sets = <4096>;
+			cache-size = <4194304>;
+			cache-unified;
+			compatible = "sifive,ccache1", "cache", "sifive,fu740-c000-ccache";
+			interrupt-parent = <&plic0>;
+			interrupts = <1>, <3>, <4>, <2>;
+			//next-level-cache = <&L9 &L10 &L11 &D1MEM>;
+			next-level-cache = <&L9 &L10 &L11>;
+			reg = <0x0 0x2010000 0x0 0x4000 0x0 0x8000000 0x0 0x400000>;
+			reg-names = "control", "sideband";
+			sifive,a-mshr-count = <60>;
+			sifive,bank-count = <4>;
+			sifive,ecc-granularity = <8>;
+			sifive,max-master-id = <13>;
+			sifive,perfmon-counters = <6>;
+			numa-node-id = <0>;
+		};
+		#endif
+
+		D2CACHE: cache-controller@22010000 {
+			cache-block-size = <64>;
+			cache-level = <3>;
+			cache-sets = <4096>;
+			cache-size = <4194304>;
+			cache-unified;
+			compatible = "sifive,ccache1", "cache", "sifive,fu740-c000-ccache";
+			interrupt-parent = <&plic1>;
+			interrupts = <1>, <3>, <4>, <2>;
+			//next-level-cache = <&L9 &L10 &L11 &D2MEM>;
+			next-level-cache = <&L9 &L10 &L11>;
+			reg = <0x0 0x22010000 0x0 0x4000 0x0 0x8000000 0x0 0x400000>;
+			reg-names = "control", "sideband";
+			sifive,a-mshr-count = <60>;
+			sifive,bank-count = <4>;
+			sifive,ecc-granularity = <8>;
+			sifive,max-master-id = <13>;
+			sifive,perfmon-counters = <6>;
+			numa-node-id = <1>;
+		};
+
+	/*
+		clint0: clint@2000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7 &cpu1_intc 3 &cpu1_intc 7 &cpu2_intc 3 &cpu2_intc 7 &cpu3_intc 3 &cpu3_intc 7>;
+			reg = <0x0 0x2000000 0x0 0x10000>;
+			reg-names = "control";
+		};
+
+		clint1: clint@22000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <&cpu4_intc 3 &cpu4_intc 7 &cpu5_intc 3 &cpu5_intc 7 &cpu6_intc 3 &cpu6_intc 7 &cpu7_intc 3 &cpu7_intc 7>;
+			reg = <0x0 0x2000000 0x0 0x10000>;
+			reg-names = "control";
+		};
+	*/
+
+		L34: debug-controller@0 {
+			compatible = "sifive,debug-100", "riscv,debug-100";
+			debug-attach = "jtag";
+			reg = <0x0 0x0 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L8: error-device@1000 {
+			compatible = "sifive,error0";
+			reg = <0x0 0x1000 0x0 0x3000 0x0 0x5000 0x0 0x13000 0x0 0x19000 0x0 0xe7000 0x0 0x114000 0x0 0xec000 0x0 0x201000 0x0 0x1000 0x0 0x203000 0x0 0x1000 0x0 0x205000 0x0 0x14fb000 0x0 0x1704000 0x0 0x8fc000 0x0 0x2014000 0x0 0x5fec000 0x0 0x8400000 0x0 0x3c00000 0x0 0x10000000 0x0 0x3000 0x0 0x10004000 0x0 0xc000 0x0 0x10011000 0x0 0x1f000 0x0 0x10034000 0x0 0x9fcc000 0x0 0x1a400000 0x0 0x5c00000>;
+		};
+		L9: error-device@10003000 {
+			compatible = "sifive,error0";
+			reg = <0x0 0x10003000 0x0 0x1000>;
+		};
+        /*
+		L49: global-external-interrupts {
+			compatible = "sifive,global-external-interrupts0";
+			interrupt-parent = <&plic0>;
+			interrupts = <5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 279 280 281 282 283 284 285 286 287 288 289 290 291 292 293 294 295 296 297 298 299 300 301 302 303 304 305 306 307 308 309 310 311 312 313 314 315 316 317 318 319 320 321 322 323 324 325 326 327 328 329 330 331 332 333 334 335 336 337 338 339 340 341 342 343 344 345 346 347 348 349 350 351 352 353 354 355 356 357 358 359 360 361 362 363 364 365 366 367 368 369 370 371 372 373 374 375 376 377 378 379 380 381 382 383 384 385 386 387 388 389 390 391 392 393 394 395 396 397 398 399 400 401 402 403 404 405 406 407 408 409 410 411 412 413 414 415 416 417 418 419 420 421 422 423 424 425 426 427 428 429 430 431 432 433 434 435 436 437 438 439 440 441 442 443 444 445 446 447 448 449 450 451 452 453 454 455 456 457 458 459 460 461 462 463 464 465 466 467 468 469 470 471 472 473 474 475 476 477 478 479 480 481 482 483 484 485 486 487 488 489 490 491 492 493 494 495 496 497 498 499 500 501 502 503 504 505 506 507 508 509 510 511 512 513 514 515>;
+		};
+        */
+		#if (CHIPLET_AND_DIE & 0x2)
+		plic0: interrupt-controller@c000000 {
+			#interrupt-cells = <1>;
+			compatible = "sifive,plic-1.0.0";
+			interrupt-controller;
+			interrupts-extended = <
+				&cpu0_intc 0xffffffff &cpu0_intc 9
+				&cpu1_intc 0xffffffff &cpu1_intc 9
+				&cpu2_intc 0xffffffff &cpu2_intc 9
+				&cpu3_intc 0xffffffff &cpu3_intc 9>;
+			reg = <0x0 0xc000000 0x0 0x4000000>;
+			reg-names = "control";
+			riscv,max-priority = <7>;
+			riscv,ndev = <520>;
+			numa-node-id = <0>;
+		};
+		#endif
+
+		plic1: interrupt-controller@2c000000 {
+			#interrupt-cells = <1>;
+			compatible = "sifive,plic-1.0.0";
+			interrupt-controller;
+			interrupts-extended = <
+				&cpu4_intc 0xffffffff &cpu4_intc 9
+			#ifndef PLATFORM_HAPS
+				&cpu5_intc 0xffffffff &cpu5_intc 9
+				&cpu6_intc 0xffffffff &cpu6_intc 9
+				&cpu7_intc 0xffffffff &cpu7_intc 9
+			#endif
+				>;
+			reg = <0x0 0x2c000000 0x0 0x4000000>;
+			reg-names = "control";
+			riscv,max-priority = <7>;
+			riscv,ndev = <520>;
+			numa-node-id = <1>;
+		};
+
+		#if (CHIPLET_AND_DIE & 0x2)
+		L53: order-obliterator@10030000 {
+			compatible = "sifive,order-obliterator0";
+			interrupt-parent = <&plic0>;
+			interrupts = <516>;
+			reg = <0x0 0x10030000 0x0 0x4000>;
+			reg-names = "control";
+		};
+		L15: pl2@104000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D1CACHE>;
+			reg = <0x0 0x104000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		L20: pl2@108000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D1CACHE>;
+			reg = <0x0 0x108000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		L25: pl2@10c000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D1CACHE>;
+			reg = <0x0 0x10c000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		L30: pl2@110000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D1CACHE>;
+			reg = <0x0 0x110000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		#endif
+
+		D2L2_0: pl2@20104000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D2CACHE>;
+			reg = <0x0 0x20104000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		D2L2_1: pl2@20108000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D2CACHE>;
+			reg = <0x0 0x20108000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		D2L2_2: pl2@2010c000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D2CACHE>;
+			reg = <0x0 0x2010c000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+		D2L2_3: pl2@20110000 {
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-sets = <512>;
+			cache-size = <262144>;
+			cache-unified;
+			compatible = "sifive,pL2Cache0", "cache";
+			next-level-cache = <&D2CACHE>;
+			reg = <0x0 0x20110000 0x0 0x4000>;
+			reg-names = "control";
+			sifive,ecc-granularity = <16>;
+			sifive,perfmon-counters = <6>;
+		};
+
+		L10: rom@1a000000 {
+			compatible = "ucbbar,cacheable-zero0";
+			reg = <0x0 0x1a000000 0x0 0x400000>;
+		};
+		L11: rom@3a000000 {
+			compatible = "ucbbar,cacheable-zero0";
+			reg = <0x0 0x3a000000 0x0 0x400000>;
+		};
+		L6: subsystem_pbus_clock {
+			#clock-cells = <0>;
+			clock-frequency = <10000000>;
+			clock-output-names = "subsystem_pbus_clock";
+			compatible = "fixed-clock";
+		};
+		L61: teststatus@4000 {
+			compatible = "sifive,test0";
+			reg = <0x0 0x4000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L45: tl-address-adjuster@20000000 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "sifive,tl-inter-sys-port", "sifive,tl-port", "simple-external-bus", "simple-bus";
+			ranges = <0x20000000 0x0 0x20000000 0x1a000000 0x3a400000 0x0 0x3a400000 0x5c00000>;
+			sifive,port-width-bytes = <8>;
+		};
+		L42: tl-inter-mem-master-port@80000000 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sifive,tl-inter-mem-master-port", "sifive,tl-port", "sifive,inter-mem-master-port", "simple-external-bus", "simple-bus";
+			ranges = <0x0 0x80000000 0x0 0x80000000 0x7f 0x80000000>;
+			sifive,port-width-bytes = <32>;
+		};
+		L55: trace-encoder-0@100000 {
+			compatible = "sifive,trace0";
+			reg = <0x0 0x100000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L56: trace-encoder-1@101000 {
+			compatible = "sifive,trace0";
+			reg = <0x0 0x101000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L57: trace-encoder-2@102000 {
+			compatible = "sifive,trace0";
+			reg = <0x0 0x102000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L58: trace-encoder-3@103000 {
+			compatible = "sifive,trace0";
+			reg = <0x0 0x103000 0x0 0x1000>;
+			reg-names = "control";
+		};
+		L59: trace-funnel-0@18000 {
+			compatible = "sifive,trace0";
+			reg = <0x0 0x18000 0x0 0x1000>;
+			reg-names = "control";
+		};
+	};
+};
