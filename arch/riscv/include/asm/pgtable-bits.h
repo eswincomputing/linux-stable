@@ -18,6 +18,13 @@
 #define _PAGE_DIRTY     (1 << 7)    /* Set by hardware on any write */
 #define _PAGE_SOFT      (1 << 8)    /* Reserved for software */
 
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+#define _PAGE_UNCACHE   (1 << 9)    /* Map to system port .i.e, uncached*/
+
+/* Map to system port llc .i.e, through sys port llc space */
+#define _PAGE_LLC       (1 << 12)
+#endif
+
 #define _PAGE_SPECIAL   _PAGE_SOFT
 #define _PAGE_TABLE     _PAGE_PRESENT
 

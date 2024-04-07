@@ -7,4 +7,89 @@ config SIFIVE_CCACHE
 	help
 	  Support for the composable cache controller on SiFive platforms.
 
+config ARCH_ESWIN_EIC770X_SOC_FAMILY
+	bool "ESWIN EIC770X SoC Family"
+	depends on SOC_SIFIVE
+	select SIFIVE_CCACHE
+	select RISCV_NONSTANDARD_CACHE_OPS
+	select DMA_DIRECT_REMAP
+	select RISCV_DMA_NONCOHERENT
+	select ARCH_HAS_DMA_SET_UNCACHED
+	select ARCH_HAS_DMA_CLEAR_UNCACHED
+	select ESWIN_MC
+	select ESWIN_RSV_MEMBLOCK
+	select ESWIN_CODACACHE_CONTROLLER
+
+menu "ESWIN EIC770X SoC Family Selection"
+	depends on ARCH_ESWIN_EIC770X_SOC_FAMILY
+
+choice
+	prompt "ESWIN EIC770X SoC Family Selection"
+	help
+	  This option select the SoC type of ESWIN EIC770X Family.
+
+config ARCH_ESWIN_EIC7700_SOC
+	bool "Enable support for ESWIN EIC7700 SoC"
+
+config ARCH_ESWIN_EIC7702_SOC
+	bool "Enable support for ESWIN EIC7702 SoC"
+
+endchoice
+endmenu
+
+if ARCH_ESWIN_EIC770X_SOC_FAMILY
+config RISCV_DIE0_UNCACHED_OFFSET
+	hex "DIE0 system port addr of U84"
+	default 0xc000000000
+	help
+	  Access to DDR memory through U84 system port is uncached.
+	  Add this offset when allocating  memory from memory port(0x80000000~),
+	  then memremap to virtual address.
+
+config RISCV_DIE0_CACHED_OFFSET
+	hex "DIE0 memory port addr of U84"
+	default 0x80000000
+	help
+	  Access to DDR memory through U84 memory port is cached.
+
+config RISCV_DIE0_MEM_MAX_SIZE
+	hex "DIE0 memory size, default 32GB"
+	default 0x800000000
+
+config RISCV_DIE1_UNCACHED_OFFSET
+	hex "DIE1 system port addr of U84"
+	default 0xe000000000
+	help
+	  Access to DIE1 DDR memory through U84 system port is uncached.
+	  Add this offset when allocating  memory from memory port(0x2000000000~),
+	  then memremap to virtual address.
+
+config RISCV_DIE1_CACHED_OFFSET
+	hex "DIE1 memory port addr of U84"
+	default 0x2000000000
+	help
+	  Access to DIE1 DDR memory through U84 memory port is cached.
+
+config RISCV_DIE1_MEM_MAX_SIZE
+	hex "DIE1 memory size, default 32GB"
+	default 0x800000000
+
+config RISCV_INTERLEAVE_UNCACHED_OFFSET
+	hex "system port addr of interleave"
+	default 0x10000000000
+	help
+	  Access to DDR memory through U84 system port with interleave is uncached.
+	  Add this offset when allocating  memory from memory port(0x4000000000~),
+	  then memremap to virtual address.
+
+config RISCV_INTERLEAVE_CACHED_OFFSET
+	hex "memory port addr of interleave"
+	default 0x4000000000
+	help
+	  Access to DDR memory through U84 memory port with interleave is cached.
+
+config RISCV_INTERLEAVE_MEM_MAX_SIZE
+	hex "Interleaving memory size, default 64GB"
+	default 0x1000000000
+endif
 endif

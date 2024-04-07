@@ -12,6 +12,7 @@
 #include <asm/alternative.h>
 #include <asm/vendorid_list.h>
 #include <asm/errata_list.h>
+#include <asm/cacheflush.h>
 
 struct errata_info_t {
 	char name[32];
@@ -61,6 +62,12 @@ static u32 __init_or_module sifive_errata_probe(unsigned long archid,
 {
 	int idx;
 	u32 cpu_req_errata = 0;
+
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	/* Set this just to make core cbo code happy */
+	riscv_cbom_block_size = 1;
+	riscv_noncoherent_supported();
+#endif
 
 	for (idx = 0; idx < ERRATA_SIFIVE_NUMBER; idx++)
 		if (errata_list[idx].check_func(archid, impid))
