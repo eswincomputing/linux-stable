@@ -211,6 +211,7 @@
 				"tbu4_rst", "tbu5_rst", "tbu6_rst", "tbu7_rst";
 			status = "disabled";
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		smmu_pmu1: pmu@70c02000 {
@@ -222,6 +223,7 @@
 			interrupts = <363>;
 			status = "disabled";
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		dev_foo_for_die1_mapping: E21@2 {
@@ -231,6 +233,7 @@
 			iommus = <&smmu1 WIN2030_SID_DEV_FOO_FOR_DIE1>;
 			status = "disabled";
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_pmu: power-controller@71808000 {
@@ -335,6 +338,7 @@
 			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x104c>;
 			eswin,syscfg = <&d1_sys_con DMA1_SID_REG_OFFSET 0x370>;
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_aon_dmac: dma-controller-aon@0x718c0000 {
@@ -362,6 +366,7 @@
 			tbus = <WIN2030_TBUID_DMA1>;
 			eswin,syscfg = <&d1_sys_con DMA1_SID_REG_OFFSET 0x370>;
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 		noc {
 			compatible = "eswin,noc","simple-bus";
@@ -403,6 +408,7 @@
 			vccsr-reg = <0x0 0x701c0000 0x0 0x1000>;
 			numa-node-id = <1>;
 			tbus = <WIN2030_TBUID_VDEC>, <WIN2030_TBUID_JDEC>;
+			dma-noncoherent;
 
 			vdec_1: vdec1@70100000 {
 				core-name = "video-dec0";
@@ -450,6 +456,7 @@
 			vccsr-reg = <0x0 0x701c0000 0x0 0x1000>;
 			numa-node-id = <1>;
 			tbus = <WIN2030_TBUID_VENC>, <WIN2030_TBUID_JENC>;
+			dma-noncoherent;
 
 			venc_1: venc0@70110000 {
 				core-name = "video-enc0";
@@ -479,6 +486,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit = <ESWIN_MAIBOX_SCPU_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & lpcpu*/
@@ -497,6 +505,7 @@
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_LPCPU_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & npu_0*/
@@ -515,6 +524,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_NPU_0_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & npu_1*/
@@ -533,6 +543,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_NPU_1_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & dsp_0*/
@@ -551,6 +562,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_0_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & dsp_1*/
@@ -569,6 +581,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_1_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & dsp_2*/
@@ -587,6 +600,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_2_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		/*mailbox between u84 & dsp_3*/
@@ -605,6 +619,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_3_IRQ_BIT>;
+			dma-noncoherent;
 		};
 
 		d1_ipc_scpu:ipc@1 {
@@ -617,6 +632,7 @@
 			mboxes = <&d1_mbox0 0>;
 			mbox-names = "u84_scpu";
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_lpcpu:lpcpu@1 {
@@ -640,6 +656,7 @@
 			mbox-names = "u84_lpcpu";
 			numa-node-id = <1>;
 			status = "disabled";
+			dma-noncoherent;
 		};
 
 		d1_pvt0: pvt@0x70b00000 {
@@ -902,6 +919,7 @@
 			reset-names = "e31_core";
 
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		dev_llc_d1: llc@71c00000 {
@@ -943,6 +961,7 @@
 			reset-names = "axi", "cfg", "gray", "jones","spu";
 			interrupt-parent = <&plic1>;
 			interrupts = <15>;
+			dma-noncoherent;
 		};
 
 		d1_sata: sata@0x70420000 {
@@ -964,6 +983,7 @@
 				eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1050>;
 				eswin,syscrg_csr = <&d1_sys_crg 0x41c>;
 				numa-node-id = <1>;
+				dma-noncoherent;
 		};
 
 		d1_pinctrl: pinctrl@0x71600080 {
@@ -1182,6 +1202,7 @@
 			resets = <&d1_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>;
 			reset-names = "i2srst", "i2sprst";
+			dma-noncoherent;
 			ports {
 				d1_i2s0_port: port@0 {
 					d1_i2s0_endpoint: endpoint {
@@ -1206,6 +1227,7 @@
 			resets = <&d1_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>;
 			reset-names = "i2srst", "i2sprst";
+			dma-noncoherent;
 			ports {
 				d1_i2s1_port: port@0 {
 					d1_i2s1_endpoint: endpoint {
@@ -1230,6 +1252,7 @@
 			resets = <&d1_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>;
 			reset-names = "i2srst", "i2sprst";
+			dma-noncoherent;
 			ports {
 				d1_i2s2_port: port@0 {
 					d1_i2s2_endpoint: endpoint {
@@ -1280,6 +1303,7 @@
 				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_0>;
 				tbus = <WIN2030_TBUID_DSP0>;
+				dma-noncoherent;
 				numa-node-id = <1>;
 				aux-e31-dtim = <0x7a110000>;
 				dsp@0 {
@@ -1308,6 +1332,7 @@
 				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_1>;
 				tbus = <WIN2030_TBUID_DSP1>;
+				dma-noncoherent;
 				numa-node-id = <1>;
 				aux-e31-dtim = <0x7a110000>;
 				dsp@0 {
@@ -1336,6 +1361,7 @@
 				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_2>;
 				tbus = <WIN2030_TBUID_DSP2>;
+				dma-noncoherent;
 				numa-node-id = <1>;
 				aux-e31-dtim = <0x7a110000>;
 				dsp@0 {
@@ -1364,6 +1390,7 @@
 				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_3>;
 				tbus = <WIN2030_TBUID_DSP3>;
+				dma-noncoherent;
 				numa-node-id = <1>;
 				aux-e31-dtim = <0x7a110000>;
 				dsp@0 {
@@ -1391,6 +1418,7 @@
 				dsp-uart = <&d1_uart1>;
 				ringbuffer-region = <&dsp_reserved1>;
 				numa-node-id = <1>;
+				dma-noncoherent;
 			};
 		};
 		die1_rtc: rtc@71818000 {
@@ -1454,6 +1482,7 @@
 			tbus = <WIN2030_TBUID_PCIE>;
 			status = "disabled";
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_gmac0: ethernet@70400000 {
@@ -1474,6 +1503,7 @@
 			reset-names = "ethrst";
 			iommus = <&smmu1 WIN2030_SID_ETH0>;
 			tbus = <WIN2030_TBUID_ETH>;
+			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1030 0x100 0x108>;
 			eswin,syscrg_csr = <&d1_sys_crg 0x148 0x14c>;
 			snps,axi-config = <&d1_stmmac_axi_setup>;
@@ -1503,6 +1533,7 @@
 			reset-names = "ethrst";
 			iommus = <&smmu1 WIN2030_SID_ETH1>;
 			tbus = <WIN2030_TBUID_ETH>;
+			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1034 0x200 0x208>;
 			eswin,syscrg_csr = <&d1_sys_crg 0x148 0x14c>;
 			snps,axi-config = <&d1_stmmac_axi_setup_gmac1>;
@@ -1547,6 +1578,7 @@
 			sdio-id = <0>;
 			numa-node-id = <1>;
 			status = "disabled";
+			dma-noncoherent;
 		};
 
 		d1_sdio1: mmc@0x70470000{
@@ -1582,6 +1614,7 @@
 			sdio-id = <1>;
 			numa-node-id = <1>;
 			status = "disabled";
+			dma-noncoherent;
 		};
 
 		d1_ssi0: spi1@70810000 {
@@ -1601,6 +1634,7 @@
 			dma-names = "rx", "tx";
 			numa-node-id = <1>;
 			status = "disabled";
+			dma-noncoherent;
 			d1_spi_demo: spi-demo@0 {
 				compatible = "eswin,demo-spi";
 				reg = <0 0 0 0>;
@@ -1630,6 +1664,7 @@
 					 <&d1_reset VO_RST_CTRL SW_VO_DC_RSTN>,
 					 <&d1_reset VO_RST_CTRL SW_VO_DC_PRSTN>;
 			reset-names = "vo_arst", "vo_prst", "dc_arst", "dc_prst";
+		dma-noncoherent;
 
 
             d1_dc_out: port {
@@ -1873,6 +1908,7 @@
                         enable-mmu = <1>;
                         contiguous-size = <0xa00000>;
                         recovery = <0>;
+			dma-noncoherent;
                 };
 
 		d1_sdhci_emmc: mmc@70450000 {
@@ -1912,6 +1948,7 @@
 			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1038>;
 			status = "disabled";
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_soundcard: soundcard {
@@ -2031,6 +2068,7 @@
 				status = "disabled";
 				numa-node-id = <1>;
 				tbus = <WIN2030_TBUID_USB>;
+				dma-noncoherent;
 			};
 		};
 
@@ -2070,6 +2108,7 @@
 				status = "disabled";
 				numa-node-id = <1>;
 				tbus = <WIN2030_TBUID_USB>;
+				dma-noncoherent;
 			};
 		};
 
@@ -2124,6 +2163,7 @@
 			iommus = <&smmu1 WIN2030_SID_ISP0>;
 			eswin,vi_top_csr = <&d1_vi_top_csr 0x1000>;
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_isp_1: isp@0x71010000 {
@@ -2137,6 +2177,7 @@
 			iommus = <&smmu1 WIN2030_SID_ISP1>;
 			eswin,vi_top_csr = <&d1_vi_top_csr 0x1004>;
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_dw200: dw200@71020000 {
@@ -2162,6 +2203,7 @@
 			eswin,vi_top_csr = <&d1_vi_top_csr 0x1008>;
 			reg = <0x0 0x71020000 0x0 0xc00>, <0x0 0x71020c00 0x0 0x120>;
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 
 		d1_mipi_dphy_rx: dphy@710c0000 {
@@ -2317,6 +2359,7 @@
 			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0x80000000>;
 			iommus = <&smmu1 WIN2030_SID_SCPU>;
 			numa-node-id = <1>;
+			dma-noncoherent;
 		};
 };
 

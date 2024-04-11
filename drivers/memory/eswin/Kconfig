@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-2.0
+config ESWIN_MC
+	bool "ESWIN Memory Controller and reserved memory block support"
+	default y
+	depends on ARCH_ESWIN_EIC770X_SOC_FAMILY
+	select SG_SPLIT
+	help
+	  This driver supports the Memory Controller (MC) hardware, especialy for 
+	  LLC SPRAM controller, found on ESWIN SoCs. And the memblock of the reserved
+	  memory declared with the compatible = "eswin-reserve-memory" property in dts
+	  is also initialized.
+
+if ESWIN_MC
+
+config ESWIN_RSV_MEMBLOCK
+	bool "ESWIN reserved memory block support"
+	depends on MMU
+	help
+	  If reserved-memory has compatible = "eswin-reserve-memory" and
+	  no-map properties, this memory block will be initialized and freed in
+	  Eswin private buddy system. Using es_alloc_pages(memblock, order) to
+	  alloc pages from this memory block and es_free_pages(memblock, page) to
+	  free the pages to this memory block.
+
+	  If unsure, say "n".
+
+source "drivers/memory/eswin/codacache/Kconfig"
+
+endif

@@ -95,6 +95,9 @@ void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
 		break;
 	}
 }
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+EXPORT_SYMBOL(arch_sync_dma_for_device);
+#endif
 
 void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
 			   enum dma_data_direction dir)
@@ -114,6 +117,9 @@ void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
 		break;
 	}
 }
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+EXPORT_SYMBOL(arch_sync_dma_for_cpu);
+#endif
 
 void arch_dma_prep_coherent(struct page *page, size_t size)
 {

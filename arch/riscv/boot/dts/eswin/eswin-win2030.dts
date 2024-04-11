@@ -488,10 +488,6 @@
 	status = "disabled";
 };
 
-&dev_foo_b {
-	status = "disabled";
-};
-
 &dev_foo_a {
 	status = "okay";
 };

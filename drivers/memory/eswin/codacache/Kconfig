@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0
+config ESWIN_CODACACHE_CONTROLLER
+	bool "ESWIN codacache controller support"
+	help
+	  The codacache, 4MB in total, could be entirely intialized as SPRAM, or partialy as
+	  SPRAM and partilay as cache(i.e. Last Level Cache, LLC), or entirely as cache.
+	  For example, if 2MB is initialized as SPRAM, then the reset of the codacache, 2MB
+	  will be initialized as cache. The size of the SPRAM is determined by the reg size of
+	  the spram node in dts. The below example shows that the codacache of 4MB is entirely
+	  initialized as SPRAM.
+	  npu0_reserved: sprammemory@59000000 {
+		reg = <0x0 0x59000000 0x0 0x400000>;
+	  };
+
+	  If unsure, say "n".
+
