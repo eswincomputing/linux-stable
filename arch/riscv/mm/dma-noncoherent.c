@@ -11,6 +11,9 @@
 #include <linux/mm.h>
 #include <asm/cacheflush.h>
 #include <asm/dma-noncoherent.h>
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+#include <linux/iommu.h>
+#endif
 
 static bool noncoherent_supported __ro_after_init;
 int dma_cache_alignment __ro_after_init = ARCH_DMA_MINALIGN;
@@ -149,6 +152,11 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		   dev_driver_string(dev), dev_name(dev));
 
 	dev->dma_coherent = coherent;
+
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	if (iommu)
+		iommu_setup_dma_ops(dev, dma_base, size);
+	#endif
 }
 
 void riscv_noncoherent_supported(void)

@@ -329,7 +329,7 @@ config ARCH_RV64I
 	bool "RV64I"
 	select 64BIT
 	select ARCH_SUPPORTS_INT128 if CC_HAS_INT128
-	select SWIOTLB if MMU
+	select SWIOTLB if MMU && !ARCH_ESWIN_EIC770X_SOC_FAMILY
 
 endchoice
 

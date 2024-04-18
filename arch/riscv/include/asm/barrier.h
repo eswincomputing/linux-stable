@@ -71,6 +71,10 @@ do {									\
  */
 #define smp_mb__after_spinlock()	RISCV_FENCE(iorw,iorw)
 
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+#define wfe()	do { } while (0)
+#endif
+
 #include <asm-generic/barrier.h>
 
 #endif /* __ASSEMBLY__ */

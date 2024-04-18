@@ -160,6 +160,19 @@
 
 #define ARM_SMMU_REG_SZ			0xe00
 
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+/* Secure programming register */
+#define ARM_SMMU_S_BASE			0x8000
+#define ARM_SMMU_S_INIT_OFFSET		(0x803c - ARM_SMMU_S_BASE)
+/* TCU Microarchitectural registers */
+#define ARM_SMMU_TCU_QOS_OFFSET			(0x8e04 - ARM_SMMU_S_BASE)
+#define ARM_SMMU_TCU_NODE_STATUSn_OFFSET	(0x9400 - ARM_SMMU_S_BASE)
+
+#define ARM_SMMU_S_AND_TCU_MICRO_REG_SZ	(0x9800 - ARM_SMMU_S_BASE)
+
+#define ARM_SMMU_TCU_QOS_VALUE		0xffffffff
+#endif
+
 /* Common MSI config fields */
 #define MSI_CFG0_ADDR_MASK		GENMASK_ULL(51, 2)
 #define MSI_CFG2_SH			GENMASK(5, 4)
@@ -620,11 +633,23 @@ struct arm_smmu_strtab_cfg {
 	u32				strtab_base_cfg;
 };
 
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+#define ESWIN_MAX_TBU_COUNT	8
+struct eswin_smmu_reset_control {
+	struct reset_control* smmu_axi_rst;
+	struct reset_control* smmu_cfg_rst;
+	struct reset_control* tbu_rst[ESWIN_MAX_TBU_COUNT];
+};
+#endif
+
 /* An SMMUv3 instance */
 struct arm_smmu_device {
 	struct device			*dev;
 	void __iomem			*base;
 	void __iomem			*page1;
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	void __iomem			*s_base;
+	#endif
 
 #define ARM_SMMU_FEAT_2_LVL_STRTAB	(1 << 0)
 #define ARM_SMMU_FEAT_2_LVL_CDTAB	(1 << 1)
@@ -682,6 +707,17 @@ struct arm_smmu_device {
 
 	struct rb_root			streams;
 	struct mutex			streams_mutex;
+
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	/* eswin, to support duplicated streamID */
+	struct rb_root			smmu_groups;
+	struct mutex			smmu_groups_mutex;
+
+	/* eswin, syscon device is used for clearing the smmu interrupt*/
+	struct regmap *regmap;
+	int	smmu_irq_clear_reg;
+	struct eswin_smmu_reset_control eswin_smmu_rst_ctl;
+	#endif
 };
 
 struct arm_smmu_stream {
@@ -689,6 +725,15 @@ struct arm_smmu_stream {
 	struct arm_smmu_master		*master;
 	struct rb_node			node;
 };
+
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+struct arm_smmu_group {
+	u32			streamid;
+	struct arm_smmu_device	*smmu;
+	struct iommu_group	*group;
+	struct rb_node		node;
+};
+#endif
 
 /* SMMU private data for each master */
 struct arm_smmu_master {
@@ -734,6 +779,9 @@ struct arm_smmu_domain {
 	spinlock_t			devices_lock;
 
 	struct list_head		mmu_notifiers;
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	struct kref				attach_refcount;
+	#endif
 };
 
 static inline struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
