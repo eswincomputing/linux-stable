@@ -25,7 +25,7 @@
 	#size-cells = <2>;
     soc {
         pinctrl: pinctrl@0x51600080 {
-			compatible = "eswin,eic7700-pinctrl";
+			compatible = "eswin,eic7700-pinctrl", "syscon";
 			reg = <0x0 0x51600080 0x0 0x1FFF80>;
 			status = "disabled";
             //func0

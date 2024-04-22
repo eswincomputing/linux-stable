@@ -476,12 +476,20 @@
 };
 
 &d0_gmac0 {
-	mac-address=[00 00 00 00 00 00];
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio94_default>;
+	rst-gpios = <&portc 30 GPIO_ACTIVE_LOW>;
+	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
+	eswin,led-cfgs = <0x6251 0x6251 0x6251>;
 	status = "okay";
 };
 
 &d0_gmac1 {
-	mac-address=[00 00 00 00 00 00];
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio16_default>;
+	rst-gpios = <&porta 16 GPIO_ACTIVE_LOW>;
+	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
+	eswin,led-cfgs = <0x6251 0x6251 0x6251>;
 	status = "okay";
 };
 
