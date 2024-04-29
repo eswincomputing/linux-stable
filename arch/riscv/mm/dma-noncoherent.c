@@ -138,6 +138,13 @@ void arch_dma_prep_coherent(struct page *page, size_t size)
 	ALT_CMO_OP(flush, flush_addr, size, riscv_cbom_block_size);
 }
 
+#ifdef CONFIG_IOMMU_DMA
+void arch_teardown_dma_ops(struct device *dev)
+{
+	dev->dma_ops = NULL;
+}
+#endif
+
 void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		const struct iommu_ops *iommu, bool coherent)
 {
