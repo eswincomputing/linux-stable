@@ -509,7 +509,7 @@
 };
 
 
-&d0_nvdla {
+&d0_npu {
 	status = "okay";
 };
 
@@ -530,10 +530,6 @@
 };
 
 &d0_dsp3 {
-	status = "disabled";
-};
-
-&d0_sofdsp {
 	status = "disabled";
 };
 
@@ -559,26 +555,10 @@
 	};
 };
 
-&d0_i2s2 {
-	status = "disabled";
-	eswin-plat = <0>;
-	d0_i2s2_port: port {
-		d0_i2s2_endpoint: endpoint {
-			remote-endpoint = <&d0_dummy_endpoint2>;
-			dai-format = "i2s";
-		};
-	};
-};
-
-&d0_soundcard {
-	status = "disabled";
-};
-
 &d0_graphcard0 {
 	status = "disabled";
 	dais = <&d0_i2s0_port
-			&d0_i2s1_port
-			&d0_i2s2_port>;
+			&d0_i2s1_port>;
 };
 
 &d0_graphcard1 {
@@ -586,37 +566,6 @@
 };
 
 &d0_graphcard2 {
-	status = "disabled";
-};
-
-&d0_dummy_codec {
-	status = "disabled";
-	ports {
-		/*port@0 {
-			d0_dummy_endpoint0: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint>;
-			};
-		};
-		*/
-		/*
-		port@1 {
-			d0_dummy_endpoint1: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s1_endpoint>;
-			};
-		};
-		*/
-		port@2 {
-			d0_dummy_endpoint2: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s2_endpoint>;
-			};
-		};
-	};
-};
-
-&d0_thruout{
 	status = "disabled";
 };
 
@@ -935,7 +884,7 @@
 	status = "disabled";
 };
 
-&dc8k {
+&dc {
 	status = "disabled";
 };
 
@@ -951,7 +900,7 @@
     status = "disabled";
 };
 
-&dc8k_test {
+&dc_test {
     status = "disabled";
 };
 
@@ -1024,7 +973,7 @@
 	status = "disabled";
 };
 
-&dw200 {
+&dewarp {
 	status = "disabled";
 };
 
@@ -1229,7 +1178,7 @@
 	status = "disabled";
 };
 
-&d1_nvdla {
+&d1_npu {
 	status = "disabled";
 };
 
@@ -1400,7 +1349,7 @@
 	status = "disabled";
 };
 
-&d1_dc8k {
+&d1_dc {
 	status = "disabled";
 };
 
@@ -1416,7 +1365,7 @@
     status = "disabled";
 };
 
-&d1_dc8k_test {
+&d1_dc_test {
     status = "disabled";
 };
 
@@ -1468,7 +1417,7 @@
 	status = "disabled";
 };
 
-&d1_dw200 {
+&d1_dewarp {
 	status = "disabled";
 };
 

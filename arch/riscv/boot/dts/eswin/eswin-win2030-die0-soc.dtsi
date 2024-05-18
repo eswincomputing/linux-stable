@@ -201,6 +201,7 @@
 						<416>, <417>, <418>, <419>, <420>,
 						<421>, <422>, <423>, <424>, <425>,
 						<426>;
+				eswin,syscrg_csr = <&d0_sys_crg 0x100 0xffff>; //timeout paramerter
 				status = "disabled";
 			};
 		};
@@ -276,7 +277,7 @@
 			compatible = "riscv,dev-foo-a";
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
-			/*iommus = <&smmu0 WIN2030_SID_DEV_FOO_A>;*/
+			iommus = <&smmu0 WIN2030_SID_DEV_FOO_A>;
 			tbus = <WIN2030_TBUID_0xF00>;
 			/*
 			tbus = <WIN2030_TBUID_0x0>,
@@ -295,7 +296,6 @@
 			compatible = "eswin,win2030-pmu-controller";
 			reg = <0x0 0x51808000 0x0 0x8000>;
 			numa-node-id = <0>;
-
 			d0_pmu_pcie: win2030-pmu-controller-port@0 {
 				compatible = "eswin,win2030-pmu-controller-port";
 				reg_base = <0x0>;
@@ -305,15 +305,17 @@
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
 				label = "D0_PCIE";
+				tbus = <WIN2030_TBUID_PCIE>;
 			};
 			d0_pmu_dsp1: win2030-pmu-controller-port@40 {
 				compatible = "eswin,win2030-pmu-controller-port";
 				reg_base = <0x40>;
-				power_status = <0>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
+				tbus = <WIN2030_TBUID_DSP1>;
 				label = "D0_DSP1";
 			};
 			d0_pmu_vi: win2030-pmu-controller-port@80 {
@@ -324,12 +326,13 @@
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
+				tbus = <WIN2030_TBUID_ISP>,<WIN2030_TBUID_DW>;
 				label = "D0_VI";
 			};
 			d0_pmu_vo: win2030-pmu-controller-port@c0 {
 				compatible = "eswin,win2030-pmu-controller-port";
 				reg_base = <0xc0>;
-				power_status = <0>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -339,31 +342,34 @@
 			d0_pmu_codec: win2030-pmu-controller-port@140 {
 				compatible = "eswin,win2030-pmu-controller-port";
 				reg_base = <0x140>;
-				power_status = <0>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
+				tbus = <WIN2030_TBUID_VDEC>, <WIN2030_TBUID_JDEC>,<WIN2030_TBUID_VENC>, <WIN2030_TBUID_JENC>;
 				label = "D0_CODEC";
 			};
 			d0_pmu_dsp2: win2030-pmu-controller-port@200 {
 				compatible = "eswin,win2030-pmu-controller-port";
 				reg_base = <0x200>;
-				power_status = <0>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
+				tbus = <WIN2030_TBUID_DSP2>;
 				label = "D0_DSP2";
 			};
 			d0_pmu_dsp3: win2030-pmu-controller-port@240 {
 				compatible = "eswin,win2030-pmu-controller-port";
 				reg_base = <0x240>;
-				power_status = <0>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
+				tbus = <WIN2030_TBUID_DSP3>;
 				label = "D0_DSP3";
 			};
 		};
@@ -489,12 +495,12 @@
 			#include "eswin-win2030-die0-noc.dtsi"
 		};
 
-		d0_nvdla: nvdla-controller@51c00000 {
+		d0_npu: eswin-npu@51c00000 {
 			compatible = "eswin,npu0";
 			reg = <0x0 0x51c00000 0x0 0x400000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <387 16>;
-			spram-region = <&npu0_reserved>;
+			/*spram-region = <&npu0_reserved>;*/
 			#size-cells = <2>;
 			dma-ranges = <0x1 0x0 0x0 0xc0000000 0x1ff 0x0>;
 			iommus = <&smmu0 WIN2030_SID_NPU_DMA>;
@@ -502,6 +508,11 @@
 			dsp-avail-num = <1>;
 			spram-size = <0x400000>;
 			npu_mbox = <&d0_mbox2>;
+			clocks = <&d0_clock WIN2030_CLK_NPU_ACLK>,
+					<&d0_clock WIN2030_CLK_NPU_CFG_CLK>,
+					<&d0_clock WIN2030_CLK_NPU_CLK>,
+					<&d0_clock WIN2030_CLK_NPU_E31_CLK>;
+			clock-names = "aclk", "cfg_clk", "core_clk", "e31_core_clk";
 
 			resets = <&d0_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
 			reset-names = "e31_core";
@@ -563,8 +574,10 @@
 					ESWIN_MAILBOX_DSP_0_TO_U84_REG_BASE
 					ESWIN_MAILBOX_WR_LOCK_BIT_DSP_0
 					ESWIN_MAILBOX_U84_TO_DSP_0_REG_BASE
-					ESWIN_MAIBOX_U84_IRQ_BIT>;
-				device-uart = <0x50910000>;
+					ESWIN_MAIBOX_U84_IRQ_BIT
+					ESWIN_MAILBOX_U84_TO_NPU_0_REG_BASE>;
+
+				device-uart = <0x50900000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
 				firmware-name = "eic7700_dsp_fw";
@@ -592,8 +605,9 @@
 					ESWIN_MAILBOX_DSP_1_TO_U84_REG_BASE
 					ESWIN_MAILBOX_WR_LOCK_BIT_DSP_1
 					ESWIN_MAILBOX_U84_TO_DSP_1_REG_BASE
-					ESWIN_MAIBOX_U84_IRQ_BIT>;
-				device-uart = <0x50910000>;
+					ESWIN_MAIBOX_U84_IRQ_BIT
+					ESWIN_MAILBOX_U84_TO_NPU_0_REG_BASE>;
+				device-uart = <0x50900000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
 				firmware-name = "eic7700_dsp_fw";
@@ -621,8 +635,9 @@
 					ESWIN_MAILBOX_DSP_2_TO_U84_REG_BASE
 					ESWIN_MAILBOX_WR_LOCK_BIT_DSP_2
 					ESWIN_MAILBOX_U84_TO_DSP_2_REG_BASE
-					ESWIN_MAIBOX_U84_IRQ_BIT>;
-				device-uart = <0x50910000>;
+					ESWIN_MAIBOX_U84_IRQ_BIT
+					ESWIN_MAILBOX_U84_TO_NPU_0_REG_BASE>;
+				device-uart = <0x50900000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
 				firmware-name = "eic7700_dsp_fw";
@@ -650,8 +665,9 @@
 					ESWIN_MAILBOX_DSP_3_TO_U84_REG_BASE
 					ESWIN_MAILBOX_WR_LOCK_BIT_DSP_3
 					ESWIN_MAILBOX_U84_TO_DSP_3_REG_BASE
-					ESWIN_MAIBOX_U84_IRQ_BIT>;
-				device-uart = <0x50910000>;
+					ESWIN_MAIBOX_U84_IRQ_BIT
+					ESWIN_MAILBOX_U84_TO_NPU_0_REG_BASE>;
+				device-uart = <0x50900000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
 				firmware-name = "eic7700_dsp_fw";
@@ -664,29 +680,6 @@
 				aux-e31-dtim = <0x5a110000>;
 				dsp@0 {
 				};
-			};
-			d0_sofdsp: sofdsp@4 {
-				#sound-dai-cells = <1>;
-				#address-cells = <2>;
-				#size-cells = <2>;
-				compatible = "eswin,vision-dsp";
-				reg = <0x0 0x5b000000 0x0 0x10000>,
-					  <0x0 0x5b100000 0x0 0x40000>;
-				/* memory-region = <&dsp_reserved0>; */
-				mbox-names = "sof-dsp0";
-				mboxes = <&d0_mbox4 0>;
-				tplg-name = "sof-win2030-es8316.tplg";
-				machine-drv-name = "asoc-simple-card";
-				clocks = <&d0_clock WIN2030_CLK_DSP_ACLK_0>;
-				clock-names = "aclk";
-				process-id = <0>;
-				dma-ranges = <0x0 0x40000000 0x0 0xc0000000 0x0 0xc0000000>;
-				iommus = <&smmu0 WIN2030_SID_DSP_0>;
-				mailbox-dsp-to-u84-addr = <ESWIN_MAILBOX_DSP_0_TO_U84_REG_BASE>;
-				mailbox-u84-to-dsp-addr = <ESWIN_MAILBOX_U84_TO_DSP_0_REG_BASE>;
-				dsp-uart = <&d0_uart1>;
-				ringbuffer-region = <&dsp_reserved1>;
-				dma-noncoherent;
 			};
 		};
 
@@ -749,8 +742,9 @@
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_SATA_ASIC0_RSTN>,
 					<&d0_reset HSPDMA_RST_CTRL SW_SATA_OOB_RSTN>,
 					<&d0_reset HSPDMA_RST_CTRL SW_SATA_PMALIVE_RSTN>,
-					<&d0_reset HSPDMA_RST_CTRL SW_SATA_RBC_RSTN>;
-			reset-names = "asic0", "oob", "pmalive", "rbc";
+					<&d0_reset HSPDMA_RST_CTRL SW_SATA_RBC_RSTN>,
+					<&d0_reset HSPDMA_RST_CTRL SW_HSP_SATA_ARSTN>;
+			reset-names = "asic0", "oob", "pmalive", "rbc", "apb";
 			#size-cells = <2>;
 			iommus = <&smmu0 WIN2030_SID_SATA>;
 			tbus = <WIN2030_TBUID_SATA>;
@@ -787,7 +781,7 @@
 
 			ranges = <0x81000000  0x0 0x40800000  0x0 0x40800000 0x0 0x800000>,      /* I/O */
 				 <0x82000000  0x0 0x41000000  0x0 0x41000000 0x0 0xf000000>,    /* mem */
-				 <0xc3000000 0x80 0x00000000 0x80 0x00000000 0x20 0x00000000>;  /* mem prefetchable */
+				 <0xc3000000 0x80 0x00000000 0x80 0x00000000 0x2 0x00000000>;  /* mem prefetchable */
 
 			/* num-lanes = <0x4>; */
 			/**********************************
@@ -811,10 +805,10 @@
 			dma-noncoherent;
 		};
 
-		ssi0: spi0@50810000 {
+		ssi0: spi@50810000 {
 			compatible = "snps,win2030-spi";
-			#address-cells = <2>;
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0x0 0x50810000 0x0 0x4000>;
 			spi-max-frequency = <4800000>;
 			clocks = <&d0_clock WIN2030_CLK_LSP_SSI0_PCLK>;
@@ -831,10 +825,10 @@
 			dma-noncoherent;
 		};
 
-		ssi1: spi1@50814000 {
+		ssi1: spi@50814000 {
 			compatible = "snps,win2030-spi";
-			#address-cells = <2>;
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0x0 0x50814000 0x0 0x4000>;
 			spi-max-frequency = <4800000>;
 			clocks = <&d0_clock WIN2030_CLK_LSP_SSI1_PCLK>;
@@ -851,6 +845,22 @@
 			dma-noncoherent;
 		};
 
+		bootspi: spi@51800000 {
+			compatible = "eswin,bootspi";
+			reg = <0x0 0x51800000 0x0 0x8000>,
+				<0x0 0x51828000 0x0 0x8000>,
+				<0x0 0x5c000000 0x0 0x8000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&d0_clock WIN2030_CLK_CLK_BOOTSPI_CFG>,
+					<&d0_clock WIN2030_CLK_CLK_BOOTSPI>;
+			clock-names = "cfg_clk", "clk";
+			resets = <&d0_reset BOOTSPI_RST_CTRL SW_BOOTSPI_RSTN>;
+			reset-names = "rst";
+			spi-max-frequency = <4800000>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
 		sdhci_emmc: mmc@50450000 {
 			compatible = "eswin,emmc-sdhci-5.1";
 			reg = <0x0 0x50450000 0x0 0x10000>;
@@ -867,10 +877,7 @@
 				<&d0_reset HSPDMA_RST_CTRL SW_MSHC0_PHY_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_EMMC_PRSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_EMMC_ARSTN>;
-			reset-names = "txrx_rst", "phy_rst", "emmc_prstn", "emmc_arstn";
-			delay_code = <0x17>;
-			drive-impedance-ohm = <50>;
-			enable-data-pullup;
+			reset-names = "txrx_rst", "phy_rst", "prstn", "arstn";
 
 			disable-cqe-dcmd;
 			bus-width = <8>;
@@ -901,17 +908,13 @@
 				<&d0_clock WIN2030_SPLL2_FOUT3>,
 				<&d0_clock WIN2030_MUX_U_MSHCORE_ROOT_3MUX1_1>;
 			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1";
-			clock-output-names = "sdio_cardclock";
+			clock-output-names = "sdio0_cardclock";
 			#clock-cells = <0>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_MSHC1_TXRX_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_MSHC1_PHY_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_SD0_PRSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_SD0_ARSTN>;
 			reset-names = "txrx_rst","phy_rst","prstn","arstn";
-
-			delay_code = <0x28>;
-			drive-impedance-ohm = <50>;
-			enable-data-pullup;
 
 			core-clk-reg = <0x51828164>;
 			clock-frequency = <208000000>;
@@ -938,17 +941,13 @@
 				<&d0_clock WIN2030_SPLL2_FOUT3>,
 				<&d0_clock WIN2030_MUX_U_MSHCORE_ROOT_3MUX1_1>;
 			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1";
-			clock-output-names = "sdio_cardclock";
+			clock-output-names = "sdio1_cardclock";
 			#clock-cells = <0>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_MSHC2_TXRX_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_MSHC2_PHY_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_SD1_PRSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_SD1_ARSTN>;
 			reset-names = "txrx_rst","phy_rst","prstn","arstn";
-
-			delay_code = <0x28>;
-			drive-impedance-ohm = <50>;
-			enable-data-pullup;
 
 			core-clk-reg = <0x51828168>;
 			clock-frequency = <208000000>;
@@ -1252,7 +1251,7 @@
 		};
 
 		pvt0: pvt@0x50b00000 {
-			compatible = "eswin,eswin-pvt";
+			compatible = "eswin,eswin-pvt-cpu";
 			clocks = <&d0_clock WIN2030_CLK_PVT_CLK_0>;
 			clock-names = "pvt_clk";
 			resets = <&d0_reset PVT_RST_CTRL SW_PVT_RST_N_0>;
@@ -1265,7 +1264,7 @@
 			status = "disabled";
 		};
 		pvt1: pvt@0x52360000 {
-			compatible = "eswin,eswin-pvt";
+			compatible = "eswin,eswin-pvt-ddr";
 			clocks = <&d0_clock WIN2030_CLK_PVT_CLK_1>;
 			clock-names = "pvt_clk";
 			resets = <&d0_reset PVT_RST_CTRL SW_PVT_RST_N_1>;
@@ -1289,8 +1288,8 @@
 			interrupt-names = "fanirq";
 			interrupts = <354>;
 			pulses-per-revolution = <1>;
-			pwm-minimun-period = <3000000>;
-			pwms = <&pwm0 0 200>;
+			pwm-minimun-period = <1000>;
+			pwms = <&pwm0 0 100000>;
 			status = "disabled";
 		};
 
@@ -1463,42 +1462,6 @@
 			compatible = "eswin,eic7700-pinctrl";
 			reg = <0x0 0x51600080 0x0 0x1FFF80>;
 			status = "disabled";
-			pinctrl_pwm0_default: pwm0-default{
-				mux{
-					groups = "pwm0_group";
-					function = "pwm0_func";
-				};
-				conf {
-					groups = "pwm0_group";
-					drive-strength = <5>;
-					bias-pull-up = <1>;
-					input-enable = <0>;
-				};
-			};
-			pinctrl_pwm1_default: pwm1-default{
-				mux{
-					groups = "pwm1_group";
-					function = "pwm1_func";
-				};
-				conf {
-					groups = "pwm1_group";
-					drive-strength = <6>;
-					bias-pull-up = <0>;
-					input-enable = <1>;
-				};
-			};
-			pinctrl_pwm2_default: pwm2-default{
-				mux{
-					groups = "pwm2_group";
-					function = "pwm2_func";
-				};
-				conf {
-					groups = "pwm2_group";
-					drive-strength = <7>;
-					bias-pull-down = <0>;
-					input-enable = <0>;
-				};
-			};
 		};
 
 		gpio0: gpio@51600000 {
@@ -1542,62 +1505,7 @@
 				reg = <3>;
 			};
 		};
-		// gpio0: gpio@0x51600000 {
-		// 		#address-cells = <1>;
-		// 		#size-cells = <0>;
-		// 		compatible = "eswin,win2030-gpio";
-		// 		reg = <0x0 0x51600000 0x0 0x80>;
-		// 		status = "disabled";
-		// 		eswin,syscfg = <&d0_sys_con 0x3c0>;
-
-		// 	porta: gpio-port@0 {
-		// 		compatible = "eswin,win2030-gpio-port";
-		// 		gpio-controller;
-		// 		#gpio-cells = <2>;
-		// 		ngpios = <32>;
-		// 		reg = <0>;
-		// 		interrupts = <303>;
-		// 		interrupt-parent = <&plic0>;
-		// 		interrupt-state = <0 1 1 1>;
-		// 		direction-input = <5 8 9 16>;
-		// 		direction-output = <1 0 3 1>;
-		// 		gpio-state = <11 1 12 1>;
-		// 	};
-
-		// 	portb: gpio-port@1 {
-		// 		compatible = "eswin,win2030-gpio-port";
-		// 		gpio-controller;
-		// 		#gpio-cells = <2>;
-		// 		ngpios = <32>;
-		// 		reg = <1>;
-		// 		direction-input = <5 13 9 25>;
-		// 		direction-output = <26 0 3 1>;
-		// 		gpio-state = <11 1 17 1>;
-		// 	};
-
-		// 	portc: gpio-port@2 {
-		// 		compatible = "eswin,win2030-gpio-port";
-		// 		gpio-controller;
-		// 		#gpio-cells = <2>;
-		// 		ngpios = <32>;
-		// 		reg = <2>;
-		// 		direction-input = <5 13 9 25>;
-		// 		direction-output = <26 0 3 1>;
-		// 		gpio-state = <11 1 17 1>;
-		// 	};
-
-		// 	portd: gpio-port@3 {
-		// 		compatible = "eswin,win2030-gpio-port";
-		// 		gpio-controller;
-		// 		#gpio-cells = <2>;
-		// 		ngpios = <16>;
-		// 		reg = <3>;
-		// 		direction-input = <9 1 8 1>;
-		// 		direction-output = <3 1 15 1>;
-		// 		gpio-state = <6 1 5 1>;
-		// 	};
-		// };
-
+		
 		pwm0: pwm@0x50818000 {
 			compatible = "eswin,pwm-eswin";
 			reg = <0x0 0x50818000 0x0 0x4000>;
@@ -1607,8 +1515,6 @@
 			resets = <&d0_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
 			reset-names = "pwmrst";
 			#pwm-cells = <2>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_pwm0_default &pinctrl_pwm1_default &pinctrl_pwm2_default>;
 			status = "disabled";
 		};
 
@@ -1665,6 +1571,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x51840000 0x0 0x8000>;
+			perf_count = <7>;
 			interrupt-parent = <&plic0>;
 			interrupts = <345>;
 			clock-names = "pclk","timer_aclk";
@@ -1757,14 +1664,13 @@
 			interrupts = <292>;
 			clocks = <&d0_clock WIN2030_CLK_CLK_RTC>;
 			clock-names = "rtcclk";
-			clock-frequency = <15624>;
+			clock-frequency = <15625>;
 			resets = <&d0_reset RTC_RST_CTRL SW_RTC_RSTN>;
 			reset-names = "rtcrst";
 			status = "disabled";
 		};
 
 		d0_i2s0: i2s0@50200000 {
-			//compatible = "eswin,i2s-dsp";
 			compatible = "snps,i2s";
 			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>;
 			clock-names = "mclk";
@@ -1774,7 +1680,6 @@
 			reg = <0x0 0x50200000 0x0 0x10000>;
 			dma-names = "rx", "tx";
 			dmas = <&d0_aon_dmac 4 0>, <&d0_aon_dmac 5 0>;
-			memory-region = <&dsp_reserved1>;
 			vo_mclk_sel,syscrg = <&d0_sys_crg 0x1bc>;
 			resets = <&d0_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d0_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
@@ -1819,45 +1724,6 @@
 			dma-noncoherent;
 		};
 
-		d0_soundcard: soundcard {
-			compatible = "simple-audio-card";
-			simple-audio-card,name = "Eswin sound card";
-			simple-audio-card,widgets = "Headphone", "Headphone Jack";
-			simple-audio-card,dai-link@0 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&d0_sofdsp 0>;
-				};
-				codec {
-					sound-dai = <&d0_thruout 0>;
-				};
-			};
-
-			simple-audio-card,dai-link@1 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&d0_sofdsp 1>;
-				};
-				codec {
-					sound-dai = <&d0_thruout 1>;
-				};
-			};
-
-			simple-audio-card,dai-link@2 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&d0_i2s0>;
-				};
-				codec {
-					//sound-dai = <&d0_es8316>;
-					//system-clock-frequency = <12288000>;
-				};
-				plat {
-					sound-dai = <&d0_sofdsp 2>;
-				};
-			};
-		};
-
 		d0_graphcard0: graphcard0 {
 			compatible = "audio-graph-card";
 		};
@@ -1871,7 +1737,7 @@
 		};
 
 		video_output: display-subsystem {
-			compatible = "verisilicon,display-subsystem";
+			compatible = "eswin,display-subsystem";
 			ports = <&dc_out>;
 		};
 
@@ -1880,8 +1746,8 @@
 			status = "disabled";
 		};
 
-		dc8k: dc8000@502c0000 {
-			compatible = "verisilicon,dc8000";
+		dc: display_control@502c0000 {
+			compatible = "eswin,dc";
 			reg = <0x0 0x502c0000 0x0 0x100>, <0x0 0x502c0180 0x0 0x700>, <0x0 0x502c1400 0x0 0x1400>;
 			interrupt-parent = <&plic0>;
 			interrupts = <238>;
@@ -1913,15 +1779,15 @@
 					remote-endpoint = <&vd_input>;
 				};
 
-				dc_out_hdmi: endpoint@2 {
-					reg = <2>;
-					remote-endpoint = <&hdmi_in_dc8k>;
-				};
+                dc_out_hdmi: endpoint@2 {
+                    reg = <2>;
+                    remote-endpoint = <&hdmi_in_dc>;
+                };
 			};
 		};
 
-		virtual_display: vs_wb {
-			compatible = "verisilicon,virtual_display";
+		virtual_display: es_wb {
+			compatible = "eswin,virtual_display";
 			bpp = /bits/ 8 <8>;
 
 			port {
@@ -1932,7 +1798,7 @@
 		};
 
 		dsi_output: dsi-output {
-			compatible = "verisilicon,dsi-encoder";
+			compatible = "eswin,dsi-encoder";
 
 			ports {
 				#address-cells = <1>;
@@ -1962,11 +1828,12 @@
 		dsi_controller: mipi_dsi@50270000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "verisilicon,dw-mipi-dsi";
+			compatible = "eswin,dw-mipi-dsi";
 			reg = <0x0 0x50270000 0x0 0x10000>;
 			clocks = <&d0_clock WIN2030_CLK_CLK_MIPI_TXESC>;
 			clock-names = "pclk";
-
+			resets = <&d0_reset VO_PHYRST_CTRL SW_VO_MIPI_PRSTN>;
+			reset-names ="phyrstn";
 			/*
 			phys = <&dphy>;
 			phy-names = "dphy";
@@ -1997,7 +1864,7 @@
 				};
 			};
 
-			panel@1 {
+			dsi_panel:dsi_panel@0 {
 				compatible = "eswin,generic-panel";
 				reg = <0>;
 
@@ -2009,8 +1876,8 @@
 			};
 		};
 
-		dc8k_test: dc8ktest@502c0000 {
-			compatible = "eswin,dc8000";
+		dc_test: dctest@502c0000 {
+			compatible = "eswin,dc";
 			reg = <0x0 0x502c0000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <238>;
@@ -2041,7 +1908,7 @@
 				#size-cells = <0>;
 				port@0 {
 					reg = <0>;
-					hdmi_in_dc8k: endpoint@0 {
+					hdmi_in_dc: endpoint@0 {
 						remote-endpoint = <&dc_out_hdmi>;
 					};
 				};
@@ -2056,25 +1923,6 @@
 				clocks = <&d0_clock WIN2030_CLK_VO_CFG_CLK>,
 					    <&d0_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
 				clock-names ="pclk_hdcp2", "hdcp2_clk_hdmi";
-		};
-
-		d0_dummy_codec:codec@0x50230000 {
-			reg = <0x00000000 0x50230000 0x00000000 0x00000100>;
-			#sound-dai-cells = <0x00000000>;
-			compatible = "eswin_dummy_codec";
-		};
-		d0_thruout: thru-out {
-				compatible = "eswin,thru-out";
-				#sound-dai-cells = <1>;
-				memory-region = <&dsp_reserved1>;
-		};
-		d0_dummy_pf: dummy@0x50400000{
-				compatible = "eswin,dummy-dai";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				#sound-dai-cells = <0x00000000>;
-				reg = <0x0 0x50400000 0x0 0x10000>;
-				status = "disabled";
 		};
 
 		d0_usbdrd3_0: usb0@50480000 {
@@ -2229,8 +2077,8 @@
 			dma-noncoherent;
 		};
 
-		dw200: dw200@51020000 {
-			compatible = "eswin,dw200";
+		dewarp: dewarp@51020000 {
+			compatible = "eswin,dewarp";
 			clocks = <&d0_clock WIN2030_CLK_VI_ACLK>,
 			         <&d0_clock WIN2030_CLK_VI_CFG_CLK>,
 			         <&d0_clock WIN2030_CLK_VI_DIG_DW_CLK>,
@@ -2394,8 +2242,8 @@
 			};
 		};
 
-		dc8k_test: dc8ktest@502c0000 {
-			compatible = "eswin,dc8000";
+		dc_test: dctest@502c0000 {
+			compatible = "eswin,dc";
 			reg = <0x0 0x502c0000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <238>;

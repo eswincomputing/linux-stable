@@ -23,15 +23,16 @@
 #define RTCCLK_FREQ		1000000
 #define LSPCLK_FREQ		200000000
 
-/* reserve 2GB space for ddr ecc */
-#define MEMORY_SIZE_H		0x3
-#define MEMORY_SIZE_L		0x80000000
+/* If wanna enable ECC capability of DDR, should reserve highest zone of 1/8 all space for it */
+#define MEMORY_SIZE_H		0x4
+#define MEMORY_SIZE_L		0x0
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 
@@ -148,6 +149,48 @@
 	npu0_reserved: sprammemory@59000000 {
 		reg = <0x0 0x59000000 0x0 0x400000>;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio107_default &pinctrl_gpio108_default &pinctrl_gpio109_default>;
+
+		gpio-107 {
+			gpios = <&portd 11 GPIO_ACTIVE_HIGH>;
+			label = "power";
+			linux,default-trigger = "default-on";
+		};
+
+		gpio-108 {
+			gpios = <&portd 12 GPIO_ACTIVE_LOW>;
+			label = "heartbeat";
+			linux,default-trigger = "heartbeat";
+		};
+
+		gpio-109 {
+			gpios = <&portd 13 GPIO_ACTIVE_HIGH>;
+			label = "gpio-109";
+			linux,default-trigger = "default-off";
+		};
+
+		gpio-110 {
+			gpios = <&portd 14 GPIO_ACTIVE_HIGH>;
+			label = "gpio-109";
+			linux,default-trigger = "default-off";
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		ok_key {
+			label = "OK";
+			linux,code = <KEY_OK>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio6_default>;
+			gpios = <&porta 6 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
 
 &d0_clock {
@@ -261,10 +304,6 @@
 };
 
 &pcie {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio106_default>;
-	pci-socket-gpios = <&portd 10 GPIO_ACTIVE_LOW>;
-
 	status = "okay";
 };
 
@@ -335,8 +374,8 @@
 &dsi_panel {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio111_default>;
-	backlight0-gpios = <&porta 7 GPIO_ACTIVE_HIGH>;
+	pinctrl-0 = <&pinctrl_gpio5_default &pinctrl_gpio111_default>;
+	backlight0-gpios = <&porta 5 GPIO_ACTIVE_HIGH>;
 	rst-gpios = <&portd 15 GPIO_ACTIVE_HIGH>;
 };
 
@@ -348,7 +387,7 @@
 			reg = <2>;
 			hdmi_in_i2s: endpoint@1 {
 				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint0>;
+				remote-endpoint = <&d0_i2s0_endpoint>;
 			};
 		};
 	};
@@ -361,22 +400,10 @@
 &d0_i2s0 {
 	status = "okay";
 	eswin-plat = <1>;
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		d0_i2s0_port0: port@0 {
-			reg = <0>;
-			d0_i2s0_endpoint0: endpoint {
-				remote-endpoint = <&hdmi_in_i2s>;
-				dai-format = "i2s";
-			};
-		};
-		d0_i2s0_port1: port@1 {
-			reg = <1>;
-			d0_i2s0_endpoint1: endpoint {
-				remote-endpoint = <&d0_codec0_endpoint>;
-				dai-format = "i2s";
-			};
+	d0_i2s0_port: port {
+		d0_i2s0_endpoint: endpoint {
+			remote-endpoint = <&hdmi_in_i2s>;
+			dai-format = "i2s";
 		};
 	};
 };
@@ -386,7 +413,7 @@
 	eswin-plat = <1>;
 	d0_i2s1_port: port {
 		d0_i2s1_endpoint: endpoint {
-			remote-endpoint = <&d0_codec1_endpoint>;
+			remote-endpoint = <&d0_codec0_endpoint>;
 			dai-format = "i2s";
 		};
 	};
@@ -397,7 +424,7 @@
 	eswin-plat = <1>;
 	d0_i2s2_port: port {
 		d0_i2s2_endpoint: endpoint {
-			remote-endpoint = <&d0_codec2_endpoint>;
+			remote-endpoint = <&d0_codec1_endpoint>;
 			dai-format = "i2s";
 		};
 	};
@@ -415,7 +442,7 @@
 
 &d0_graphcard2 {
 	status = "okay";
-	dais = <&d0_i2s0_port0>, <&d0_i2s0_port1>;
+	dais = <&d0_i2s0_port>;
 };
 
 &isp_0 {
@@ -457,6 +484,8 @@
 	drive-impedance-ohm = <50>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
 };
 
 &sdio0 {
@@ -486,7 +515,7 @@
 	pinctrl-0 = <&pinctrl_gpio94_default>;
 	rst-gpios = <&portc 30 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
-	eswin,led-cfgs = <0x6251 0x6251 0x6251>;
+	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 
 	status = "okay";
 };
@@ -496,13 +525,15 @@
 	pinctrl-0 = <&pinctrl_gpio16_default>;
 	rst-gpios = <&porta 16 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
-	eswin,led-cfgs = <0x6251 0x6251 0x6251>;
+	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 
 	status = "okay";
 };
 
 &d0_sata {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sata_act_led_default>;
 };
 
 &d0_usbdrd3_0 {
@@ -539,20 +570,22 @@
 };
 
 &d0_uart1 {
-	/* have cts & rts */
+	/* BT M.2 KEY-E */
 	status = "okay";
 };
 
 &d0_uart2 {
-	/* rs485 */
+	/* RS232 DB9 */
 	status = "okay";
 };
 
 &d0_uart3 {
+	/* unused */
 	status = "disabled";
 };
 
 &d0_uart4 {
+	/* unused */
 	status = "disabled";
 };
 
@@ -661,41 +694,46 @@
 &d0_i2c0 {
 	/* codec es8388 */
 	status = "okay";
-	d0_es8388_0: es8388-0@11 {
-		compatible = "eswin,es8388";
-		reg = <0x11>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint1>;
-			};
-		};
-	};
-	d0_es8388_1: es8388-1@10 {
+	d0_es8388_0: es8388-0@10 {
 		compatible = "eswin,es8388";
 		reg = <0x10>;
 		#sound-dai-cells = <0>;
 		port {
-			d0_codec1_endpoint: endpoint {
+			d0_codec0_endpoint: endpoint {
 				system-clock-frequency = <12288000>;
 				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
+	d0_es8388_1: es8388-1@11 {
+		compatible = "eswin,es8388";
+		reg = <0x11>;
+		#sound-dai-cells = <0>;
+		port {
+			d0_codec1_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s2_endpoint>;
 			};
 		};
 	};
 };
 
 &d0_i2c1 {
-	/* codec es8388 */
+	/* mpq8785 */
 	status = "okay";
-	d0_es8388_2: es8388-2@10 {
-		compatible = "eswin,es8388";
+	eswin,syscfg = <&d0_sys_con 0x3C0 15>;
+	iic_hold_time = <0x40>;
+	mpq8785@10 {
+		compatible = "mps,mpq8785";
 		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec2_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s2_endpoint>;
+		regulators{
+			npu_vcc1:npu_svcc{
+				regulator-name="NPU_SVCC";
+				regulator-min-microvolt=<100000>;
+				regulator-max-microvolt=<1600000>;
+				regulator-min-microamp=<50000000>;
+				regulator-max-microamp=<90000000>;
+				regulator-always-on;
 			};
 		};
 	};
@@ -752,24 +790,11 @@
 };
 
 &d0_aon_i2c1 {
-	/* mpq8785 & ina226x4 */
+	/* ina226x4 */
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 15>;
 	iic_hold_time = <0x40>;
-	mpq8785@10 {
-		compatible = "mps,mpq8785";
-		reg = <0x10>;
-		regulators{
-			npu_vcc1:npu_svcc{
-				regulator-name="NPU_SVCC";
-				regulator-min-microvolt=<100000>;
-				regulator-max-microvolt=<1600000>;
-				regulator-min-microamp=<50000000>;
-				regulator-max-microamp=<90000000>;
-				regulator-always-on;
-			};
-		};
-	};
+
 	u80_cpu: ina226@45 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
@@ -853,27 +878,25 @@
 	status = "okay";
 };
 
-/*
-	gpio function unused
-	group A: gpio1~6,12~15, 17~27, 29~31
-	group B: gpio32~63
-	group C: gpio64~93, 95
-	group D: gpio96~105
+/* GPIO Function Description
 
-	gpio0   : head phone plug/unplug detection0(I)
-	gpio7   : led back light power on/off(O)
-	gpio8   : dsi touch interrupt(I)
-	gpio9   : pcie present(I)
-	gpio10  : software define key input(I)
+	gpio0   : pcie prstn(I)
+	gpio5   : led back light power on/off(O)
+	gpio6   : system key(I)
+	gpio10  : dsi touch interrupt(I)
 	gpio11  : head phone plug/unplug detection2(I)
-	gpio16  : gphy1 resern(O)
+	gpio12  : tf card power on/off(O)
+	gpio14  : bt wake host(I)
+	gpio15  : wlan wake host(I)
+	gpio16  : gphy1 resetn(O)
 	gpio28  : head phone plug/unplug detection1(I)
-	gpio94  : gphy0 resern(O)
-	gpio106 : pcie socket power on/off(O)
-	gpio107 : tf card power on/off(O)
-	gpio108 : system led0(O)
-	gpio109 : system led1(O)
-	gpio110 : system led2(O)
+	gpio34  : m.2 power on/off(O)
+	gpio94  : gphy0 resetn(O)
+	gpio106 : touch reset(O)
+	gpio107 : system led0(O)
+	gpio108 : system led1(O)
+	gpio109 : system led2(O)
+	gpio110 : system led3(O)
 	gpio111 : mipi dsi resetn(O)
 */
 
