@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config INTERCONNECT_ESWIN
+	tristate "Enable Eswin SoC NOC Management driver"
+	default y
+	help
+	  Say yes to enable NOC management support for Eswin SoC.
+	  say M to compile it as a module.
+	  If in doubt, say N.
+
+config INTERCONNECT_ESWIN_DEBUG
+	bool "Debug Eswin NOC"
+	depends on INTERCONNECT_ESWIN
+	help
+	  This enables verbose debug output of the eswin NOC driver.
+	  If unsure, say N.
+
+config INTERCONNECT_WIN2030_WDT
+	bool "win2030 interconnect wdt driver"
+	default y
+	help
+	  This driver will log the NOC wdt interrupt, usually indicate a timeout on NOC
+	  system.
+	depends on INTERCONNECT_ESWIN
