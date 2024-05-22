@@ -466,6 +466,7 @@
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	enable_sw_tuning;
 	no-sdio;
 };
 
