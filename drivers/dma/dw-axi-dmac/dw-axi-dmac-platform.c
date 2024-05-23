@@ -28,10 +28,15 @@
 #include <linux/reset.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/iommu.h>
 
 #include "dw-axi-dmac.h"
 #include "../dmaengine.h"
 #include "../virt-dma.h"
+#include <linux/mfd/syscon.h>
+#include <linux/bitfield.h>
+#include <linux/regmap.h>
+#include <linux/eswin-win2030-sid-cfg.h>
 
 /*
  * The set of bus widths supported by the DMA controller. DW AXI DMAC supports
@@ -50,6 +55,14 @@
 #define AXI_DMA_FLAG_HAS_APB_REGS	BIT(0)
 #define AXI_DMA_FLAG_HAS_RESETS		BIT(1)
 #define AXI_DMA_FLAG_USE_CFG2		BIT(2)
+#define AXI_DMA_FLAG_HAS_2RESETS		BIT(3)
+
+#define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
+#define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
+#define ARSMMUSID	GENMASK(15, 8)	// The sid of read operation
+#define ARSMMUSSID	GENMASK(7, 0)	// The ssid of read operation
+
+static int eswin_dma_sid_cfg(struct device *dev);
 
 static inline void
 axi_dma_iowrite32(struct axi_dma_chip *chip, u32 reg, u32 val)
@@ -228,6 +241,16 @@ static void axi_dma_hw_init(struct axi_dma_chip *chip)
 	ret = dma_set_mask_and_coherent(chip->dev, DMA_BIT_MASK(64));
 	if (ret)
 		dev_warn(chip->dev, "Unable to set coherent mask\n");
+
+	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-hsp")) {
+		eswin_dma_sid_cfg(chip->dev);
+	}
+	else {
+		win2030_aon_sid_cfg(chip->dev);
+	}
+
+	/* TBU power up */
+	win2030_tbu_power(chip->dev, true);
 }
 
 static u32 axi_chan_get_xfer_width(struct axi_dma_chan *chan, dma_addr_t src,
@@ -574,25 +597,43 @@ static void write_desc_dar(struct axi_dma_hw_desc *desc, dma_addr_t adr)
 	desc->lli->dar = cpu_to_le64(adr);
 }
 
-static void set_desc_src_master(struct axi_dma_hw_desc *desc)
+static void set_desc_src_master(struct axi_dma_hw_desc *hw_desc,
+				 struct axi_dma_chan *chan)
 {
 	u32 val;
 
 	/* Select AXI0 for source master */
-	val = le32_to_cpu(desc->lli->ctl_lo);
-	val &= ~CH_CTL_L_SRC_MAST;
-	desc->lli->ctl_lo = cpu_to_le32(val);
+	val = le32_to_cpu(hw_desc->lli->ctl_lo);
+	if (chan->chip->dw->hdata->nr_masters > 1)
+	{
+		if(DMA_DEV_TO_MEM == chan->direction || DMA_DEV_TO_DEV == chan->direction) {
+			val |= CH_CTL_L_SRC_MAST;
+		}
+		else
+		{
+			val &= ~CH_CTL_L_SRC_MAST;
+		}
+	}
+	else
+		val &= ~CH_CTL_L_SRC_MAST;
+	hw_desc->lli->ctl_lo = cpu_to_le32(val);
 }
 
 static void set_desc_dest_master(struct axi_dma_hw_desc *hw_desc,
-				 struct axi_dma_desc *desc)
+				 struct axi_dma_chan *chan)
 {
 	u32 val;
 
 	/* Select AXI1 for source master if available */
 	val = le32_to_cpu(hw_desc->lli->ctl_lo);
-	if (desc->chan->chip->dw->hdata->nr_masters > 1)
-		val |= CH_CTL_L_DST_MAST;
+	if (chan->chip->dw->hdata->nr_masters > 1)
+	{
+		if(DMA_MEM_TO_DEV == chan->direction || DMA_DEV_TO_DEV == chan->direction) {
+			val |= CH_CTL_L_DST_MAST;
+		}
+		else
+			val &= ~CH_CTL_L_DST_MAST;
+	}
 	else
 		val &= ~CH_CTL_L_DST_MAST;
 
@@ -675,11 +716,11 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 	hw_desc->lli->block_ts_lo = cpu_to_le32(block_ts - 1);
 
 	ctllo |= DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_DST_MSIZE_POS |
-		 DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS;
+		DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS;
 	hw_desc->lli->ctl_lo = cpu_to_le32(ctllo);
 
-	set_desc_src_master(hw_desc);
-
+	set_desc_src_master(hw_desc, chan);
+	set_desc_dest_master(hw_desc, chan);
 	hw_desc->len = len;
 	return 0;
 }
@@ -944,8 +985,8 @@ dma_chan_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst_adr,
 		       DWAXIDMAC_CH_CTL_L_INC << CH_CTL_L_SRC_INC_POS);
 		hw_desc->lli->ctl_lo = cpu_to_le32(reg);
 
-		set_desc_src_master(hw_desc);
-		set_desc_dest_master(hw_desc, desc);
+		set_desc_src_master(hw_desc, chan);
+		set_desc_dest_master(hw_desc, chan);
 
 		hw_desc->len = xfer_len;
 		desc->length += hw_desc->len;
@@ -1285,6 +1326,41 @@ static int __maybe_unused axi_dma_runtime_resume(struct device *dev)
 	return axi_dma_resume(chip);
 }
 
+int win2030_dma_sel_cfg(struct axi_dma_chan *chan, u32 val)
+{
+	struct axi_dma_chip *chip = chan->chip;
+	struct device *dev = chan->chip->dev;
+	int ret = 0;
+	struct regmap *regmap;
+	int dma_sel_reg;
+	u32 dma_sel = 0;
+
+	regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscfg");
+	if (IS_ERR(regmap)) {
+		dev_err(dev, "No eswin,syscfg phandle specified\n");
+		return -1;
+	}
+
+	ret = of_property_read_u32_index(dev->of_node, "eswin,syscfg", 2,
+					&dma_sel_reg);
+	if (ret) {
+		dev_err(dev, "can't get sid cfg reg offset in sys_con(errno:%d)\n", ret);
+		return ret;
+	}
+	regmap_read(regmap, dma_sel_reg, &dma_sel);
+	
+	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-hsp")) {
+		if (val < 32)
+			dma_sel &= ~(1 << val);
+	}
+	else {
+		if (val < 32)
+			dma_sel |= (1 << val);
+	}
+	regmap_write(regmap, dma_sel_reg, dma_sel);
+	return 0;
+}
+
 static struct dma_chan *dw_axi_dma_of_xlate(struct of_phandle_args *dma_spec,
 					    struct of_dma *ofdma)
 {
@@ -1298,6 +1374,8 @@ static struct dma_chan *dw_axi_dma_of_xlate(struct of_phandle_args *dma_spec,
 
 	chan = dchan_to_axi_dma_chan(dchan);
 	chan->hw_handshake_num = dma_spec->args[0];
+	if (dma_spec->args_count > 1)
+		win2030_dma_sel_cfg(chan, dma_spec->args[1]);
 	return dchan;
 }
 
@@ -1421,6 +1499,23 @@ static int dw_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	}
+	if (flags & AXI_DMA_FLAG_HAS_2RESETS) {
+		resets = devm_reset_control_get_optional(&pdev->dev, "arst");
+		if (IS_ERR(resets))
+			return PTR_ERR(resets);
+
+		ret = reset_control_deassert(resets);
+		if (ret)
+			return ret;
+
+		resets = devm_reset_control_get_optional(&pdev->dev, "prst");
+		if (IS_ERR(resets))
+			return PTR_ERR(resets);
+
+		ret = reset_control_deassert(resets);
+		if (ret)
+			return ret;
+	}
 
 	chip->dw->hdata->use_cfg2 = !!(flags & AXI_DMA_FLAG_USE_CFG2);
 
@@ -1535,6 +1630,51 @@ err_pm_disable:
 	return ret;
 }
 
+static int eswin_dma_sid_cfg(struct device *dev)
+{
+	int ret;
+	struct regmap *regmap;
+	int hsp_mmu_dma_reg;
+	u32 rdwr_sid_ssid;
+	u32 sid;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+
+	/* not behind smmu, use the default reset value(0x0) of the reg as streamID*/
+	if (fwspec == NULL) {
+		dev_dbg(dev, "dev is not behind smmu, skip configuration of sid\n");
+		return 0;
+	}
+	sid = fwspec->ids[0];
+
+	regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,hsp_sp_csr");
+	if (IS_ERR(regmap)) {
+		dev_dbg(dev, "No hsp_sp_csr phandle specified\n");
+		return 0;
+	}
+
+	ret = of_property_read_u32_index(dev->of_node, "eswin,hsp_sp_csr", 1,
+					&hsp_mmu_dma_reg);
+	if (ret) {
+		dev_err(dev, "can't get dma sid cfg reg offset (%d)\n", ret);
+		return ret;
+	}
+
+	/* make the reading sid the same as writing sid, ssid is fixed to zero */
+	rdwr_sid_ssid  = FIELD_PREP(AWSMMUSID, sid);
+	rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, sid);
+	rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
+	rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
+	regmap_write(regmap, hsp_mmu_dma_reg, rdwr_sid_ssid);
+
+	ret = win2030_dynm_sid_enable(dev_to_node(dev));
+	if (ret < 0)
+		dev_err(dev, "failed to config dma streamID(%d)!\n", sid);
+	else
+		dev_dbg(dev, "success to config dma streamID(%d)!\n", sid);
+
+	return ret;
+}
+
 static int dw_remove(struct platform_device *pdev)
 {
 	struct axi_dma_chip *chip = platform_get_drvdata(pdev);
@@ -1564,6 +1704,8 @@ static int dw_remove(struct platform_device *pdev)
 		list_del(&chan->vc.chan.device_node);
 		tasklet_kill(&chan->vc.task);
 	}
+	/* TBU power down before reset */
+	win2030_tbu_power(chip->dev, false);
 
 	return 0;
 }
@@ -1581,6 +1723,9 @@ static const struct of_device_id dw_dma_of_id_table[] = {
 	}, {
 		.compatible = "starfive,jh7110-axi-dma",
 		.data = (void *)(AXI_DMA_FLAG_HAS_RESETS | AXI_DMA_FLAG_USE_CFG2),
+	}, {
+		.compatible = "eswin,eic770x-axi-dma",
+		.data = (void *)(AXI_DMA_FLAG_HAS_2RESETS | AXI_DMA_FLAG_USE_CFG2),
 	},
 	{}
 };

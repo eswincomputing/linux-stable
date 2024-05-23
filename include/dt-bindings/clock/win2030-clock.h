@@ -378,6 +378,7 @@
 #define WIN2030_GATE_VC_VD_PCLK                                 411
 #define WIN2030_GATE_VC_MON_PCLK                                412
 #define WIN2030_GATE_HSP_DMA0_CLK                               413
+#define WIN2030_GATE_HSP_DMA0_CLK_TEST                          414
 
 /*fixed factor clocks*/
 #define WIN2030_FIXED_FACTOR_U_CPU_DIV2                         450
@@ -596,6 +597,7 @@
 #define WIN2030_CLK_VC_MON_PCLK                               	689
 
 #define WIN2030_CLK_HSP_DMA0_CLK                               	690
+#define WIN2030_CLK_HSP_DMA0_CLK_TEST                          	691
 
 #define WIN2030_NR_CLKS                                         700
 

@@ -323,7 +323,8 @@
 			interrupts = <57>;
 			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
 			clocks = <&d1_clock WIN2030_CLK_HSP_DMA0_CLK>;
-			clock-names = "core-clk";
+					 <&d1_clock WIN2030_CLK_HSP_DMA0_CLK_TEST>;
+			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_DMA0_RSTN>,
 				<&d1_reset HSPDMA_RST_CTRL SW_HSP_DMA_PRSTN>;
 			reset-names = "arst", "prst";
@@ -348,8 +349,9 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <289>;
 			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
-			clocks = <&d1_clock WIN2030_CLK_AONDMA_ACLK>;
-			clock-names = "core-clk";
+			clocks = <&d1_clock WIN2030_CLK_AONDMA_ACLK>,
+				 <&d1_clock WIN2030_CLK_AONDMA_CFG>;
+			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d1_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
 				<&d1_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
 			reset-names = "arst", "prst";
@@ -1620,7 +1622,7 @@
 		};
 
 		d1_ssi0: spi1@70810000 {
-			compatible = "snps,win2030-spi";
+			compatible = "snps,eic770x-spi";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x70810000 0x0 0x5000>;

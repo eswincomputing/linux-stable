@@ -202,7 +202,7 @@ static inline struct axi_dma_chan *dchan_to_axi_dma_chan(struct dma_chan *dchan)
 #define UNUSED_CHANNEL		0x3F /* Set unused DMA channel to 0x3F */
 #define DMA_APB_HS_SEL_BIT_SIZE	0x08 /* HW handshake bits per channel */
 #define DMA_APB_HS_SEL_MASK	0xFF /* HW handshake select masks */
-#define MAX_BLOCK_SIZE		0x1000 /* 1024 blocks * 4 bytes data width */
+#define MAX_BLOCK_SIZE		0x1000 /* 1024 blocks * 512 bytes data width */
 #define DMA_REG_MAP_CH_REF	0x08 /* Channel count to choose register map */
 
 /* DMAC_CFG */
@@ -321,8 +321,7 @@ enum {
 #define CH_CFG2_H_TT_FC_POS		0
 #define CH_CFG2_H_HS_SEL_SRC_POS	3
 #define CH_CFG2_H_HS_SEL_DST_POS	4
-#define CH_CFG2_H_PRIORITY_POS		20
-
+#define CH_CFG2_H_PRIORITY_POS		15
 /**
  * DW AXI DMA channel interrupts
  *

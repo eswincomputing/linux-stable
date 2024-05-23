@@ -375,13 +375,14 @@
 		};
 
 		d0_dmac0: dma-controller-hsp@0x50430000 {
-			compatible = "snps,axi-dma-1.01a";
+			compatible = "eswin,eic770x-axi-dma";
 			reg = <0x0 0x50430000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <57>;
 			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
-			clocks = <&d0_clock WIN2030_CLK_HSP_DMA0_CLK>;
-			clock-names = "core-clk";
+			clocks = <&d0_clock WIN2030_CLK_HSP_DMA0_CLK>,
+					 <&d0_clock WIN2030_CLK_HSP_DMA0_CLK_TEST>;
+			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_DMA0_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_DMA_PRSTN>;
 			reset-names = "arst", "prst";
@@ -401,13 +402,14 @@
 		};
 
 		d0_aon_dmac: dma-controller-aon@0x518c0000 {
-			compatible = "snps,axi-dma-1.01a";
+			compatible = "eswin,eic770x-axi-dma";
 			reg = <0x0 0x518c0000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <289>;
 			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
-			clocks = <&d0_clock WIN2030_CLK_AONDMA_ACLK>;
-			clock-names = "core-clk";
+			clocks = <&d0_clock WIN2030_CLK_AONDMA_ACLK>,
+				 <&d0_clock WIN2030_CLK_AONDMA_CFG>;
+			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d0_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
 				<&d0_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
 			reset-names = "arst", "prst";
@@ -417,7 +419,7 @@
 			snps,data-width = <3>;
 			snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
 			snps,axi-max-burst-len = <32>;
-			snps,max-msize = <64>;
+			// snps,max-msize = <64>;
 			#size-cells = <2>;
 			#address-cells = <2>;
 			dma-ranges = <0x0 0x80000000 0x0 0x80000000 0x100 0x0>;
@@ -806,7 +808,7 @@
 		};
 
 		ssi0: spi@50810000 {
-			compatible = "snps,win2030-spi";
+			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x50810000 0x0 0x4000>;
@@ -826,7 +828,7 @@
 		};
 
 		ssi1: spi@50814000 {
-			compatible = "snps,win2030-spi";
+			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x0 0x50814000 0x0 0x4000>;

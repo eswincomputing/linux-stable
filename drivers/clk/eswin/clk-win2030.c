@@ -906,6 +906,9 @@ static struct eswin_gate_clock win2030_gate_clks[] = {
 	{ WIN2030_GATE_HSP_SATA_OOB_CLK			,"gate_hsp_sata_oob_clk",   "mux_u_sata_phy_2mux1", CLK_SET_RATE_PARENT,
 		WIN2030_REG_OFFSET_SATA_OOB_CTRL, 31, 0, },
 
+	{ WIN2030_GATE_HSP_DMA0_CLK_TEST	,"gate_hsp_dma0_clk_test",   "gate_clk_hsp_aclk", CLK_SET_RATE_PARENT,
+		WIN2030_REG_OFFSET_HSP_ACLK_CTRL, 1, 0, },
+
 	{ WIN2030_GATE_HSP_DMA0_CLK			,"gate_hsp_dma0_clk",   "gate_clk_hsp_aclk", CLK_SET_RATE_PARENT,
 		WIN2030_REG_OFFSET_HSP_ACLK_CTRL, 0, 0, },
 
@@ -1110,6 +1113,7 @@ static struct eswin_clock win2030_clks[] = {
 	{  WIN2030_CLK_VC_MON_PCLK		,"clk_vc_mon_pclk",		"gate_vc_mon_pclk", CLK_SET_RATE_PARENT,},
 
 	{  WIN2030_CLK_HSP_DMA0_CLK		,"clk_hsp_dma0_clk",		"gate_hsp_dma0_clk", CLK_SET_RATE_PARENT,},
+	{  WIN2030_CLK_HSP_DMA0_CLK_TEST		,"clk_hsp_dma0_clk_TEST",		"gate_hsp_dma0_clk", CLK_SET_RATE_PARENT,},
 	{  WIN2030_CLK_HSP_RMII_REF_0		,"clk_hsp_rmii_ref_0",		"gate_hsp_rmii_ref_0", CLK_SET_RATE_PARENT,},
 	{  WIN2030_CLK_HSP_RMII_REF_1		,"clk_hsp_rmii_ref_1",		"gate_hsp_rmii_ref_1", CLK_SET_RATE_PARENT,},
 
