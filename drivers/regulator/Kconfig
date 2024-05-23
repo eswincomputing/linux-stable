@@ -795,6 +795,12 @@ config REGULATOR_MPQ7920
 	  This driver supports the control of different power rails of device
 	  through regulator interface.
 
+config REGULATOR_MPQ8785
+	tristate "mps,mpq8785"
+	help
+	  This driver provides support for the voltage regulators on the
+	  eswin evb.
+
 config REGULATOR_MT6311
 	tristate "MediaTek MT6311 PMIC"
 	depends on I2C
