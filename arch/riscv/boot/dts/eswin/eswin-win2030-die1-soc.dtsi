@@ -1647,6 +1647,7 @@
         d1_video_output: display-subsystem {
             compatible = "eswin,display-subsystem";
             ports = <&d1_dc_out>;
+            dma-noncoherent;
         };
 
         d1_dc: display_control@702c0000 {

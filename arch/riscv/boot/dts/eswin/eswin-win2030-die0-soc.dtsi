@@ -1739,6 +1739,7 @@
 		video_output: display-subsystem {
 			compatible = "eswin,display-subsystem";
 			ports = <&dc_out>;
+			dma-noncoherent;
 		};
 
 		dvb_widgets: dvb-subsystem {
