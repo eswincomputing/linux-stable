@@ -895,13 +895,6 @@ static int llc_resource_parse(struct platform_device *pdev)
 		(unsigned int)resource_size(&res_spram),
 		npu_spram_size);
 
-	/* add to memblock and reserve it */
-	ret = memblock_reserve(res_spram.start, npu_spram_size);
-	if (ret) {
-		dev_err(dev, "Failed to reserve spram!!!\n");
-		goto out_spram_region;
-	}
-
 	spram->phys_addr = res_spram.start;
 	spram->virt_base = devm_ioremap(&pdev->dev, spram->phys_addr, npu_spram_size);
 	if (spram->virt_base == NULL) {
@@ -1174,7 +1167,7 @@ static void spram_heap_dma_buf_release(struct dma_buf *dmabuf)
 	struct sg_table *table;
 	struct spram_dev *spram = buffer->heap->spram;
 	struct scatterlist *sg;
-	int i, page_num = 0;
+	int i;
 
 	table = &buffer->sg_table;
 	for_each_sgtable_sg(table, sg, i) {
@@ -1184,15 +1177,10 @@ static void spram_heap_dma_buf_release(struct dma_buf *dmabuf)
 		#else
 		void *vaddr = spram_phys_to_virt(spram, page_to_phys(page));
 		#endif
-		gen_pool_free(spram->pool, (unsigned long)vaddr, PAGE_SIZE);
-		page_num++;
+		gen_pool_free(spram->pool, (unsigned long)vaddr, page_size(page));
 	}
 	sg_free_table(table);
 	kfree(buffer);
-	pr_info("%s, ---buffer->len=0x%lx, freed size=0x%x, Available:0x%lx\n",
-		__func__, buffer->len,
-		(page_num << PAGE_SHIFT), gen_pool_avail(spram->pool));
-
 }
 
 static const struct dma_buf_ops spram_heap_buf_ops = {
@@ -1208,33 +1196,16 @@ static const struct dma_buf_ops spram_heap_buf_ops = {
 	.release = spram_heap_dma_buf_release,
 };
 
-struct spram_page {
-	struct list_head lru;
-	struct page *page;
-};
-
 static int spram_noncontiguous_alloc(struct spram_dev *spram, size_t len, struct sg_table *table)
 {
 	struct gen_pool *pool = spram->pool;
 	struct list_head pages;
-	struct page *page;
+	struct page *page, *tmp_page;
 	struct scatterlist *sg;
 	unsigned long size_remaining = len;
 	phys_addr_t phys_addr;
 	void *vaddr;
-	unsigned int page_num;
-	struct spram_page *spram_pages, *spram_page, *tmp_spram_page;
 	int i, ret = -ENOMEM;
-
-	page_num = size_remaining / PAGE_SIZE;
-	pr_info("%s, ---try to alloc len=0x%lx, Available:0x%lx\n", __func__, len, gen_pool_avail(spram->pool));
-
-	spram_pages = kzalloc(page_num * sizeof(struct spram_page), GFP_KERNEL);
-	if (!spram_pages) {
-		pr_err("unable to allocate memory.\n");
-		return -ENOMEM;
-	}
-	spram_page = spram_pages;
 
 	INIT_LIST_HEAD(&pages);
 	i = 0;
@@ -1253,45 +1224,39 @@ static int spram_noncontiguous_alloc(struct spram_dev *spram, size_t len, struct
 			goto free_spram;
 
 		page = phys_to_page(phys_addr);
-		// pr_debug("---%s:%d, page_to_phys:0x%x,page:0x%px, spram_page:0x%px\n",
-			// __func__, __LINE__, (unsigned int)page_to_phys(page), page, spram_page);
+		pr_debug("---%s:%d, phys_to_page->page_to_phys:0x%x,page:0x%px\n",
+			__func__, __LINE__, (unsigned int)page_to_phys(page), page);
 		/* page->virtual is used for recording the gen pool vaddr which is needed when releasing spram memory */
 		#ifdef WANT_PAGE_VIRTUAL
 		page->virtual = vaddr;
 		set_page_address(page, vaddr);
 		#endif
 
-		spram_page->page = page;
-		list_add_tail(&spram_page->lru, &pages);
+		list_add_tail(&page->lru, &pages);
 		size_remaining -= PAGE_SIZE;
 		i++;
-		spram_page++;
 	}
 
 	if (sg_alloc_table(table, i, GFP_KERNEL))
 		goto free_spram;
 
 	sg = table->sgl;
-	list_for_each_entry_safe(spram_page, tmp_spram_page, &pages, lru) {
-		page = spram_page->page;
+	list_for_each_entry_safe(page, tmp_page, &pages, lru) {
 		sg_set_page(sg, page, PAGE_SIZE, 0);
 		sg = sg_next(sg);
-		list_del(&spram_page->lru);
+		list_del(&page->lru);
 	}
 
-	kfree(spram_pages);
 	return 0;
 free_spram:
-	list_for_each_entry_safe(spram_page, tmp_spram_page, &pages, lru) {
+	list_for_each_entry_safe(page, tmp_page, &pages, lru) {
 		#ifdef WANT_PAGE_VIRTUAL
 		vaddr = page_address(page);
 		#else
-		page = spram_page->page;
 		vaddr = spram_phys_to_virt(spram, page_to_phys(page));
 		#endif
 		gen_pool_free(pool, (unsigned long)vaddr, PAGE_SIZE);
 	}
-	kfree(spram_pages);
 	return ret;
 }
 
