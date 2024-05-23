@@ -752,8 +752,7 @@
 &d0_aon_i2c1 {
 	/* mpq8785 & ina226x4 */
 	status = "okay";
-	eswin,syscfg = <&d0_sys_con 0x3C0 15>;
-	iic_hold_time = <0x40>;
+	i2c-sda-hold-time-ns = <0x40>;
 	mpq8785@10 {
 		compatible = "mps,mpq8785";
 		reg = <0x10>;
@@ -771,32 +770,32 @@
 			};
 		};
 	};
-	u80_cpu: ina226@45 {
+	vdd_cpu: ina226@45 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "ina226-u80_CPU";
+		label = "vdd_cpu";
 		reg = <0x45>;
 		shunt-resistor = <1000>;
 	};
-	u82_soc: ina226@44 {
+	vdd_soc: ina226@44 {
 			compatible = "ti,ina226";
 			#io-channel-cells = <1>;
-			label = "ina226-u82_soc";
+			label = "vdd_soc";
 			reg = <0x44>;
 			shunt-resistor = <1000>;
 		};
-	u83_lpddr4: ina226@41 {
+	vdd_lpddr: ina226@41 {
 			compatible = "ti,ina226";
 			#io-channel-cells = <1>;
-			label = "ina226-u83_lpddr4";
+			label = "vdd_lpddr";
 			reg = <0x41>;
 			shunt-resistor = <1000>;
 		};
-	u99_dc: ina226@4c {
+	dc_in: ina226@48 {
 			compatible = "ti,ina226";
 			#io-channel-cells = <1>;
-			label = "ina226-u99_dc";
-			reg = <0x4c>;
+			label = "dc_in";
+			reg = <0x48>;
 			shunt-resistor = <1000>;
 		};
 };
