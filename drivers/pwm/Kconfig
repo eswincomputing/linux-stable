@@ -195,6 +195,15 @@ config PWM_DWC
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-dwc.
 
+config PWM_ESWIN
+	tristate "DesignWare PWM Controller"
+	depends on PCI
+	help
+	  PWM driver for Synopsys DWC PWM Controller.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-eswin.
+
 config PWM_EP93XX
 	tristate "Cirrus Logic EP93xx PWM support"
 	depends on ARCH_EP93XX || COMPILE_TEST

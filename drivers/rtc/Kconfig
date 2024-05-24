@@ -1984,4 +1984,12 @@ config RTC_DRV_POLARFIRE_SOC
 	  This driver can also be built as a module, if so, the module
 	  will be called "rtc-mpfs".
 
+config RTC_DRV_ESWIN
+	tristate "eswin win2030 RTC"
+	help
+	  If you say yes here you get support for the eswin win2030 real time
+	  clock.
+
+	  This driver can also be built as a module, if so, the module
+	  will be called "rtc-eswin".
 endif # RTC_CLASS
