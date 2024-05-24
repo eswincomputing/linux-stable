@@ -136,6 +136,15 @@ config SATA_MOBILE_LPM_POLICY
 	  Note "Minimum power" is known to cause issues, including disk
 	  corruption, with some disks and should not be used.
 
+config AHCI_ESWIN
+	tristate "Eswin AHCI SATA support"
+	select SATA_HOST
+	help
+	  This option enables support for Eswin AHCI Serial ATA
+	  controllers.
+
+	  If unsure, say N.
+
 config SATA_AHCI_PLATFORM
 	tristate "Platform AHCI SATA support"
 	select SATA_HOST
