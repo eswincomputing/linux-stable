@@ -62,6 +62,7 @@ struct eswin_fan_control_data {
 	u32 ppr;
 	/* revolutions per minute */
 	u32 rpm;
+	u8 pwm_inverted;
 };
 
 static inline void fan_iowrite(const u32 val, const u32 reg,
@@ -81,9 +82,14 @@ static ssize_t eswin_fan_pwm_ctl_show(struct device *dev, struct device_attribut
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
 	long temp = 0;
-
+	long period = 0;
 	if (FAN_PWM_DUTY == attr->index) {
 		temp = pwm_get_duty_cycle(ctl->pwm);
+		if(1 ==  ctl->pwm_inverted)
+		{
+			period = pwm_get_period(ctl->pwm);
+			temp =  period- temp;
+		}
 	}
 	else if (FAN_PWM_PERIOD == attr->index) {
 		temp = pwm_get_period(ctl->pwm);
@@ -110,8 +116,14 @@ static ssize_t eswin_fan_pwm_ctl_store(struct device *dev, struct device_attribu
 		ret = kstrtoul(buf, 10, &val);
 		if (ret)
 			return ret;
-
-		state.duty_cycle = val;
+		if(1 ==  ctl->pwm_inverted)
+		{
+			state.duty_cycle =  state.period - val;
+		}
+		else
+		{
+			state.duty_cycle = val;
+		}
 	}
 	else if (FAN_PWM_PERIOD == attr->index) {
 		long val = 0;
@@ -168,9 +180,7 @@ static long eswin_fan_control_get_fan_rpm(struct eswin_fan_control_data *ctl)
 
 	ctl->wait_flag = false;
 	period = pwm_get_period(ctl->pwm);
-	timeout = TIMEOUT(period);
-	if(!timeout)
-		timeout = TIMEOUT(ctl->min_period);
+	timeout = msecs_to_jiffies(1500);
 
 	val = fan_ioread(REG_FAN_INT, ctl);
 	val = val | 0x1;
@@ -185,7 +195,6 @@ static long eswin_fan_control_get_fan_rpm(struct eswin_fan_control_data *ctl)
 		/* timeout, set rpm to 0 */
 		ctl->rpm = 0;
 	}
-
 	if(ctl->rpm)
 		ctl->rpm = DIV_ROUND_CLOSEST(60 * ctl->clk_rate, ctl->ppr * ctl->rpm);
 
@@ -215,6 +224,10 @@ static int eswin_fan_control_read_pwm(struct device *dev, u32 attr, long *val)
 	switch (attr) {
 	case hwmon_pwm_input:
 		*val = eswin_fan_control_get_pwm_duty(ctl);
+		if(1 ==  ctl->pwm_inverted)
+		{
+			*val = 100 - *val;
+		}
 		return 0;
 	default:
 		return -ENOTSUPP;
@@ -235,13 +248,21 @@ static int eswin_fan_control_set_pwm_duty(const long val, struct eswin_fan_contr
 static int eswin_fan_control_write_pwm(struct device *dev, u32 attr, long val)
 {
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-
 	switch (attr) {
 		case hwmon_pwm_input:
-	if((val < 0)||(val > 100))
+	if((val < 10) || (val > 99))
+	{
+		dev_err(dev,"pwm range is form 10 to 99\n");
 		return -EINVAL;
+	}
 	else
+	{
+		if(1 ==  ctl->pwm_inverted)
+		{
+			val = 100 - val;
+		}
 		return eswin_fan_control_set_pwm_duty(val, ctl);
+	}
 	default:
 		return -ENOTSUPP;
 	}
@@ -413,7 +434,6 @@ MODULE_DEVICE_TABLE(of, eswin_fan_control_of_match);
 static int eswin_fan_control_probe(struct platform_device *pdev)
 {
 	struct eswin_fan_control_data *ctl;
-	struct clk *clk;
 	const struct of_device_id *id;
 	const char *name = "eswin_fan_control";
 	struct pwm_state state;
@@ -455,7 +475,7 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	}
 	ret = reset_control_reset(ctl->fan_rst);
 	WARN_ON(0 != ret);
-
+	ctl->pwm_inverted = of_property_read_bool(pdev->dev.of_node, "eswin,pwm_inverted");
 	init_waitqueue_head(&ctl->wq);
 
 	ctl->irq = platform_get_irq(pdev, 0);
