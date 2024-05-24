@@ -1,0 +1,20 @@
+if SOC_SIFIVE || SOC_STARFIVE
+
+config ESWIN_KHANDLE
+    bool "eswin kernel khandle functions"
+    default y
+    help
+        eswin realize this khandle, and mainly use for user process resource
+        mangement.
+
+config ESWIN_DSP_SUBSYS
+    tristate "Eswin dsp subsys"
+    default y
+    help
+      This is hardware-specific DSP subsys kernel driver for the eswin
+      hardware. It should be enabled to support dsp on eswin
+      platform.
+
+      If unsure, say N.
+
+endif
