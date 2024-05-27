@@ -2025,11 +2025,13 @@
 			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
 			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
 			reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
-
+			interrupt-parent = <&plic0>;
+			interrupts = <368 369 370 371 372 373 374 375>;
 			id = <0>;
 			#size-cells = <2>;
 			reg = <0x0 0x51030000 0x0 0x10000>;
 		};
+
 
 		isp_0: isp@0x51000000 {
 			compatible = "esw,win2030-isp";
@@ -2177,7 +2179,9 @@
 			port@2 {
 				reg = <2>;
 				csi2_dma_0_3: endpoint {
-					bus-type = <5>;
+					bus-type = <4>;
+					clock-lanes = <0>;
+                                        data-lanes = <1 2>;
 					remote-endpoint = <&csi_dmar_0>;
 				};
 			};
@@ -2222,7 +2226,7 @@
 			port@2 {
 				reg = <2>;
 				csi2_dma_1_3: endpoint {
-					bus-type = <5>;
+					bus-type = <4>;
 					remote-endpoint = <&csi_dmar_1>;
 				};
 			};

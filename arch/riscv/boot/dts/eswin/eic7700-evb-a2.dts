@@ -435,11 +435,11 @@
 };
 
 &isp_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &isp_1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dewarp {
@@ -447,11 +447,11 @@
 };
 
 &mipi_dphy_rx {
-	status = "disabled";
+	status = "okay";
 };
 
 &csi_dma0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &csi_dma1 {
@@ -459,7 +459,7 @@
 };
 
 &csi2_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &csi2_1 {
@@ -745,7 +745,7 @@
 
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_i2c4 {
