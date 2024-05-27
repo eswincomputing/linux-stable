@@ -437,6 +437,7 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	const struct of_device_id *id;
 	const char *name = "eswin_fan_control";
 	struct pwm_state state;
+	struct pwm_args pwm_args;
 	int ret;
 
 	id = of_match_node(eswin_fan_control_of_match, pdev->dev.of_node);
@@ -498,22 +499,26 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	}
 	ctl->pwm = pwm_get(&pdev->dev, NULL);
 	if (IS_ERR(ctl->pwm)) {
-		dev_dbg(&pdev->dev, "Unable to request PWM, trying legacy API\n");
-	}
-
-	if (IS_ERR(ctl->pwm)) {
 		ret = PTR_ERR(ctl->pwm);
 		dev_err(&pdev->dev, "Failed to request pwm device: %d\n", ret);
 		return ret;
 	}
-	pwm_enable(ctl->pwm);
-	pwm_init_state(ctl->pwm, &state);
+
+	pwm_get_state(ctl->pwm, &state);
+
+	/* Then fill it with the reference config */
+	pwm_get_args(ctl->pwm, &pwm_args);
+
+	state.period = pwm_args.period;
 	state.duty_cycle = state.period/2;
+	dev_err(&pdev->dev, "state.period: %d state.duty_cycle: %d\n",
+			state.period,state.duty_cycle);
 	ret = pwm_apply_state(ctl->pwm, &state);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to apply initial PWM state: %d\n",
 			ret);
 	}
+	pwm_enable(ctl->pwm);
 
 	ret = devm_add_action_or_reset(&pdev->dev, eswin_fan_control_remove, ctl);
 	if (ret)

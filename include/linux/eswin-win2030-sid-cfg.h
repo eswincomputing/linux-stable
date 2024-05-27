@@ -3,6 +3,7 @@
 
 int win2030_dynm_sid_enable(int nid);
 int win2030_aon_sid_cfg(struct device *dev);
+int win2030_dma_sid_cfg(struct device *dev);
 int win2030_tbu_power(struct device *dev, bool is_powerUp);
 int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *node, bool is_powerUp);
 

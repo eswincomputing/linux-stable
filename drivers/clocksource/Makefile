@@ -21,6 +21,7 @@ obj-$(CONFIG_OMAP_DM_TIMER)	+= timer-ti-dm.o
 obj-$(CONFIG_OMAP_DM_SYSTIMER)	+= timer-ti-dm-systimer.o
 obj-$(CONFIG_DW_APB_TIMER)	+= dw_apb_timer.o
 obj-$(CONFIG_DW_APB_TIMER_OF)	+= dw_apb_timer_of.o
+obj-$(CONFIG_TIMER_ESWIN)	+= timer-eswin.o
 obj-$(CONFIG_FTTMR010_TIMER)	+= timer-fttmr010.o
 obj-$(CONFIG_IXP4XX_TIMER)	+= timer-ixp4xx.o
 obj-$(CONFIG_ROCKCHIP_TIMER)      += timer-rockchip.o

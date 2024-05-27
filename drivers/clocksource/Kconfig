@@ -73,6 +73,11 @@ config DW_APB_TIMER_OF
 	select DW_APB_TIMER
 	select TIMER_OF
 
+config TIMER_ESWIN
+	tristate "ESWIN timer support"
+	help
+	  Enables the support for the eswin timer.
+
 config FTTMR010_TIMER
 	bool "Faraday Technology timer driver" if COMPILE_TEST
 	depends on HAS_IOMEM

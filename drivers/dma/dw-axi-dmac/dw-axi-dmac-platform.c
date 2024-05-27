@@ -55,14 +55,13 @@
 #define AXI_DMA_FLAG_HAS_APB_REGS	BIT(0)
 #define AXI_DMA_FLAG_HAS_RESETS		BIT(1)
 #define AXI_DMA_FLAG_USE_CFG2		BIT(2)
-#define AXI_DMA_FLAG_HAS_2RESETS		BIT(3)
+#define AXI_DMA_FLAG_HAS_2RESETS	BIT(3)
+#define AXI_DMA_FLAG_HAS_EIC7700	BIT(4)
 
 #define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
 #define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
 #define ARSMMUSID	GENMASK(15, 8)	// The sid of read operation
 #define ARSMMUSSID	GENMASK(7, 0)	// The ssid of read operation
-
-static int eswin_dma_sid_cfg(struct device *dev);
 
 static inline void
 axi_dma_iowrite32(struct axi_dma_chip *chip, u32 reg, u32 val)
@@ -233,6 +232,7 @@ static void axi_dma_hw_init(struct axi_dma_chip *chip)
 {
 	int ret;
 	u32 i;
+	int flags;
 
 	for (i = 0; i < chip->dw->hdata->nr_channels; i++) {
 		axi_chan_irq_disable(&chip->dw->chan[i], DWAXIDMAC_IRQ_ALL);
@@ -242,15 +242,19 @@ static void axi_dma_hw_init(struct axi_dma_chip *chip)
 	if (ret)
 		dev_warn(chip->dev, "Unable to set coherent mask\n");
 
-	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-hsp")) {
-		eswin_dma_sid_cfg(chip->dev);
-	}
-	else {
-		win2030_aon_sid_cfg(chip->dev);
+	flags = (uintptr_t)of_device_get_match_data(chip->dev);
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700) {
+		if (of_node_name_prefix(chip->dev->of_node, "dma-controller-hsp")) {
+			win2030_dma_sid_cfg(chip->dev);
+		}
+		else {
+			win2030_aon_sid_cfg(chip->dev);
+		}
+
+		/* TBU power up */
+		win2030_tbu_power(chip->dev, true);
 	}
 
-	/* TBU power up */
-	win2030_tbu_power(chip->dev, true);
 }
 
 static u32 axi_chan_get_xfer_width(struct axi_dma_chan *chan, dma_addr_t src,
@@ -716,7 +720,7 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 	hw_desc->lli->block_ts_lo = cpu_to_le32(block_ts - 1);
 
 	ctllo |= DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_DST_MSIZE_POS |
-		DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS;
+		 DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS;
 	hw_desc->lli->ctl_lo = cpu_to_le32(ctllo);
 
 	set_desc_src_master(hw_desc, chan);
@@ -1374,8 +1378,11 @@ static struct dma_chan *dw_axi_dma_of_xlate(struct of_phandle_args *dma_spec,
 
 	chan = dchan_to_axi_dma_chan(dchan);
 	chan->hw_handshake_num = dma_spec->args[0];
-	if (dma_spec->args_count > 1)
-		win2030_dma_sel_cfg(chan, dma_spec->args[1]);
+	int flags = (uintptr_t)of_device_get_match_data(chan->chip->dev);
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700) {
+		if (dma_spec->args_count > 1)
+			win2030_dma_sel_cfg(chan, dma_spec->args[1]);
+	}
 	return dchan;
 }
 
@@ -1630,57 +1637,13 @@ err_pm_disable:
 	return ret;
 }
 
-static int eswin_dma_sid_cfg(struct device *dev)
-{
-	int ret;
-	struct regmap *regmap;
-	int hsp_mmu_dma_reg;
-	u32 rdwr_sid_ssid;
-	u32 sid;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
-
-	/* not behind smmu, use the default reset value(0x0) of the reg as streamID*/
-	if (fwspec == NULL) {
-		dev_dbg(dev, "dev is not behind smmu, skip configuration of sid\n");
-		return 0;
-	}
-	sid = fwspec->ids[0];
-
-	regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,hsp_sp_csr");
-	if (IS_ERR(regmap)) {
-		dev_dbg(dev, "No hsp_sp_csr phandle specified\n");
-		return 0;
-	}
-
-	ret = of_property_read_u32_index(dev->of_node, "eswin,hsp_sp_csr", 1,
-					&hsp_mmu_dma_reg);
-	if (ret) {
-		dev_err(dev, "can't get dma sid cfg reg offset (%d)\n", ret);
-		return ret;
-	}
-
-	/* make the reading sid the same as writing sid, ssid is fixed to zero */
-	rdwr_sid_ssid  = FIELD_PREP(AWSMMUSID, sid);
-	rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, sid);
-	rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
-	rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
-	regmap_write(regmap, hsp_mmu_dma_reg, rdwr_sid_ssid);
-
-	ret = win2030_dynm_sid_enable(dev_to_node(dev));
-	if (ret < 0)
-		dev_err(dev, "failed to config dma streamID(%d)!\n", sid);
-	else
-		dev_dbg(dev, "success to config dma streamID(%d)!\n", sid);
-
-	return ret;
-}
-
 static int dw_remove(struct platform_device *pdev)
 {
 	struct axi_dma_chip *chip = platform_get_drvdata(pdev);
 	struct dw_axi_dma *dw = chip->dw;
 	struct axi_dma_chan *chan, *_chan;
 	u32 i;
+	unsigned int flags;
 
 	/* Enable clk before accessing to registers */
 	clk_prepare_enable(chip->cfgr_clk);
@@ -1704,8 +1667,11 @@ static int dw_remove(struct platform_device *pdev)
 		list_del(&chan->vc.chan.device_node);
 		tasklet_kill(&chan->vc.task);
 	}
-	/* TBU power down before reset */
-	win2030_tbu_power(chip->dev, false);
+	flags = (uintptr_t)of_device_get_match_data(&pdev->dev);
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700) {
+		/* TBU power down before reset */
+		win2030_tbu_power(chip->dev, false);
+	}
 
 	return 0;
 }
@@ -1725,7 +1691,7 @@ static const struct of_device_id dw_dma_of_id_table[] = {
 		.data = (void *)(AXI_DMA_FLAG_HAS_RESETS | AXI_DMA_FLAG_USE_CFG2),
 	}, {
 		.compatible = "eswin,eic770x-axi-dma",
-		.data = (void *)(AXI_DMA_FLAG_HAS_2RESETS | AXI_DMA_FLAG_USE_CFG2),
+		.data = (void *)(AXI_DMA_FLAG_HAS_2RESETS | AXI_DMA_FLAG_USE_CFG2 | AXI_DMA_FLAG_HAS_EIC7700),
 	},
 	{}
 };
@@ -1745,3 +1711,4 @@ module_platform_driver(dw_driver);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Synopsys DesignWare AXI DMA Controller platform driver");
 MODULE_AUTHOR("Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>");
+MODULE_AUTHOR("XuXiang <xuxiang@eswincomputing.com>");

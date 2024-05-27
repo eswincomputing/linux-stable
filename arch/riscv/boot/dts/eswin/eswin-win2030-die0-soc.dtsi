@@ -1516,11 +1516,11 @@
 			compatible = "eswin,pwm-eswin";
 			#pwm-cells = <2>;
 			reg = <0x0 0x50818000 0x0 0x4000>;
-			clock-names = "pwm","pclk";
+			clock-names = "pclk";
 			clocks = <&d0_clock WIN2030_CLK_LSP_TIMER_PCLK>;
 			clock-frequency = <200000000>;
 			resets = <&d0_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
-			reset-names = "pwmrst";
+			reset-names = "rst";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_pwm0_default>;
 			status = "disabled";
