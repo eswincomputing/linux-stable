@@ -252,11 +252,11 @@ static ssize_t pac193x_refresh_store(struct device *dev,
 }
 
 static struct sensor_device_attribute pac1934_refreshs[] = {
-	SENSOR_ATTR_WO(refresh_clear_acc, pac193x_refresh, PAC193X_CMD_REFRESH),
-	SENSOR_ATTR_WO(refresh_all_193x, pac193x_refresh,
+	SENSOR_ATTR_WO(reset_energy_history, pac193x_refresh, PAC193X_CMD_REFRESH),
+	/* SENSOR_ATTR_WO(refresh_all_193x, pac193x_refresh,
 				   PAC193X_CMD_REFRESH_G),
 	SENSOR_ATTR_WO(refresh_updata_value, pac193x_refresh,
-				   PAC193X_CMD_REFRESH_V),
+				   PAC193X_CMD_REFRESH_V), */
 };
 
 static u8 pac193x_read_byte_data(struct pac193x_data *data, u8 command)
@@ -491,14 +491,15 @@ static struct attribute *pac193x_attrs[] = {
 	&dev_attr_slow_ctrl.attr,
 	&dev_attr_pac193x_version.attr,
 	&pac1934_refreshs[0].dev_attr.attr,
-	&pac1934_refreshs[1].dev_attr.attr,
-	&pac1934_refreshs[2].dev_attr.attr,
+	/* &pac1934_refreshs[1].dev_attr.attr,
+	&pac1934_refreshs[2].dev_attr.attr, */
 	NULL,
 };
 
 ATTRIBUTE_GROUPS(pac193x);
 
 static const struct hwmon_channel_info *pac1931_info[] = {
+	HWMON_CHANNEL_INFO(chip, HWMON_C_UPDATE_INTERVAL),
 	HWMON_CHANNEL_INFO(in, HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE),
 	HWMON_CHANNEL_INFO(curr, HWMON_C_INPUT | HWMON_C_AVERAGE),
@@ -506,6 +507,7 @@ static const struct hwmon_channel_info *pac1931_info[] = {
 	HWMON_CHANNEL_INFO(energy, HWMON_E_INPUT),
 	NULL};
 static const struct hwmon_channel_info *pac1932_info[] = {
+	HWMON_CHANNEL_INFO(chip, HWMON_C_UPDATE_INTERVAL),
 	HWMON_CHANNEL_INFO(in, HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE),
@@ -515,6 +517,7 @@ static const struct hwmon_channel_info *pac1932_info[] = {
 	HWMON_CHANNEL_INFO(energy, HWMON_E_INPUT, HWMON_E_INPUT),
 	NULL};
 static const struct hwmon_channel_info *pac1933_info[] = {
+	HWMON_CHANNEL_INFO(chip, HWMON_C_UPDATE_INTERVAL),
 	HWMON_CHANNEL_INFO(in, HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE,
@@ -526,6 +529,7 @@ static const struct hwmon_channel_info *pac1933_info[] = {
 	HWMON_CHANNEL_INFO(energy, HWMON_E_INPUT, HWMON_E_INPUT, HWMON_E_INPUT),
 	NULL};
 static const struct hwmon_channel_info *pac1934_info[] = {
+	HWMON_CHANNEL_INFO(chip, HWMON_C_UPDATE_INTERVAL),
 	HWMON_CHANNEL_INFO(in,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE | HWMON_I_LABEL,
@@ -553,6 +557,13 @@ static umode_t pac1934x_is_visible(const void *_data,
 {
 	switch (type)
 	{
+	case hwmon_chip:
+		switch (attr)
+		{
+		case hwmon_chip_update_interval:
+			return 0644;
+		}
+		break;
 	case hwmon_in:
 		switch (attr)
 		{
@@ -662,8 +673,17 @@ static int pac1934x_read_string(struct device *dev,
 static int pac193x_read(struct device *dev, enum hwmon_sensor_types type,
 						u32 attr, int channel, long *val)
 {
+	struct pac193x_data *data = dev_get_drvdata(dev);
 	switch (type)
 	{
+	case hwmon_chip:
+		switch (attr)
+		{
+		case hwmon_chip_update_interval:
+			*val = data->update_time_ms;
+			break;
+		}
+		break;
 	case hwmon_in:
 		switch (attr)
 		{
@@ -708,10 +728,33 @@ static int pac193x_read(struct device *dev, enum hwmon_sensor_types type,
 	return 0;
 }
 
+static int pac193x_write(struct device *dev, enum hwmon_sensor_types type,
+						 u32 attr, int channel, long val)
+{
+	struct pac193x_data *data = dev_get_drvdata(dev);
+	switch (type)
+	{
+	case hwmon_chip:
+		switch (attr)
+		{
+		case hwmon_chip_update_interval:
+			data->update_time_ms = val;
+			mod_delayed_work(data->update_workqueue, &data->update_work,
+					   msecs_to_jiffies(data->update_time_ms));
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 static const struct hwmon_ops pac193x_hwmon_ops = {
 	.is_visible = pac1934x_is_visible,
 	.read = pac193x_read,
 	.read_string = pac1934x_read_string,
+	.write = pac193x_write,
 };
 
 static struct hwmon_chip_info pac193x_chip_info = {
