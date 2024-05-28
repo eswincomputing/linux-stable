@@ -103,11 +103,10 @@ struct spram_dev {
 	struct reset_control *rstc_llc;
 };
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,6,0)
 #define dma_buf_map		iosys_map
 #define dma_buf_map_set_vaddr	iosys_map_set_vaddr
 #define dma_buf_map_clear	iosys_map_clear
-#endif
+
 #define spram_phys_to_virt(spram, phys) \
 	 (spram->virt_base + phys - spram->phys_addr)
 
