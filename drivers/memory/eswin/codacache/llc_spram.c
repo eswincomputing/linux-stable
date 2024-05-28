@@ -40,7 +40,7 @@
 #include <linux/version.h>
 
 #include <linux/eswin_npu.h>
-
+#include <linux/regulator/consumer.h>
 #include "llc_spram.h"
 
 #define HAVE_LLC_HARDWARE	1
@@ -96,6 +96,7 @@ struct spram_dev {
 	struct clk *core_clk;
 	struct clk *mux_u_npu_core_3mux1_gfree;
 	struct clk *fixed_rate_clk_spll2_fout2;
+	struct clk *fixed_rate_clk_spll1_fout1;
 	struct reset_control *rstc_axi;
 	struct reset_control *rstc_cfg;
 	struct reset_control *rstc_core;
@@ -603,6 +604,14 @@ static int llc_clk_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout2: %d\n", ret);
 		return ret;
 	}
+	spram->fixed_rate_clk_spll1_fout1 =
+		devm_clk_get(&pdev->dev, "fixed_rate_clk_spll1_fout1");
+	if (IS_ERR(spram->fixed_rate_clk_spll1_fout1))
+	{
+		ret = PTR_ERR(spram->fixed_rate_clk_spll1_fout1);
+		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll1_fout1: %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -675,23 +684,62 @@ static int llc_rst_init(struct platform_device *pdev)
 	return 0;
 }
 
-static int llc_clk_set_parent(struct platform_device *pdev)
+static int llc_clk_set_parent(struct platform_device *pdev, u8 *is_high_freq)
 {
 	int ret;
 	struct spram_dev *spram = platform_get_drvdata(pdev);
 
+	struct device_node *np;
+	struct regulator *npu_regulator;
+	struct device *dev = &pdev->dev;
+
 	if (spram == NULL)
 		return -EINVAL;
+	np = of_node_get(dev->of_node);
+	npu_regulator = devm_regulator_get_exclusive(dev, "NPU_SVCC");
 
-	ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree, spram->fixed_rate_clk_spll2_fout2);
-	if (ret){
-		dev_err(&pdev->dev, "failed to set mux_u_npu_core_3mux1_gfree parent: %d\n", ret);
+	if ((NULL == npu_regulator) || (IS_ERR(npu_regulator)))
+	{
+		dev_warn(dev, "failed to get npu regulator\n");
+		*is_high_freq = 0;
+	}
+	else
+	{
+		*is_high_freq = of_property_read_bool(np, "apply_npu_high_freq");
+		dev_dbg(dev, "success to get npu regulator,apply_npu_high_freq:%d\n",
+				 *is_high_freq);
+	}
+	if (1 == *is_high_freq)
+	{
+		regulator_set_voltage(npu_regulator, NPU_1P5G_VOLTAGE, NPU_1P5G_VOLTAGE);
+		dev_dbg(dev, "set volt:%duV ret:%d\n", NPU_1P5G_VOLTAGE,ret);
+		/* devm_regulator_put(npu_regulator); */
+		mdelay(10);
+		ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree,
+							 spram->fixed_rate_clk_spll1_fout1);
+	}
+	else
+	{
+		if (((NULL != npu_regulator)) && (!IS_ERR(npu_regulator)))
+		{
+			regulator_set_voltage(npu_regulator, NPU_DEFAULT_VOLTAGE, NPU_DEFAULT_VOLTAGE);
+			dev_dbg(dev, "set volt:%duV ret:%d\n", NPU_1P5G_VOLTAGE,ret);
+			/* devm_regulator_put(npu_regulator); */
+			mdelay(10);
+		}
+		ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree,
+							 spram->fixed_rate_clk_spll2_fout2);
+	}
+	if (ret)
+	{
+		dev_err(&pdev->dev, "failed to set mux_u_npu_core_3mux1_gfree parent: %d\n",
+				ret);
 		return ret;
 	}
 
 	return 0;
 }
-static int llc_clk_set_frq(struct platform_device *pdev)
+static int llc_clk_set_frq(struct platform_device *pdev, u8 is_high_freq)
 {
 	int ret;
 	unsigned long rate = 0;
@@ -702,23 +750,47 @@ static int llc_clk_set_frq(struct platform_device *pdev)
 
 	rate = clk_round_rate(spram->aclk, NPU_ACLK_RATE);
 	ret = clk_set_rate(spram->aclk, rate);
-	if(ret != 0){
+	if (ret != 0)
+	{
 		dev_err(&pdev->dev, "failed to set aclk: %d\n", ret);
 		return ret;
 	}
 
-	rate = clk_round_rate(spram->llc_clk, NPU_LLC_CLK_RATE);
-	ret = clk_set_rate(spram->llc_clk, rate);
-	if(ret != 0){
-		dev_err(&pdev->dev, "failed to set llc_clk: %d\n", ret);
-		return ret;
-	}
+	if (1 == is_high_freq)
+	{
+		rate = clk_round_rate(spram->llc_clk, NPU_LLC_CLK_1P5G_RATE);
+		ret = clk_set_rate(spram->llc_clk, rate);
 
-	rate = clk_round_rate(spram->core_clk, NPU_CORE_CLK_RATE);
-	ret = clk_set_rate(spram->core_clk, rate);
-	if(ret != 0){
-		dev_err(&pdev->dev, "failed to set core_clk: %d\n", ret);
-		return ret;
+		if (ret != 0)
+		{
+			dev_err(&pdev->dev, "failed to set llc_clk: %d\n", ret);
+			return ret;
+		}
+		rate = clk_round_rate(spram->core_clk, NPU_CORE_CLK_1P5G_RATE);
+		ret = clk_set_rate(spram->core_clk, rate);
+		if (ret != 0)
+		{
+			dev_err(&pdev->dev, "failed to set core_clk: %d\n", ret);
+			return ret;
+		}
+	}
+	else
+	{
+		rate = clk_round_rate(spram->llc_clk, NPU_LLC_CLK_RATE);
+
+		ret = clk_set_rate(spram->llc_clk, rate);
+		if (ret != 0)
+		{
+			dev_err(&pdev->dev, "failed to set llc_clk: %d\n", ret);
+			return ret;
+		}
+		rate = clk_round_rate(spram->core_clk, NPU_CORE_CLK_RATE);
+		ret = clk_set_rate(spram->core_clk, rate);
+		if (ret != 0)
+		{
+			dev_err(&pdev->dev, "failed to set core_clk: %d\n", ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -810,6 +882,7 @@ static int llc_clk_rst_print(struct platform_device *pdev)
 static int llc_clk_rst_init(struct platform_device *pdev)
 {
 	int ret = 0;
+	u8 is_high_freq = 0;
 
 	dev_dbg(&pdev->dev, "---%s\n", __func__);
 
@@ -819,7 +892,7 @@ static int llc_clk_rst_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = llc_clk_set_parent(pdev);
+	ret = llc_clk_set_parent(pdev, &is_high_freq);
 	if(ret != 0){
 		dev_err(&pdev->dev, "llc_clk_set_parent error: %d\n", ret);
 		return ret;
@@ -831,7 +904,7 @@ static int llc_clk_rst_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = llc_clk_set_frq(pdev);
+	ret = llc_clk_set_frq(pdev, is_high_freq);
 	if(ret != 0){
 		dev_err(&pdev->dev, "llc_clk_set_frq error: %d\n", ret);
 		return ret;

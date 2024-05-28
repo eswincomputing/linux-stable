@@ -533,9 +533,11 @@
 				 <&d0_clock WIN2030_CLK_NPU_LLC_ACLK>,
 				 <&d0_clock WIN2030_CLK_NPU_CLK>,
 				 <&d0_clock WIN2030_MUX_U_NPU_CORE_3MUX1_GFREE>,
-				 <&d0_clock WIN2030_SPLL2_FOUT2>;
+				 <&d0_clock WIN2030_SPLL2_FOUT2>,
+				 <&d0_clock WIN2030_SPLL1_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "llc_clk", "core_clk",
-					"mux_u_npu_core_3mux1_gfree", "fixed_rate_clk_spll2_fout2";
+					"mux_u_npu_core_3mux1_gfree", "fixed_rate_clk_spll2_fout2",
+					"fixed_rate_clk_spll1_fout1";
 			resets = <&d0_reset NPU_RST_CTRL SW_NPU_AXI_RSTN>,
 				<&d0_reset NPU_RST_CTRL SW_NPU_CFG_RSTN>,
 				<&d0_reset NPU_RST_CTRL SW_NPU_CORE_RSTN>,
