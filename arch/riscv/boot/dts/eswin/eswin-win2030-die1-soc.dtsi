@@ -1279,6 +1279,7 @@
 			reg = <0x0 0x72280400 0x0 0x10000>,
 				<0x0 0x71810000 0x0 0x8000>;
 			ranges;
+			dma-ranges = <0x0 0x30000000 0x0 0xc0000000 0x0 0xce000000>;
 			compatible = "es-dsp-subsys", "simple-bus";
 			clocks = <&d1_clock WIN2030_CLK_DSPT_CFG_CLK>;
 			clock-names = "cfg_clk";
@@ -1311,7 +1312,6 @@
 				host-irq-mode = <1>;
 				firmware-name = "eic7702_dsp_fw";
 				process-id = <0>;
-				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_0>;
 				tbus = <WIN2030_TBUID_DSP0>;
 				dma-noncoherent;
@@ -1341,7 +1341,6 @@
 				host-irq-mode = <1>;
 				firmware-name = "eic7702_dsp_fw";
 				process-id = <1>;
-				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_1>;
 				tbus = <WIN2030_TBUID_DSP1>;
 				dma-noncoherent;
@@ -1371,7 +1370,6 @@
 				host-irq-mode = <1>;
 				firmware-name = "eic7702_dsp_fw";
 				process-id = <2>;
-				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_2>;
 				tbus = <WIN2030_TBUID_DSP2>;
 				dma-noncoherent;
@@ -1401,7 +1399,6 @@
 				host-irq-mode = <1>;
 				firmware-name = "eic7702_dsp_fw";
 				process-id = <3>;
-				dma-ranges = <0x30000000 0x0 0xc0000000 0xce000000>;
 				iommus = <&smmu1 WIN2030_SID_DSP_3>;
 				tbus = <WIN2030_TBUID_DSP3>;
 				dma-noncoherent;
