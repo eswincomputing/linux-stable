@@ -453,6 +453,8 @@
 	drive-impedance-ohm = <50>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	no-sdio;
+	no-sd;
 };
 
 &sdio0 {
@@ -464,6 +466,7 @@
 	enable-data-pullup;
 	enable_sw_tuning;
 	no-sdio;
+	no-mmc;
 };
 
 &sdio1 {
@@ -476,6 +479,7 @@
 	enable_sw_tuning;
 	non-removable;
 	no-sd;
+	no-mmc;
 };
 
 &d0_gmac0 {

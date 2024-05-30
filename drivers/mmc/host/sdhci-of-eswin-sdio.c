@@ -851,23 +851,6 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 		goto err_pltfm_free;
 	}
 
-#if defined(__SDIO_HAPS) || defined(__SDIO_ZEBU)
-#if !defined(__SDIO_UHS)
-	/* This macro is only for setting 3.3v speed mode(HAPS) , you can delete it later*/
-	eswin_sdhci_sdio->host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
-#endif
-#if defined(__SDIO_PIO)
-	/* This macro is only for testing PIO , you can delete it later*/
-	eswin_sdhci_sdio->host->quirks |= SDHCI_QUIRK_BROKEN_DMA |
-					  SDHCI_QUIRK_BROKEN_ADMA;
-#elif defined(__SDIO_SDMA)
-	/* This macro is only for testing SDMA ,you can delete it later*/
-	eswin_sdhci_sdio->host->quirks |= SDHCI_QUIRK_BROKEN_ADMA;
-#elif defined(__SDIO_ADMA3)
-	/* This macro is only for testing ADMA3 ,you can delete it later*/
-	sdhci_enable_v4_mode(eswin_sdhci_sdio->host);
-#endif
-#endif
 	sdhci_get_of_property(pdev);
 
 	eswin_sdhci_sdio->clk_ops = data->clk_ops;

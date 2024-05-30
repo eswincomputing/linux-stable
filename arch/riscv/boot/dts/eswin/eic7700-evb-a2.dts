@@ -482,6 +482,8 @@
 	enable-data-pullup;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
+	no-sdio;
+	no-sd;
 };
 
 &sdio0 {
@@ -494,6 +496,7 @@
 	enable-data-pullup;
 	enable_sw_tuning;
 	no-sdio;
+	no-mmc;
 };
 
 &sdio1 {
@@ -507,6 +510,7 @@
 	enable_sw_tuning;
 	non-removable;
 	no-sd;
+	no-mmc;
 };
 
 &d0_gmac0 {

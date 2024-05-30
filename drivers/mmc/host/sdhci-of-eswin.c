@@ -87,7 +87,6 @@ static void eswin_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		msleep(20);
 }
 
-#if !defined(__FPGA) && !defined(__ZEBU)
 static void eswin_sdhci_hs400_enhanced_strobe(struct mmc_host *mmc,
 					      struct mmc_ios *ios)
 {
@@ -102,7 +101,6 @@ static void eswin_sdhci_hs400_enhanced_strobe(struct mmc_host *mmc,
 
 	sdhci_writel(host, vendor, eswin_sdhci_VENDOR_EMMC_CTRL_REGISTER);
 }
-#endif
 
 static void eswin_sdhci_config_phy_delay(struct sdhci_host *host, int delay)
 {
@@ -890,20 +888,6 @@ static int eswin_sdhci_probe(struct platform_device *pdev)
 		goto err_pltfm_free;
 	}
 
-#if defined(__FPGA) || defined(__ZEBU)
-#if defined __SDMA
-	eswin_sdhci->host->quirks |= SDHCI_QUIRK_BROKEN_ADMA;
-#elif defined(__ADMA2) || defined(__ADMA3)
-#else
-	eswin_sdhci->host->quirks |= SDHCI_QUIRK_BROKEN_ADMA |
-					SDHCI_QUIRK_BROKEN_DMA;
-#endif
-#endif
-
-#if defined(__FORCE_1BIT)
-	eswin_sdhci->host->quirks |= SDHCI_QUIRK_FORCE_1_BIT_DATA;
-#endif
-
 	eswin_sdhci->clk_ahb = devm_clk_get(dev, "clk_ahb");
 	if (IS_ERR(eswin_sdhci->clk_ahb)) {
 		ret = dev_err_probe(dev, PTR_ERR(eswin_sdhci->clk_ahb),
@@ -990,7 +974,6 @@ static int eswin_sdhci_probe(struct platform_device *pdev)
 		goto unreg_clk;
 	}
 
-#if !defined(__FPGA) && !defined(__ZEBU)
 	if (of_device_is_compatible(dev->of_node, "eswin,sdhci-5.1")) {
 		host->mmc_host_ops.hs400_enhanced_strobe =
 			eswin_sdhci_hs400_enhanced_strobe;
@@ -1000,11 +983,8 @@ static int eswin_sdhci_probe(struct platform_device *pdev)
 		if (!of_property_read_bool(dev->of_node, "disable-cqe-dcmd"))
 			host->mmc->caps2 |= MMC_CAP2_CQE_DCMD;
 	}
-#endif
 
-#if !defined(__ADMA3_DISABLE)
 	sdhci_enable_v4_mode(eswin_sdhci->host);
-#endif
 
 	ret = eswin_sdhci_add_host(eswin_sdhci);
 	if (ret)
