@@ -47,6 +47,8 @@
 		serial0 = &d0_uart0;
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
+		rtc0 = &die0_rtc;
+		rtc1 = &pcf_rtc;
 	};
 
 	chosen {
@@ -788,7 +790,7 @@
 	/* temp sensor & rtc */
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
-	rtc@51 {
+	pcf_rtc:rtc@51 {
 		compatible = "nxp,pcf8563";
 		reg = <0x51>;
 	};
