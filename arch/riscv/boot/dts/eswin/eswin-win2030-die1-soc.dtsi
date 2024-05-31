@@ -1836,6 +1836,7 @@
             clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>,
                  <&d1_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
             clock-names ="pclk_hdcp2", "hdcp2_clk_hdmi";
+			dma-noncoherent;
         };
 
 		d1_wdt0: watchdog@0x70800000 {
