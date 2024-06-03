@@ -749,6 +749,7 @@
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
 		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
 				regulator-name="NPU_SVCC";
@@ -761,31 +762,31 @@
 			};
 		};
 	};
-	vdd_cpu: ina226@45 {
+	ina226@45 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "vdd_cpu";
+		label = "cpu_vdd";
 		reg = <0x45>;
 		shunt-resistor = <1000>;
 	};
-	vdd_soc: ina226@44 {
+	ina226@44 {
 			compatible = "ti,ina226";
 			#io-channel-cells = <1>;
-			label = "vdd_soc";
+			label = "soc_vdd";
 			reg = <0x44>;
 			shunt-resistor = <1000>;
 		};
-	vdd_lpddr: ina226@41 {
+	ina226@41 {
 			compatible = "ti,ina226";
 			#io-channel-cells = <1>;
-			label = "vdd_lpddr";
+			label = "lpddr_vdd";
 			reg = <0x41>;
 			shunt-resistor = <1000>;
 		};
-	dc_in: ina226@48 {
+	ina226@48 {
 			compatible = "ti,ina226";
 			#io-channel-cells = <1>;
-			label = "dc_in";
+			label = "dc_vdd";
 			reg = <0x48>;
 			shunt-resistor = <1000>;
 		};

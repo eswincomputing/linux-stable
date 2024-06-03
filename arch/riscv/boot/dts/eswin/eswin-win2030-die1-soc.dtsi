@@ -674,6 +674,7 @@
 			interrupts = <349>;
 			interrupt-parent = <&plic1>;
 			status = "disabled";
+			label = "d1_pvt0";
 		};
 		d1_pvt1: pvt@0x72360000 {
 			compatible = "eswin,eswin-pvt-ddr";
@@ -687,6 +688,7 @@
 			interrupts = <350>;
 			interrupt-parent = <&plic1>;
 			status = "disabled";
+			label = "d1_pvt1";
 		};
 
 		d1_fan_control: fan_control@70b50000 {
@@ -703,6 +705,7 @@
 			pwm-minimun-period = <1000>;
 			pwms = <&d1_pwm0 0 100000>;
 			status = "disabled";
+			label = "d1_fan_control";
 		};
 
 		d1_i2c0: i2c@70950000 {

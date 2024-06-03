@@ -662,19 +662,21 @@
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 15>;
 	iic_hold_time = <0x40>;
-	pac1934@10 {
+	pac1934:pmic@10 {
 		compatible = "microchip,pac1934";
 		/*update all register data*/
 		update_time_ms = <1000>;
 		eswin,chan_label = "som vdd", "soc vdd", "cpu vdd", "ddr lpvdd";
+		label = "som_info";
 		/*The update number of times the energy accumulates*/
 		energy_acc_count = <0>;
 		shunt_resistors=<4 4 4 4>;
 		reg = <0x10>;
 	};
-	sic451@11 {
+	sic451:pmic@11 {
 		compatible = "Vishay,sic451";
 		reg = <0x11>;
+		label = "npu_vdd";
 		regulators{
 			vdd_npu1:vdd_npu{
 				regulator-name="VDD_NPU";
@@ -749,10 +751,10 @@
 		};
 	};
 
-	u71_sys: ina226@44 {
+	sys_power:ina226@44 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "ina226-u71_sys";
+		label = "sys_power";
 		reg = <0x44>;
 		shunt-resistor = <1000>;
 	};
