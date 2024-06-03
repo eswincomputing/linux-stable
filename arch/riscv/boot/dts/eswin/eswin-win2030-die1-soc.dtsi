@@ -1198,7 +1198,7 @@
 		};
 
 		d1_i2s0: i2s0@70200000 {
-			compatible = "eswin,i2s-dsp";
+			compatible = "snps,i2s";
 			clocks = <&d1_clock WIN2030_CLK_VO_I2S_MCLK>;
 			clock-names = "mclk";
 			#address-cells = <1>;
@@ -1207,20 +1207,12 @@
 			reg = <0x0 0x70200000 0x0 0x10000>;
 			dma-names = "rx", "tx";
 			dmas = <&d1_aon_dmac 4 0>, <&d1_aon_dmac 5 0>;
-			memory-region = <&dsp_reserved1>;
 			vo_mclk_sel,syscrg = <&d1_sys_crg 0x1bc>;
 			resets = <&d1_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
-				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>;
-			reset-names = "i2srst", "i2sprst";
+				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
+				<&d1_reset VO_PHYRST_CTRL SW_VO_PRSTN>;
+			reset-names = "i2srst", "i2sprst", "voprst";
 			dma-noncoherent;
-			ports {
-				d1_i2s0_port: port@0 {
-					d1_i2s0_endpoint: endpoint {
-						remote-endpoint = <&d1_codec_endpoint>;
-						dai-format = "i2s";
-					};
-				};
-			};
 		};
 
 		d1_i2s1: i2s1@70210000 {
@@ -1235,17 +1227,10 @@
 			dmas = <&d1_aon_dmac 2 1>, <&d1_aon_dmac 3 1>;
 			vo_mclk_sel,syscrg = <&d1_sys_crg 0x1bc>;
 			resets = <&d1_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
-				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>;
-			reset-names = "i2srst", "i2sprst";
+				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
+				<&d1_reset VO_PHYRST_CTRL SW_VO_PRSTN>;
+			reset-names = "i2srst", "i2sprst", "voprst";
 			dma-noncoherent;
-			ports {
-				d1_i2s1_port: port@0 {
-					d1_i2s1_endpoint: endpoint {
-						remote-endpoint = <&d1_dummy_endpoint1>;
-						dai-format = "i2s";
-					};
-				};
-			};
 		};
 
 		d1_i2s2: i2s@70220000 {
@@ -1260,17 +1245,10 @@
 			dmas = <&d1_aon_dmac 0 2>, <&d1_aon_dmac 1 2>;
 			vo_mclk_sel,syscrg = <&d1_sys_crg 0x1bc>;
 			resets = <&d1_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
-				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>;
-			reset-names = "i2srst", "i2sprst";
+				<&d1_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
+				<&d1_reset VO_PHYRST_CTRL SW_VO_PRSTN>;
+			reset-names = "i2srst", "i2sprst", "voprst";
 			dma-noncoherent;
-			ports {
-				d1_i2s2_port: port@0 {
-					d1_i2s2_endpoint: endpoint {
-						remote-endpoint = <&d1_dummy_endpoint2>;
-						dai-format = "i2s";
-					};
-				};
-			};
 		};
 
 		d1_dsp_subsys:dsp_subsys@72280400 {
@@ -1406,30 +1384,6 @@
 				aux-e31-dtim = <0x7a110000>;
 				dsp@0 {
 				};
-			};
-			d1_sofdsp: sofdsp@4 {
-				#sound-dai-cells = <1>;
-				#address-cells = <2>;
-				#size-cells = <2>;
-				compatible = "eswin,vision-dsp";
-				reg = <0x0 0x7b000000 0x0 0x10000>,
-					  <0x0 0x7b100000 0x0 0x40000>;
-				/* memory-region = <&dsp_reserved0>; */
-				mbox-names = "sof-dsp0";
-				mboxes = <&d1_mbox4 0>;
-				tplg-name = "sof-win2030-es8316.tplg";
-				machine-drv-name = "asoc-simple-card";
-				clocks = <&d1_clock WIN2030_CLK_DSP_ACLK_0>;
-				clock-names = "aclk";
-				process-id = <0>;
-				dma-ranges = <0x0 0x40000000 0x0 0xc0000000 0x0 0xc0000000>;
-				iommus = <&smmu1 WIN2030_SID_DSP_0>;
-				mailbox-dsp-to-u84-addr = <ESWIN_MAILBOX_DSP_0_TO_U84_REG_BASE>;
-				mailbox-u84-to-dsp-addr = <ESWIN_MAILBOX_U84_TO_DSP_0_REG_BASE>;
-				dsp-uart = <&d1_uart1>;
-				ringbuffer-region = <&dsp_reserved1>;
-				numa-node-id = <1>;
-				dma-noncoherent;
 			};
 		};
 		die1_rtc: rtc@71818000 {
@@ -1817,14 +1771,6 @@
                         remote-endpoint = <&d1_dc_out_hdmi>;
                     };
                 };
-                port@1 {
-                    reg = <2>;
-                    d1_hdmi_endpoint: endpoint {
-                        reg = <0>;
-                        system-clock-frequency = <12288000>;
-                        remote-endpoint = <&d1_i2s0_endpoint>;
-                    };
-                };
             };
         };
 
@@ -1952,85 +1898,8 @@
 			dma-noncoherent;
 		};
 
-		d1_soundcard: soundcard {
-			compatible = "simple-audio-card";
-			simple-audio-card,name = "Eswin sound card";
-			simple-audio-card,widgets = "Headphone", "Headphone Jack";
-			simple-audio-card,dai-link@0 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&d1_sofdsp 0>;
-				};
-				codec {
-					sound-dai = <&d1_thruout 0>;
-				};
-			};
-
-			simple-audio-card,dai-link@1 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&d1_sofdsp 1>;
-				};
-				codec {
-					sound-dai = <&d1_thruout 1>;
-				};
-			};
-
-			simple-audio-card,dai-link@2 {
-				format = "i2s";
-				cpu {
-					sound-dai = <&d1_i2s0>;
-				};
-				codec {
-					sound-dai = <&d1_es8316>;
-					system-clock-frequency = <12288000>;
-				};
-				plat {
-					sound-dai = <&d1_sofdsp 2>;
-				};
-			};
-		};
-
 		d1_graphcard: graphcard {
 			compatible = "audio-graph-card";
-			dais = <&d1_i2s0_port
-					&d1_i2s1_port
-					&d1_i2s2_port>;
-		};
-
-		d1_dummy_codec:codec@0x70230000 {
-			status = "disabled";
-			reg = <0x00000000 0x70230000 0x00000000 0x00000100>;
-			#sound-dai-cells = <0x00000000>;
-			compatible = "eswin_dummy_codec";
-			ports {
-				/*
-				port@0 {
-					d1_dummy_endpoint0: endpoint {
-						system-clock-frequency = <12288000>;
-						remote-endpoint = <&d1_i2s0_endpoint>;
-					};
-				};
-				*/
-				port@1 {
-					d1_dummy_endpoint1: endpoint {
-						system-clock-frequency = <12288000>;
-						remote-endpoint = <&d1_i2s1_endpoint>;
-					};
-				};
-				port@2 {
-					d1_dummy_endpoint2: endpoint {
-						system-clock-frequency = <12288000>;
-						remote-endpoint = <&d1_i2s2_endpoint>;
-					};
-				};
-			};
-		};
-
-		d1_thruout: thru-out {
-				compatible = "eswin,thru-out";
-				#sound-dai-cells = <1>;
-				memory-region = <&dsp_reserved1>;
 		};
 
 		d1_usbdrd3_0: usb0@70480000 {

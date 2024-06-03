@@ -81,11 +81,6 @@
 			linux,cma-default;
 		};
 
-		dsp_reserved1: dsp@91000000 {
-			reg = <0 0x91000000 0 0x200000>;
-			no-map;
-		};
-
 		lpcpu0_reserved: lpcpu@a0000000 {
 			no-map;
 			reg = <0x0 0xa0000000 0x0 0x100000>;

@@ -100,20 +100,6 @@
 			no-map;
 			reg = <0x0 0x79000000 0x0 0x400000>;
 		};
-		//WRAN: dsp reserved space is fixed to 0x90000000 and 0x91000000 in the code, the below space is not working for dsp,it's just for building
-		/*
-		dsp_reserved0: dsp@4010000000 {
-			compatible = "shared-dma-pool";
-			reg = <0x40 0x10000000 0 0x1000000>;
-			reusable;
-			status = "okay";
-		};
-		*/
-
-		dsp_reserved1: dsp@4011000000 {
-			reg = <0x40 0x11000000 0 0x200000>;
-			no-map;
-		};
 
 		smpmemtest_rsv0@4011200000 {
 			reg = <0x40 0x11200000 0 0x2000000>;
@@ -193,19 +179,6 @@
 		npu1_reserved: sprammemory@79000000 {
 			no-map;
 			reg = <0x0 0x79000000 0x0 0x400000>;
-		};
-		/*
-		dsp_reserved0: dsp@90000000 {
-			compatible = "shared-dma-pool";
-			reg = <0x0 0x90000000 0x0 0x1000000>;
-			reusable;
-			status = "okay";
-		};
-		*/
-
-		dsp_reserved1: dsp@91000000 {
-			reg = <0 0x91000000 0 0x200000>;
-			no-map;
 		};
 
 		smpmemtest_rsv0@91200000 {
@@ -317,20 +290,6 @@
 			reg = <0x0 0x59000000 0x0 0x400000>;
 		};
 
-		/*
-		dsp_reserved0: dsp@90000000 {
-			compatible = "shared-dma-pool";
-			reg = <0x0 0x90000000 0x0 0x1000000>;
-			reusable;
-			status = "okay";
-		};
-		*/
-
-		dsp_reserved1: dsp@91000000 {
-			reg = <0 0x91000000 0 0x200000>;
-			no-map;
-		};
-
 		smpmemtest_rsv0@91200000 {
 			reg = <0 0x91200000 0 0x2000000>;
 			no-map;
@@ -405,20 +364,6 @@
 		npu1_reserved: sprammemory@79000000 {
 			no-map;
 			reg = <0x0 0x79000000 0x0 0x400000>;
-		};
-		//WRAN: dsp reserved space is fixed to 0x90000000 and 0x91000000 in the code, the below space is not working for dsp,it's just for building
-		/*
-		dsp_reserved0: dsp@2010000000 {
-			compatible = "shared-dma-pool";
-			reg = <0x20 0x10000000 0x0 0x1000000>;
-			reusable;
-			status = "okay";
-		};
-		*/
-
-		dsp_reserved1: dsp@2011000000 {
-			reg = <0x20 0x11000000 0 0x200000>;
-			no-map;
 		};
 
 		smpmemtest_rsv0@2011200000 {
@@ -1146,23 +1091,7 @@
 	status = "disabled";
 };
 
-&d1_sofdsp {
-	status = "disabled";
-};
-
-&d1_soundcard {
-	status = "disabled";
-};
-
 &d1_graphcard {
-	status = "disabled";
-};
-
-&d1_dummy_codec {
-	status = "disabled";
-};
-
-&d1_thruout {
 	status = "disabled";
 };
 
