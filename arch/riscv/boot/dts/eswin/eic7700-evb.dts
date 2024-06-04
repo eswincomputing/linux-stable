@@ -111,6 +111,11 @@
 			no-map;
 		};
 
+		g2d_4GB_boundary_reserved_4k {
+			no-map;
+			reg = <0x0 0xfffff000 0x0 0x1000>;
+		};
+
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
 			reg = <0x1 0x40000000 0x2 0x80000000>;

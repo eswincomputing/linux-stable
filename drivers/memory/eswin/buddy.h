@@ -105,7 +105,7 @@ struct mem_block {
 };
 #endif
 
-void         buddy_system_init(struct mem_zone *zone,
+void         buddy_system_init(struct mem_block *memblock,
 							   struct esPage_s *start_page,
 							   unsigned long start_addr,
 							   unsigned long page_num);
