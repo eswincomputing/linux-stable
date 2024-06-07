@@ -181,7 +181,11 @@ static void eswin_sdhci_reset(struct sdhci_host *host, u8 mask)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct eswin_sdhci_data *eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
 
+	sdhci_writel(host, 0, SDHCI_INT_ENABLE);
+	sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
 	sdhci_reset(host, mask);
+	sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+	sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
 
 	if (eswin_sdhci->quirks & SDHCI_ESWIN_QUIRK_FORCE_CDTEST) {
 		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
@@ -243,7 +247,7 @@ static int eswin_sdhci_delay_tuning(struct sdhci_host *host, u32 opcode)
 		eswin_sdhci_enable_card_clk(host);
 		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
 		if (ret) {
-			sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
+			host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 			udelay(200);
 			if (delay_min != -1 && delay_max != -1)
 				break;
@@ -291,7 +295,7 @@ static int eswin_sdhci_phase_code_tuning(struct sdhci_host *host, u32 opcode)
 
 		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
 		if (ret) {
-			sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
+			host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 			udelay(200);
 			if (code_min != -1 && code_max != -1)
 				break;
