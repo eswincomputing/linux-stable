@@ -42,12 +42,7 @@
 #define ESWIN_SDHCI_SD1_INT_STATUS 0x708
 #define ESWIN_SDHCI_SD1_PWR_CTRL 0x70c
 
-#define DELAY_RANGE_THRESHOLD   20
-
-struct eswin_sdio_private {
-	int phase_code;
-	unsigned int enable_sw_tuning;
-};
+#define TUNING_RANGE_THRESHOLD   40
 
 static inline void *sdhci_sdio_priv(struct eswin_sdhci_data *sdio)
 {
@@ -177,109 +172,54 @@ static void eswin_sdhci_sdio_reset(struct sdhci_host *host, u8 mask)
 	}
 }
 
-static int eswin_sdhci_sdio_delay_tuning(struct sdhci_host *host, u32 opcode)
+static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
+					      u32 opcode)
 {
-	int ret;
-	int delay = -1;
-	int i = 0;
-	int delay_min = -1;
-	int delay_max = -1;
-	int delay_range = -1;
-
 	int cmd_error = 0;
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct eswin_sdhci_data *eswin_sdhci =
-		sdhci_pltfm_priv(pltfm_host);
+	int ret = 0;
+	int phase_code = -1;
+	int code_min = -1;
+	int code_max = -1;
+	int code_range = -1;
+	int i = 0;
 
-	for (i = 0; i <= PHY_DELAY_CODE_MAX; i++) {
+	for (i = 0; i <= MAX_PHASE_CODE; i++) {
 		eswin_sdhci_disable_card_clk(host);
-		eswin_sdhci_sdio_config_phy_delay(host, i);
+		sdhci_writew(host, i, VENDOR_AT_SATA_R);
 		eswin_sdhci_enable_card_clk(host);
+
 		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
 		host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 		if (ret) {
-			pr_debug("%s: bad delay:0x%x!\n", mmc_hostname(host->mmc), i);
-			if (delay_min != -1 && delay_max != -1) {
-				if (delay_max - delay_min > delay_range) {
-					delay_range = delay_max - delay_min;
-					delay = (delay_min + delay_max) / 2;
-					if (delay_range > DELAY_RANGE_THRESHOLD)
+			udelay(200);
+			pr_debug("%s: bad phase_code:0x%x!\n", mmc_hostname(host->mmc), i);
+			if (code_min != -1 && code_max != -1) {
+				if (code_max - code_min > code_range) {
+					code_range = code_max - code_min;
+					phase_code = (code_min + code_max) / 2;
+					if (code_range > TUNING_RANGE_THRESHOLD)
 						break;
 				}
-				delay_min = -1;
-				delay_max = -1;
+				code_min = -1;
+				code_max = -1;
 			}
 		} else {
-			pr_debug("%s: ok delay:0x%x\n", mmc_hostname(host->mmc), i);
-			if (delay_min == -1) {
-				delay_min = i;
+			pr_debug("%s: ok phase_code:0x%x\n", mmc_hostname(host->mmc), i);
+			if (code_min == -1) {
+				code_min = i;
 			}
-			delay_max = i;
-			if (i == PHY_DELAY_CODE_MAX) {
-				if (delay_max - delay_min > delay_range) {
-					delay_range = delay_max - delay_min;
-					delay = (delay_min + delay_max) / 2;
+			code_max = i;
+			if (i == MAX_PHASE_CODE) {
+				if (code_max - code_min > code_range) {
+					code_range = code_max - code_min;
+					phase_code = (code_min + code_max) / 2;
 				}
 			}
 			continue;
 		}
 	}
 
-	if (delay == -1) {
-		pr_err("%s: delay code tuning failed!\n",
-		       mmc_hostname(host->mmc));
-		eswin_sdhci_disable_card_clk(host);
-		eswin_sdhci_sdio_config_phy_delay(host,
-						  eswin_sdhci->phy.delay_code);
-		eswin_sdhci_enable_card_clk(host);
-
-		return ret;
-	}
-
-	pr_info("%s: set delay:0x%x\n", mmc_hostname(host->mmc), delay);
-	eswin_sdhci_disable_card_clk(host);
-	eswin_sdhci_sdio_config_phy_delay(host, delay);
-	eswin_sdhci_enable_card_clk(host);
-
-	ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
-	host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
-	if (ret) {
-		pr_err("%s: delay code(0x%x) not work, tuning failed!\n",
-		       mmc_hostname(host->mmc), delay);
-		return ret;
-	}
-
-	return 0;
-}
-
-static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
-					      u32 opcode)
-{
-	int cmd_error = 0;
-	int ret = 0;
-	int phase_code = 0;
-	int code_min = -1;
-	int code_max = -1;
-
-	for (phase_code = 0; phase_code <= MAX_PHASE_CODE; phase_code++) {
-		eswin_sdhci_disable_card_clk(host);
-		sdhci_writew(host, phase_code, VENDOR_AT_SATA_R);
-		eswin_sdhci_enable_card_clk(host);
-
-		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
-		host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
-		if (ret) {
-			pr_debug("%s: bad phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
-			if (code_min != -1 && code_max != -1)
-				break;
-		} else {
-			if (code_min == -1) {
-				code_min = phase_code;
-			}
-			code_max = phase_code;
-		}
-	}
-	if (code_min == -1 && code_max == -1) {
+	if (phase_code == -1) {
 		pr_err("%s: phase code tuning failed!\n",
 		       mmc_hostname(host->mmc));
 		eswin_sdhci_disable_card_clk(host);
@@ -288,12 +228,19 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 		return -EIO;
 	}
 
-	phase_code = (code_min + code_max) / 2;
 	pr_info("%s: set phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
 
 	eswin_sdhci_disable_card_clk(host);
 	sdhci_writew(host, phase_code, VENDOR_AT_SATA_R);
 	eswin_sdhci_enable_card_clk(host);
+
+	ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
+	host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
+	if (ret) {
+		pr_err("%s: phase_code code(0x%x) not work, tuning failed!\n",
+		       mmc_hostname(host->mmc), phase_code);
+		return ret;
+	}
 
 	return 0;
 }
@@ -306,20 +253,9 @@ static int eswin_sdhci_sdio_executing_tuning(struct sdhci_host *host,
 	int ret = 0;
 	struct sdhci_pltfm_host *pltfm_host;
 	struct eswin_sdhci_data *eswin_sdhci_sdio;
-	struct eswin_sdio_private *eswin_sdio_priv;
 
 	pltfm_host = sdhci_priv(host);
 	eswin_sdhci_sdio = sdhci_pltfm_priv(pltfm_host);
-	eswin_sdio_priv = sdhci_sdio_priv(eswin_sdhci_sdio);
-
-	if (!eswin_sdio_priv->enable_sw_tuning) {
-		if (eswin_sdio_priv->phase_code != -1) {
-			eswin_sdhci_disable_card_clk(host);
-			sdhci_writew(host, eswin_sdio_priv->phase_code, VENDOR_AT_SATA_R);
-			eswin_sdhci_enable_card_clk(host);
-		}
-		return 0;
-	}
 
 	eswin_sdhci_disable_card_clk(host);
 
@@ -335,11 +271,6 @@ static int eswin_sdhci_sdio_executing_tuning(struct sdhci_host *host,
 	eswin_sdhci_enable_card_clk(host);
 
 	sdhci_writew(host, 0x0, SDHCI_CMD_DATA);
-
-	ret = eswin_sdhci_sdio_delay_tuning(host, opcode);
-	if (ret < 0) {
-		return ret;
-	}
 
 	ret = eswin_sdhci_sdio_phase_code_tuning(host, opcode);
 	if (ret < 0) {
@@ -837,14 +768,13 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct eswin_sdhci_data *eswin_sdhci_sdio;
-	struct eswin_sdio_private *eswin_sdio_priv;
 	struct regmap *regmap;
 	const struct eswin_sdhci_of_data *data;
 	unsigned int sdio_id = 0;
 	unsigned int val = 0;
 
 	data = of_device_get_match_data(dev);
-	host = sdhci_pltfm_init(pdev, data->pdata, sizeof(*eswin_sdhci_sdio) + sizeof(*eswin_sdio_priv));
+	host = sdhci_pltfm_init(pdev, data->pdata, sizeof(*eswin_sdhci_sdio));
 
 	if (IS_ERR(host))
 		return PTR_ERR(host);
@@ -853,7 +783,6 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 	eswin_sdhci_sdio = sdhci_pltfm_priv(pltfm_host);
 	eswin_sdhci_sdio->host = host;
 	eswin_sdhci_sdio->has_cqe = false;
-	eswin_sdio_priv = sdhci_sdio_priv(eswin_sdhci_sdio);
 
 	ret = of_property_read_u32(dev->of_node, "core-clk-reg", &val);
 	if (ret) {
@@ -981,17 +910,6 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 		eswin_sdhci_sdio->phy.enable_data_pullup = ENABLE;
 	else
 		eswin_sdhci_sdio->phy.enable_data_pullup = DISABLE;
-
-	if (of_property_read_bool(dev->of_node, "enable_sw_tuning"))
-		eswin_sdio_priv->enable_sw_tuning = ENABLE;
-	else
-		eswin_sdio_priv->enable_sw_tuning = DISABLE;
-
-	if (!of_property_read_u32(dev->of_node, "phase_code", &val)) {
-		eswin_sdio_priv->phase_code = val;
-	} else {
-		eswin_sdio_priv->phase_code = -1;
-	}
 
 	eswin_sdhci_dt_parse_clk_phases(dev, &eswin_sdhci_sdio->clk_data);
 	ret = mmc_of_parse(host->mmc);

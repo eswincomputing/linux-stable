@@ -390,12 +390,10 @@
 &sdio0 {
 	/* sd card */
 	status = "okay";
-	delay_code = <0x16>;
-	phase_code = <0x1f>;
+	delay_code = <0x29>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
-	enable_sw_tuning;
 	no-sdio;
 	no-mmc;
 };
@@ -403,11 +401,10 @@
 &sdio1 {
 	/* wifi module */
 	status = "okay";
-	delay_code = <0x21>;
+	delay_code = <0x29>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
-	enable_sw_tuning;
 	non-removable;
 	no-sd;
 	no-mmc;
