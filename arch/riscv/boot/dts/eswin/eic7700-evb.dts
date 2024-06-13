@@ -727,7 +727,28 @@
 
 &d0_i2c8 {
 	/* io extended for mipi csi */
-	status = "disabled";
+	status = "okay";
+	tca6416_0: gpio@20 {
+	compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller; /* IRQ not connected */
+		#gpio-cells = <2>;
+		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
+				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
+				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
+				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
+	};
+	tca6416_1: gpio@21 {
+		compatible = "ti,tca6416";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* IRQ not connected */
+		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
+				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
+				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
+				"", "", "", "";
+	};
 };
 
 &d0_i2c9 {
