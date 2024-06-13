@@ -40,26 +40,10 @@
 #include <linux/property.h>
 #include "pcie-designware.h"
 
-#undef _IO_DEBUG_
-
-#ifdef _IO_DEBUG_
-#define _writel_relaxed(v, p)	({ u32 __dbg_v; writel_relaxed(v, p); __dbg_v = readl_relaxed(p); printk("CFG 0x%lx : 0x%08x\n",p, __dbg_v); })
-
-// #define _io_read32(p)		({ u32 __dbg_v; __dbg_v = readl(p); printf("RD 0x%lx : 0x%08x\n",p, __dbg_v); __dbg_v; })
-
-#else
-#define _writel_relaxed(v, p) 	writel_relaxed(v, p)
-// #define _io_read32(p)		io_read32(p)
-#endif
-
-#define to_eswin_pcie(x)	dev_get_drvdata((x)->dev)
-
 struct eswin_pcie {
 	struct dw_pcie pci;
 	void __iomem *mgmt_base;
-	// void __iomem *sysmgt_base;
 	struct gpio_desc *reset;
-	// struct gpio_desc *pwren;
 	struct clk *pcie_aux;
 	struct clk *pcie_cfg;
 	struct clk *pcie_cr;
@@ -67,30 +51,25 @@ struct eswin_pcie {
 	struct reset_control *powerup_rst;
 	struct reset_control *cfg_rst;
 	struct reset_control *perst;
-	int gen_x;
-	int lane_x;
 };
 
-#define PCIEMGMT_ACLK_CTRL		0x170
-#define PCIEMGMT_ACLK_CLKEN		BIT(31)
-#define PCIEMGMT_XTAL_SEL		BIT(20)
-#define PCIEMGMT_DIVSOR			0xf0
-
-#define PCIEMGMT_CFG_CTRL		0x174
-#define PCIEMGMT_CFG_CLKEN		BIT(31)
-#define PCIEMGMT_AUX_CLKEN		BIT(1)
-#define PCIEMGMT_CR_CLKEN		BIT(0)
-
-#define PCIEMGMT_RST_CTRL		0x420
-#define PCIEMGMT_PERST_N		BIT(2)
-#define PCIEMGMT_POWERUP_RST_N	BIT(1)
-#define PCIEMGMT_CFG_RST_N		BIT(0)
-
 #define PCIE_PM_SEL_AUX_CLK		BIT(16)
-
 #define PCIEMGMT_APP_HOLD_PHY_RST	BIT(6)
 #define PCIEMGMT_APP_LTSSM_ENABLE	BIT(5)
 #define PCIEMGMT_DEVICE_TYPE_MASK	0xf
+
+#define PCIEMGMT_CTRL0_OFFSET	0x0
+#define PCIEMGMT_STATUS0_OFFSET	0x100
+
+#define PCIE_TYPE_DEV_VEND_ID	0x0
+// #define PCIE_DSP_PF0_PM_CAP		0x40
+#define PCIE_DSP_PF0_MSI_CAP	0x50
+#define PCIE_NEXT_CAP_PTR		0x70
+#define DEVICE_CONTROL_DEVICE_STATUS	0x78
+// #define PCIE_DSP_PF0_MSIX_CAP	0xb0
+
+#define PCIE_MSI_MULTIPLE_MSG_32	(0x5<<17)
+#define PCIE_MSI_MULTIPLE_MSG_MASK	(0x7<<17)
 
 #define PCIEMGMT_LINKUP_STATE_VALIDATE  ((0x11<<2)|0x3)
 #define PCIEMGMT_LINKUP_STATE_MASK      0xff
@@ -110,9 +89,9 @@ static int eswin_pcie_start_link(struct dw_pcie *pci)
 	u32 val;
 
 	/* Enable LTSSM */
-	val = readl_relaxed(pcie->mgmt_base);
+	val = readl_relaxed(pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 	val |= PCIEMGMT_APP_LTSSM_ENABLE;
-	_writel_relaxed(val, pcie->mgmt_base);
+	writel_relaxed(val, pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 	return 0;
 }
 
@@ -122,7 +101,7 @@ static int eswin_pcie_link_up(struct dw_pcie *pci)
 	struct eswin_pcie *pcie = dev_get_drvdata(dev);
 	u32 val;
 
-	val = readl_relaxed(pcie->mgmt_base + 0x100);
+	val = readl_relaxed(pcie->mgmt_base + PCIEMGMT_STATUS0_OFFSET);
 	if ((val & PCIEMGMT_LINKUP_STATE_MASK) == PCIEMGMT_LINKUP_STATE_VALIDATE)
 		return 1;
 	else
@@ -172,7 +151,6 @@ static int eswin_pcie_clk_disable(struct eswin_pcie *eswin_pcie)
 
 static int eswin_pcie_power_on(struct eswin_pcie *pcie)
 {
-	// struct device *dev = &pdev->dev;
 	int ret = 0;
 
 	/* pciet_cfg_rstn */
@@ -182,10 +160,6 @@ static int eswin_pcie_power_on(struct eswin_pcie *pcie)
 	/* pciet_powerup_rstn */
 	ret = reset_control_reset(pcie->powerup_rst);
 	WARN_ON(0 != ret);
-
-	/* pcie_perst_n */
-	// ret = reset_control_reset(pcie->perst);
-	// WARN_ON(0 != ret);
 
 	return ret;
 }
@@ -200,12 +174,6 @@ static int eswin_pcie_power_off(struct eswin_pcie *eswin_pcie)
 
 	return 0;
 }
-
-/*
-	pinctrl-0 = <&pinctrl_gpio106_default &pinctrl_gpio9_default>;
-	pci-socket-gpios = <&portd 10 GPIO_ACTIVE_LOW>;
-	pci-prsnt-gpios = <&porta 9 GPIO_ACTIVE_LOW>;
-*/
 
 int eswin_evb_socket_power_on(struct device *dev)
 {
@@ -223,8 +191,6 @@ int eswin_evb_socket_power_on(struct device *dev)
 
 	return err_desc;
 }
-
-/* Not use gpio9 which mux with JTAG1_TDI in EVB */
 
 int eswin_evb_device_scan(struct device *dev)
 {
@@ -252,7 +218,7 @@ int eswin_evb_device_scan(struct device *dev)
 static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-	struct eswin_pcie *pcie = to_eswin_pcie(pci);
+	struct eswin_pcie *pcie = dev_get_drvdata(pci->dev);
 	int ret;
 	u32 val;
 
@@ -275,9 +241,9 @@ static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 		return ret;
 
 	/* set device type : rc */
-	val = readl_relaxed(pcie->mgmt_base);
+	val = readl_relaxed(pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 	val &= 0xfffffff0;
-	_writel_relaxed(val|0x4, pcie->mgmt_base);
+	writel_relaxed(val|0x4, pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 
 	ret = reset_control_assert(pcie->perst);
 	WARN_ON(0 != ret);
@@ -288,13 +254,13 @@ static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 	WARN_ON(0 != ret);
 
 	/* app_hold_phy_rst */
-	val = readl_relaxed(pcie->mgmt_base);
+	val = readl_relaxed(pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 	val &= ~(0x40);
-	_writel_relaxed(val, pcie->mgmt_base);
+	writel_relaxed(val, pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 
 	/* wait pm_sel_aux_clk to 0 */
 	while (1) {
-		val = readl_relaxed(pcie->mgmt_base + 0x100);
+		val = readl_relaxed(pcie->mgmt_base + PCIEMGMT_STATUS0_OFFSET);
 		if (!(val & PCIE_PM_SEL_AUX_CLK)) {
 			break;
 		}
@@ -302,110 +268,29 @@ static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 	}
 
 	/* config eswin vendor id and win2030 device id */
-	dw_pcie_writel_dbi(pci, 0, 0x20301fe1);
-
-	if (pcie->gen_x == 3) {
-		/* GEN3 */
-		dw_pcie_writel_dbi(pci, 0xa0, 0x00010003);
-
-		/* GEN3 config , this config only for zebu*/
-		// val = dw_pcie_readl_dbi(pci, 0x890);
-		// val = 0x00012001;
-		// dw_pcie_writel_dbi(pci, 0x890, val);
-
-		/* LINK_CAPABILITIES_REG : PCIE_CAP_BASE + 0xc */
-		val = dw_pcie_readl_dbi(pci, 0x7c);
-		val &= 0xfffffff0;
-		/* GEN3 */
-		val |= 0x3;
-		dw_pcie_writel_dbi(pci, 0x7c, val);
-	} else if (pcie->gen_x == 2) {
-		/* GEN2 */
-		dw_pcie_writel_dbi(pci, 0xa0, 0x00010002);
-
-		/* LINK_CAPABILITIES_REG : PCIE_CAP_BASE + 0xc */
-		val = dw_pcie_readl_dbi(pci, 0x7c);
-		val &= 0xfffffff0;
-		val |= 0x2;
-		dw_pcie_writel_dbi(pci, 0x7c, val);
-	}else {
-		/* GEN1 */
-		dw_pcie_writel_dbi(pci, 0xa0, 0x00010001);
-
-		/* LINK_CAPABILITIES_REG : PCIE_CAP_BASE + 0xc */
-		val = dw_pcie_readl_dbi(pci, 0x7c);
-		val &= 0xfffffff0;
-		val |= 0x1;
-		dw_pcie_writel_dbi(pci, 0x7c, val);
-	}
-
-	/* LINK_CAPABILITIES_REG : PCIE_CAP_BASE + 0xc : laneX */
-	val = dw_pcie_readl_dbi(pci, 0x7c);
-	val &= 0xfffffc0f;
-	if (pcie->lane_x == 4) {
-		val |= 0x40;
-	} else if (pcie->lane_x == 2) {
-		val |= 0x20;
-	} else {
-		val |= 0x10;
-	}
-
-	dw_pcie_writel_dbi(pci, 0x7c, val);
+	dw_pcie_writel_dbi(pci, PCIE_TYPE_DEV_VEND_ID, 0x20301fe1);
 	
 	/* lane fix config, real driver NOT need, default x4 */
-	val = dw_pcie_readl_dbi(pci, 0x8c0);
+	val = dw_pcie_readl_dbi(pci, PCIE_PORT_MULTI_LANE_CTRL);
 	val &= 0xffffff80;
-	if (pcie->lane_x == 4) {
-		val |= 0x44;
-	} else if (pcie->lane_x == 2) {
-		val |= 0x42;
-	} else {
-		val |= 0x41;
-	}
-	dw_pcie_writel_dbi(pci, 0x8c0, val);
+	val |= 0x44;
+	dw_pcie_writel_dbi(pci, PCIE_PORT_MULTI_LANE_CTRL, val);
 
-	/* config msix table size to 0 in RC mode because our RC not support msix */
-	val = dw_pcie_readl_dbi(pci, 0xb0);
-	val &= ~(0x7ff<<16);
-	dw_pcie_writel_dbi(pci, 0xb0, val);
-
-	/* config max payload size to 4K */
-	val = dw_pcie_readl_dbi(pci, 0x74);
-	val &= ~(0x7);
-	val |= 0x5;
-	dw_pcie_writel_dbi(pci, 0x74, val);
-
-	val = dw_pcie_readl_dbi(pci, 0x78);
+	val = dw_pcie_readl_dbi(pci, DEVICE_CONTROL_DEVICE_STATUS);
 	val &= ~(0x7<<5);
-	val |= (0x5<<5);
-	dw_pcie_writel_dbi(pci, 0x78, val);
-
-#if 0
-	/* config GEN3_EQ_PSET_REQ_VEC */
-	val = dw_pcie_readl_dbi(pci, 0x8a8);
-	val &= ~(0xffff<<8);
-	val |= (0x480<<8);
-	dw_pcie_writel_dbi(pci, 0x8a8, val);
-
-	/* config preset from lane0 to lane3 */
-	val = dw_pcie_readl_dbi(pci, 0x154);
-	val &= 0xfff0fff0;
-	val |= 0x70007;
-	dw_pcie_writel_dbi(pci, 0x154, val);
-
-	val = dw_pcie_readl_dbi(pci, 0x158);
-	val &= 0xfff0fff0;
-	val |= 0x70007;
-	dw_pcie_writel_dbi(pci, 0x158, val);
-#endif
+	val |= (0x2<<5);
+	dw_pcie_writel_dbi(pci, DEVICE_CONTROL_DEVICE_STATUS, val);
 
 	/*  config support 32 msi vectors */
-	dw_pcie_writel_dbi(pci, 0x50, 0x018a7005);
+	val = dw_pcie_readl_dbi(pci, PCIE_DSP_PF0_MSI_CAP);
+	val &= ~PCIE_MSI_MULTIPLE_MSG_MASK;
+	val |= PCIE_MSI_MULTIPLE_MSG_32;
+	dw_pcie_writel_dbi(pci, PCIE_DSP_PF0_MSI_CAP, val);
 
 	/* disable msix cap */
-	val = dw_pcie_readl_dbi(pci, 0x70);
+	val = dw_pcie_readl_dbi(pci, PCIE_NEXT_CAP_PTR);
 	val &= 0xffff00ff;
-	dw_pcie_writel_dbi(pci, 0x70, val);
+	dw_pcie_writel_dbi(pci, PCIE_NEXT_CAP_PTR, val);
 
 	return 0;
 }
@@ -451,12 +336,7 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR(pcie->mgmt_base))
 		return PTR_ERR(pcie->mgmt_base);
 
-	// /* Fetch GPIOs */
-	// pcie->reset = devm_gpiod_get_optional(dev, "reset-gpios", GPIOD_OUT_LOW);
-	// if (IS_ERR(pcie->reset))
-	// 	return dev_err_probe(dev, PTR_ERR(pcie->reset), "unable to get reset-gpios\n");
-
-	// /* Fetch clocks */
+	/* Fetch clocks */
 	pcie->pcie_aux = devm_clk_get(dev, "pcie_aux_clk");
 	if (IS_ERR(pcie->pcie_aux)) {
 		dev_err(dev, "pcie_aux clock source missing or invalid\n");
@@ -497,9 +377,6 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(pcie->perst)) {
 		dev_err_probe(dev, PTR_ERR(pcie->perst), "unable to get perst\n");
 	}
-
-	device_property_read_u32(&pdev->dev, "gen-x", &pcie->gen_x);
-	device_property_read_u32(&pdev->dev, "lane-x", &pcie->lane_x);
 
 	platform_set_drvdata(pdev, pcie);
 
