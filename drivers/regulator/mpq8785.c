@@ -187,6 +187,7 @@ struct MPQ8785_DRIVER_DATA
 #define MPQ8785_FREQUENCY_LSB 10
 #define MPQ8785_FREQUENCY_BASE_MINI 300 /* 300kHz=30*10kHz */
 #define MPQ8785_FREQUENCY_BASE_MAX 2000
+#define MPQ8785_TEMPERATURE_LSB 1000		  /*1mC*/
 
 static u32 garr_volt_numerator[] = {64, 80, 80, 80};
 static char garr_bool_string[][2] = {"N", "Y"};
@@ -537,6 +538,7 @@ static int mpq8785_read(struct device *dev, enum hwmon_sensor_types type,
 		{
 		case hwmon_temp_input:
 			*val = mpq8785_read_byte(data, MPQ8785_CMD_READ_TEMPERATURE);
+			*val *= MPQ8785_TEMPERATURE_LSB;
 			break;
 		case hwmon_temp_crit_alarm:
 			get_value = mpq8785_read_word(data, MPQ8785_CMD_STATUS_WORD);
@@ -548,12 +550,12 @@ static int mpq8785_read(struct device *dev, enum hwmon_sensor_types type,
 		case hwmon_temp_max:
 			*val = mpq8785_read_mask_word(data, MPQ8785_CMD_OT_WARN_LIMIT,
 										  MPQ8785_MASK_TOUT_LIMIT);
-
+			*val *= MPQ8785_TEMPERATURE_LSB;
 			break;
 		case hwmon_temp_crit:
 			*val = mpq8785_read_mask_word(data, MPQ8785_CMD_OT_FAULT_LIMIT,
 										  MPQ8785_MASK_TOUT_LIMIT);
-
+			*val *= MPQ8785_TEMPERATURE_LSB;
 			break;
 		}
 		break;
@@ -676,11 +678,11 @@ static int mpq8785_write(struct device *dev, enum hwmon_sensor_types type,
 		{
 		case hwmon_temp_max:
 			ret = mpq8785_update_word(data, MPQ8785_CMD_OT_WARN_LIMIT,
-									  MPQ8785_MASK_TOUT_LIMIT, (u16)val);
+									  MPQ8785_MASK_TOUT_LIMIT, (u16)(val / MPQ8785_TEMPERATURE_LSB));
 			break;
 		case hwmon_temp_crit:
 			ret = mpq8785_update_word(data, MPQ8785_CMD_OT_FAULT_LIMIT,
-									  MPQ8785_MASK_TOUT_LIMIT, (u16)val);
+									  MPQ8785_MASK_TOUT_LIMIT, (u16)(val / MPQ8785_TEMPERATURE_LSB));
 			break;
 		}
 		break;
