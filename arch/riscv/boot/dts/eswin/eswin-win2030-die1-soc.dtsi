@@ -1589,9 +1589,6 @@
 			interrupts = <91>;
 			resets = <&d1_reset SSI_RST_CTRL SW_SSI_RST_N_0>;
 			reset-names = "spi";
-			eswin,spi_dma = <&d1_aon_dmac>;
-			dmas = <&d1_aon_dmac 38 3>, <&d1_aon_dmac 39 3>;
-			dma-names = "rx", "tx";
 			numa-node-id = <1>;
 			status = "disabled";
 			dma-noncoherent;
