@@ -636,6 +636,7 @@
 	status = "okay";
 	num-cs = <1>;
 	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";

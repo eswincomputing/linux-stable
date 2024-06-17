@@ -512,6 +512,7 @@
 	status = "okay";
 	num-cs = <1>;
 	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -823,7 +824,7 @@
 				 &pinctrl_gpio35_default &pinctrl_gpio36_default &pinctrl_gpio37_default &pinctrl_gpio38_default &pinctrl_gpio39_default &pinctrl_gpio40_default
 				 &pinctrl_gpio46_default &pinctrl_gpio47_default
 				 &pinctrl_gpio92_default &pinctrl_gpio93_default>;
-    
+
     /* pin header default function for GPIO
        SPI1 (CS0,SCLK,MOSI,MISO,D2,D3): GPIO 35,36,37,38,39,40
        I2C1 (SCL,SDA): GPIO 46,47

@@ -32,6 +32,8 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 #include <linux/mtd/spi-nor.h>
+#include <linux/sysfs.h>
+#include <linux/kobject.h>
 
 /* Register offsets */
 #define ES_SPI_CSR_00			0x00	/*WRITE_STATUS_REG_TIME*/
@@ -119,6 +121,7 @@ struct es_spi_priv {
 	struct clk *clk;
 	struct reset_control *rstc;
 	struct gpio_desc *cs_gpio;	/* External chip-select gpio */
+	struct gpio_desc *wp_gpio;	/* External chip-write protection gpio */
 
 	void __iomem *regs;
 	void __iomem *sys_regs;
@@ -136,7 +139,7 @@ struct es_spi_priv {
 
 	int bits_per_word;
 	int len;
-	u8 cs;				/* chip select pin */
+	bool wp_enabled;
 	u8 tmode;			/* TR/TO/RO/EEPROM */
 	u8 type;			/* SPI/SSP/MicroWire */
 	struct spi_controller *master;
@@ -373,6 +376,126 @@ static bool eswin_bootspi_supports_op(struct spi_mem *mem,
 	return spi_mem_default_supports_op(mem, op);
 }
 
+uint8_t eswin_bootspi_read_flash_status_register(struct es_spi_priv *priv,
+		uint8_t *register_data, int flash_cmd)
+{
+	u32 command;
+	struct device *dev = priv->dev;
+
+	memset(register_data, 0, sizeof(uint8_t));
+	//Flash status register-2 is 1byte
+	eswin_bootspi_read_write_cfg(priv, 1, 0);
+
+	//Set SPI_FLASH_COMMAND
+	command = eswin_bootspi_read(priv, ES_SPI_CSR_06);
+	command &= ~((0xFF << 6) | (0x1 << 5) | (0xF << 1) | 0x1);
+	command |= ((flash_cmd << SPI_COMMAND_CODE_FIELD_POSITION) |
+			(SPI_COMMAND_MOVE_VALUE << SPI_COMMAND_MOVE_FIELD_POSITION) |
+			(SPIC_CMD_TYPE_READ_STATUS_REGISTER << SPI_COMMAND_TYPE_FIELD_POSITION) | SPI_COMMAND_VALID);
+	eswin_bootspi_write(priv, ES_SPI_CSR_06, command);
+
+	//Wait command finish
+	eswin_bootspi_wait_over(priv);
+
+	//Read back data
+	eswin_bootspi_recv_data(priv, register_data, 1);
+	dev_dbg(dev, "[%s %d]: command 0x%x, status register_data 0x%x\n",__func__,__LINE__,
+		command, *register_data);
+	return 0;
+}
+
+uint8_t eswin_bootspi_write_flash_status_register(struct es_spi_priv *priv,
+		uint8_t register_data, int flash_cmd)
+{
+	u32 command;
+	struct device *dev = priv->dev;
+
+	//Flash status register-2 is 1byte
+	eswin_bootspi_read_write_cfg(priv, 1, 0);
+	eswin_bootspi_send_data(priv, &register_data, 1);
+
+	command = eswin_bootspi_read(priv, ES_SPI_CSR_06);
+	command &= ~((0xFF << 6) | (0x1 << 5) | (0xF << 1) | 0x1);
+	command |= ((flash_cmd << SPI_COMMAND_CODE_FIELD_POSITION) |
+			(SPI_COMMAND_MOVE_VALUE << SPI_COMMAND_MOVE_FIELD_POSITION) |
+			(SPIC_CMD_TYPE_WRITE_STATUS_REGISTER << SPI_COMMAND_TYPE_FIELD_POSITION) | SPI_COMMAND_VALID);
+	eswin_bootspi_write(priv, ES_SPI_CSR_06, command);
+
+	//Wait command finish
+	eswin_bootspi_wait_over(priv);
+	dev_dbg(dev,"[%s %d]: command 0x%x, status register_data 0x%x\n",__func__,__LINE__,
+			command, register_data);
+	return 0;
+}
+
+int eswin_bootspi_flash_write_protection_cfg(struct es_spi_priv *priv, int enable)
+{
+	uint8_t register_data;
+
+	external_cs_manage(priv, false);
+
+	//Update status register1
+	eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR);
+	/*
+	  SRP SEC TB BP2 BP1 BP0 WEL BUSY
+	 */
+	if (enable) {
+		register_data |= ((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7));
+	} else {
+		register_data &= ~((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7));
+	}
+	eswin_bootspi_write_flash_status_register(priv, register_data, SPINOR_OP_WRSR);
+
+	//eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR);
+
+	external_cs_manage(priv, true);
+	return 0;
+}
+
+/*
+	0: disable write_protection
+	1: enable write_protection
+*/
+void eswin_bootspi_wp_cfg(struct es_spi_priv *priv, int enable)
+{
+	struct device *dev = priv->dev;
+
+	dev_info(dev, "Boot spi flash write protection %s\n", enable ? "enable" : "disable");
+	if (enable) {
+		eswin_bootspi_flash_write_protection_cfg(priv, enable);
+		gpiod_set_value(priv->wp_gpio, enable); //gpio output low, enable protection
+	} else {
+		gpiod_set_value(priv->wp_gpio, enable); //gpio output high, disable protection
+		eswin_bootspi_flash_write_protection_cfg(priv, enable);
+	}
+}
+
+static ssize_t wp_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+	return sprintf(buf, "%s\n", priv->wp_enabled ? "enabled" : "disabled");
+}
+
+static ssize_t wp_enable_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+	unsigned long enable;
+	int ret;
+
+	ret = kstrtoul(buf, 10, &enable);
+	if (ret)
+		return ret;
+
+	eswin_bootspi_wp_cfg(priv, enable);
+	priv->wp_enabled = enable;
+	return count;
+}
+
+static DEVICE_ATTR_RW(wp_enable);
+
 static int eswin_bootspi_exec_op(struct spi_mem *mem,
 				 const struct spi_mem_op *op)
 {
@@ -455,6 +578,24 @@ static int eswin_bootspi_exec_op(struct spi_mem *mem,
 
 	dev_dbg(dev, "[%s %d]: data direction=%d, opcode = 0x%x, cmd_type 0x%x\n",
 		__func__,__LINE__, op->data.dir, priv->opcode, priv->cmd_type);
+
+	if (priv->wp_enabled) {
+		switch(priv->opcode) {
+			case SPINOR_OP_BE_4K:
+			case SPINOR_OP_BE_4K_PMC:
+			case SPINOR_OP_BE_32K:
+			case SPINOR_OP_SE:
+			case SPINOR_OP_CHIP_ERASE:
+			case SPINOR_OP_PP:
+			case SPINOR_OP_PP_1_1_4:
+			case SPINOR_OP_PP_1_4_4:
+			case SPINOR_OP_PP_1_1_8:
+			case SPINOR_OP_PP_1_8_8:
+				dev_warn_ratelimited(dev, "Write protection is enabled, do not have permission to "
+					"perform this operation(%d)!\n", priv->opcode);
+				return -EACCES;
+		}
+	}
 	external_cs_manage(priv, false);
 
 	if (read) {
@@ -595,9 +736,15 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->cs_gpio);
 	}
 
-	priv->max_xfer = 32;
-	dev_info(dev, "ssi_max_xfer_size=%u\n", priv->max_xfer);
+	priv->wp_gpio = devm_gpiod_get(dev, "wp", GPIOD_OUT_HIGH);
+	if (IS_ERR(priv->cs_gpio)) {
+		dev_err(dev, "%s %d: couldn't request gpio! (error %ld)\n", __func__,__LINE__,
+			PTR_ERR(priv->cs_gpio));
+		return PTR_ERR(priv->cs_gpio);
+	}
+	priv->wp_enabled = 1;
 
+	priv->max_xfer = 32;
 	/* Currently only bits_per_word == 8 supported */
 	priv->bits_per_word = 8;
 	priv->tmode = 0; /* Tx & Rx */
@@ -609,7 +756,15 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_put_master;
 
-	dev_info(&pdev->dev, "fifo_len %d, %s mode.\n", priv->fifo_len, priv->irq ? "irq" : "polling");
+	// Create sysfs node
+	ret = device_create_file(&pdev->dev, &dev_attr_wp_enable);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to create wp_enable attribute\n");
+		goto err_put_master;
+	}
+
+	dev_info(&pdev->dev, "ssi_max_xfer_size %d, fifo_len %d, %s mode.\n",
+		priv->max_xfer, priv->fifo_len, priv->irq ? "irq" : "polling");
 	return 0;
 
 err_put_master:
