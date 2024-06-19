@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config ESWIN_PROC
+	tristate "ESWIN MMZ proc interface"
+	help
+	  MMZ proc interface for user space.
+

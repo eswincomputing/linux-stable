@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Header file of ESWIN internal buddy allocator
+ *
+ * Copyright 2024 Beijing ESWIN Computing Technology Co., Ltd.
+ *   Authors:
+ *    LinMin<linmin@eswincomputing.com>
+ *
+ */
+
 #ifndef __BUDDY_H__
 #define __BUDDY_H__
 
@@ -38,13 +48,11 @@
 #define es_spin_lock(esLock)
 #define es_spin_unlock(esLock)
 #endif
-/*
- * ���Page������״̬
- * */
+
 enum esPageflags_e{
-	enPG_head,    //����buddyϵͳ�ڣ��׸�ҳ
-	enPG_tail,    //����buddyϵͳ�ڣ���ҳ֮���ҳ��
-	enPG_buddy,   //��buddyϵͳ��
+	enPG_head,
+	enPG_tail,
+	enPG_buddy,
 };
 
 #define BUDDY_PAGE_SHIFT    PAGE_SHIFT//(12UL)
@@ -110,11 +118,7 @@ void         buddy_free_pages(struct mem_zone *zone,
 							  struct esPage_s *page);
 unsigned long buddy_num_free_page(struct mem_zone *zone);
 
-/*
- * ҳ��Ϊ���ࣺһ���ǵ�ҳ��zero page��,
- * һ�������ҳ��compound page����
- * ���ҳ�ĵ�һ����head������Ϊtail��
- * */
+
 static inline void __esSetPageHead(struct esPage_s *page)
 {
 	page->flags |= (1UL<<enPG_head);
@@ -160,9 +164,7 @@ static inline int esPageBuddy(struct esPage_s *page)
 	return (page->flags & (1UL<<enPG_buddy));
 }
 
-/*
- * ����ҳ��order��PG_buddy��־
- * */
+
 static inline void set_page_order_buddy(struct esPage_s *page, unsigned long order)
 {
 	page->order = order;
@@ -175,9 +177,7 @@ static inline void rmv_page_order_buddy(struct esPage_s *page)
 	__esClearPageBuddy(page);
 }
 
-/*
- * ����buddyҳ
- * */
+
 static inline unsigned long
 __find_buddy_index(unsigned long page_idx, unsigned int order)
 {
@@ -190,21 +190,17 @@ __find_combined_index(unsigned long page_idx, unsigned int order)
 	return (page_idx & ~(1 << order));
 }
 
-/*
- * Linux�ں˽����ҳ��order��¼�ڵڶ���ҳ���prevָ����
- * ��ϵͳ�����ҳ��order��¼���׸�ҳ���page->order����
- * */
+
 static inline unsigned long esCompound_order(struct esPage_s *page)
 {
 	if (!esPageHead(page))
-		return 0; //��ҳ
-	//return (unsigned long)page[1].lru.prev;
+		return 0;
+
 	return page->order;
 }
 
 static inline void esSet_compound_order(struct esPage_s *page, unsigned long order)
 {
-	//page[1].lru.prev = (void *)order;
 	page->order = order;
 }
 

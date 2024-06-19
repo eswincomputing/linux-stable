@@ -25,5 +25,9 @@ config ESWIN_RSV_MEMBLOCK
 	  If unsure, say "n".
 
 source "drivers/memory/eswin/codacache/Kconfig"
+source "drivers/memory/eswin/es_buddy/Kconfig"
+source "drivers/memory/eswin/es_proc/Kconfig"
+source "drivers/memory/eswin/es_rsvmem_heap/Kconfig"
+source "drivers/memory/eswin/es_mmz_vb/Kconfig"
 
 endif
