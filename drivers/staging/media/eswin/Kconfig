@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config VIDEO_ESWIN
+	bool "Eswin Video IP"
+	help
+	  Driver for Eswin Video IP Pipelines
+
+source "drivers/staging/media/eswin/vdec/Kconfig"
+source "drivers/staging/media/eswin/venc/Kconfig"
+source "drivers/staging/media/eswin/hae/Kconfig"
+source "drivers/staging/media/eswin/dewarp/Kconfig"
+source "drivers/staging/media/eswin/es-media-ext/Kconfig"

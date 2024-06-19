@@ -1,0 +1,5 @@
+config VIDEO_ESWIN_VDEC
+	tristate "Eswin decoder Acceleration Unit"
+	depends on VIDEO_ESWIN
+	help
+	  This is video decoder accelerator.

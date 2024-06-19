@@ -1,0 +1,5 @@
+config VIDEO_ESWIN_MEDIA_EXT_DRIVER
+	tristate "Eswin extend Driver"
+	depends on VIDEO_ESWIN
+	help
+	   This is video driver for proc infomation

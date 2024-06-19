@@ -1,0 +1,5 @@
+config VIDEO_ESWIN_HAE
+	tristate "Eswin 2d Graphic Acceleration Unit"
+	depends on VIDEO_ESWIN
+	help
+	  This is 2d graphics accelerator.

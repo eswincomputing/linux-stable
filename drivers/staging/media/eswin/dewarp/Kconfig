@@ -1,0 +1,5 @@
+config VIDEO_ESWIN_DEWARP
+	tristate "Eswin dewarp Acceleration Unit"
+	depends on VIDEO_ESWIN
+	help
+	  This is video dewarp && scale accelerator.

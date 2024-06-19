@@ -1,0 +1,67 @@
+MODULE_NAME ?= es_venc
+PRINT_LOG_LEVEL ?= 0xFF
+VENC_DRV_GIT_VER ?= 00000000
+
+$(info ***************************************)
+$(info *** start to compile encoder driver ***)
+$(info ***************************************)
+$(info * MODULE_NAME=$(MODULE_NAME))
+$(info * ARCH_TYPE=$(ARCH_TYPE))
+$(info * KERNEL_DIR=$(KERNEL_DIR))
+$(info * CROSS_COMPILE=$(CROSS_COMPILE))
+$(info * KERNELRELEASE=$(KERNELRELEASE))
+$(info * LOG_LEVEL=$(PRINT_LOG_LEVEL))
+$(info * VENC_DRV_GIT_VER=$(VENC_DRV_GIT_VER))
+$(info ***************************************)
+
+export KERNEL_DIR CROSS_COMPILE
+
+# ifeq ($(CONFIG_KASAN),)
+# EXTRA_CFLAGS += -Werror -Wno-implicit-fallthrough
+# ccflags-$(CONFIG_WERROR) += -Werror
+# endif
+# ccflags-$(CONFIG_WERROR) += -unused-functions
+
+# macro definitions
+ccflags-y += -DOUTPUT_LOG_LEVEL=${PRINT_LOG_LEVEL}
+ccflags-y += -DES_VENC_GIT_VER=\"${VENC_DRV_GIT_VER}\"
+ccflags-$(USE_DMA_HEAP) += -DSUPPORT_DMA_HEAP
+ccflags-y += -DHANTROAXIFE_SUPPORT -DHANTROVCMD_ENABLE_IP_SUPPORT
+ifeq ($(CONFIG_VIDEO_ENCODER_DEBUG),y)
+	ccflags-$(CONFIG_VIDEO_ENCODER_DEBUG) += -DHANTRO_DRIVER_DEBUG
+else
+	ccflags-y += -O2
+endif
+$(info ccflags-y=${ccflags-y})
+
+# objects
+OBJS := vc8000_axife.o vc8000_normal_driver.o vc8000_vcmd_driver.o vc8000e_driver.o bidirect_list.o vcmdswhwregisters.o
+
+EXTRA_CFLAGS += -I$(ES_RSVMEM_HEAP_DIR)
+KBUILD_EXTRA_SYMBOLS +=$(ES_RSVMEM_HEAP_DIR)/Module.symvers
+
+ifeq ($(KERNELRELEASE),)
+
+.PHONY: all clean install
+
+all:
+	@echo MAKE=$(MAKE)
+	@$(MAKE) V=$(V) ARCH=$(ARCH_TYPE) -C $(KERNEL_DIR) M=`pwd` modules
+
+clean:
+	@rm -rf $(OBJS)
+	@rm -rf modules.order Module.symvers .tmp_versions
+	@find -name ".dw_*.cmd" | xargs rm -f
+	@rm -f $(MODULE_NAME).o $(MODULE_NAME).mod.[co] .*.cmd
+
+install: all
+	@mkdir
+
+# else for KERNELRELEASE
+else
+
+obj-m = $(MODULE_NAME).o
+$(MODULE_NAME)-objs  = $(OBJS)
+
+# end for KERNELRELEASE
+endif

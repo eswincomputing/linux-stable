@@ -1,0 +1,6 @@
+config VIDEO_ESWIN_VENC
+	tristate "Eswin encoder Acceleration Unit"
+	depends on VIDEO_ESWIN
+	help
+	  This is video encoder accelerator.
+

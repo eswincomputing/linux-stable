@@ -1,0 +1,85 @@
+MODULE_NAME ?= es_vdec
+PRINT_LOG_LEVEL ?= 0xFF
+VDEC_DRV_GIT_VER ?= 00000000
+
+$(info ***************************************)
+$(info *** start to compile decoder driver ***)
+$(info ***************************************)
+$(info * MODULE_NAME=$(MODULE_NAME))
+$(info * ARCH=$(ARCH))
+$(info * KERNEL_DIR=$(KERNEL_DIR))
+$(info * CROSS_COMPILE=$(CROSS_COMPILE))
+$(info * KERNELRELEASE=$(KERNELRELEASE))
+$(info * LOG_LEVEL=$(PRINT_LOG_LEVEL))
+$(info * VDEC_DRV_GIT_VER=$(VDEC_DRV_GIT_VER))
+$(info ***************************************)
+
+export KERNEL_DIR CROSS_COMPILE
+
+ccflags-y += -DOUTPUT_LOG_LEVEL=${PRINT_LOG_LEVEL}
+ccflags-y += -DES_VDEC_GIT_VER=\"${VDEC_DRV_GIT_VER}\"
+
+# macro definitions
+ifeq ($(USE_DMA_HEAP),y)
+	ccflags-y += -DSUPPORT_DMA_HEAP
+endif
+
+ifeq ($(VIDEO_DECODER_DEBUG),y)
+	ccflags-y += -DHANTRODEC_DEBUG -O -g
+else
+	ccflags-y += -O2
+endif
+
+$(info ccflags-y=${ccflags-y})
+
+# ccflags-y += -I$(PWD)/../dwl
+E_CFLAGS += -Wa,-mno-relax
+
+ifeq ($(strip $(SUPPORT_VCMD_ENABLE_IP)),y)
+	EXTRA_CFLAGS += -DHANTROVCMD_ENABLE_IP_SUPPORT
+endif
+
+ifeq ($(strip $(USE_PLATFORM_GEN7)),y)
+	EXTRA_CFLAGS += -DPLATFORM_GEN7
+endif
+
+EXTRA_CFLAGS += -I$(ES_RSVMEM_HEAP_DIR)
+KBUILD_EXTRA_SYMBOLS +=$(ES_RSVMEM_HEAP_DIR)/Module.symvers
+
+# recursive call from kernel build system
+ifeq ($(KERNELRELEASE),)
+.PHONY: all clean install
+
+PWD  := $(shell pwd)
+
+# export CROSS_COMPILE=/home/e0006031/git/toolchain/host/bin/riscv64-buildroot-linux-gnu-
+# export ARCH=riscv
+
+all:
+	@echo MAKE=$(MAKE)
+	$(MAKE) -C $(KERNEL_DIR) $(E_CFLAGS) CROSS_COMPILE=${CROSS_COMPILE} ARCH=${ARCH} M=$(PWD) modules
+
+clean:
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions
+	rm -rf modules.order Module.symvers
+
+install: all
+	@mkdir
+
+# else of KERNELRELEASE
+else
+$(MODULE_NAME)-objs := hantro_dec.o \
+									hantro_mmu.o \
+									hantro_axife.o \
+									hantro_vcmd.o \
+									bidirect_list.o \
+									vcmdswhwregisters.o \
+									subsys.o \
+									hantro_afbc.o \
+									dts_parser.o
+
+obj-m += $(MODULE_NAME).o
+
+endif
+# end of KERNELRELEASE
+
