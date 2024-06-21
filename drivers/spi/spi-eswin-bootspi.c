@@ -147,6 +147,9 @@ struct es_spi_priv {
 	int irq;
 };
 
+uint8_t eswin_bootspi_read_flash_status_register(struct es_spi_priv *priv,
+		uint8_t *register_data, int flash_cmd);
+
 static inline u32 eswin_bootspi_read(struct es_spi_priv *priv, u32 offset)
 {
 	return readl(priv->regs + offset);
@@ -171,11 +174,21 @@ static int eswin_bootspi_wait_over(struct es_spi_priv *priv)
 {
 	u32 val;
 	struct device *dev = priv->dev;
+	uint8_t register_data = 0;
+	unsigned long timeout = jiffies + msecs_to_jiffies(5000);  // 5 seconds timeout
 
 	if (readl_poll_timeout(priv->regs + ES_SPI_CSR_06, val,
 		(!(val & 0x1)), 10, RX_TIMEOUT * 1000)) {
-			dev_err(dev, "eswin_bootspi_wait_over : timeout!!\n");
+			dev_err(dev, "eswin_bootspi_wait_over : timeout in waiting contronller busy status\n");
 			return -ETIMEDOUT;
+	}
+	while (register_data & 0x1) {
+		eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR);
+		// Check for timeout
+		if (time_after(jiffies, timeout)) {
+		    dev_err(dev, "eswin_bootspi_wait_over : timeout in wait flash chip busy status!\n");
+		    return -ETIMEDOUT;
+		}
 	}
 	return 0;
 }
@@ -395,7 +408,7 @@ uint8_t eswin_bootspi_read_flash_status_register(struct es_spi_priv *priv,
 	eswin_bootspi_write(priv, ES_SPI_CSR_06, command);
 
 	//Wait command finish
-	eswin_bootspi_wait_over(priv);
+	mdelay(10);
 
 	//Read back data
 	eswin_bootspi_recv_data(priv, register_data, 1);
@@ -430,7 +443,7 @@ uint8_t eswin_bootspi_write_flash_status_register(struct es_spi_priv *priv,
 
 int eswin_bootspi_flash_write_protection_cfg(struct es_spi_priv *priv, int enable)
 {
-	uint8_t register_data;
+	uint8_t register_data, request_register_data;
 
 	external_cs_manage(priv, false);
 
@@ -440,11 +453,14 @@ int eswin_bootspi_flash_write_protection_cfg(struct es_spi_priv *priv, int enabl
 	  SRP SEC TB BP2 BP1 BP0 WEL BUSY
 	 */
 	if (enable) {
-		register_data |= ((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7));
+		request_register_data = register_data | ((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7));
 	} else {
-		register_data &= ~((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7));
+		request_register_data = register_data & (~((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7)));
 	}
-	eswin_bootspi_write_flash_status_register(priv, register_data, SPINOR_OP_WRSR);
+
+	if (request_register_data != register_data) {
+		eswin_bootspi_write_flash_status_register(priv, request_register_data, SPINOR_OP_WRSR);
+	}
 
 	//eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR);
 
@@ -460,7 +476,7 @@ void eswin_bootspi_wp_cfg(struct es_spi_priv *priv, int enable)
 {
 	struct device *dev = priv->dev;
 
-	dev_info(dev, "Boot spi flash write protection %s\n", enable ? "enable" : "disable");
+	dev_info(dev, "Boot spi flash write protection %s\n", enable ? "enabled" : "disabled");
 	if (enable) {
 		eswin_bootspi_flash_write_protection_cfg(priv, enable);
 		gpiod_set_value(priv->wp_gpio, enable); //gpio output low, enable protection
@@ -630,7 +646,6 @@ static int eswin_bootspi_setup(struct spi_device *spi)
 {
 	struct es_spi_priv *priv = spi_master_get_devdata(spi->master);
 	struct device *dev = priv->dev;
-	int vaule = 0;
 	int ret;
 
 	ret = clk_prepare_enable(priv->cfg_clk);
@@ -652,12 +667,18 @@ static int eswin_bootspi_setup(struct spi_device *spi)
 	}
 
 	reset_control_deassert(priv->rstc);
-
+	/*
+	  When the bootrom starts from the boot SPI flash, the BootSpi contronller is in boot mode.
+	  If the BootSpi contronller is switched to CPU mode here, the bootrom software will crash.
+	  Therefore, this part of the code should be disabled.
+	  In summary, the boot mode and CPU mode of the BootSpi contronller cannot coexist.
+	*/
+#if 0
 	/* switch bootspi to cpu mode*/
 	vaule = readl(priv->sys_regs + ES_SYSCSR_SPIMODECFG);
 	vaule |= 0x1;
 	writel(vaule, priv->sys_regs + ES_SYSCSR_SPIMODECFG);
-
+#endif
 	/* Basic HW init */
 	eswin_bootspi_write(priv, ES_SPI_CSR_08, 0x0);
 	return ret;
