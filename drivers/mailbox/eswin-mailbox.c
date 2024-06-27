@@ -19,7 +19,6 @@
  *
  * Authors: HuangYiFeng<huangyifeng@eswincomputing.com>
  */
-
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -31,6 +30,8 @@
 #include <linux/mailbox/eswin-mailbox.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/pm_runtime.h>
+
 
 #define ESWIN_MBOX_FIFO_DEPTH 8
 
@@ -96,7 +97,7 @@ static int eswin_mbox_send_data(struct mbox_chan *chan, void *data)
 
 	tmp_data = (u32)(msg->data >> 32) | BIT(31);
 	regmap_write(mb->map, ESWIN_MBOX_WR_DATA1, tmp_data);
-    // 写中断enable bit.
+	// Write interrupt enable bit.
 	regmap_set_bits(mb->map, ESWIN_MBOX_INT_CTRL, mb->irq_bit);
 	return 0;
 }
@@ -106,12 +107,15 @@ static int eswin_mbox_startup(struct mbox_chan *chan)
 	struct eswin_mbox *mb = dev_get_drvdata(chan->mbox->dev);
 	int ret;
 
+	pm_runtime_get_sync(mb->dev);
+
 	if (regmap_test_bits(mb->map, ESWIN_MBOX_WR_LOCK, mb->lock_bit)) {
+		pm_runtime_put(mb->dev);
 		return -1;
 	}
 	ret = regmap_set_bits(mb->map, ESWIN_MBOX_WR_LOCK, mb->lock_bit);
-	
-	/*占用标志位写入成功表示占用成功*/
+
+	/* Successfully write the occupancy flag bit, indicating successful occupancy */
 	dev_dbg(mb->mbox.dev, "start, ret %d, lock_bit 0x%x\n", ret,
 		mb->lock_bit);
 	return ret;
@@ -130,6 +134,7 @@ static void eswin_mbox_shutdown(struct mbox_chan *chan)
 	if (0 != ret)
 		dev_err(mb->mbox.dev, "failed to disable  mailbox int\n");
 
+	pm_runtime_put(mb->dev);
 	return;
 }
 
@@ -184,7 +189,7 @@ static bool eswin_mbox_peek_data(struct mbox_chan *chan)
 
 /*
     once the data has been enqueued to mailbox hw FIFO in send_data function,
-    we beleive that tx is done
+    we believe that tx is done
 */
 static bool eswin_mbox_last_tx_done(struct mbox_chan *chan)
 {
@@ -271,7 +276,7 @@ static const struct of_device_id eswin_mbox_of_match[] = {
 MODULE_DEVICE_TABLE(of, eswin_mbox_of_match);
 
 static int eswin_mbox_reg_read(void *context, unsigned int reg,
-			       unsigned int *val)
+		unsigned int *val)
 {
 	struct eswin_mbox *mb = context;
 
@@ -297,7 +302,7 @@ static int eswin_mbox_rx_reg_read(void *context, unsigned int reg,
 	return 0;
 }
 
-static int eswin_mbox__rx_reg_write(void *context, unsigned int reg,
+static int eswin_mbox_rx_reg_write(void *context, unsigned int reg,
 				    unsigned int val)
 {
 	struct eswin_mbox *mb = context;
@@ -334,7 +339,7 @@ int eswin_mbox_init_regmap(struct eswin_mbox *mb)
 		.cache_type = REGCACHE_NONE,
 		.can_sleep = false,
 		.reg_read = eswin_mbox_rx_reg_read,
-		.reg_write = eswin_mbox__rx_reg_write,
+		.reg_write = eswin_mbox_rx_reg_write,
 	};
 
 	/*
@@ -356,6 +361,29 @@ int eswin_mbox_init_regmap(struct eswin_mbox *mb)
 	}
 
 	return 0;
+}
+
+static int eswin_mbox_prepare_clk(struct device *dev, bool enable)
+{
+	int ret = 0;
+	struct eswin_mbox *mb = dev_get_drvdata(dev);
+
+	if (enable) {
+		ret = clk_prepare_enable(mb->pclk);
+		if (ret) {
+			dev_err(dev, "failed to enable host mailbox pclk: %d\n", ret);
+			return ret;
+		}
+		ret = clk_prepare_enable(mb->pclk_device);
+		if (ret) {
+			dev_err(dev, "failed to enable device mailbox pclk: %d\n", ret);
+			return ret;
+		}
+	} else {
+		clk_disable_unprepare(mb->pclk);
+		clk_disable_unprepare(mb->pclk_device);
+	}
+	return ret;
 }
 
 static int eswin_mbox_probe(struct platform_device *pdev)
@@ -426,13 +454,6 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = clk_prepare_enable(mb->pclk);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable host mailbox pclk: %d\n",
-			ret);
-		return ret;
-	}
-
 	mb->pclk_device = devm_clk_get(&pdev->dev, "pclk_mailbox_device");
 	if (IS_ERR(mb->pclk_device)) {
 		ret = PTR_ERR(mb->pclk_device);
@@ -440,13 +461,7 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 			ret);
 		return ret;
 	}
-
-	ret = clk_prepare_enable(mb->pclk_device);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"failed to enable device mailbox pclk: %d\n", ret);
-		return ret;
-	}
+	eswin_mbox_prepare_clk(&pdev->dev, true);
 
 	mb->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, "rst");
 	if (IS_ERR(mb->rst))
@@ -465,8 +480,7 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 			return irq;
 
 		ret = devm_request_threaded_irq(&pdev->dev, irq, eswin_mbox_irq,
-						eswin_mbox_isr, IRQF_ONESHOT,
-						dev_name(&pdev->dev), mb);
+				eswin_mbox_isr, IRQF_ONESHOT, dev_name(&pdev->dev), mb);
 		if (ret < 0)
 			return ret;
 
@@ -480,10 +494,20 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 		return ret;
 
 	spin_lock_init(&mb->rx_lock);
-	ret = devm_mbox_controller_register(&pdev->dev, &mb->mbox);
-	if (ret < 0)
-		dev_err(&pdev->dev, "failed to register mailbox: %d\n", ret);
 
+	/* The code below assumes runtime PM to be disabled. */
+	WARN_ON(pm_runtime_enabled(&pdev->dev));
+
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	ret = devm_mbox_controller_register(&pdev->dev, &mb->mbox);
+	if (ret < 0) {
+		pm_runtime_disable(&pdev->dev);
+		dev_err(&pdev->dev, "failed to register mailbox: %d\n", ret);
+	}
 	dev_info(&pdev->dev, "register sucessfully\n");
 	return ret;
 }
@@ -493,14 +517,48 @@ static int eswin_mbox_remove(struct platform_device *pdev)
 	int ret;
 	struct eswin_mbox *mb = platform_get_drvdata(pdev);
 
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
 	ret = reset_control_assert(mb->rst);
 	WARN_ON(ret != 0);
 	ret = reset_control_assert(mb->rst_device);
 	WARN_ON(ret != 0);
-	clk_disable_unprepare(mb->pclk_device);
-	clk_disable_unprepare(mb->pclk);
 	return 0;
 }
+
+static int eswin_mbox_suspend(struct device *dev)
+{
+	if (!pm_runtime_status_suspended(dev)) {
+		return eswin_mbox_prepare_clk(dev, false);
+	}
+	return 0;
+}
+
+static int eswin_mbox_resume(struct device *dev)
+{
+	if (!pm_runtime_status_suspended(dev)) {
+		eswin_mbox_prepare_clk(dev, true);
+		pm_runtime_mark_last_busy(dev);
+		pm_request_autosuspend(dev);
+	}
+	return 0;
+}
+
+static int eswin_mbox_runtime_suspend(struct device *dev)
+{
+	return eswin_mbox_prepare_clk(dev, false);
+}
+
+static int eswin_mbox_runtime_resume(struct device *dev)
+{
+	return eswin_mbox_prepare_clk(dev, true);
+}
+
+static const struct dev_pm_ops eswin_mbox_dev_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(eswin_mbox_suspend, eswin_mbox_resume)
+	RUNTIME_PM_OPS(eswin_mbox_runtime_suspend, eswin_mbox_runtime_resume, NULL)
+};
 
 static struct platform_driver eswin_mbox_driver = {
 	.probe	= eswin_mbox_probe,
@@ -508,6 +566,7 @@ static struct platform_driver eswin_mbox_driver = {
 	.driver = {
 		.name = "eswin-mailbox",
 		.of_match_table = of_match_ptr(eswin_mbox_of_match),
+		.pm	= pm_ptr(&eswin_mbox_dev_pm_ops),
 	},
 };
 

@@ -336,7 +336,7 @@ static struct platform_driver dwc_pwm_driver = {
 	.remove = dwc_pwm_remove,
 	.driver = {
 		.name	= "dwc-pwm",
-		.pm = &dwc_pwm_pm_ops,
+		//.pm = &dwc_pwm_pm_ops,
 		.of_match_table = of_match_ptr(dwc_pwm_id_table),
 	},
 };
