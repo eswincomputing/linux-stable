@@ -356,11 +356,13 @@
 
 &d0_graphcard0 {
 	status = "okay";
+	label = "Analog Audio";
 	dais = <&d0_i2s1_port>;
 };
 
 &d0_graphcard1 {
 	status = "okay";
+	label = "HDMI Audio";
 	dais = <&d0_i2s0_port>;
 };
 

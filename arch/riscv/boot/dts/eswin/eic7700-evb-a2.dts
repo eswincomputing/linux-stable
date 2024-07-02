@@ -421,16 +421,19 @@
 
 &d0_graphcard0 {
 	status = "okay";
+	label = "Analog Audio-0";
 	dais = <&d0_i2s1_port>;
 };
 
 &d0_graphcard1 {
 	status = "okay";
+	label = "Analog Audio-1";
 	dais = <&d0_i2s2_port>;
 };
 
 &d0_graphcard2 {
 	status = "okay";
+	label = "HDMI Audio";
 	dais = <&d0_i2s0_port>;
 };
 
