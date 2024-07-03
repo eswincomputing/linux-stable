@@ -354,10 +354,6 @@ static int audio_dev_mmap(struct file *file, struct vm_area_struct *vma)
 	enum DEVICES_ID deviceID = INVALID_DEVICE;
 	unsigned long size = vma->vm_end - vma->vm_start;
 
-	pr_info("audio_dev_mmap:%s\n", file->f_path.dentry->d_name.name);
-
-	pr_info("vma->vm_end:%ld,vma->vm_start:%ld\n",vma->vm_end, vma->vm_start);
-
 	if (size > (MAX_PERF_SIZE * sizeof(int32_t))) {
 		pr_err("audio_dev_mmap: size:%ld > %ld.\n", size, MAX_PERF_SIZE * sizeof(int32_t));
 		return -EINVAL;
