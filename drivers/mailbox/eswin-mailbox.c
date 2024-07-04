@@ -527,7 +527,7 @@ static int eswin_mbox_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int eswin_mbox_suspend(struct device *dev)
+__maybe_unused static int eswin_mbox_suspend(struct device *dev)
 {
 	if (!pm_runtime_status_suspended(dev)) {
 		return eswin_mbox_prepare_clk(dev, false);
@@ -535,7 +535,7 @@ static int eswin_mbox_suspend(struct device *dev)
 	return 0;
 }
 
-static int eswin_mbox_resume(struct device *dev)
+__maybe_unused static int eswin_mbox_resume(struct device *dev)
 {
 	if (!pm_runtime_status_suspended(dev)) {
 		eswin_mbox_prepare_clk(dev, true);
@@ -545,12 +545,12 @@ static int eswin_mbox_resume(struct device *dev)
 	return 0;
 }
 
-static int eswin_mbox_runtime_suspend(struct device *dev)
+__maybe_unused static int eswin_mbox_runtime_suspend(struct device *dev)
 {
 	return eswin_mbox_prepare_clk(dev, false);
 }
 
-static int eswin_mbox_runtime_resume(struct device *dev)
+__maybe_unused static int eswin_mbox_runtime_resume(struct device *dev)
 {
 	return eswin_mbox_prepare_clk(dev, true);
 }

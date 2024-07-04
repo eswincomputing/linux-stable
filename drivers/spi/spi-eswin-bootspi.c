@@ -23,7 +23,6 @@
 #include <linux/clk.h>
 #include <linux/reset.h>
 #include <linux/bitfield.h>
-#include <linux/interrupt.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
@@ -34,6 +33,7 @@
 #include <linux/mtd/spi-nor.h>
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
+#include <linux/pm_runtime.h>
 
 /* Register offsets */
 #define ES_SPI_CSR_00			0x00	/*WRITE_STATUS_REG_TIME*/
@@ -645,26 +645,6 @@ static const struct spi_controller_mem_ops eswin_bootspi_mem_ops = {
 static int eswin_bootspi_setup(struct spi_device *spi)
 {
 	struct es_spi_priv *priv = spi_master_get_devdata(spi->master);
-	struct device *dev = priv->dev;
-	int ret;
-
-	ret = clk_prepare_enable(priv->cfg_clk);
-	if (ret) {
-		dev_err(dev, "could not enable cfg clock: %d\n", ret);
-		goto err_cfg_clk;
-	}
-
-	ret = clk_prepare_enable(priv->clk);
-	if (ret) {
-		dev_err(dev, "could not enable clock: %d\n", ret);
-		goto err_clk;
-	}
-	/* set rate to 50M*/
-	ret = clk_set_rate(priv->clk, 50000000);
-	if (ret) {
-		dev_err(dev, "could not enable clock: %d\n", ret);
-		goto err_clk;
-	}
 
 	reset_control_deassert(priv->rstc);
 	/*
@@ -681,12 +661,7 @@ static int eswin_bootspi_setup(struct spi_device *spi)
 #endif
 	/* Basic HW init */
 	eswin_bootspi_write(priv, ES_SPI_CSR_08, 0x0);
-	return ret;
-
-err_clk:
-	clk_disable(priv->cfg_clk);
-err_cfg_clk:
-	return ret;
+	return 0;
 }
 
 static int eswin_bootspi_probe(struct platform_device *pdev)
@@ -696,7 +671,7 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = &pdev->dev;
 
-	master = spi_alloc_master(&pdev->dev, sizeof(*priv));
+	master = devm_spi_alloc_master(&pdev->dev, sizeof(*priv));
 	if (!master)
 		return -ENOMEM;
 
@@ -708,6 +683,7 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 				     SPI_BPW_MASK(8);
 	master->mem_ops = &eswin_bootspi_mem_ops;
 	master->num_chipselect = 1;
+	master->auto_runtime_pm = true;
 
 	priv = spi_master_get_devdata(master);
 	priv->master = master;
@@ -734,11 +710,9 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 
 	priv->cfg_clk = devm_clk_get(dev, "cfg_clk");
 	if (IS_ERR(priv->cfg_clk)) {
-		dev_err(dev, "%s %d:could not get cfg clk: %ld\n", __func__,__LINE__,
-			PTR_ERR(priv->cfg_clk));
+		dev_err(dev, "%s %d:could not get cfg clk: %ld\n", __func__,__LINE__, PTR_ERR(priv->cfg_clk));
 		return PTR_ERR(priv->cfg_clk);
 	}
-
 	priv->clk = devm_clk_get(dev, "clk");
 	if (IS_ERR(priv->clk)) {
 		dev_err(dev, "%s %d:could not get clk: %ld\n",__func__,__LINE__, PTR_ERR(priv->rstc));
@@ -773,34 +747,149 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 	if (!priv->fifo_len) {
 		priv->fifo_len = 256;
 	}
-	ret = devm_spi_register_controller(dev, master);
-	if (ret)
-		goto err_put_master;
-
 	// Create sysfs node
 	ret = device_create_file(&pdev->dev, &dev_attr_wp_enable);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to create wp_enable attribute\n");
-		goto err_put_master;
+		dev_err(&pdev->dev, "Failed to create wp_enable attribute ret %d\n", ret);
+		return ret;
 	}
 
+	ret = clk_prepare_enable(priv->cfg_clk);
+	if (ret) {
+		dev_err(dev, "could not enable cfg clock: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(priv->clk);
+	if (ret) {
+		dev_err(dev, "could not enable clock: %d\n", ret);
+		goto out_cfg_clk;
+	}
+
+	/* set rate to 50M*/
+	ret = clk_set_rate(priv->clk, 50000000);
+	if (ret) {
+		dev_err(dev, "could not enable clock: %d\n", ret);
+		goto out_clk;
+	}
+
+	pm_runtime_set_autosuspend_delay(dev, 2000);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	ret = devm_spi_register_controller(dev, master);
+	if (ret)
+		goto out_register_controller;
+
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
 	dev_info(&pdev->dev, "ssi_max_xfer_size %d, fifo_len %d, %s mode.\n",
-		priv->max_xfer, priv->fifo_len, priv->irq ? "irq" : "polling");
+			priv->max_xfer, priv->fifo_len, priv->irq ? "irq" : "polling");
 	return 0;
 
-err_put_master:
-	spi_master_put(master);
+out_register_controller:
+	pm_runtime_dont_use_autosuspend(dev);
+	pm_runtime_set_suspended(dev);
+	pm_runtime_disable(dev);
+out_clk:
+	clk_disable_unprepare(priv->clk);
+out_cfg_clk:
+	clk_disable_unprepare(priv->cfg_clk);
 	return ret;
 }
 
 static int eswin_bootspi_remove(struct platform_device *pdev)
 {
 	struct es_spi_priv *priv = platform_get_drvdata(pdev);
-	struct spi_controller *master = priv->master;
 
-	spi_master_put(master);
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	clk_disable_unprepare(priv->cfg_clk);
+	clk_disable_unprepare(priv->clk);
 	return 0;
 }
+
+static int __maybe_unused eswin_bootspi_runtime_resume(struct device *dev)
+{
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(priv->cfg_clk);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(priv->clk);
+	if (ret) {
+		clk_disable_unprepare(priv->cfg_clk);
+		return ret;
+	}
+	return 0;
+}
+
+static int __maybe_unused eswin_bootspi_runtime_suspend(struct device *dev)
+{
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(priv->clk);
+	clk_disable_unprepare(priv->cfg_clk);
+	return 0;
+}
+
+static int __maybe_unused eswin_bootspi_suspend(struct device *dev)
+{
+
+	int ret;
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+	struct spi_controller *master = priv->master;
+
+	ret = spi_master_suspend(master);
+	if (ret)
+		return ret;
+
+	if (!pm_runtime_suspended(dev)) {
+		clk_disable_unprepare(priv->clk);
+		clk_disable_unprepare(priv->cfg_clk);
+	}
+	return 0;
+}
+
+static int __maybe_unused eswin_bootspi_resume(struct device *dev)
+{
+	int ret;
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+	struct spi_controller *master = priv->master;
+
+	if (!pm_runtime_suspended(dev)) {
+		ret = clk_prepare_enable(priv->cfg_clk);
+		if (ret < 0) {
+			dev_err(dev, "failed to enable cfg_clk (%d)\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(priv->clk);
+		if (ret < 0) {
+			dev_err(dev, "failed to enable clk (%d)\n", ret);
+			clk_disable_unprepare(priv->cfg_clk);
+			return ret;
+		}
+	}
+	ret = spi_master_resume(master);
+	if (ret < 0) {
+		clk_disable_unprepare(priv->cfg_clk);
+		clk_disable_unprepare(priv->cfg_clk);
+	}
+	return ret;
+}
+
+static const struct dev_pm_ops eswin_bootspi_pm = {
+	SET_RUNTIME_PM_OPS(eswin_bootspi_runtime_suspend,
+				eswin_bootspi_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(eswin_bootspi_suspend, eswin_bootspi_resume)
+};
 
 static const struct of_device_id eswin_bootspi_of_match[] = {
 	{ .compatible = "eswin,bootspi", .data = NULL},
@@ -825,6 +914,7 @@ static struct platform_driver eswin_bootspi_driver = {
 #ifdef CONFIG_ACPI
 		.acpi_match_table = eswin_bootspi_acpi_match,
 #endif
+		.pm = &eswin_bootspi_pm,
 	},
 };
 module_platform_driver(eswin_bootspi_driver);
