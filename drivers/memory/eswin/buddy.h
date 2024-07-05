@@ -15,17 +15,12 @@
 #define buddy_print(fmt...)
 #define BUDDY_BUG_ON(condition) WARN_ON(condition)
 
-#define buddy_spin_lock_init(lock)	spin_lock_init(lock)
-#define buddy_spin_lock(lock)		spin_lock(lock)
-#define buddy_spin_unlock(lock)		spin_unlock(lock)
-/*
 #define es_spin_lock_init(esLock)	spin_lock_init(esLock)
 #define es_spin_lock(esLock)		spin_lock(esLock)
 #define es_spin_unlock(esLock)		spin_unlock(esLock)
-*/
-#define es_spin_lock_init(esLock)
-#define es_spin_lock(esLock)
-#define es_spin_unlock(esLock)
+#define buddy_spin_lock_init(lock)
+#define buddy_spin_lock(lock)
+#define buddy_spin_unlock(lock)
 #else
 #include "list.h"
 #include <stdio.h>  //printf
