@@ -153,7 +153,7 @@ struct MPQ8785_DRIVER_DATA
 	struct regulator_desc *dev_desc;
 	struct i2c_client *client;
 	struct mutex config_lock;
-	char mpq8785_label[MPQ8785_LABEL_CNT][16];
+	char mpq8785_label[MPQ8785_LABEL_CNT][20];
 };
 
 #define MPQ8785_MASK_OPERATION_ENABLE 0X80
