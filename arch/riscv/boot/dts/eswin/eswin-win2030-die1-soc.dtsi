@@ -1931,10 +1931,7 @@
 				snps,dis-u2-freeclk-exists-quirk;
 				snps,dis_u2_susphy_quirk;
 				snps,dis-del-phy-power-chg-quirk;
-				snps,tx-ipgap-linecheck-dis-quirk;
-				snps,xhci-slow-suspend-quirk;
-				snps,xhci-trb-ent-quirk;
-				snps,usb3-warm-reset-on-resume-quirk;
+				snps,parkmode-disable-ss-quirk;
 				status = "disabled";
 				numa-node-id = <1>;
 				tbus = <WIN2030_TBUID_USB>;
@@ -1971,10 +1968,7 @@
 				snps,dis-u2-freeclk-exists-quirk;
 				snps,dis_u2_susphy_quirk;
 				snps,dis-del-phy-power-chg-quirk;
-				snps,tx-ipgap-linecheck-dis-quirk;
-				snps,xhci-slow-suspend-quirk;
-				snps,xhci-trb-ent-quirk;
-				snps,usb3-warm-reset-on-resume-quirk;
+				snps,parkmode-disable-ss-quirk;
 				status = "disabled";
 				numa-node-id = <1>;
 				tbus = <WIN2030_TBUID_USB>;
