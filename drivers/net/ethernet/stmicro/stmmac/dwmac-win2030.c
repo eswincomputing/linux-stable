@@ -278,13 +278,44 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	}
 }
 
+static int dwc_clks_config(void *priv, bool enabled)
+{
+	int ret = 0;
+	struct dwc_qos_priv *dwc_priv = (struct dwc_qos_priv *)priv;
+
+	if (enabled) {
+		ret = clk_prepare_enable(dwc_priv->clk_app);
+		if (ret) {
+			dev_err(dwc_priv->dev, "failed to enable app clk, err = %d\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(dwc_priv->clk_csr);
+		if (ret< 0) {
+			dev_err(dwc_priv->dev, "failed to enable csr clk: %d\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(dwc_priv->clk_tx);
+		if (ret < 0) {
+			dev_err(dwc_priv->dev, "failed to enable tx clock: %d\n", ret);
+			return ret;
+		}
+	} else {
+		clk_disable_unprepare(dwc_priv->clk_tx);
+		clk_disable_unprepare(dwc_priv->clk_csr);
+		clk_disable_unprepare(dwc_priv->clk_app);
+	}
+
+	return ret;
+}
+
 static int dwc_qos_probe(struct platform_device *pdev,
 			 struct plat_stmmacenet_data *plat_dat,
 			 struct stmmac_resources *stmmac_res)
 {
 	struct dwc_qos_priv *dwc_priv;
 	int ret;
-	int err;
 	u32 hsp_aclk_ctrl_offset;
 	u32 hsp_aclk_ctrl_regset;
 	u32 hsp_cfg_ctrl_offset;
@@ -401,38 +432,23 @@ static int dwc_qos_probe(struct platform_device *pdev,
 		return PTR_ERR(dwc_priv->clk_app);
 	}
 
-	err = clk_prepare_enable(dwc_priv->clk_app);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to enable app clock: %d\n",
-			err);
-		return err;
-	}
-
 	dwc_priv->clk_csr = devm_clk_get(&pdev->dev, "csr");
 	if (IS_ERR(dwc_priv->clk_csr)) {
 		dev_err(&pdev->dev, "csr clock not found.\n");
 		return PTR_ERR(dwc_priv->clk_csr);
 	}
 
-	err = clk_prepare_enable(dwc_priv->clk_csr);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to enable csr clock: %d\n",
-            err);
-		return err;
-	}
-
 	dwc_priv->clk_tx = devm_clk_get(&pdev->dev, "tx");
-	if (IS_ERR(plat_dat->pclk)) {
+	if (IS_ERR(dwc_priv->clk_tx)) {
 		dev_err(&pdev->dev, "tx clock not found.\n");
 		return PTR_ERR(dwc_priv->clk_tx);
 	}
 
-	err = clk_prepare_enable(dwc_priv->clk_tx);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to enable tx clock: %d\n",
-            err);
-		return err;
+	ret = dwc_clks_config(dwc_priv, true);
+	if (ret) {
+		return ret;
 	}
+
 	dwc_priv->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, "ethrst");
 	if (IS_ERR(dwc_priv->rst)) {
 		return PTR_ERR(dwc_priv->rst);
@@ -452,6 +468,7 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	plat_dat->fix_mac_speed = dwc_qos_fix_speed;
 	plat_dat->bsp_priv = dwc_priv;
 	plat_dat->phy_addr = PHY_ADDR;
+	plat_dat->clks_config = dwc_clks_config;
 
 	return 0;
 }
@@ -468,9 +485,7 @@ static int dwc_qos_remove(struct platform_device *pdev)
 	}
 
 	reset_control_assert(dwc_priv->rst);
-	clk_disable_unprepare(dwc_priv->clk_tx);
-	clk_disable_unprepare(dwc_priv->clk_csr);
-	clk_disable_unprepare(dwc_priv->clk_app);
+	dwc_clks_config(dwc_priv, false);
 
 	devm_gpiod_put(&pdev->dev, dwc_priv->phy_reset);
 
