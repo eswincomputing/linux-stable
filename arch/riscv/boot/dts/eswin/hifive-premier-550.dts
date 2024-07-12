@@ -217,7 +217,7 @@
 };
 
 &d0_lpcpu {
-	status = "disabled";
+	status = "okay";
 };
 
 &pcie {
