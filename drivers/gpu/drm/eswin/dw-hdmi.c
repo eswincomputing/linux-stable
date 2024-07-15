@@ -4548,6 +4548,7 @@ EXPORT_SYMBOL_GPL(dw_hdmi_unbind);
 
 void dw_hdmi_suspend(struct dw_hdmi *hdmi)
 {
+	dev_dbg(hdmi->dev, "%s", __func__);
 	if (!hdmi) {
 		dev_warn(hdmi->dev, "HDMI has not been initialized\n");
 		return;
@@ -4578,6 +4579,7 @@ EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 
 void dw_hdmi_resume(struct dw_hdmi *hdmi)
 {
+	dev_dbg(hdmi->dev, "%s", __func__);
 	dw_hdmi_init_hw(hdmi);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);

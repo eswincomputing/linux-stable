@@ -349,7 +349,6 @@
 
 &d0_i2s0 {
 	status = "okay";
-	eswin-plat = <1>;
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -372,7 +371,6 @@
 
 &d0_i2s1 {
 	status = "okay";
-	eswin-plat = <1>;
 	d0_i2s1_port: port {
 		d0_i2s1_endpoint: endpoint {
 			remote-endpoint = <&d0_codec1_endpoint>;
@@ -383,7 +381,6 @@
 
 &d0_i2s2 {
 	status = "okay";
-	eswin-plat = <1>;
 	d0_i2s2_port: port {
 		d0_i2s2_endpoint: endpoint {
 			remote-endpoint = <&d0_codec2_endpoint>;
