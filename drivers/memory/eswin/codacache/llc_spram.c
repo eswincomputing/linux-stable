@@ -38,6 +38,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/memblock.h>
 #include <linux/version.h>
+#include <linux/clk-provider.h>
 
 #include <linux/eswin_npu.h>
 #include <linux/regulator/consumer.h>
@@ -470,6 +471,61 @@ int npu_cfg_rst(int nid, bool enable)
 	return 0;
 }
 EXPORT_SYMBOL(npu_cfg_rst);
+
+static int npu_clk_enable(struct platform_device *pdev, struct spram_dev *spram)
+{
+	int ret;
+
+	if (!__clk_is_enabled(spram->cfg_clk)) {
+		ret = clk_prepare_enable(spram->cfg_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable cfg_clk: %d\n", ret);
+			return ret;
+		}
+	}
+
+	if (!__clk_is_enabled(spram->core_clk)) {
+		ret = clk_prepare_enable(spram->core_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to enable core_clk: %d\n", ret);
+			return ret;
+		}
+	}
+	return 0;
+}
+
+static int npu_clk_disable(struct platform_device *pdev, struct spram_dev *spram)
+{
+	clk_disable_unprepare(spram->core_clk);
+	clk_disable_unprepare(spram->cfg_clk);
+	return 0;
+}
+
+int npu_clk_gate_set(int nid, bool enable)
+{
+	struct platform_device *pdev = pdevs[nid];
+	struct spram_dev *spram;
+
+	if (NULL == pdev) {
+		pr_err("%s, Invalid node id:%d\n", __func__, nid);
+		return -EINVAL;
+	}
+
+	spram = platform_get_drvdata(pdev);
+	if (spram == NULL)
+		return -EINVAL;
+
+	if (enable == true) {
+		return npu_clk_enable(pdev, spram);
+	} else if (enable == false) {
+		return npu_clk_disable(pdev, spram);
+	} else {
+		pr_err("param enable=%d error.\n", enable);
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(npu_clk_gate_set);
 
 int npu_core_rst(int nid, bool enable)
 {

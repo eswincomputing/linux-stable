@@ -84,6 +84,7 @@ struct llc_cache_ops {
 int llc_user_register(struct device *user_dev);
 int npu_cfg_rst(int nid, bool enable);
 int npu_core_rst(int nid, bool enable);
+int npu_clk_gate_set(int nid, bool enable);
 int llc_spram_avail_size(int nid, uint32_t *pSpramSize);
 
 int llc_flush_operation(unsigned long start, unsigned long len);
