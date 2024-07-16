@@ -64,16 +64,15 @@ static void eswin_sdhci_sdio_set_clock(struct sdhci_host *host,
 	}
 
 	eswin_sdhci_set_core_clock(host, clock);
-	sdhci_set_clock(host, clock);
 
 	if (eswin_sdhci_sdio->quirks & SDHCI_ESWIN_QUIRK_CLOCK_UNSTABLE)
 		/*
-                 * Some controllers immediately report SDHCI_CLOCK_INT_STABLE
-                 * after enabling the clock even though the clock is not
-                 * stable. Trying to use a clock without waiting here results
-                 * in EILSEQ while detecting some older/slower cards. The
-                 * chosen delay is the maximum delay from sdhci_set_clock.
-                 */
+         * Some controllers immediately report SDHCI_CLOCK_INT_STABLE
+         * after enabling the clock even though the clock is not
+         * stable. Trying to use a clock without waiting here results
+         * in EILSEQ while detecting some older/slower cards. The
+         * chosen delay is the maximum delay from sdhci_set_clock.
+         */
 		msleep(20);
 }
 
@@ -357,21 +356,10 @@ static int eswin_sdhci_sdio_suspend(struct device *dev)
 		sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
-	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
-		mmc_retune_needed(host->mmc);
-
-	if (eswin_sdhci_sdio->has_cqe) {
-		ret = cqhci_suspend(host->mmc);
-		if (ret)
-			return ret;
-	}
-
-	ret = sdhci_suspend_host(host);
+	ret = sdhci_pltfm_suspend(dev);
 	if (ret)
 		return ret;
-
-	clk_disable(pltfm_host->clk);
-	clk_disable(eswin_sdhci_sdio->clk_ahb);
+	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 
 	return 0;
 }
@@ -392,33 +380,80 @@ static int eswin_sdhci_sdio_resume(struct device *dev)
 		sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
-	ret = clk_enable(eswin_sdhci_sdio->clk_ahb);
+	ret = clk_prepare_enable(eswin_sdhci_sdio->clk_ahb);
 	if (ret) {
-		dev_err(dev, "Cannot enable AHB clock.\n");
+		dev_err(dev, "can't enable clk_ahb\n");
 		return ret;
 	}
 
-	ret = clk_enable(pltfm_host->clk);
+	ret = sdhci_pltfm_resume(dev);
 	if (ret) {
-		dev_err(dev, "Cannot enable SD clock.\n");
-		return ret;
+		dev_err(dev, "pltfm resume failed!\n");
+		goto clk_disable;
 	}
 
-	ret = sdhci_resume_host(host);
-	if (ret) {
-		dev_err(dev, "Cannot resume host.\n");
-		return ret;
-	}
+	return 0;
+clk_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 
-	if (eswin_sdhci_sdio->has_cqe)
-		return cqhci_resume(host->mmc);
+	return ret;
+}
+
+static int eswin_sdhci_sdio_runtime_suspend(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct eswin_sdhci_data *eswin_sdhci_sdio = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+
+	ret = sdhci_runtime_suspend_host(host);
+	if (ret)
+		return ret;
+
+	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
+		mmc_retune_needed(host->mmc);
+
+	clk_disable_unprepare(pltfm_host->clk);
+	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 
 	return 0;
 }
-#endif /* ! CONFIG_PM_SLEEP */
 
-static SIMPLE_DEV_PM_OPS(eswin_sdhci_sdio_dev_pm_ops, eswin_sdhci_sdio_suspend,
-			 eswin_sdhci_sdio_resume);
+static int eswin_sdhci_sdio_runtime_resume(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct eswin_sdhci_data *eswin_sdhci_sdio = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+
+	ret = clk_prepare_enable(eswin_sdhci_sdio->clk_ahb);
+	if (ret) {
+		dev_err(dev, "can't enable clk_ahb\n");
+		return ret;
+	}
+
+	ret = clk_prepare_enable(pltfm_host->clk);
+	if (ret) {
+		dev_err(dev, "can't enable mainck\n");
+		goto clk_ahb_disable;
+	}
+
+	ret = sdhci_runtime_resume_host(host, 0);
+	if (ret) {
+		dev_err(dev, "runtime resume failed!\n");
+		goto clk_disable;
+	}
+
+	return 0;
+clk_disable:
+	clk_disable_unprepare(pltfm_host->clk);
+clk_ahb_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
+
+	return ret;
+}
+
+#endif /* ! CONFIG_PM_SLEEP */
 
 /**
  * eswin_sdhci_sdio_sdcardclk_recalc_rate- Return the card clock rate
@@ -980,12 +1015,18 @@ static int eswin_sdhci_sdio_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct dev_pm_ops eswin_sdhci_sdio_pmops = {
+	SET_SYSTEM_SLEEP_PM_OPS(eswin_sdhci_sdio_suspend, eswin_sdhci_sdio_resume)
+	SET_RUNTIME_PM_OPS(eswin_sdhci_sdio_runtime_suspend,
+			   eswin_sdhci_sdio_runtime_resume, NULL)
+};
+
 static struct platform_driver eswin_sdhci_sdio_driver = {
 	.driver = {
 		.name = "eswin-sdhci-sdio",
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = eswin_sdhci_sdio_of_match,
-		.pm = &eswin_sdhci_sdio_dev_pm_ops,
+		.pm = &eswin_sdhci_sdio_pmops,
 	},
 	.probe = eswin_sdhci_sdio_probe,
 	.remove = eswin_sdhci_sdio_remove,

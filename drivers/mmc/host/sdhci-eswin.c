@@ -112,6 +112,8 @@ void eswin_sdhci_set_core_clock(struct sdhci_host *host,
 	unsigned int div, divide;
 	unsigned int flag_sel, max_clk;
 
+	host->mmc->actual_clock = clock;
+
 	if (clock == 0) {
 		eswin_mshc_coreclk_disable(host);
 		return;
