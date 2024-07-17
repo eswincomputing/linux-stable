@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config ESWIN_IOMMU_RSV
+	tristate "ESWIN IOMMU reserved for device interface"
+	help
+	  eswin iommu rsv intf for device
+

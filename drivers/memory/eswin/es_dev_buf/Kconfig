@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config ESWIN_DEV_DMA_BUF
+	tristate "ESWIN dev dma buf interface"
+	depends on ESWIN_RSVMEM_HEAP
+	help
+	  eswin device dma buf 
+
