@@ -30,6 +30,7 @@
 #include <dt-bindings/clock/win2030-clock.h>
 #include <dt-bindings/i2c/i2c.h>
 #include <dt-bindings/interconnect/eswin,win2030.h>
+#include <dt-bindings/power/eswin,eic770x-pmu.h>
 
 / {
     compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000","sifive,fu740";
@@ -294,12 +295,14 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "eswin,win2030-pmu-controller";
+			#power-domain-cells = <1>;
 			reg = <0x0 0x51808000 0x0 0x8000>;
 			numa-node-id = <0>;
 			d0_pmu_pcie: win2030-pmu-controller-port@0 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_PCIE>;
 				reg_base = <0x0>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -309,8 +312,9 @@
 			};
 			d0_pmu_dsp1: win2030-pmu-controller-port@40 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_DSP1>;
 				reg_base = <0x40>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -320,8 +324,9 @@
 			};
 			d0_pmu_vi: win2030-pmu-controller-port@80 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_VI>;
 				reg_base = <0x80>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -331,8 +336,9 @@
 			};
 			d0_pmu_vo: win2030-pmu-controller-port@c0 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_VO>;
 				reg_base = <0xc0>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -341,8 +347,9 @@
 			};
 			d0_pmu_codec: win2030-pmu-controller-port@140 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_CODEC>;
 				reg_base = <0x140>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -352,8 +359,9 @@
 			};
 			d0_pmu_dsp2: win2030-pmu-controller-port@200 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_DSP2>;
 				reg_base = <0x200>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -363,8 +371,9 @@
 			};
 			d0_pmu_dsp3: win2030-pmu-controller-port@240 {
 				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_DSP3>;
 				reg_base = <0x240>;
-				power_status = <1>;
+				power_status = <2>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;

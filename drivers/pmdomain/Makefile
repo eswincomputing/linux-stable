@@ -15,3 +15,4 @@ obj-y					+= sunxi/
 obj-y					+= tegra/
 obj-y					+= ti/
 obj-y					+= xilinx/
+obj-y					+= eswin/
