@@ -310,6 +310,7 @@ enum {
 #define VSE_DMABUF_DONE (1 << 1)
 
 typedef struct _dw_clk_rst {
+	struct device *dev; // used for tbu enanle/disable
 	struct clk *aclk;
 	struct clk *cfg_clk;
 	struct clk *dw_aclk;

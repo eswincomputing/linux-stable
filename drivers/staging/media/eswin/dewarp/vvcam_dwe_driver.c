@@ -72,6 +72,8 @@
 #include <linux/bitfield.h>
 #include <linux/regmap.h>
 #include <linux/eswin-win2030-sid-cfg.h>
+#include <linux/pm_runtime.h>
+#include <linux/clk.h>
 
 #include "dw200_fe.h"
 #include "dw200_ioctl.h"
@@ -108,6 +110,10 @@ struct es_dewarp_driver_dev {
 	unsigned int irq_num_vse;
 	bool irq_trigger;
 	wait_queue_head_t irq_wait;
+
+	wait_queue_head_t trigger_wq;
+	atomic_t trigger_atom;
+	int suspended;
 };
 
 struct es_dw200_private {
@@ -402,18 +408,17 @@ irqreturn_t dwe_isr(int irq, void *dev_id)
 		(struct dw200_subdev *)pdriver_dev->private;
 	u32 dwe_mis = 0;
 	unsigned long flags;
-	pr_debug("%s enter\n", __func__);
 
 	spin_lock_irqsave(&dwe_irq_lock, flags);
 	dwe_read_irq((struct dw200_subdev *)pdw200, &dwe_mis);
-	DEBUG_PRINT(" %s dwe mis 0x%08x\n", __func__, dwe_mis);
 	dwe_mis = dwe_mis & 0x1;
 	if (0 != dwe_mis) {
 		dwe_clear_irq((struct dw200_subdev *)pdw200, dwe_mis << 24);
 		atomic_set(&dwe_irq_trigger_mis, dwe_mis);
 		wake_up_interruptible_all(&dwe_irq_wait_q);
+		atomic_dec(&pdriver_dev->trigger_atom);
+		wake_up_interruptible(&pdriver_dev->trigger_wq);
 		spin_unlock_irqrestore(&dwe_irq_lock, flags);
-		DEBUG_PRINT("%s exit\n", __func__);
 		return IRQ_HANDLED;
 	}
 	spin_unlock_irqrestore(&dwe_irq_lock, flags);
@@ -437,6 +442,8 @@ irqreturn_t vse_isr(int irq, void *dev_id)
 		vse_clear_irq((struct dw200_subdev *)pdw200, vse_mis);
 		atomic_set(&vse_irq_trigger_mis, vse_mis);
 		wake_up_interruptible_all(&vse_irq_wait_q);
+		atomic_dec(&pdriver_dev->trigger_atom);
+		wake_up_interruptible(&pdriver_dev->trigger_wq);
 		spin_unlock_irqrestore(&vse_irq_lock, flags);
 		DEBUG_PRINT("%s vse frame ready, vse mis 0x%08x\n", __func__,
 			    vse_mis);
@@ -452,7 +459,6 @@ static long waitDweDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 	u32 reg = 0;
 	u32 irq_trigger = 0;
 	struct dw200_subdev *pdwe_dev = &pes_dw200_priv->dw200;
-	pr_debug("wait dwe done start\n");
 	ret = wait_event_interruptible_timeout(dwe_irq_wait_q, CheckIrq(1),
 					       timeout);
 	// ret = wait_event_interruptible(dwe_irq_wait_q, atomic_read(&dwe_irq_trigger_mis));
@@ -492,7 +498,6 @@ static long waitVseDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 	int ret = -1;
 	struct dw200_subdev *pdwe_dev = &pes_dw200_priv->dw200;
 
-	pr_debug("wait vse done start\n");
 	ret = wait_event_interruptible_timeout(vse_irq_wait_q, CheckIrq(0),
 					       timeout);
 	// ret = wait_event_interruptible(vse_irq_wait_q, CheckIrq(0));
@@ -524,6 +529,7 @@ long es_dw200_ioctl(struct es_dw200_private *pes_dw200_priv, unsigned int cmd,
 {
 	int ret = -1;
 	struct dw200_subdev *pdwe_dev = &pes_dw200_priv->dw200;
+	struct es_dewarp_driver_dev *pdriver_dev = pes_dw200_priv->pdriver_dev;
 	u64 addr;
 
 	switch (cmd) {
@@ -590,18 +596,21 @@ long es_dw200_ioctl(struct es_dw200_private *pes_dw200_priv, unsigned int cmd,
 		// Read private data,and configure vse's regs,
 		// and start hw
 		pr_debug("trigger vse\n");
+		atomic_inc(&pdriver_dev->trigger_atom);
 		triggerVse(pes_dw200_priv);
 		return 0;
 	case DWIOC_ES_TRIGGER_DWE:
 		// Read private data,and configure dwe's regs,
 		// and start hw
 		pr_debug("trigger dwe\n");
+		atomic_inc(&pdriver_dev->trigger_atom);
 		triggerDwe(pes_dw200_priv);
 		return 0;
 	case DWIOC_ES_TRIGGER_DWE_VSE:
 		// Read private data,and configure regs,
 		// and start hw
 		pr_debug("trigger dwe online vse\n");
+		atomic_inc(&pdriver_dev->trigger_atom);
 		triggerDweVse(pes_dw200_priv);
 		return 0;
 
@@ -879,6 +888,8 @@ static int dewarp_open(struct inode *inode, struct file *file)
 	pdw200 = (struct dw200_subdev *)pdriver_dev->private;
 	memcpy(&pes_dw200_priv->dw200, pdw200, sizeof(pes_dw200_priv->dw200));
 
+	pm_runtime_get_sync(pdw200->dev);
+
 	common_dmabuf_heap_import_init(&pes_dw200_priv->heap_root, pdw200->dev);
 	pdw200->pheap_root = &pes_dw200_priv->heap_root;
 	pes_dw200_priv->dw200.pheap_root = &pes_dw200_priv->heap_root;
@@ -989,17 +1000,15 @@ static int vvcam_sys_reset_release(dw_clk_rst_t *dw_crg)
 }
 
 #define VVCAM_SYS_CLK_PREPARE(clk)                                 \
-	{                                                          \
-		ret = clk_prepare_enable(clk);                     \
-		if (ret) {                                         \
-			pr_err("failed to enable clk %px\n", clk); \
-			return ret;                                \
+	do {                                                       \
+		if (clk_prepare_enable(clk)) {                     \
+			pr_err("Failed to enable clk %px\n", clk); \
 		}                                                  \
-	}
+	} while (0)
 
-static int vvcam_sys_clk_prepare(dw_clk_rst_t *dw_crg)
+static int vvcam_sys_clk_config(dw_clk_rst_t *dw_crg)
 {
-	int ret;
+	int ret = 0;
 	long rate;
 
 	ret = clk_set_parent(dw_crg->aclk_mux, dw_crg->spll0_fout1);
@@ -1033,24 +1042,45 @@ static int vvcam_sys_clk_prepare(dw_clk_rst_t *dw_crg)
 		}
 		pr_info("DW set vi_dig_dw to %ldHZ\n", rate);
 	}
-
-	VVCAM_SYS_CLK_PREPARE(dw_crg->aclk);
-	VVCAM_SYS_CLK_PREPARE(dw_crg->cfg_clk);
-	VVCAM_SYS_CLK_PREPARE(dw_crg->dw_aclk);
-
 	return 0;
 }
 
-static int vvcam_clk_reset_fini(dw_clk_rst_t *dw_crg)
+static int vvcam_sys_clk_prepare(dw_clk_rst_t *dw_crg)
 {
-	reset_control_assert(dw_crg->rstc_dwe);
-	reset_control_assert(dw_crg->rstc_cfg);
-	reset_control_assert(dw_crg->rstc_axi);
+	int ret = 0;
+	VVCAM_SYS_CLK_PREPARE(dw_crg->aclk);
+	VVCAM_SYS_CLK_PREPARE(dw_crg->cfg_clk);
+	VVCAM_SYS_CLK_PREPARE(dw_crg->dw_aclk);
+	ret = win2030_tbu_power(dw_crg->dev, true);
+	if (ret) {
+		pr_err("%s: DW tbu power up failed\n", __func__);
+		return ret;
+	}
+	return 0;
+}
+
+static int vvcam_sys_clk_unprepare(dw_clk_rst_t *dw_crg)
+{
+	int ret = 0;
+	//  tbu power down need enanle clk
+	ret = win2030_tbu_power(dw_crg->dev, false);
+	if (ret) {
+		pr_err("dw tbu power down failed\n");
+		return ret;
+	}
 
 	clk_disable_unprepare(dw_crg->dw_aclk);
 	clk_disable_unprepare(dw_crg->cfg_clk);
 	clk_disable_unprepare(dw_crg->aclk);
 
+	return 0;
+}
+
+static int vvcam_reset_fini(dw_clk_rst_t *dw_crg)
+{
+	reset_control_assert(dw_crg->rstc_dwe);
+	reset_control_assert(dw_crg->rstc_cfg);
+	reset_control_assert(dw_crg->rstc_axi);
 	return 0;
 }
 
@@ -1119,7 +1149,7 @@ static int dewarp_release(struct inode *inode, struct file *file)
 	vivdw200_destroy_circle_queue(&(pdw200->dwe_circle_list));
 	vivdw200_destroy_circle_queue(&(pdw200->vse_circle_list));
 #endif
-
+	pm_runtime_put(pdw200->dev);
 	pes_dw200_priv->pdriver_dev = NULL;
 	vfree(pes_dw200_priv);
 
@@ -1184,6 +1214,13 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = vvcam_sys_clk_config(&pdwe_dev->dw_crg);
+	if (ret) {
+		pr_err("%s: DW clk prepare failed\n", __func__);
+		return ret;
+	}
+
+	pdwe_dev->dw_crg.dev = &pdev->dev;
 	ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
 	if (ret) {
 		pr_err("%s: DW clk prepare failed\n", __func__);
@@ -1193,12 +1230,6 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	ret = vvcam_sys_reset_release(&pdwe_dev->dw_crg);
 	if (ret) {
 		pr_err("%s: DW reset release failed\n", __func__);
-		return ret;
-	}
-
-	ret = win2030_tbu_power(&pdev->dev, true);
-	if (ret) {
-		pr_err("%s: DW tbu power up failed\n", __func__);
 		return ret;
 	}
 
@@ -1339,18 +1370,24 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	pdwe_dev->dw200_reset = debugfs_create_file(
 		debug_dw200_reset, 0644, NULL, pdwe_dev, &dw200_reset_fops);
 
+	/* The code below assumes runtime PM to be disabled. */
+	WARN_ON(pm_runtime_enabled(&pdev->dev));
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	atomic_set(&pdriver_dev->trigger_atom, 0);
+	init_waitqueue_head(&pdriver_dev->trigger_wq);
+
 	devise_register_index++;
-	// pr_info("exit %s\n", __func__);
 	return ret;
 }
 
 static int es_dewarp_remove(struct platform_device *pdev)
 {
-	int ret;
 	struct es_dewarp_driver_dev *pdriver_dev;
 	struct dw200_subdev *pdwe_dev;
 
-	// pr_info("enter %s\n", __func__);
 	devise_register_index--;
 	pdriver_dev = platform_get_drvdata(pdev);
 
@@ -1365,14 +1402,91 @@ static int es_dewarp_remove(struct platform_device *pdev)
 	if (devise_register_index == 0) {
 		class_destroy(pdriver_dev->class);
 	}
-	ret = win2030_tbu_power(&pdev->dev, false);
-	if (ret) {
-		pr_err("dw tbu power down failed\n");
-		return -1;
-	}
-	vvcam_clk_reset_fini(&pdwe_dev->dw_crg);
+
+	vvcam_reset_fini(&pdwe_dev->dw_crg);
+
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
+
+static int dewarp_runtime_suspend(struct device *dev)
+{
+	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
+	struct dw200_subdev *pdwe_dev;
+
+	pdwe_dev = (struct dw200_subdev *)pdriver_dev->private;
+	return vvcam_sys_clk_unprepare(&pdwe_dev->dw_crg);
+}
+
+static int dewarp_runtime_resume(struct device *dev)
+{
+	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
+	struct dw200_subdev *pdwe_dev;
+
+	pdwe_dev = (struct dw200_subdev *)pdriver_dev->private;
+	return vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+}
+
+static int dewarp_suspend(struct device *dev)
+{
+	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
+	struct dw200_subdev *pdwe_dev;
+	int ret = 0;
+	pdriver_dev->suspended = 0;
+
+	pdwe_dev = (struct dw200_subdev *)pdriver_dev->private;
+
+	if (pm_runtime_status_suspended(dev)) {
+		return 0;
+	}
+
+	if (atomic_read(&pdriver_dev->trigger_atom)) {
+		//dw200 is working wait done
+		ret = wait_event_interruptible_timeout(
+			pdriver_dev->trigger_wq,
+			atomic_read(&pdriver_dev->trigger_atom) == 0,
+			ES_WAIT_TIMEOUT_MS);
+
+		if (ret == 0) {
+			pr_err("Error: %s process timeout %lu, ret:%d\n",
+			       __func__, ES_WAIT_TIMEOUT_MS, ret);
+			atomic_dec(&pdriver_dev->trigger_atom);
+			ret = -ETIMEDOUT;
+			return ret;
+		} else if (ret < 0) {
+			pr_err("interrupted !!!\n");
+			atomic_dec(&pdriver_dev->trigger_atom);
+			ret = -ERESTARTSYS;
+			return ret;
+		}
+	}
+	pdriver_dev->suspended = 1;
+	return vvcam_sys_clk_unprepare(&pdwe_dev->dw_crg);
+}
+
+static int dewarp_resume(struct device *dev)
+{
+	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
+	struct dw200_subdev *pdwe_dev;
+
+	pdwe_dev = (struct dw200_subdev *)pdriver_dev->private;
+
+	if (pm_runtime_status_suspended(dev)) {
+		return 0;
+	}
+
+	if (pdriver_dev->suspended) {
+		return vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops dewarp_pm_ops = {
+	SET_RUNTIME_PM_OPS(dewarp_runtime_suspend, dewarp_runtime_resume, NULL)
+		SET_SYSTEM_SLEEP_PM_OPS(dewarp_suspend, dewarp_resume)
+};
 
 #define DEV_NAME "dewarp-dri"
 static const struct of_device_id dw200_of_id_table[] = {
@@ -1391,6 +1505,7 @@ static struct platform_driver viv_platform_driver = {
             .owner = THIS_MODULE,
             .name = DEV_NAME,
             .of_match_table = dw200_of_id_table,
+            .pm = &dewarp_pm_ops,
         },
 };
 module_platform_driver(viv_platform_driver);
