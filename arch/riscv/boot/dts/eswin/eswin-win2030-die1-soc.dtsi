@@ -1729,9 +1729,9 @@
             //pinctrl-0 = <&hdmi_i2c_xfer>;
             interrupt-parent = <&plic1>;
             interrupts = <274>;
-            clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>, <&d1_clock WIN2030_CLK_VO_PIXEL_CLK>,
-                   <&d1_clock WIN2030_CLK_VO_CEC_CLK>, <&d1_clock WIN2030_CLK_VO_CR_CLK>;
-            clock-names = "iahb", "vpll", "cec", "isfr";
+            clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>, <&d1_clock WIN2030_CLK_VO_CEC_CLK>,
+					 <&d1_clock WIN2030_CLK_VO_CR_CLK>;
+            clock-names = "iahb", "cec", "isfr";
             //power-domains = <&power WIN2030_PD_HDCP>;
             reg-io-width = <4>;
             ddc-i2c-scl-high-time-ns = <4708>;
