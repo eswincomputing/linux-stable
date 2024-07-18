@@ -836,7 +836,7 @@ static long hantroenc_ioctl(struct file *filp, unsigned int cmd,
 		struct dmabuf_cfg dbcfg;
 		size_t buf_size = 0;
 		struct heap_mem *hmem, *hmem_d1;
-		struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 		if (copy_from_user(&dbcfg, (void __user *)arg, sizeof(struct dmabuf_cfg)) != 0)
 			return -EFAULT;
@@ -844,14 +844,14 @@ static long hantroenc_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DBG("import dmabuf_fd = %d\n", dbcfg.dmabuf_fd);
 
 		/* map the pha to dma addr(iova)*/
-		hmem = common_dmabuf_heap_import_from_user(&db_priv->root, dbcfg.dmabuf_fd);
+		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("dmabuf-heap import from userspace failed\n");
 			return -ENOMEM;
 		}
 
 		if (venc_pdev_d1) {
-			hmem_d1 = common_dmabuf_heap_import_from_user(&db_priv->root_d1, dbcfg.dmabuf_fd);
+			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
 			if(IS_ERR(hmem_d1)) {
 				common_dmabuf_heap_release(hmem);
 				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
@@ -891,7 +891,7 @@ static long hantroenc_ioctl(struct file *filp, unsigned int cmd,
 	case HANTRO_IOCH_DMA_HEAP_PUT_IOVA: {
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
-		struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 		if (copy_from_user(&dmabuf_fd, (void __user *)arg, sizeof(int)) != 0)
 			return -EFAULT;
@@ -899,14 +899,14 @@ static long hantroenc_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DBG("release dmabuf_fd = %d\n", dmabuf_fd);
 
 		/* find the heap_mem */
-		hmem = common_dmabuf_lookup_heapobj_by_fd(&db_priv->root, dmabuf_fd);
+		hmem = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root, dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d\n", dmabuf_fd);
 			return -ENOMEM;
 		}
 
 		if (venc_pdev_d1) {
-			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&db_priv->root_d1, dmabuf_fd);
+			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
 			if (IS_ERR(hmem_d1)) {
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
@@ -929,27 +929,21 @@ static long hantroenc_ioctl(struct file *filp, unsigned int cmd,
 static int hantroenc_open(struct inode *inode, struct file *filp)
 {
 	int result = 0;
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv;
+	struct filp_priv *fp_priv;
 
-	db_priv = kzalloc(sizeof(struct dmabuf_priv), GFP_KERNEL);
-	if (!db_priv) {
+	fp_priv = kzalloc(sizeof(struct filp_priv), GFP_KERNEL);
+	if (!fp_priv) {
 		pr_err("%s: alloc failed\n", __func__);
 		return -ENOMEM;
 	}
-
-	common_dmabuf_heap_import_init(&db_priv->root, &venc_pdev->dev);
+#ifdef SUPPORT_DMA_HEAP
+	common_dmabuf_heap_import_init(&fp_priv->root, &venc_pdev->dev);
 	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_init(&db_priv->root_d1, &venc_pdev_d1->dev);
+		common_dmabuf_heap_import_init(&fp_priv->root_d1, &venc_pdev_d1->dev);
 	}
-	db_priv->dev = (void *)hantroenc_data;
-
-	filp->private_data = (void *)db_priv;
-#else
-	hantroenc_t *dev = hantroenc_data;
-
-	filp->private_data = (void *)dev;
 #endif
+	fp_priv->dev = (void *)hantroenc_data;
+	filp->private_data = (void *)fp_priv;
 
 	LOG_DBG("dev opened\n");
 	return result;
@@ -957,12 +951,8 @@ static int hantroenc_open(struct inode *inode, struct file *filp)
 
 static int hantroenc_release(struct inode *inode, struct file *filp)
 {
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv= (struct dmabuf_priv *)filp->private_data;
-	hantroenc_t *dev = (hantroenc_t *)db_priv->dev;
-#else
-	hantroenc_t *dev = (hantroenc_t *)filp->private_data;
-#endif
+	struct filp_priv *fp_priv= (struct filp_priv *)filp->private_data;
+	hantroenc_t *dev = (hantroenc_t *)fp_priv->dev;
 	u32 core_id = 0, i = 0;
 
 #ifdef hantroenc_DEBUG
@@ -993,11 +983,11 @@ static int hantroenc_release(struct inode *inode, struct file *filp)
 		up(&enc_core_sem);
 
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&db_priv->root);
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_uninit(&db_priv->root_d1);
+		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
 	}
-	kfree(db_priv);
+	kfree(fp_priv);
 #endif
 
 	return 0;
@@ -1382,3 +1372,23 @@ static void dump_regs(unsigned long data)
 	LOG_DBG("Reg Dump End\n");
 }
 #endif
+
+int hantroenc_wait_core_idle(u32 core_id)
+{
+#if 0
+	hantroenc_t *dev;
+	// u32 irq_status;
+	CORE_WAIT_OUT out;
+
+	if (core_id >= total_subsys_num) {
+		LOG_ERR("invalid core_id = %u, total_subsys_num = %u\n", core_id, total_subsys_num);
+		return -ERESTARTSYS;
+	}
+	dev = &hantroenc_data[core_id];
+
+	return wait_event_interruptible_timeout(enc_wait_queue
+			, CheckEncAnyIrq(dev, &out), ENC_DEV_IDLEWAIT_TIME);
+#else
+	return 0;
+#endif
+}

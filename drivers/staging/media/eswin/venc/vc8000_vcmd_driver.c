@@ -255,6 +255,7 @@ static int vcmd_type_core_num[MAX_VCMD_TYPE];
 
 #define WORKING_STATE_IDLE          0
 #define WORKING_STATE_WORKING       1
+#define WORKING_STATE_STALL         2
 #define CMDBUF_EXE_STATUS_OK        0
 #define CMDBUF_EXE_STATUS_CMDERR        1
 #define CMDBUF_EXE_STATUS_BUSERR        2
@@ -280,6 +281,10 @@ static void vcmd_start(struct hantrovcmd_dev *dev,
 static void create_kernel_process_manager(void);
 
 static irqreturn_t hantrovcmd_isr(int irq, void *dev_id);
+
+/** pm runtime sync & put*/
+extern int venc_pm_runtime_sync(u32 core_id);
+extern int venc_pm_runtime_put(u32 core_id);
 
 #ifdef VCMD_DEBUG_INTERNAL
 static void printk_vcmd_register_debug(const void *hwregs, char *info);
@@ -1031,6 +1036,15 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	}
 	//spin_unlock_irqrestore(dev->spinlock, flags);
 	up(&vcmd_reserve_cmdbuf_sem[module_type]);
+	if (filp) {
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+
+		/** release for the pm*/
+		if (atomic_dec_return(&(fp_priv->core_tasks[dev->core_id])) >= 0) {
+			venc_pm_runtime_put(dev->core_id);
+		}
+	}
+
 	return 0;
 }
 
@@ -1175,6 +1189,11 @@ static long link_and_run_cmdbuf(struct file *filp,
 	dev = &hantrovcmd_data[cmdbuf_obj->core_id];
 	input_para->core_id = cmdbuf_obj->core_id;
 	LOG_TRACE("Venc Allocate cmd buffer [%d] to core [%d]\n", cmdbuf_id, input_para->core_id);
+	if (filp) {
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+		venc_pm_runtime_sync(dev->core_id);
+		atomic_inc(&(fp_priv->core_tasks[dev->core_id]));
+	}
 	//set ddr address for vcmd registers copy.
 	if (dev->hw_version_id > HW_ID_1_0_C) {
 		//read vcmd executing register into ddr memory.
@@ -1339,7 +1358,7 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 #endif
 
 	if (wait_event_interruptible(*dev->wait_queue, check_cmdbuf_irq(dev, cmdbuf_obj, irq_status_ret))) {
-		LOG_DBG("vcmd_wait_queue_0 interrupted\n");
+		LOG_ERR("vcmd_wait_queue_0 interrupted\n");
 		//abort the vcmd
 		//vcmd_write_register_value((const void *)dev->hwregs,dev->reg_mirror,HWIF_VCMD_START_TRIGGER,0);
 		return -ERESTARTSYS;
@@ -1596,7 +1615,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		struct dmabuf_cfg dbcfg;
 		size_t buf_size = 0;
 		struct heap_mem *hmem, *hmem_d1;
-		struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 		if (copy_from_user(&dbcfg, (void __user *)arg, sizeof(struct dmabuf_cfg)) != 0)
 			return -EFAULT;
@@ -1604,14 +1623,14 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DBG("import dmabuf_fd = %d\n", dbcfg.dmabuf_fd);
 
 		/* map the pha to dma addr(iova)*/
-		hmem = common_dmabuf_heap_import_from_user(&db_priv->root, dbcfg.dmabuf_fd);
+		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("dmabuf-heap import from userspace failed\n");
 			return -ENOMEM;
 		}
 
 		if (venc_pdev_d1) {
-			hmem_d1 = common_dmabuf_heap_import_from_user(&db_priv->root_d1, dbcfg.dmabuf_fd);
+			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
 			if(IS_ERR(hmem_d1)) {
 				common_dmabuf_heap_release(hmem);
 				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
@@ -1653,7 +1672,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 	case HANTRO_IOCH_DMA_HEAP_PUT_IOVA: {
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
-		struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 		if (copy_from_user(&dmabuf_fd, (void __user *)arg, sizeof(int)) != 0)
 			return -EFAULT;
@@ -1661,14 +1680,14 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DBG("release dmabuf_fd = %d\n", dmabuf_fd);
 
 		/* find the heap_mem */
-		hmem = common_dmabuf_lookup_heapobj_by_fd(&db_priv->root, dmabuf_fd);
+		hmem = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root, dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d\n", dmabuf_fd);
 			return -ENOMEM;
 		}
 
 		if (venc_pdev_d1) {
-			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&db_priv->root_d1, dmabuf_fd);
+			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
 			if (IS_ERR(hmem_d1)) {
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
@@ -1944,25 +1963,24 @@ static int hantrovcmd_open(struct inode *inode, struct file *filp)
 	bi_list_node *process_manager_node;
 	unsigned long flags;
 	struct process_manager_obj *process_manager_obj = NULL;
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv;
+	struct filp_priv *fp_priv;
 
-	db_priv = kzalloc(sizeof(struct dmabuf_priv), GFP_KERNEL);
-	if (!db_priv) {
+	fp_priv = kzalloc(sizeof(struct filp_priv), GFP_KERNEL);
+	if (!fp_priv) {
 		pr_err("%s: alloc failed\n", __func__);
 		return -ENOMEM;
 	}
-
-	common_dmabuf_heap_import_init(&db_priv->root, &venc_pdev->dev);
+#ifdef SUPPORT_DMA_HEAP
+		common_dmabuf_heap_import_init(&fp_priv->root, &venc_pdev->dev);
 	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_init(&db_priv->root_d1, &venc_pdev_d1->dev);
+		common_dmabuf_heap_import_init(&fp_priv->root_d1, &venc_pdev_d1->dev);
 	}
-	db_priv->dev = (void *)dev;
-
-	filp->private_data = (void *)db_priv;
-#else
-	filp->private_data = (void *)dev;
 #endif
+	fp_priv->dev = (void*)dev;
+	for (u32 core_id = 0; core_id < ENC_CORE_NUM; core_id ++) {
+		atomic_set(&(fp_priv->core_tasks[core_id]), 0);
+	}
+	filp->private_data = (void *)fp_priv;
 	process_manager_node = create_process_manager_node();
 	if (!process_manager_node)
 		return -1;
@@ -1972,20 +1990,14 @@ static int hantrovcmd_open(struct inode *inode, struct file *filp)
 	spin_lock_irqsave(&vcmd_process_manager_lock, flags);
 	bi_list_insert_node_tail(&global_process_manager, process_manager_node);
 	spin_unlock_irqrestore(&vcmd_process_manager_lock, flags);
-
 	LOG_DBG("dev opened\n");
 	return result;
 }
 
 static int hantrovcmd_release(struct inode *inode, struct file *filp)
 {
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
-	struct hantrovcmd_dev *dev = (struct hantrovcmd_dev *)db_priv->dev;
-#else
-	struct hantrovcmd_dev *dev =
-		(struct hantrovcmd_dev *)filp->private_data;
-#endif
+	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+	struct hantrovcmd_dev *dev = (struct hantrovcmd_dev *)fp_priv->dev;
 	u32 core_id = 0;
 	u32 release_cmdbuf_num = 0;
 	bi_list_node *new_cmdbuf_node = NULL;
@@ -2345,23 +2357,28 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 	free_process_manager_node(process_manager_node);
 	up(&vcmd_reserve_cmdbuf_sem[dev->vcmd_core_cfg.sub_module_type]);
 
-#ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&db_priv->root);
-	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_uninit(&db_priv->root_d1);
+	for (u32 core_id = 0; core_id < ENC_CORE_NUM; core_id ++) {
+		/** clear the tasks for pm*/
+		while (atomic_dec_return(&(fp_priv->core_tasks[core_id])) >= 0) {
+			venc_pm_runtime_put(core_id);
+		}
 	}
-	kfree(db_priv);
+#ifdef SUPPORT_DMA_HEAP
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
+	if (venc_pdev_d1) {
+		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
+	}
 #endif
-
+	kfree(fp_priv);
 	return 0;
 
 error:
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&db_priv->root);
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_uninit(&db_priv->root_d1);
+		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
 	}
-	kfree(db_priv);
+	kfree(fp_priv);
 #endif
 
 	return -ERESTARTSYS;
@@ -4045,3 +4062,37 @@ int vc8000e_vcmd_cleanup(void)
 	return 0;
 }
 
+static int check_dev_idle(struct hantrovcmd_dev *dev)
+{
+    /** the devices must not be power down now.*/
+	int idle = 0;
+	u8 vcmd_state = vcmd_get_register_value((const void *)dev->hwregs,
+						dev->reg_mirror, HWIF_VCMD_WORK_STATE);
+
+	if (WORKING_STATE_STALL != vcmd_state
+        && WORKING_STATE_WORKING != vcmd_state) {
+        idle = 1;
+    }
+    LOG_INFO("check_dev_idle, vcmd_state = %u\n", vcmd_state);
+
+	return idle;
+}
+
+int hantrovcmd_wait_core_idle(u32 core_id)
+{
+	struct hantrovcmd_dev *dev = NULL;
+    int ret;
+
+	if (core_id >= venc_vcmd_core_num) {
+		LOG_ERR("invalid core_id = %u, venc_vcmd_core_num = %u\n", core_id, venc_vcmd_core_num);
+		return -ERESTARTSYS;
+	}
+	dev = &hantrovcmd_data[core_id];
+    LOG_INFO("enc wait core idle, core_id = %u\n", core_id);
+
+	ret = wait_event_interruptible_timeout(*dev->wait_queue, check_dev_idle(dev), ENC_DEV_IDLEWAIT_TIME);
+
+    LOG_INFO("enc wait core idle exit, core_id = %u, ret = %d\n", core_id, ret);
+
+    return ret;
+}
