@@ -431,6 +431,7 @@
 	enable-cmd-pullup;
 	enable-data-pullup;
 	non-removable;
+	keep-power-in-suspend;
 	no-sd;
 	no-mmc;
 };

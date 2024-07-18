@@ -497,6 +497,7 @@
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	keep-power-in-suspend;
 	non-removable;
 	no-sd;
 	no-mmc;

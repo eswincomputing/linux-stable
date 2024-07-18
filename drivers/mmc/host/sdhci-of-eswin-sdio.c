@@ -227,7 +227,7 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 		return -EIO;
 	}
 
-	pr_info("%s: set phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
+	pr_debug("%s: set phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
 
 	eswin_sdhci_disable_card_clk(host);
 	sdhci_writew(host, phase_code, VENDOR_AT_SATA_R);
@@ -959,6 +959,12 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 	if (ret)
 		goto unreg_clk;
 
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_suspend_ignore_children(&pdev->dev, 1);
+	pm_runtime_enable(&pdev->dev);
+
 	return 0;
 
 unreg_clk:
@@ -984,6 +990,10 @@ static int eswin_sdhci_sdio_remove(struct platform_device *pdev)
 		sdhci_pltfm_priv(pltfm_host);
 	struct clk *clk_ahb = eswin_sdhci_sdio->clk_ahb;
 	void __iomem *core_clk_reg = eswin_sdhci_sdio->core_clk_reg;
+
+	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 
 	sdhci_pltfm_remove(pdev);
 	win2030_tbu_power(&pdev->dev, false);
