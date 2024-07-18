@@ -781,6 +781,7 @@ static int vcmd_type_core_num[MAX_VCMD_TYPE];
 
 #define WORKING_STATE_IDLE 0
 #define WORKING_STATE_WORKING 1
+#define WORKING_STATE_STALL 2
 #define CMDBUF_EXE_STATUS_OK 0
 #define CMDBUF_EXE_STATUS_CMDERR 1
 #define CMDBUF_EXE_STATUS_BUSERR 2
@@ -1583,14 +1584,13 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 
 	unsigned long flags;
 	struct hantrovcmd_dev *dev = NULL;
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv = NULL;
+	struct filp_priv *fp_priv = NULL;
 	if (!filp || !filp->private_data) {
 		LOG_ERR("invalid filp\n");
 		return -1;
 	}
-	db_priv = (struct dmabuf_priv *)filp->private_data;
-#endif
+	fp_priv = (struct filp_priv *)filp->private_data;
+
 	/*get cmdbuf object according to cmdbuf_id*/
 	new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 	if (!new_cmdbuf_node) {
@@ -1623,11 +1623,11 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 			if (new_cmdbuf_node) {
 				//free node
 #ifdef SUPPORT_DMA_HEAP
-				spin_lock_irqsave(&db_priv->vcmdlock, flags);
+				spin_lock_irqsave(&fp_priv->vcmdlock, flags);
 #endif
 				global_cmdbuf_node[cmdbuf_obj->cmdbuf_id] = NULL;
 #ifdef SUPPORT_DMA_HEAP
-				spin_unlock_irqrestore(&db_priv->vcmdlock, flags);
+				spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
 #endif
 				if (cmdbuf_obj->process_manager_obj) {
 					spin_lock_irqsave(&cmdbuf_obj->process_manager_obj->spinlock,
@@ -1648,6 +1648,11 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	}
 	//spin_unlock_irqrestore(dev->spinlock, flags);
 	up(&vcmd_reserve_cmdbuf_sem[module_type]);
+	/** release for the pm*/
+	if (atomic_dec_return(&(fp_priv->core_tasks[dev->core_id])) >= 0) {
+		vdec_pm_runtime_put(dev->core_id);
+	}
+
 	return 0;
 }
 
@@ -1797,8 +1802,12 @@ static long link_and_run_cmdbuf(struct file *filp,
 
 	dev = &hantrovcmd_data[cmdbuf_obj->core_id];
 	input_para->core_id = cmdbuf_obj->core_id;
-	LOG_TRACE("Vdec Allocate cmd buffer [%d] to core [%d]\n", cmdbuf_id,
-		input_para->core_id);
+	LOG_TRACE("Vdec Allocate cmd buffer [%d] to core [%d]\n", cmdbuf_id, input_para->core_id);
+	if (filp) {
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+		vdec_pm_runtime_sync(dev->core_id);
+		atomic_inc(&(fp_priv->core_tasks[dev->core_id]));
+	}
 	//set ddr address for vcmd registers copy.
 	if (dev->hw_version_id > HW_ID_1_0_C) {
 		//read vcmd executing register into ddr memory.
@@ -1906,12 +1915,12 @@ static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 	struct hantrovcmd_dev *dev = NULL;
 #ifdef SUPPORT_DMA_HEAP
 	unsigned long flags = 0;
-	struct dmabuf_priv *db_priv = NULL;
+	struct filp_priv *fp_priv = NULL;
 	if (!filp || !filp->private_data) {
 		LOG_ERR("check mc: invalid filp\n");
 		return 0;
 	}
-	db_priv = (struct dmabuf_priv *)filp->private_data;
+	fp_priv = (struct filp_priv *)filp->private_data;
 #endif
 
 	for (k = 0; k < TOTAL_DISCRETE_CMDBUF_NUM; k++) {
@@ -1921,12 +1930,12 @@ static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 		}
 
 #ifdef SUPPORT_DMA_HEAP
-		spin_lock_irqsave(&db_priv->vcmdlock, flags);
+		spin_lock_irqsave(&fp_priv->vcmdlock, flags);
 #endif
 		new_cmdbuf_node = global_cmdbuf_node[k];
 		if (!new_cmdbuf_node) {
 #ifdef SUPPORT_DMA_HEAP
-			spin_unlock_irqrestore(&db_priv->vcmdlock, flags);
+			spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
 #endif
 			continue;
 		}
@@ -1934,7 +1943,7 @@ static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 		if (!cmdbuf_obj || cmdbuf_obj->filp != filp) {
 #ifdef SUPPORT_DMA_HEAP
-			spin_unlock_irqrestore(&db_priv->vcmdlock, flags);
+			spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
 #endif
 			continue;
 		}
@@ -1945,13 +1954,13 @@ static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 				*irq_status_ret = cmdbuf_obj->cmdbuf_id;
 				cmdbuf_obj->waited = 1;
 #ifdef SUPPORT_DMA_HEAP
-				spin_unlock_irqrestore(&db_priv->vcmdlock, flags);
+				spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
 #endif
 				return 1;
 			}
 		}
 #ifdef SUPPORT_DMA_HEAP
-		spin_unlock_irqrestore(&db_priv->vcmdlock, flags);
+		spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
 #endif
 	}
 
@@ -2616,13 +2625,11 @@ int hantrovcmd_open(struct inode *inode, struct file *filp)
 	bi_list_node *process_manager_node;
 	unsigned long flags;
 	struct process_manager_obj *process_manager_obj = NULL;
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
-	spin_lock_init(&db_priv->vcmdlock);
-	db_priv->dev = (void *)dev;
-#else
-	filp->private_data = (void *)dev;
-#endif
+	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+
+	spin_lock_init(&fp_priv->vcmdlock);
+	fp_priv->dev = (void *)dev;
+
 	process_manager_node = create_process_manager_node();
 	if (!process_manager_node) {
 		pr_err("%d: create_process_manager_node failed\n", __LINE__);
@@ -2642,9 +2649,7 @@ int hantrovcmd_open(struct inode *inode, struct file *filp)
 
 int hantrovcmd_release(struct inode *inode, struct file *filp)
 {
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv = NULL;
-#endif
+	struct filp_priv *fp_priv = NULL;
 	struct hantrovcmd_dev *dev = NULL;
 	u32 core_id = 0;
 	u32 release_cmdbuf_num = 0;
@@ -2664,12 +2669,8 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 		return EFAULT;
 	}
 
-#ifdef SUPPORT_DMA_HEAP
-	db_priv = (struct dmabuf_priv *)filp->private_data;
-	dev = (struct hantrovcmd_dev *)db_priv->dev;
-#else
-	dev = (struct hantrovcmd_dev *)filp->private_data;
-#endif
+	fp_priv = (struct filp_priv *)filp->private_data;
+	dev = (struct hantrovcmd_dev *)fp_priv->dev;
 
 	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev->vcmd_core_cfg.sub_module_type]))
 		return -ERESTARTSYS;
@@ -4981,4 +4982,30 @@ static void printk_vcmd_register_debug(const void *hwregs, char *info)
 			fordebug);
 	}
 #endif
+}
+
+static int check_dev_idle(struct hantrovcmd_dev *dev) {
+	int idle = 0;
+
+	u8 vcmd_state = vcmd_get_register_value((const void *)dev->hwregs,
+						dev->reg_mirror, HWIF_VCMD_WORK_STATE);
+	if (WORKING_STATE_STALL != vcmd_state && WORKING_STATE_WORKING != vcmd_state) {
+        idle = 1;
+    } else {
+        // LOG_WARN("check_dev_idle, vcmd_state = %u\n", vcmd_state);
+    }
+    LOG_WARN("check_dev_idle, vcmd_state = %u\n", vcmd_state);
+	return idle;
+}
+
+int hantrovcmd_wait_core_idle(u32 core_id, long timeout) {
+	struct hantrovcmd_dev *dev = NULL;
+
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("invalid core_id = %u, vcmd_core_num = %u\n", core_id, total_vcmd_core_num);
+		return -ERESTARTSYS;
+	}
+
+	dev = &hantrovcmd_data[core_id];
+	return wait_event_interruptible_timeout(*dev->wait_queue, check_dev_idle(dev), timeout);
 }

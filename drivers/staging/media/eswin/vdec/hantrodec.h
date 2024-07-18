@@ -153,16 +153,20 @@ struct dmabuf_split {
 	unsigned int offset; /* offset of the buffer corresponding to dmabuf_fd */
 	unsigned int length; /* size of the splitted buffer start from offset */
 };
-
-#ifdef __KERNEL__
-struct dmabuf_priv {
-	struct heap_root root;
-	struct heap_root root_d1;
-	void *dev;
-	spinlock_t vcmdlock;
-};
 #endif
 
+#define DEC_CORE_NUM        (4)
+
+#ifdef __KERNEL__
+struct filp_priv {
+#ifdef SUPPORT_DMA_HEAP
+	struct heap_root root;
+	struct heap_root root_d1;
+#endif
+	void *dev;
+	spinlock_t vcmdlock;
+	atomic_t core_tasks[DEC_CORE_NUM];  /** for task count of 4 cores*/
+};
 #endif
 
 /* Use 'k' as magic number */

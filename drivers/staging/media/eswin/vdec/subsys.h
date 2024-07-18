@@ -173,6 +173,10 @@ int hantrovcmd_mmap(struct file *filp, struct vm_area_struct *vma);
 int hantrovcmd_init(void);
 void hantrovcmd_cleanup(void);
 
+int hantrovcmd_wait_core_idle(u32 core_id, long timeout);
+struct platform_device *vdec_get_platform_device(u32 core_id);
+int vdec_pm_runtime_sync(u32 core_id);
+int vdec_pm_runtime_put(u32 core_id);
 /******************************************************************************/
 /* MMU */
 /******************************************************************************/

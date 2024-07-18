@@ -98,6 +98,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <dt-bindings/memory/eswin-win2030-sid.h>
+#include <linux/pm_runtime.h>
 
 #include "subsys.h"
 #include "hantroaxife.h"
@@ -409,6 +410,9 @@ static int ReserveIO(void);
 static void ReleaseIO(void);
 
 static void ResetAsic(hantrodec_t *dev);
+
+static int vdec_clk_enable(vdec_clk_rst_t *vcrt);
+static int vdec_pm_enable(struct platform_device *pdev);
 
 #ifdef HANTRODEC_DEBUG
 static void dump_regs(hantrodec_t *dev);
@@ -2380,7 +2384,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		size_t buf_size = 0;
 		void *cpu_vaddr = NULL;
 		struct heap_mem *hmem, *hmem_d1;
-		struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 		if (copy_from_user(&dbcfg, (void __user *)arg, sizeof(struct dmabuf_cfg)) != 0)
 			return -EFAULT;
@@ -2389,14 +2393,16 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
 		/* map the pha to dma addr(iova)*/
 		/* syscoherent <-> false, flush one time when import; sys,cma <-> true, no fush */
-		hmem = common_dmabuf_heap_import_from_user(&db_priv->root, dbcfg.dmabuf_fd);
+		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("dmabuf-heap alloc from userspace failed\n");
 			return -ENOMEM;
 		}
+		//LOG_INFO("import dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dbcfg.dmabuf_fd, hmem, filp,
+		//	platformdev_d1);
 
 		if (platformdev_d1) {
-			hmem_d1 = common_dmabuf_heap_import_from_user(&db_priv->root_d1, dbcfg.dmabuf_fd);
+			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
 			if(IS_ERR(hmem_d1)) {
 				common_dmabuf_heap_release(hmem);
 				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
@@ -2438,7 +2444,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			common_dmabuf_heap_release(hmem);
 			if (platformdev_d1)
 				common_dmabuf_heap_release(hmem_d1);
-			LOG_DBG("%s %d: copy_from_user failed, returned %li\n", __func__, __LINE__, tmp);
+			LOG_ERR("%s %d: copy_from_user failed, returned %li\n", __func__, __LINE__, tmp);
 			return -EFAULT;
 		}
 
@@ -2447,7 +2453,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 	case HANTRODEC_IOC_DMA_HEAP_PUT_IOVA: {
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
-		struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 		if (copy_from_user(&dmabuf_fd, (void __user *)arg, sizeof(int)) != 0)
 			return -EFAULT;
@@ -2455,20 +2461,22 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DBG("release dmabuf_fd = %d\n", dmabuf_fd);
 
 		/* find the heap_mem */
-		hmem = common_dmabuf_lookup_heapobj_by_fd(&db_priv->root, dmabuf_fd);
+		hmem = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root, dmabuf_fd);
 		if (IS_ERR(hmem)) {
-			LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d\n", dmabuf_fd);
+			LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d, %px\n", dmabuf_fd, hmem);
 			return -ENOMEM;
 		}
 
 		if (platformdev_d1) {
-			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&db_priv->root_d1, dmabuf_fd);
+			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
 			if (IS_ERR(hmem_d1)) {
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
 			}
 			common_dmabuf_heap_release(hmem_d1);
 		}
+		//LOG_INFO("release dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dmabuf_fd, hmem, filp,
+		//	platformdev_d1);
 		common_dmabuf_heap_release(hmem);
 
 		return 0;
@@ -2535,22 +2543,24 @@ static int hantrodec_mmap(struct file *filp, struct vm_area_struct *vma)
  */
 static int hantrodec_open(struct inode *inode, struct file *filp)
 {
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv;
+	struct filp_priv *fp_priv;
 
-	db_priv = kzalloc(sizeof(struct dmabuf_priv), GFP_KERNEL);
-	if (!db_priv) {
+	fp_priv = kzalloc(sizeof(struct filp_priv), GFP_KERNEL);
+	if (!fp_priv) {
 		pr_err("%s: alloc failed\n", __func__);
 		return -ENOMEM;
 	}
 
-	common_dmabuf_heap_import_init(&db_priv->root, &platformdev->dev);
+#ifdef SUPPORT_DMA_HEAP
+	common_dmabuf_heap_import_init(&fp_priv->root, &platformdev->dev);
 	if (platformdev_d1) {
-		common_dmabuf_heap_import_init(&db_priv->root_d1, &platformdev_d1->dev);
+		common_dmabuf_heap_import_init(&fp_priv->root_d1, &platformdev_d1->dev);
 	}
-
-	filp->private_data = (void *)db_priv;
 #endif
+	for (u32 core_id = 0; core_id < DEC_CORE_NUM; core_id ++) {
+		atomic_set(&(fp_priv->core_tasks[core_id]), 0);
+	}
+	filp->private_data = (void *)fp_priv;
 	LOG_DBG("dev opened\n");
 
 	if (vcmd)
@@ -2571,9 +2581,7 @@ static int hantrodec_release(struct inode *inode,
 {
 	int n;
 	hantrodec_t *dev = &hantrodec_data;
-#ifdef SUPPORT_DMA_HEAP
-	struct dmabuf_priv *db_priv = (struct dmabuf_priv *)filp->private_data;
-#endif
+	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
 	LOG_DBG("closing ...\n");
 
@@ -2601,12 +2609,18 @@ static int hantrodec_release(struct inode *inode,
 
 end:
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&db_priv->root);
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (platformdev_d1) {
-		common_dmabuf_heap_import_uninit(&db_priv->root_d1);
+		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
 	}
-	kfree(db_priv);
 #endif
+	for (u32 core_id = 0; core_id < DEC_CORE_NUM; core_id ++) {
+		/** clear the tasks for pm*/
+		while (atomic_dec_return(&(fp_priv->core_tasks[core_id])) >= 0) {
+			vdec_pm_runtime_put(core_id);
+		}
+	}
+	kfree(fp_priv);
 
 	LOG_DBG("closed\n");
 	return 0;
@@ -2810,8 +2824,8 @@ static int hantrodec_init(void)
 	hantrodec_data.async_queue_pp = NULL;
 
 	result = register_chrdev(hantrodec_major,
-				 DEC_DEV_NAME,
-	 &hantrodec_fops);
+				DEC_DEV_NAME,
+	 			&hantrodec_fops);
 	if (result < 0) {
 		LOG_ERR("unable to get major %d\n", hantrodec_major);
 		goto err;
@@ -3703,6 +3717,12 @@ static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
 		LOG_INFO("VD set vd_clk to %ldHZ\n", rate);
 	}
 
+	return vdec_clk_enable(vcrt);
+}
+
+static int vdec_clk_enable(vdec_clk_rst_t *vcrt) {
+	int ret;
+
 	ret = clk_prepare_enable(vcrt->aclk);
 	if (ret) {
 		LOG_ERR("Video Decoder: failed to enable aclk: %d\n", ret);
@@ -3873,6 +3893,10 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 	int ret, vdec_dev_num = 0;
 	static int pdev_count = 0;
 	vdec_clk_rst_t *vcrt = devm_kzalloc(&pdev->dev, sizeof(vdec_clk_rst_t), GFP_KERNEL);
+	if (!vcrt) {
+		LOG_ERR("malloc drvdata failed\n");
+		return -ENOMEM;
+	}
 
 	// pr_info("[%s]build version: %s\n", DEC_DEV_NAME, ES_VDEC_GIT_VER);
 	vdec_dev_num = vdec_device_nodes_check();
@@ -3921,7 +3945,7 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		d1_clk_reset_init();
 	}
 
-	if (vdec_trans_device_nodes(pdev)) {
+	if (vdec_trans_device_nodes(pdev, numa_id)) {
 		LOG_ERR("Translates video decoder dts to subsys failed");
 		return -1;
 	}
@@ -3951,17 +3975,36 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		LOG_NOTICE("load driver %s failed\n", DEC_DEV_NAME);
 	} else {
 		LOG_NOTICE("module inserted. Major = %d\n", hantrodec_major);
+
+		if (platformdev && vdec_pm_enable(platformdev) < 0) {
+			LOG_WARN("enable pm for vdec-die0 failed\n");
+		}
+		if (platformdev_d1 && vdec_pm_enable(platformdev_d1) < 0) {
+			LOG_WARN("enable pm for vdec-die1 failed\n");
+		}
 	}
 	return ret;
+}
+
+static int vdec_pm_enable(struct platform_device *pdev) {
+	/* The code below assumes runtime PM to be disabled. */
+	WARN_ON(pm_runtime_enabled(&pdev->dev));
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	return 0;
 }
 
 static int hantro_vdec_remove(struct platform_device *pdev)
 {
 #ifdef SUPPORT_DMA_HEAP
 	int ret;
-	vdec_clk_rst_t *vcrt;
 #endif
+	vdec_clk_rst_t *vcrt;
 
+	pm_runtime_disable(&pdev->dev);
 	hantrodec_cleanup();
 #ifdef SUPPORT_DMA_HEAP
 	ret = win2030_tbu_power(&pdev->dev, false);
@@ -3969,13 +4012,109 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 		LOG_ERR("vdec tbu power down failed\n");
 		return -1;
 	}
+#endif
 	vcrt = platform_get_drvdata(pdev);
 	vdec_hardware_reset(vcrt);
 	vdec_clk_disable(vcrt);
-#endif
 
 	return 0;
 }
+
+static int eswin_vdec_runtime_suspend(struct device *dev) {
+	vdec_clk_rst_t *vcrt = NULL;
+	int ret = -1;
+
+	vcrt = dev_get_drvdata(dev);
+	if (vcrt) {
+		ret = win2030_tbu_power(dev, false);
+		if (ret != 0) {
+			LOG_ERR("tbu power up failed, %d\n", __LINE__);
+			return -1;
+		}
+		ret = vdec_clk_disable(vcrt);
+	}
+	return ret;
+}
+
+static int eswin_vdec_runtime_resume(struct device *dev) {
+	vdec_clk_rst_t *vcrt = NULL;
+	int ret = -1;
+
+	vcrt = dev_get_drvdata(dev);
+	if (vcrt) {
+		ret = vdec_clk_enable(vcrt);
+		if (ret) {
+			LOG_ERR("enable sys clk failed, %d\n", __LINE__);
+			return ret;
+		}
+
+		ret = win2030_tbu_power(dev, true);
+		if (ret != 0) {
+			LOG_ERR("tbu power down failed, %d\n", __LINE__);
+			return -1;
+		}
+	}
+	return ret;
+}
+
+/** <TODO> the jd & vd should be seperated as two devices*/
+int vdec_wait_device_idle(struct platform_device *pdev) {
+	int ret;
+
+	if (pdev == platformdev) {
+		ret = hantrovcmd_wait_core_idle(0, msecs_to_jiffies(500));
+		if (ret <= 0) {
+			return ret;
+		}
+		ret = hantrovcmd_wait_core_idle(1, msecs_to_jiffies(500));
+		return ret;
+	}
+	else if (pdev == platformdev_d1) {
+		ret = hantrovcmd_wait_core_idle(2, msecs_to_jiffies(500));
+		if (ret <= 0) {
+			return ret;
+		}
+		ret = hantrovcmd_wait_core_idle(3, msecs_to_jiffies(500));
+		return ret;
+	}
+
+	LOG_ERR("Unknown platform device = %p\n", pdev);
+	return 1;
+}
+
+static int eswin_vdec_suspend(struct device *dev) {
+	int ret = 0;
+	struct platform_device *pdev = NULL;
+
+	if (!pm_runtime_status_suspended(dev)) {
+		pdev = container_of(dev, struct platform_device, dev);
+		ret = vdec_wait_device_idle(pdev);
+		if (!ret) {
+			LOG_ERR("Timeout for vdec_suspend\n");
+			return -ETIMEDOUT;
+		} else if (ret < 0) {
+			LOG_ERR("Interrupt triggered while vdec_suspend\n");
+			return -ERESTARTSYS;
+		}
+
+		ret = eswin_vdec_runtime_suspend(dev);
+	}
+	return ret;
+}
+
+static int eswin_vdec_resume(struct device *dev) {
+	int ret = 0;
+
+	if (!pm_runtime_status_suspended(dev)) {
+		ret = eswin_vdec_runtime_resume(dev);
+	}
+	return ret;
+}
+
+static const struct dev_pm_ops eswin_vdec_dev_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(eswin_vdec_suspend, eswin_vdec_resume)
+	RUNTIME_PM_OPS(eswin_vdec_runtime_suspend, eswin_vdec_runtime_resume, NULL)
+};
 
 static const struct of_device_id eswin_vdec_match[] = {
 	{ .compatible = "eswin,video-decoder0", },
@@ -3988,6 +4127,7 @@ static struct platform_driver eswin_vdec_driver = {
 	.driver = {
 		.name   = DEC_DEV_NAME,
 		.of_match_table = eswin_vdec_match,
+		.pm = &eswin_vdec_dev_pm_ops,
 	},
 };
 
