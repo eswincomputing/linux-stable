@@ -235,7 +235,8 @@ _TryToIdleGPU(gckEVENT Event)
 #if gcdENABLE_PER_DEVICE_PM
         if (hardware->type == gcvHARDWARE_3D ||
             hardware->type == gcvHARDWARE_3D2D ||
-            hardware->type == gcvHARDWARE_VIP) {
+            hardware->type == gcvHARDWARE_VIP ||
+            hardware->type == gcvHARDWARE_2D) {
             status = gckOS_AcquireMutex(device->os, device->powerMutex, 0);
             if (status == gcvSTATUS_TIMEOUT) {
                 gcmkFOOTER();

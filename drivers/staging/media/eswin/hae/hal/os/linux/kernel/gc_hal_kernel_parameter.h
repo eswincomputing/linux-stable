@@ -282,7 +282,7 @@ static int compression = -1;
 module_param(compression, int, 0644);
 MODULE_PARM_DESC(compression, "Disable compression if set it to 0, enabled by default");
 
-static int powerManagement = 0;
+static int powerManagement = 1;
 module_param(powerManagement, int, 0644);
 MODULE_PARM_DESC(powerManagement, "Disable auto power saving if set it to 0, enabled by default");
 

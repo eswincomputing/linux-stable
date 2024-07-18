@@ -83,6 +83,8 @@ static int gpu3DMinClock = 1;
 static int contiguousRequested;
 static ulong bankSize;
 
+static int activeDeviceCount = 0;
+
 static void
 _InitModuleParam(gcsMODULE_PARAMETERS *ModuleParam)
 {
@@ -1344,16 +1346,18 @@ static int __devinit viv_dev_probe(struct platform_device *pdev)
     }
 
     /* Gather module parameters. */
-    _InitModuleParam(&platform->params);
+    if (activeDeviceCount == 0) {
+        _InitModuleParam(&platform->params);
+    }
 
-    platform->params.devices[0] = &pdev->dev;
+    platform->params.devices[activeDeviceCount] = &pdev->dev;
 
-    platform->params.devices[0]->coherent_dma_mask = dma_mask;
+    platform->params.devices[activeDeviceCount]->coherent_dma_mask = dma_mask;
 
-    if (platform->params.devices[0]->dma_mask)
-        *platform->params.devices[0]->dma_mask = dma_mask;
+    if (platform->params.devices[activeDeviceCount]->dma_mask)
+        *platform->params.devices[activeDeviceCount]->dma_mask = dma_mask;
     else
-        platform->params.devices[0]->dma_mask = &platform->params.devices[0]->coherent_dma_mask;
+        platform->params.devices[activeDeviceCount]->dma_mask = &platform->params.devices[activeDeviceCount]->coherent_dma_mask;
 
     if (platform->ops->dmaInit) {
         if (gcmIS_ERROR(platform->ops->dmaInit(platform))) {
@@ -1387,9 +1391,14 @@ static int __devinit viv_dev_probe(struct platform_device *pdev)
     }
 #endif
 
-    if (platform->ops->adjustParam)
+    if (platform->ops->adjustParam) {
         /* Override default module param. */
-        platform->ops->adjustParam(platform, &platform->params);
+        activeDeviceCount++;
+        if(gcvSTATUS_MORE_DATA == platform->ops->adjustParam(platform, &platform->params)){
+            gcmkPRINT("hae loaded first device, waiting for another...");
+            return 0;
+        }
+    }
 
 #if gcdCAPTURE_ONLY_MODE
     platform->params.contiguousBases[0] = contiguousBaseCap;
@@ -1456,21 +1465,25 @@ static int __devexit viv_dev_remove(struct platform_device *pdev)
 
     gcmkHEADER();
 
+    activeDeviceCount--;
+
+    if(activeDeviceCount == 0) {
 #if gcdENABLE_DRM
-    viv_drm_remove(&pdev->dev);
+        viv_drm_remove(&pdev->dev);
 #endif
 
-    drv_exit();
+        drv_exit();
 
-    if (platform->ops->putPower)
-        platform->ops->putPower(platform);
+        if (platform->ops->putPower)
+            platform->ops->putPower(platform);
 
-    if (platform->ops->dmaExit)
-        platform->ops->dmaExit(platform);
+        if (platform->ops->dmaExit)
+            platform->ops->dmaExit(platform);
 
-    for (i = 0; i < gcdDEVICE_COUNT; i++) {
-        if (platform->params.devices[i])
-            platform->params.devices[i] = NULL;
+        for (i = 0; i < gcdDEVICE_COUNT; i++) {
+            if (platform->params.devices[i])
+                platform->params.devices[i] = NULL;
+        }
     }
 
     gcmkFOOTER_NO();

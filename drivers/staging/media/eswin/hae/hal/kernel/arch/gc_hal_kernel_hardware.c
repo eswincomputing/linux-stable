@@ -2553,7 +2553,7 @@ gckHARDWARE_InitializeHardware(gckHARDWARE Hardware)
 
         gcmkSAFECASTPHYSADDRT(offset, Hardware->identity.registerAPB);
 
-        gcmkPRINT("Initailize APB1 registers, APB offset is 0x%x.\n", offset);
+        /* gcmkPRINT("Initailize APB1 registers, APB offset is 0x%x.\n", offset); */
 
         /* APB FE ctrl. */
         gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,

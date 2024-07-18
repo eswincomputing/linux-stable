@@ -56,6 +56,7 @@
 #ifndef _gc_hal_kernel_platform_win2030_h_
 #define _gc_hal_kernel_platform_win2030_h_
 
+
 #if gcdSUPPORT_DEVICE_TREE_SOURCE
 #include <linux/io.h>
 #include <linux/of.h>
@@ -68,21 +69,12 @@
 #include "gc_hal_kernel.h"
 #include "gc_hal_kernel_platform.h"
 
-typedef struct _gcsPOWER_DOMAIN
-{
+typedef struct _gcsPOWER_DOMAIN {
     struct generic_pm_domain base;
-    gceCORE core_id;
-    gctUINT32 flags;
-    struct platform_device *pdev;
-}gcsPOWER_DOMAIN;
+    gceCORE                  core_id;
+    gctUINT32                flags;
+    struct platform_device  *pdev;
+} gcsPOWER_DOMAIN;
 
-enum {
-    vc_aclk = 0,
-    vc_cfg_clk,
-    g2d_cfg_clk,
-    g2d_st2_clk,
-    g2d_clk_clk,
-    g2d_aclk_clk,
-};
 #endif
 #endif

@@ -695,7 +695,7 @@
  *       timeout in milliseconds.
  */
 #ifndef gcdPOWEROFF_TIMEOUT
-#define gcdPOWEROFF_TIMEOUT                     300
+#define gcdPOWEROFF_TIMEOUT                     1000
 #endif
 
 /*
@@ -1436,7 +1436,7 @@
  *       Only support Linux OS currently.
  */
 #ifndef gcdENABLE_PER_DEVICE_PM
-#define gcdENABLE_PER_DEVICE_PM                 0
+#define gcdENABLE_PER_DEVICE_PM                 2
 #endif
 
 /*

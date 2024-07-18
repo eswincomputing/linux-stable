@@ -3950,6 +3950,12 @@ gckKERNEL_AttachProcessEx(gckKERNEL Kernel, gctBOOL Attach, gctUINT32 PID)
                 /* Last client detached, switch to SUSPEND power state. */
                 gcmkONERROR(gckOS_Broadcast(Kernel->os, Kernel->hardware,
                                             gcvBROADCAST_LAST_PROCESS));
+                if (Kernel->core == gcvCORE_2D1 && Kernel->hardware->options.powerManagement) {
+                    /*notify 2d core0 to power off*/
+                    gckKERNEL ker = gcvNULL;
+                    gckOS_QueryKernel(Kernel, gcvCORE_2D, &ker);
+                    gcmkONERROR(gckOS_Broadcast(ker->os, ker->hardware, gcvBROADCAST_LAST_PROCESS));
+                }
 
                 if (Kernel->processPageTable) {
                     status = gckEVENT_Submit(Kernel->eventObj, &eventAttr);

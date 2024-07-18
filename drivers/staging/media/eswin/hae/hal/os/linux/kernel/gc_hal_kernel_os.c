@@ -4321,7 +4321,8 @@ gckOS_Broadcast(gckOS Os, gckHARDWARE Hardware, gceBROADCAST Reason)
 #if gcdENABLE_PER_DEVICE_PM
         if (Hardware->type == gcvHARDWARE_3D ||
             Hardware->type == gcvHARDWARE_3D2D ||
-            Hardware->type == gcvHARDWARE_VIP) {
+            Hardware->type == gcvHARDWARE_VIP ||
+            Hardware->type == gcvHARDWARE_2D) {
             gckKERNEL kernel = Hardware->kernel;
             gckDEVICE device = kernel->device;
             gctUINT32 broCoreMask;

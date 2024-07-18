@@ -51,56 +51,86 @@
 *    version of this file.
 *
 *****************************************************************************/
-#define gcdSUPPORT_DEVICE_TREE_SOURCE 1
 
-#include <linux/delay.h>
-#include <linux/clk.h>
-#include <linux/reset.h>
+
+/*
+ *   dts node example:
+ *   gpu_3d: gpu@53100000 {
+ *       compatible = "verisilicon,galcore";
+ *       reg = <0 0x53100000 0 0x40000>,
+ *               <0 0x54100000 0 0x40000>;
+ *       reg-names = "core_major", "core_3d1";
+ *       interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+ *                   <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+ *       interrupt-names = "core_major", "core_3d1";
+ *       clocks = <&clk IMX_SC_R_GPU_0_PID0 IMX_SC_PM_CLK_PER>,
+ *               <&clk IMX_SC_R_GPU_0_PID0 IMX_SC_PM_CLK_MISC>,
+ *               <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_PER>,
+ *               <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_MISC>;
+ *       clock-names = "core_major", "core_major_sh", "core_3d1", "core_3d1_sh";
+ *       assigned-clocks = <&clk IMX_SC_R_GPU_0_PID0 IMX_SC_PM_CLK_PER>,
+ *                       <&clk IMX_SC_R_GPU_0_PID0 IMX_SC_PM_CLK_MISC>,
+ *                       <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_PER>,
+ *                       <&clk IMX_SC_R_GPU_1_PID0 IMX_SC_PM_CLK_MISC>;
+ *       assigned-clock-rates = <700000000>, <850000000>, <800000000>, <1000000000>;
+ *       power-domains = <&pd IMX_SC_R_GPU_0_PID0>, <&pd IMX_SC_R_GPU_1_PID0>;
+ *       power-domain-names = "core_major", "core_3d1";
+ *       contiguous-base = <0x0>;
+ *       contiguous-size = <0x1000000>;
+ *       status = "okay";
+ *   };
+ */
+
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel_platform.h"
 #include "gc_hal_kernel_platform_win2030.h"
+#if gcdSUPPORT_DEVICE_TREE_SOURCE
+# include <linux/pm_runtime.h>
+# include <linux/pm_domain.h>
+# include <linux/clk.h>
+# include <linux/reset.h>
+#endif
 
 /* Disable MSI for internal FPGA build except PPC */
 #if gcdFPGA_BUILD
-#define USE_MSI     0
+# define USE_MSI            0
 #else
-#define USE_MSI     1
+# define USE_MSI            1
 #endif
 
-gceSTATUS
-_AdjustParam(
-    IN gcsPLATFORM *Platform,
-    OUT gcsMODULE_PARAMETERS *Args
-    );
+#define gcdMIXED_PLATFORM   0
+
+#define gcdDISABLE_NODE_OFFSET 1
 
 gceSTATUS
-_GetGPUPhysical(
-    IN gcsPLATFORM * Platform,
-    IN gctPHYS_ADDR_T CPUPhysical,
-    OUT gctPHYS_ADDR_T *GPUPhysical
-    );
+_AdjustParam(gcsPLATFORM *Platform, gcsMODULE_PARAMETERS *Args);
 
-gceSTATUS _DmaExit(gcsPLATFORM *Platform);
+gceSTATUS
+_GetGPUPhysical(gcsPLATFORM *Platform, gctPHYS_ADDR_T CPUPhysical, gctPHYS_ADDR_T *GPUPhysical);
 
 #if gcdENABLE_MP_SWITCH
 gceSTATUS
-_SwitchCoreCount(
-    IN gcsPLATFORM *Platform,
-    OUT gctUINT32 *Count
-    );
+_SwitchCoreCount(gcsPLATFORM *Platform, gctUINT32 *Count);
 #endif
 
 #if gcdENABLE_VIDEO_MEMORY_MIRROR
 gceSTATUS
-_dmaCopy(
-    IN gctPOINTER Object,
-    IN gctPOINTER DstNode,
-    IN gctPOINTER SrcNode
-    );
+_dmaCopy(gctPOINTER Object, gcsDMA_TRANS_INFO *Info);
 #endif
 
-static struct _gcsPLATFORM_OPERATIONS default_ops =
-{
+#if gcdSUPPORT_DEVICE_TREE_SOURCE
+static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *params);
+
+gceSTATUS
+_set_power(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable);
+
+gceSTATUS
+_set_clock(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable);
+
+gceSTATUS _DmaExit(gcsPLATFORM *Platform);
+#endif
+
+static struct _gcsPLATFORM_OPERATIONS default_ops = {
     .adjustParam        = _AdjustParam,
     .getGPUPhysical     = _GetGPUPhysical,
 #if gcdENABLE_MP_SWITCH
@@ -109,12 +139,14 @@ static struct _gcsPLATFORM_OPERATIONS default_ops =
 #if gcdENABLE_VIDEO_MEMORY_MIRROR
     .dmaCopy            = _dmaCopy,
 #endif
+#if gcdSUPPORT_DEVICE_TREE_SOURCE
+    .setPower           = _set_power,
+    .setClock           = _set_clock,
     .dmaExit            = _DmaExit,
+#endif
 };
 
-
 #if gcdSUPPORT_DEVICE_TREE_SOURCE
-
 #define gcvCLKS_COUNT 7
 static char *clk_names[] = { "vc_aclk", "vc_cfg", "g2d_cfg", "g2d_st2", "g2d_clk", "g2d_aclk", "mon_pclk"};
 static const int nc_of_clks = gcmCOUNTOF(clk_names);
@@ -123,260 +155,46 @@ static const int nc_of_clks = gcmCOUNTOF(clk_names);
 static char *rst_names[] = { "axi", "cfg", "moncfg", "g2d_core", "g2d_cfg", "g2d_axi" };
 static const int nc_of_rsts = gcmCOUNTOF(rst_names);
 
-static struct _gcsEsw2DParams {
+struct gpu_power_domain {
+    int num_domains;
+    struct device **power_dev;
     struct clk *clks[gcdDEVICE_COUNT][gcvCLKS_COUNT];
+};
+
+static struct _gpu_reset {
     struct reset_control *rsts[gcdDEVICE_COUNT][gcvRST_COUNT];
-}es2DParas;
+}gpu_reset;
 
-static int gpu_parse_dt(struct _gcsPLATFORM *g2d_platform, gcsMODULE_PARAMETERS *params);
-static void gpu_add_power_domains(void);
-
-static struct _gcsPLATFORM default_platform =
-{
+static struct _gcsPLATFORM default_platform = {
     .name = __FILE__,
     .ops = &default_ops,
-    .priv = &es2DParas,
 };
 
-static gcsPOWER_DOMAIN domains[] =
-{
-    [gcvCORE_MAJOR] =
-    {
-        .base =
-        {
-            .name = "pd-major",
-        },
-    },
-    [gcvCORE_3D1] =
-    {
-        .base =
-        {
-            .name = "pd-3d1",
-        },
-    },
-    [gcvCORE_3D2] =
-    {
-        .base =
-        {
-            .name = "pd-3d2",
-        },
-    },
-    [gcvCORE_3D3] =
-    {
-        .base =
-        {
-            .name = "pd-3d3",
-        },
-    },
-    [gcvCORE_3D4] =
-    {
-        .base =
-        {
-            .name = "pd-3d4",
-        },
-    },
-    [gcvCORE_3D5] =
-    {
-        .base =
-        {
-            .name = "pd-3d5",
-        },
-    },
-    [gcvCORE_3D6] =
-    {
-        .base =
-        {
-            .name = "pd-3d6",
-        },
-    },
-    [gcvCORE_3D7] =
-    {
-        .base =
-        {
-            .name = "pd-3d7",
-        },
-    },
-    [gcvCORE_2D] =
-    {
-        .base =
-        {
-            .name = "pd-2d",
-        },
-    },
-    [gcvCORE_VG] =
-    {
-        .base =
-        {
-            .name = "pd-vg",
-        },
-    },
+const char *core_names[] = {
+    "core_major",
+    "core_3d1",
+    "core_3d2",
+    "core_3d3",
+    "core_3d4",
+    "core_3d5",
+    "core_3d6",
+    "core_3d7",
+    "core_3d8",
+    "core_3d9",
+    "core_3d10",
+    "core_3d11",
+    "core_3d12",
+    "core_3d13",
+    "core_3d14",
+    "core_3d15",
+    "core_2d",
+    "core_2d1",
+    "core_2d2",
+    "core_2d3",
+    "core_vg",
 #if gcdDEC_ENABLE_AHB
-    [gcvCORE_DEC] =
-    {
-        .base =
-        {
-            .name = "pd-dec",
-        },
-    },
+    "core_dec",
 #endif
-    [gcvCORE_2D1] =
-    {
-        .base =
-        {
-            .name = "pd-2d1",
-        },
-    },
-};
-
-static inline gcsPOWER_DOMAIN *to_gc_power_domain(struct generic_pm_domain *gpd)
-{
-    return gcmCONTAINEROF(gpd, gcsPOWER_DOMAIN, base);
-}
-
-static int gc_power_domain_power_on(    struct generic_pm_domain *gpd)
-{
-    return 0;
-}
-
-static int gc_power_domain_power_off(    struct generic_pm_domain *gpd)
-{
-    return 0;
-}
-
-static int gc_power_domain_probe(struct platform_device *pdev)
-{
-    gceSTATUS status;
-    int ret = 0;
-    struct device_node *np = pdev->dev.of_node;
-    int core_id;
-
-    ret = of_property_read_u32(np, "core-id", &core_id);
-    if (ret)
-    {
-        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-    if (core_id >= gcvCORE_COUNT)
-    {
-        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-
-    ret = platform_device_add_data(pdev, (gctPOINTER)&domains[core_id], sizeof(gcsPOWER_DOMAIN));
-    if (ret)
-    {
-        gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
-    }
-
-    return 0;
-OnError:
-    return ret;
-}
-
-static int gc_power_domain_remove(struct platform_device *pdev)
-{
-    gcsPOWER_DOMAIN *domain = pdev->dev.platform_data;
-
-    if (IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS))
-    {
-        of_genpd_del_provider(domain->pdev->dev.of_node);
-    }
-
-    return 0;
-}
-
-static const struct of_device_id gc_power_domain_dt_ids[] =
-{
-    {.compatible = "verisilicon,pd-vip",},
-    {.compatible = "verisilicon,pd-gpu2d",},
-    {.compatible = "verisilicon,pd-gpu3d",},
-
-    {/* sentinel */}
-};
-
-static struct platform_driver gc_power_domain_driver =
-{
-    .driver = {
-        .owner = THIS_MODULE,
-        .name = "gc-pm-domains",
-        .of_match_table = gc_power_domain_dt_ids,
-    },
-    .probe = gc_power_domain_probe,
-    .remove = gc_power_domain_remove,
-};
-
-static int gpu_power_domain_init(void)
-{
-    return platform_driver_register(&gc_power_domain_driver);
-}
-
-
-static void gpu_power_domain_exit(void)
-{
-    platform_driver_unregister(&gc_power_domain_driver);
-}
-
-static void gpu_add_power_domains(void)
-{
-    struct device_node *np = gcvNULL;
-    int ret;
-    gceSTATUS status;
-
-    for_each_matching_node(np, gc_power_domain_dt_ids)
-    {
-        struct platform_device *pdev;
-        gcsPOWER_DOMAIN *domain = domains;
-        int core_id;
-
-        if (!of_device_is_available(np))
-        {
-            continue;
-        }
-
-        pdev = of_find_device_by_node(np);
-
-        if (!pdev)
-            break;
-
-        ret = of_property_read_u32(np, "core-id", &core_id);
-        if (ret)
-        {
-            gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
-        }
-        if (core_id >= gcvCORE_COUNT)
-        {
-            gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
-        }
-
-        domain[core_id].pdev = pdev;
-        domain[core_id].core_id = core_id;
-
-        domain[core_id].base.power_on = gc_power_domain_power_on;
-        domain[core_id].base.power_off = gc_power_domain_power_off;
-
-        if (IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS))
-        {
-            ret = pm_genpd_init(&domain[core_id].base, gcvNULL, true);
-            if (ret)
-            {
-                continue;
-            }
-
-            ret = of_genpd_add_provider_simple(np, &domain[core_id].base);
-            if (ret)
-            {
-                continue;
-            }
-        }
-    }
-OnError:
-    return;
-}
-
-static const struct of_device_id gpu_dt_ids[] = {
-    { .compatible = "verisilicon,galcore",},
-    { .compatible = "eswin,galcore_d0",},
-    { .compatible = "eswin,galcore_d1",},
-
-    {/* sentinel */}
 };
 
 static void show_clk_status(int dieIndex)
@@ -393,29 +211,132 @@ static void show_clk_status(int dieIndex)
     iounmap(g2d_top_ptr);
 }
 
-static int g2d_set_clock(struct device *dev, int dieIndex, int enable) {
-    int i, ret;
+struct gpu_power_domain gpd;
 
-    if(!dev) return 0;
-
-    for (i = 0; i < nc_of_clks; i++) {
-        es2DParas.clks[dieIndex][i] = devm_clk_get(dev, clk_names[i]);
-        if (IS_ERR(es2DParas.clks[dieIndex][i])) {
-            ret = PTR_ERR(es2DParas.clks[dieIndex][i]);
-            dev_err(dev, "failed to get %s clock: %d\n", clk_names[i], ret);
-            return ret;
-        }
-
-        if (enable) {
-            ret = clk_prepare_enable(es2DParas.clks[dieIndex][i]);
-            if (ret) {
-                dev_err(dev, "failed to enable device %s: %d\n", clk_names[i], ret);
-                return ret;
+gceSTATUS
+_set_clock(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable)
+{
+    int j;
+    if (Enable) {
+        for (j = 0; j < nc_of_clks; j++) {
+            if (gpd.clks[DevIndex][j]) {
+                clk_prepare_enable(gpd.clks[DevIndex][j]);
             }
-        } else {
-            clk_disable_unprepare(es2DParas.clks[dieIndex][i]);
+        }
+    } else {
+        for (j = 0; j < nc_of_clks; j++) {
+            if (gpd.clks[DevIndex][j]) {
+                clk_disable_unprepare(gpd.clks[DevIndex][j]);
+            }
         }
     }
+
+    return gcvSTATUS_OK;
+}
+
+gceSTATUS
+_set_power(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable)
+{
+    int num_domains = gpd.num_domains;
+    if (num_domains > 1) {
+        struct device *sub_dev = gpd.power_dev[DevIndex];
+
+        if (Enable)
+            pm_runtime_get_sync(sub_dev);
+        else
+            pm_runtime_put(sub_dev);
+    }
+
+    if (num_domains == 1) {
+        if (Enable)
+            pm_runtime_get_sync(&Platform->device->dev);
+        else
+            pm_runtime_put(&Platform->device->dev);
+    }
+    return gcvSTATUS_OK;
+}
+
+static int gpu_remove_power_domains(struct platform_device *pdev)
+{
+    int i = 0, j = 0;
+
+    for (i = 0; i < gpd.num_domains; i++) {
+        for (j = 0; j < nc_of_clks; j++) {
+            if (gpd.clks[i][j]) {
+                gpd.clks[i][j] = NULL;
+            }
+        }
+
+        if (gpd.power_dev) {
+            pm_runtime_disable(gpd.power_dev[i]);
+            dev_pm_domain_detach(gpd.power_dev[i], true);
+        }
+    }
+
+    if (gpd.num_domains == 1) {
+        pm_runtime_disable(&pdev->dev);
+    }
+
+    return 0;
+}
+
+static int gpu_add_power_domains(struct platform_device *pdev, gcsMODULE_PARAMETERS *params)
+{
+    struct device *dev = &pdev->dev;
+    int i, j = 0;
+    int num_domains = 0;
+    int ret = 0;
+
+    memset(&gpd, 0, sizeof(struct gpu_power_domain));
+    num_domains = params->devCount;
+    gpd.num_domains = num_domains;
+
+    /* If the num of domains is less than 2, the domain will be attached automatically */
+    if (num_domains > 1) {
+        gpd.power_dev = devm_kcalloc(dev, num_domains, sizeof(struct device *), GFP_KERNEL);
+        if (!gpd.power_dev)
+            return -ENOMEM;
+    }
+
+    for (i = 0; i < num_domains; i++) {
+        if (gpd.power_dev) {
+            gpd.power_dev[i] = dev_pm_domain_attach_by_id(dev, i);
+            if (IS_ERR(gpd.power_dev[i]))
+                goto error;
+        }
+
+        for (j = 0; j < nc_of_clks; j++) {
+            gpd.clks[i][j] = devm_clk_get(dev, clk_names[j]);
+            if (IS_ERR(gpd.clks[i][j])) {
+                ret = PTR_ERR(gpd.clks[i][j]);
+                dev_err(dev, "failed to get die-%d:%s clock: %d\n", i, clk_names[j], ret);
+                goto error;
+            }
+        }
+    }
+
+    if (num_domains == 1)
+        pm_runtime_enable(&pdev->dev);
+
+    return 0;
+
+error:
+    for (i = 0; i < num_domains; i++) {
+        if (gpd.power_dev[i])
+            dev_pm_domain_detach(gpd.power_dev[i], true);
+    }
+    return ret;
+}
+
+static int g2d_device_node_scan(unsigned char *compatible) {
+    struct device_node *np;
+
+    np = of_find_compatible_node(NULL, NULL, compatible);
+    if (!np) {
+        return -1;
+    }
+    of_node_put(np);
+
     return 0;
 }
 
@@ -428,12 +349,12 @@ static int g2d_reset(struct device *dev, int dieIndex, int enable) {
         /*1. get reset handle*/
         for (i = 0; i < nc_of_rsts; i++) {
             if (!strncmp(rst_names[i], "g2d", 3)) {
-                es2DParas.rsts[dieIndex][i] = devm_reset_control_get_optional(dev, rst_names[i]);
+                gpu_reset.rsts[dieIndex][i] = devm_reset_control_get_optional(dev, rst_names[i]);
             } else {
                 /*shared resets*/
-                es2DParas.rsts[dieIndex][i] = devm_reset_control_get_shared(dev, rst_names[i]);
+                gpu_reset.rsts[dieIndex][i] = devm_reset_control_get_shared(dev, rst_names[i]);
             }
-            if (IS_ERR_OR_NULL(es2DParas.rsts[dieIndex][i])) {
+            if (IS_ERR_OR_NULL(gpu_reset.rsts[dieIndex][i])) {
                 dev_err(dev, "Failed to get %s reset handle\n", rst_names[i]);
                 return -1;
             }
@@ -441,7 +362,7 @@ static int g2d_reset(struct device *dev, int dieIndex, int enable) {
         /*2. deassert the shared reset handle*/
         for (i = 0; i < nc_of_rsts; i++) {
             if (strncmp(rst_names[i], "g2d", 3)) {
-                ret = reset_control_deassert(es2DParas.rsts[dieIndex][i]);
+                ret = reset_control_deassert(gpu_reset.rsts[dieIndex][i]);
                 if (ret) {
                     dev_err(dev, "failed to deassert '%s': %d\n", rst_names[i], ret);
                     return ret;
@@ -451,7 +372,7 @@ static int g2d_reset(struct device *dev, int dieIndex, int enable) {
         /*3. reset the g2d reset handle*/
         for (i = 0; i < nc_of_rsts; i++) {
             if (!strncmp(rst_names[i], "g2d", 3)) {
-                ret = reset_control_reset(es2DParas.rsts[dieIndex][i]);
+                ret = reset_control_reset(gpu_reset.rsts[dieIndex][i]);
                 if (ret) {
                     dev_err(dev, "failed to reset '%s': %d\n", rst_names[i], ret);
                     return ret;
@@ -460,7 +381,7 @@ static int g2d_reset(struct device *dev, int dieIndex, int enable) {
         }
     } else {
         for (i = 0; i < nc_of_rsts; i++) {
-            ret = reset_control_assert(es2DParas.rsts[dieIndex][i]);
+            ret = reset_control_assert(gpu_reset.rsts[dieIndex][i]);
             if (ret) {
                 dev_err(dev, "failed to assert '%s': %d\n", rst_names[i], ret);
                 return ret;
@@ -470,269 +391,209 @@ static int g2d_reset(struct device *dev, int dieIndex, int enable) {
     return 0;
 }
 
-
-static int gpu_parse_dt(struct _gcsPLATFORM *g2d_platform, gcsMODULE_PARAMETERS *para)
+static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *params)
 {
-    struct device_node *root = gcvNULL;
-    struct resource* res;
-    gctUINT32 i;
+    struct device_node *root = pdev->dev.of_node;
+    struct resource *res;
+    gctUINT32 i, data;
     const gctUINT32 *value;
-    gctUINT32 out_value;
-    int ret;
-    const char *core_names[] =
-    {
-        "core_major",
-        "core_3d1",
-        "core_3d2",
-        "core_3d3",
-        "core_3d4",
-        "core_3d5",
-        "core_3d6",
-        "core_3d7",
-        "core_3d8",
-        "core_3d9",
-        "core_3d10",
-        "core_3d11",
-        "core_3d12",
-        "core_3d13",
-        "core_3d14",
-        "core_3d15",
-        "core_2d",
-        "core_2d1",
-        "core_2d2",
-        "core_2d3",
-        "core_vg",
-#if gcdDEC_ENABLE_AHB
-        "core_dec",
-#endif
-    };
+    const char *str;
+    int dieIndex = 0;
 
     gcmSTATIC_ASSERT(gcvCORE_COUNT == gcmCOUNTOF(core_names),
                      "core_names array does not match core types");
-    gcmSTATIC_ASSERT(gcvCLKS_COUNT == nc_of_clks,
-                         "clk_names array does not match clock counts");
-    gcmSTATIC_ASSERT(gcvRST_COUNT == nc_of_rsts,
-                             "rst_names array does not match reset counts");
-    /*force the 3D core count as zero*/
-    para->devCoreCounts[0] = 0;
-    for_each_matching_node(root, gpu_dt_ids) {
-        struct platform_device *pdev;
-        const char *str;
-        int dieIndex = -1;
 
-        if (!of_device_is_available(root)) {
-            continue;
-        }
-        pdev = of_find_device_by_node(root);
-        if (!pdev) break;
+    of_property_read_string(pdev->dev.of_node, "compatible", &str);
 
-        ret = of_property_read_string(root, "compatible", &str);
-        if (!ret) {
-            if (!strcmp("eswin,galcore_d0", str) || !strcmp("verisilicon,galcore", str)) {
-                dieIndex = 0;
-            } else if (!strcmp("eswin,galcore_d1", str)) {
-                dieIndex = 1;
-            }
-            printk("compatible='%s',dieIndex=%d,nc_of_clks=%d\n", str, dieIndex, nc_of_clks);
-        }
-
-        show_clk_status(dieIndex);
-
-        if ((ret = g2d_set_clock(&pdev->dev, dieIndex, 1))) {
-            return ret;
-        }
-
-        if ((ret = g2d_reset(&pdev->dev, dieIndex, 1))) {
-            return ret;
-        }
-
-        /* parse the irqs config */
-        for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
-            res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, core_names[i]);
-            if (res) {
-                para->irq2Ds[dieIndex * 2 + (i - gcvCORE_2D)] = res->start;
-            } else {
-                para->irq2Ds[dieIndex * 2 + (i - gcvCORE_2D)] = platform_get_irq(pdev, i - gcvCORE_2D);
-            }
-        }
-
-        /* parse the registers config */
-        for (i = 0; i < gcvCORE_COUNT; i++)
-        {
-            res = platform_get_resource_byname(pdev, IORESOURCE_MEM, core_names[i]);
-            if (res)
-            {
-                if (i >= gcvCORE_2D && i <= gcvCORE_2D_MAX) {
-                    para->register2DBases[dieIndex * 2 + (i - gcvCORE_2D)] = res->start;
-                    para->register2DSizes[dieIndex * 2 + (i - gcvCORE_2D)] = res->end - res->start + 1;
-                }
-            }
-        }
-
-        /* parse the contiguous mem */
-        value = of_get_property(root, "contiguous-size", gcvNULL);
-        if (value && be32_to_cpup(value) != 0)
-        {
-            gctUINT64 addr;
-
-            para->contiguousSize = be32_to_cpup(value);
-            if (!of_property_read_u64(root, "contiguous-base", &addr))
-                para->contiguousBase = addr;
-        }
-
-        value = of_get_property(root, "contiguous-requested", gcvNULL);
-        if (value)
-        {
-            para->contiguousRequested = *value ? gcvTRUE : gcvFALSE;
-        }
-
-        /* parse the external mem */
-        value = of_get_property(root, "external-size", gcvNULL);
-        if (value && be32_to_cpup(value) != 0)
-        {
-            gctUINT64 addr;
-
-            para->externalSize[dieIndex] = be32_to_cpup(value);
-            if (!of_property_read_u64(root, "external-base", &addr))
-                para->externalBase[dieIndex] = addr;
-        }
-
-        value = of_get_property(root, "phys-size", gcvNULL);
-        if (value && be32_to_cpup(value) != 0)
-        {
-            gctUINT64 addr;
-
-            para->physSize = be32_to_cpup(value);
-            if (!of_property_read_u64(root, "base-address", &addr))
-                para->baseAddress = addr;
-        }
-
-        value = of_get_property(root, "phys-size", gcvNULL);
-        if (value)
-        {
-            para->bankSize = be32_to_cpup(value);
-        }
-#if 0
-        value = of_get_property(root, "recovery", gcvNULL);
-        if (value)
-        {
-            para->recovery = be32_to_cpup(value);
-        }
-#endif
-
-        value = of_get_property(root, "power-management", gcvNULL);
-        if (value)
-        {
-            para->powerManagement = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "enable-mmu", gcvNULL);
-        if (value)
-        {
-            para->enableMmu = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "stuck-dump", gcvNULL);
-        if (value)
-        {
-            para->stuckDump = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "show-args", gcvNULL);
-        if (value)
-        {
-            para->showArgs = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "mmu-page-table-pool", gcvNULL);
-        if (value)
-        {
-            para->mmuPageTablePool = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "mmu-dynamic-map", gcvNULL);
-        if (value)
-        {
-            para->mmuDynamicMap = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "all-map-in-one", gcvNULL);
-        if (value)
-        {
-            para->allMapInOne = be32_to_cpup(value);
-        }
-
-        value = of_get_property(root, "isr-poll-mask", gcvNULL);
-        if (value)
-        {
-            para->isrPoll = be32_to_cpup(value);
-        }
-
-        if (!of_property_read_u32(root, "fe-apb-offset", &out_value)) {
-            para->registerAPB = out_value;
-        }
-
-        para->devices[dieIndex] = &pdev->dev;
-        pr_warn("para->devices[%d] = %px\n", dieIndex, para->devices[dieIndex]);
-        show_clk_status(dieIndex);
-
-        /*each device have 2 core*/
-        para->dev2DCoreCounts[dieIndex] = 2;
-        /*set device count*/
-        para->devCount++;
+    if (!strcmp("eswin,galcore_d0", str)) {
+        dieIndex = 0;
+    } else if (!strcmp("eswin,galcore_d1", str)) {
+        dieIndex = 1;
     }
 
+    /* parse the irqs config */
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, core_names[i]);
+        if (res) {
+            params->irq2Ds[dieIndex * 2 + (i - gcvCORE_2D)] = res->start;
+        } else {
+            params->irq2Ds[dieIndex * 2 + (i - gcvCORE_2D)] = platform_get_irq(pdev, i - gcvCORE_2D);
+        }
+        params->dev2DCoreCounts[dieIndex]++;
+    }
+
+    /* parse the registers config */
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        res = platform_get_resource_byname(pdev, IORESOURCE_MEM, core_names[i]);
+        if (res) {
+            params->register2DBases[dieIndex * 2 + (i - gcvCORE_2D)] = res->start;
+            params->register2DSizes[dieIndex * 2 + (i - gcvCORE_2D)] = res->end - res->start + 1;
+        }
+    }
+
+    /* parse the contiguous mem */
+    value = of_get_property(root, "contiguous-size", gcvNULL);
+    if (value && be32_to_cpup(value) != 0)
+    {
+        gctUINT64 addr;
+
+        params->contiguousSize = be32_to_cpup(value);
+        if (!of_property_read_u64(root, "contiguous-base", &addr))
+            params->contiguousBase = addr;
+    }
+
+    value = of_get_property(root, "contiguous-requested", gcvNULL);
+    if (value)
+    {
+        params->contiguousRequested = *value ? gcvTRUE : gcvFALSE;
+    }
+
+    /* parse the external mem */
+    value = of_get_property(root, "external-size", gcvNULL);
+    if (value && be32_to_cpup(value) != 0)
+    {
+        gctUINT64 addr;
+
+        params->externalSize[dieIndex] = be32_to_cpup(value);
+        if (!of_property_read_u64(root, "external-base", &addr))
+            params->externalBase[dieIndex] = addr;
+    }
+
+    value = of_get_property(root, "phys-size", gcvNULL);
+    if (value && be32_to_cpup(value) != 0)
+    {
+        gctUINT64 addr;
+
+        params->physSize = be32_to_cpup(value);
+        if (!of_property_read_u64(root, "base-address", &addr))
+            params->baseAddress = addr;
+    }
+
+    value = of_get_property(root, "phys-size", gcvNULL);
+    if (value)
+    {
+        params->bankSize = be32_to_cpup(value);
+    }
+#if 0
+    value = of_get_property(root, "recovery", gcvNULL);
+    if (value)
+    {
+        params->recovery = be32_to_cpup(value);
+    }
+#endif
+
+    value = of_get_property(root, "power-management", gcvNULL);
+    if (value)
+    {
+        params->powerManagement = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "enable-mmu", gcvNULL);
+    if (value)
+    {
+        params->enableMmu = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "stuck-dump", gcvNULL);
+    if (value)
+    {
+        params->stuckDump = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "show-args", gcvNULL);
+    if (value)
+    {
+        params->showArgs = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "mmu-page-table-pool", gcvNULL);
+    if (value)
+    {
+        params->mmuPageTablePool = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "mmu-dynamic-map", gcvNULL);
+    if (value)
+    {
+        params->mmuDynamicMap = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "all-map-in-one", gcvNULL);
+    if (value)
+    {
+        params->allMapInOne = be32_to_cpup(value);
+    }
+
+    value = of_get_property(root, "isr-poll-mask", gcvNULL);
+    if (value)
+    {
+        params->isrPoll = be32_to_cpup(value);
+    }
+
+    if (!of_property_read_u32(root, "fe-apb-offset", &data)) {
+        params->registerAPB = data;
+    }
+
+    g2d_reset(&pdev->dev, dieIndex, 1);
+
+    show_clk_status(dieIndex);
+
+    params->devCount++;
+
+    if (params->devCount == 1) {
+        unsigned char compatible[32] = { 0 };
+        sprintf(compatible, "eswin,galcore_d%d", (dieIndex + 1) % 2);
+        if(!g2d_device_node_scan(compatible)){
+            return 1;
+        }
+    }
     return 0;
 }
 
+static const struct of_device_id gpu_dt_ids[] = {
+    { .compatible = "eswin,galcore_d0",},
+    { .compatible = "eswin,galcore_d1",},
+
+    { /* sentinel */ }
+};
+
 #elif USE_LINUX_PCIE
 
-typedef struct _gcsBARINFO
-{
-    gctPHYS_ADDR_T base;
-    gctPOINTER logical;
-    gctUINT64 size;
-    gctBOOL available;
-    gctUINT64 reg_max_offset;
-    gctUINT32 reg_size;
-}
-gcsBARINFO, *gckBARINFO;
+typedef struct _gcsBARINFO {
+    gctPHYS_ADDR_T  base;
+    gctPOINTER      logical;
+    gctUINT64       size;
+    gctBOOL         available;
+    gctUINT64       reg_max_offset;
+    gctUINT32       reg_size;
+} gcsBARINFO, *gckBARINFO;
 
-struct _gcsPCIEInfo
-{
-    gcsBARINFO bar[gcdMAX_PCIE_BAR];
+struct _gcsPCIEInfo {
+    gcsBARINFO      bar[gcdMAX_PCIE_BAR];
     struct pci_dev *pdev;
-    gctPHYS_ADDR_T sram_bases[gcvSRAM_EXT_COUNT];
-    gctPHYS_ADDR_T sram_gpu_bases[gcvSRAM_EXT_COUNT];
-    uint32_t sram_sizes[gcvSRAM_EXT_COUNT];
-    int sram_bars[gcvSRAM_EXT_COUNT];
-    int sram_offsets[gcvSRAM_EXT_COUNT];
+    gctPHYS_ADDR_T  sram_base;
+    gctPHYS_ADDR_T  sram_gpu_base;
+    uint32_t        sram_size;
+    int             sram_bar;
+    int             sram_offset;
+    struct completion probed;
 };
 
-struct _gcsPLATFORM_PCIE
-{
+struct _gcsPLATFORM_PCIE {
     struct _gcsPLATFORM base;
-    struct _gcsPCIEInfo pcie_info[gcdPLATFORM_DEVICE_COUNT];
-    unsigned int device_number;
+    struct _gcsPCIEInfo pcie_info[gcdPLATFORM_COUNT];
+    unsigned int        device_number;
 };
 
-
-struct _gcsPLATFORM_PCIE default_platform =
-{
-    .base =
-    {
+struct _gcsPLATFORM_PCIE default_platform = {
+    .base = {
         .name = __FILE__,
         .ops  = &default_ops,
     },
 };
 
 gctINT
-_QueryBarInfo(
-    struct pci_dev *Pdev,
-    gctPHYS_ADDR_T *BarAddr,
-    gctUINT64 *BarSize,
-    gctUINT BarNum
-    )
+_QueryBarInfo(struct pci_dev *Pdev, gctPHYS_ADDR_T *BarAddr, gctUINT64 *BarSize, gctUINT BarNum)
 {
     gctUINT addr, size;
     gctINT is_64_bit = 0;
@@ -740,72 +601,51 @@ _QueryBarInfo(
 
     /* Read the bar address */
     if (pci_read_config_dword(Pdev, PCI_BASE_ADDRESS_0 + BarNum * 0x4, &addr) < 0)
-    {
         return -1;
-    }
 
     /* Read the bar size */
     if (pci_write_config_dword(Pdev, PCI_BASE_ADDRESS_0 + BarNum * 0x4, 0xffffffff) < 0)
-    {
         return -1;
-    }
 
     if (pci_read_config_dword(Pdev, PCI_BASE_ADDRESS_0 + BarNum * 0x4, &size) < 0)
-    {
         return -1;
-    }
 
     /* Write back the bar address */
     if (pci_write_config_dword(Pdev, PCI_BASE_ADDRESS_0 + BarNum * 0x4, addr) < 0)
-    {
         return -1;
-    }
 
     /* The bar is not working properly */
     if (size == 0xffffffff)
-    {
         return -1;
-    }
 
     if ((size & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64)
-    {
         is_64_bit = 1;
-    }
 
     addr64 = addr;
     size64 = size;
 
-    if (is_64_bit)
-    {
+    if (is_64_bit) {
         /* Read the bar address */
         if (pci_read_config_dword(Pdev, PCI_BASE_ADDRESS_0 + (BarNum + 1) * 0x4, &addr) < 0)
-        {
             return -1;
-        }
 
         /* Read the bar size */
         if (pci_write_config_dword(Pdev, PCI_BASE_ADDRESS_0 + (BarNum + 1) * 0x4, 0xffffffff) < 0)
-        {
             return -1;
-        }
 
         if (pci_read_config_dword(Pdev, PCI_BASE_ADDRESS_0 + (BarNum + 1) * 0x4, &size) < 0)
-        {
             return -1;
-        }
 
         /* Write back the bar address */
         if (pci_write_config_dword(Pdev, PCI_BASE_ADDRESS_0 + (BarNum + 1) * 0x4, addr) < 0)
-        {
             return -1;
-        }
 
         addr64 |= ((gctUINT64)addr << 32);
         size64 |= ((gctUINT64)size << 32);
     }
 
     size64 &= ~0xfULL;
-    size64  = ~size64;
+    size64 = ~size64;
     size64 += 1;
     addr64 &= ~0xfULL;
 
@@ -819,74 +659,78 @@ _QueryBarInfo(
 
 static const struct pci_device_id vivpci_ids[] = {
   {
-    .class = 0x000000,
-    .class_mask = 0x000000,
-    .vendor = 0x10ee,
-    .device = 0x7012,
-    .subvendor = PCI_ANY_ID,
-    .subdevice = PCI_ANY_ID,
+    .class       = 0x000000,
+    .class_mask  = 0x000000,
+    .vendor      = 0x10ee,
+    .device      = 0x7012,
+    .subvendor   = PCI_ANY_ID,
+    .subdevice   = PCI_ANY_ID,
     .driver_data = 0
   },
   {
-    .class = 0x000000,
-    .class_mask = 0x000000,
-    .vendor = 0x10ee,
-    .device = 0x7014,
-    .subvendor = PCI_ANY_ID,
-    .subdevice = PCI_ANY_ID,
+    .class       = 0x000000,
+    .class_mask  = 0x000000,
+    .vendor      = 0x10ee,
+    .device      = 0x7014,
+    .subvendor   = PCI_ANY_ID,
+    .subdevice   = PCI_ANY_ID,
     .driver_data = 0
-  }, { /* End: all zeroes */ }
+  },
+  { /* End: all zeroes */ }
 };
 
 MODULE_DEVICE_TABLE(pci, vivpci_ids);
 
-
-static int gpu_sub_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+static int
+gpu_sub_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
     static u64 dma_mask = DMA_BIT_MASK(40);
-#else
+# else
     static u64 dma_mask = DMA_40BIT_MASK;
-#endif
+# endif
+
+    struct _gcsPCIEInfo *pcie_info;
 
     gcmkPRINT("PCIE DRIVER PROBED");
-    if (pci_enable_device(pdev)) {
-        printk(KERN_ERR "galcore: pci_enable_device() failed.\n");
-    }
+    if (pci_enable_device(pdev))
+        pr_err("galcore: pci_enable_device() failed.\n");
 
-    if (pci_set_dma_mask(pdev, dma_mask)) {
-        printk(KERN_ERR "galcore: Failed to set DMA mask.\n");
-    }
+    if (pci_set_dma_mask(pdev, dma_mask))
+        pr_err("galcore: Failed to set DMA mask.\n");
 
     pci_set_master(pdev);
 
-    if (pci_request_regions(pdev, "galcore")) {
-        printk(KERN_ERR "galcore: Failed to get ownership of BAR region.\n");
-    }
+    if (pci_request_regions(pdev, "galcore"))
+        pr_err("galcore: Failed to get ownership of BAR region.\n");
 
 #if USE_MSI
-    if (pci_enable_msi(pdev)) {
-        printk(KERN_ERR "galcore: Failed to enable MSI.\n");
-    }
-#endif
+    if (pci_enable_msi(pdev))
+        pr_err("galcore: Failed to enable MSI.\n");
+# endif
 
 #if defined(CONFIG_PPC)
     /* On PPC platform, enable bus master, enable irq. */
-    if (pci_write_config_word(pdev, 0x4, 0x0006) < 0) {
-        printk(KERN_ERR "galcore: Failed to enable bus master on PPC.\n");
-    }
-#endif
+    if (pci_write_config_word(pdev, 0x4, 0x0006) < 0)
+        pr_err("galcore: Failed to enable bus master on PPC.\n");
+# endif
 
-    default_platform.pcie_info[default_platform.device_number++].pdev = pdev;
+
+    pcie_info = &default_platform.pcie_info[default_platform.device_number++];
+    pcie_info->pdev = pdev;
+
+    complete(&pcie_info->probed);
+
     return 0;
 }
 
-static void gpu_sub_remove(struct pci_dev *pdev)
+static void
+gpu_sub_remove(struct pci_dev *pdev)
 {
     pci_set_drvdata(pdev, NULL);
 #if USE_MSI
     pci_disable_msi(pdev);
-#endif
+# endif
     pci_clear_master(pdev);
     pci_release_regions(pdev);
     pci_disable_device(pdev);
@@ -894,183 +738,235 @@ static void gpu_sub_remove(struct pci_dev *pdev)
 }
 
 static struct pci_driver gpu_pci_subdriver = {
-    .name = DEVICE_NAME,
+    .name     = DEVICE_NAME,
     .id_table = vivpci_ids,
-    .probe = gpu_sub_probe,
-    .remove = gpu_sub_remove
+    .probe    = gpu_sub_probe,
+    .remove   = gpu_sub_remove
 };
 
-static int sRAMCount = 0;
-
 #else
-static struct _gcsPLATFORM default_platform =
-{
+static struct _gcsPLATFORM default_platform = {
     .name = __FILE__,
-    .ops  = &default_ops,
+    .ops = &default_ops,
 };
 #endif
 
-
-
 gceSTATUS
-_AdjustParam(
-    IN gcsPLATFORM *Platform,
-    OUT gcsMODULE_PARAMETERS *Args
-    )
+_AdjustParam(gcsPLATFORM *Platform, gcsMODULE_PARAMETERS *Args)
 {
+    int ret;
 #if gcdSUPPORT_DEVICE_TREE_SOURCE
-    gpu_parse_dt(Platform, Args);
-    gpu_add_power_domains();
+    ret = gpu_parse_dt(Platform->device, Args);
+    if(!ret){
+        gpu_add_power_domains(Platform->device, Args);
+    }
 #elif USE_LINUX_PCIE
     struct _gcsPLATFORM_PCIE *pcie_platform = (struct _gcsPLATFORM_PCIE *)Platform;
     struct pci_dev *pdev = pcie_platform->pcie_info[0].pdev;
     int irqline = pdev->irq;
     unsigned int i, core = 0;
-    unsigned int coreCount = 0;
-    gctPOINTER ptr = gcvNULL;
-    unsigned int dev_index, bar_index = 0;
-    int sram_bar, sram_offset;
-    unsigned int core_index = 0;
+    unsigned int core_count = 0;
+    unsigned int core_2d_count = 0;
+    unsigned int core_2d = 0;
+    gctPOINTER   ptr = gcvNULL;
+    int sram_bar = 0;
+    int sram_offset = 0;
+    unsigned int dev_index = 0;
+    unsigned int pdev_index, bar_index = 0;
+    unsigned int index = 0;
+    unsigned int hw_dev_index = 0;
     unsigned long reg_max_offset = 0;
     unsigned int reg_size = 0;
     int ret;
 
     if (Args->irqs[gcvCORE_2D] != -1)
-    {
         Args->irqs[gcvCORE_2D] = irqline;
-    }
     if (Args->irqs[gcvCORE_MAJOR] != -1)
-    {
         Args->irqs[gcvCORE_MAJOR] = irqline;
-    }
 
-    for (dev_index = 0; dev_index < pcie_platform->device_number; dev_index++)
+#if gcdMIXED_PLATFORM
+    /* Fill the SOC platform paramters first. */
     {
-        struct pci_dev * pcieDev = pcie_platform->pcie_info[dev_index].pdev;
+        hw_dev_index += Args->hwDevCounts[dev_index];
+        for (; index < hw_dev_index; index++) {
+            core_count += Args->devCoreCounts[index];
 
-        memset(&pcie_platform->pcie_info[dev_index].bar[0], 0, sizeof(gcsBARINFO) * gcdMAX_PCIE_BAR);
-
-        for (i = 0; i < gcdMAX_PCIE_BAR; i++)
-        {
-            ret = _QueryBarInfo(
-                        pcieDev,
-                        &pcie_platform->pcie_info[dev_index].bar[i].base,
-                        &pcie_platform->pcie_info[dev_index].bar[i].size,
-                        i
-                        );
-            if (ret < 0)
-            {
-                continue;
+            for (; core < core_count; core++) {
+                /* Fill the SOC platform parameters here. */
+                Args->irqs[core] = -1;
+                Args->registerBasesMapped[core] = 0;
+                Args->registerSizes[core] = 0;
             }
+        }
 
-            pcie_platform->pcie_info[dev_index].bar[i].available = gcvTRUE;
+        dev_index++;
+    }
+#endif
+
+    for (pdev_index = 0; pdev_index < pcie_platform->device_number; pdev_index++) {
+        struct pci_dev *pcie_dev = pcie_platform->pcie_info[pdev_index].pdev;
+
+        memset(&pcie_platform->pcie_info[pdev_index].bar[0], 0, sizeof(gcsBARINFO) * gcdMAX_PCIE_BAR);
+
+        Args->devices[dev_index] = &pcie_dev->dev;
+
+        for (i = 0; i < gcdMAX_PCIE_BAR; i++) {
+            ret = _QueryBarInfo(pcie_dev,
+                                &pcie_platform->pcie_info[pdev_index].bar[i].base,
+                                &pcie_platform->pcie_info[pdev_index].bar[i].size,
+                                i);
+
+            if (ret < 0)
+                continue;
+
+            pcie_platform->pcie_info[pdev_index].bar[i].available = gcvTRUE;
             i += ret;
         }
 
-        coreCount += Args->pdevCoreCount[dev_index];
+        hw_dev_index += Args->hwDevCounts[dev_index];
 
-        for (; core_index < coreCount; core_index++)
-        {
-            if (Args->bars[core_index] != -1)
-            {
-                bar_index = Args->bars[core_index];
-                if (Args->regOffsets[core_index] > pcie_platform->pcie_info[dev_index].bar[bar_index].reg_max_offset)
-                {
-                    pcie_platform->pcie_info[dev_index].bar[bar_index].reg_max_offset = Args->regOffsets[core_index];
-                    pcie_platform->pcie_info[dev_index].bar[bar_index].reg_size = Args->registerSizes[core_index];
+        for (; index < hw_dev_index; index++) {
+            core_count += Args->devCoreCounts[index];
+
+            for (i = 0; i < core_count; i++) {
+                if (Args->bars[i] != -1 &&
+                    Args->regOffsets[i] > pcie_platform->pcie_info[pdev_index].bar[bar_index].reg_max_offset) {
+                    bar_index = Args->bars[i];
+                    pcie_platform->pcie_info[pdev_index].bar[bar_index].reg_max_offset = Args->regOffsets[i];
+                    pcie_platform->pcie_info[pdev_index].bar[bar_index].reg_size = Args->registerSizes[i];
                 }
             }
-        }
 
-        for (; core < coreCount; core++)
-        {
-            if (Args->bars[core] != -1)
-            {
-                bar_index = Args->bars[core];
-                Args->irqs[core] = pcieDev->irq;
+            for (; core < core_count; core++) {
+                if (Args->bars[core] != -1) {
+                    bar_index = Args->bars[core];
+                    Args->irqs[core] = pcie_dev->irq;
 
-                gcmkASSERT(pcie_platform->pcie_info[dev_index].bar[bar_index].available);
+                    gcmkASSERT(pcie_platform->pcie_info[pdev_index].bar[bar_index].available);
 
-                if (Args->regOffsets[core])
-                {
-                    gcmkASSERT(Args->regOffsets[core] + Args->registerSizes[core]
-                               < pcie_platform->pcie_info[dev_index].bar[bar_index].size);
-                }
+                    if (Args->regOffsets[core]) {
+                        gcmkASSERT(Args->regOffsets[core] + Args->registerSizes[core] <
+                                   pcie_platform->pcie_info[pdev_index].bar[bar_index].size);
+                    }
 
-                ptr =  pcie_platform->pcie_info[dev_index].bar[bar_index].logical;
-                if (!ptr)
-                {
-                    reg_max_offset = pcie_platform->pcie_info[dev_index].bar[bar_index].reg_max_offset;
-                    reg_size = reg_max_offset == 0 ? Args->registerSizes[core] : pcie_platform->pcie_info[dev_index].bar[bar_index].reg_size;
-                    ptr = pcie_platform->pcie_info[dev_index].bar[bar_index].logical = (gctPOINTER)pci_iomap(pcieDev, bar_index, reg_max_offset + reg_size);
-                }
+                    ptr =  pcie_platform->pcie_info[pdev_index].bar[bar_index].logical;
+                    if (!ptr) {
+                        reg_max_offset =
+                            pcie_platform->pcie_info[pdev_index].bar[bar_index].reg_max_offset;
+                        reg_size = reg_max_offset == 0 ?
+                                   Args->registerSizes[core] :
+                                   pcie_platform->pcie_info[pdev_index].bar[bar_index].reg_size;
+                        ptr = pcie_platform->pcie_info[pdev_index].bar[bar_index].logical =
+                            (gctPOINTER)pci_iomap(pcie_dev, bar_index, reg_max_offset + reg_size);
+                    }
 
-                if (ptr)
-                {
-                    Args->registerBasesMapped[core] = (gctPOINTER)((gctCHAR*)ptr + Args->regOffsets[core]);
+                    if (ptr) {
+                        Args->registerBasesMapped[core] =
+                            (gctPOINTER)((gctCHAR*)ptr + Args->regOffsets[core]);
+                    }
                 }
             }
-        }
 
-        /* All the PCIE devices AXI-SRAM should have same base address. */
-        for (i = 0; i < gcvSRAM_EXT_COUNT; i++)
-        {
-            pcie_platform->pcie_info[dev_index].sram_bases[i] =
-            pcie_platform->pcie_info[dev_index].sram_gpu_bases[i] = Args->extSRAMBases[i];
+            core_2d_count += Args->dev2DCoreCounts[index];
 
-            pcie_platform->pcie_info[dev_index].sram_sizes[i] = Args->extSRAMSizes[i];
+            for (; core_2d < core_2d_count; core_2d++) {
+                if (Args->bar2Ds[core_2d] != -1) {
+                    bar_index = Args->bar2Ds[core_2d];
+                    Args->irq2Ds[core_2d] = pcie_dev->irq;
 
-            pcie_platform->pcie_info[dev_index].sram_bars[i] = sram_bar = Args->sRAMBars[i];
-            pcie_platform->pcie_info[dev_index].sram_offsets[i] = sram_offset = Args->sRAMOffsets[i];
+                    if (Args->reg2DOffsets[core_2d]) {
+                        gcmkASSERT(Args->reg2DOffsets[core_2d] + Args->register2DSizes[core_2d] <
+                                   pcie_platform->pcie_info[pdev_index].bar[bar_index].size);
+                    }
 
-            /* Get CPU view SRAM base address from bar address and bar inside offset. */
-            if (sram_bar != -1 && sram_offset != -1)
-            {
-                gcmkASSERT(pcie_platform->pcie_info[dev_index].bar[sram_bar].available);
-                pcie_platform->pcie_info[dev_index].sram_bases[i] = Args->extSRAMBases[i]
-                                                                  = pcie_platform->pcie_info[dev_index].bar[sram_bar].base
-                                                                  + sram_offset;
-                sRAMCount += 1;
+                    ptr = pcie_platform->pcie_info[pdev_index].bar[bar_index].logical;
+                    if (!ptr) {
+                        ptr = pcie_platform->pcie_info[pdev_index].bar[bar_index].logical =
+                            (gctPOINTER)pci_iomap(pcie_dev, bar_index, Args->register2DSizes[core_2d]);
+                    }
+
+                    if (ptr) {
+                        Args->register2DBasesMapped[core_2d] =
+                            (gctPOINTER)((gctCHAR*)ptr + Args->reg2DOffsets[core_2d]);
+                    }
+                }
             }
+
+            if (Args->barVG != -1) {
+                bar_index = Args->barVG;
+                Args->irqVG = pcie_dev->irq;
+
+                if (Args->regVGOffset) {
+                    gcmkASSERT(Args->regVGOffset + Args->registerVGSize <
+                               pcie_platform->pcie_info[pdev_index].bar[bar_index].size);
+                }
+
+                ptr = pcie_platform->pcie_info[pdev_index].bar[bar_index].logical;
+                if (!ptr) {
+                    ptr = pcie_platform->pcie_info[pdev_index].bar[bar_index].logical =
+                        (gctPOINTER)pci_iomap(pcie_dev, bar_index, Args->registerVGSize);
+                }
+
+                if (ptr) {
+                    Args->registerVGBaseMapped =
+                        (gctPOINTER)((gctCHAR*)ptr + Args->regVGOffset);
+                }
+            }
+
+            /* All the PCIE devices AXI-SRAM should have same base address. */
+            pcie_platform->pcie_info[pdev_index].sram_base = Args->extSRAMBases[pdev_index];
+            pcie_platform->pcie_info[pdev_index].sram_gpu_base = Args->extSRAMBases[pdev_index];
+
+            pcie_platform->pcie_info[pdev_index].sram_size = Args->extSRAMSizes[pdev_index];
+
+            pcie_platform->pcie_info[pdev_index].sram_bar = Args->sRAMBars[pdev_index];
+            sram_bar = Args->sRAMBars[pdev_index];
+
+            pcie_platform->pcie_info[pdev_index].sram_offset = Args->sRAMOffsets[pdev_index];
+            sram_offset = Args->sRAMOffsets[pdev_index];
         }
+
+        /* Get CPU view SRAM base address from bar address and bar inside offset. */
+        if (sram_bar != -1 && sram_offset != -1) {
+            gcmkASSERT(pcie_platform->pcie_info[pdev_index].bar[sram_bar].available);
+            pcie_platform->pcie_info[pdev_index].sram_base = pcie_platform->pcie_info[pdev_index].bar[sram_bar].base
+                                                           + sram_offset;
+            Args->extSRAMBases[pdev_index] = pcie_platform->pcie_info[pdev_index].bar[sram_bar].base
+                                           + sram_offset;
+        }
+
+        dev_index++;
     }
 
     Args->contiguousRequested = gcvTRUE;
 #endif
-    return gcvSTATUS_OK;
+    return (ret == 0) ? gcvSTATUS_OK : gcvSTATUS_MORE_DATA;
 }
 
 gceSTATUS
-_GetGPUPhysical(
-    IN gcsPLATFORM * Platform,
-    IN gctPHYS_ADDR_T CPUPhysical,
-    OUT gctPHYS_ADDR_T *GPUPhysical
-    )
+_GetGPUPhysical(gcsPLATFORM *Platform, gctPHYS_ADDR_T CPUPhysical, gctPHYS_ADDR_T *GPUPhysical)
 {
 #if gcdSUPPORT_DEVICE_TREE_SOURCE
 #elif USE_LINUX_PCIE
     struct _gcsPLATFORM_PCIE *pcie_platform = (struct _gcsPLATFORM_PCIE *)Platform;
+    unsigned int pdev_index;
     /* Only support 1 external shared SRAM currently. */
     gctPHYS_ADDR_T sram_base;
     gctPHYS_ADDR_T sram_gpu_base;
     uint32_t sram_size;
-    int i;
 
-    for (i = 0; i < sRAMCount; i++)
-    {
-        sram_base = pcie_platform->pcie_info[0].sram_bases[i];
-        sram_gpu_base = pcie_platform->pcie_info[0].sram_gpu_bases[i];
-        sram_size = pcie_platform->pcie_info[0].sram_sizes[i];
+    for (pdev_index = 0; pdev_index < pcie_platform->device_number; pdev_index++) {
+        sram_base = pcie_platform->pcie_info[pdev_index].sram_base;
+        sram_gpu_base = pcie_platform->pcie_info[pdev_index].sram_gpu_base;
+        sram_size = pcie_platform->pcie_info[pdev_index].sram_size;
 
         if (!sram_size && Platform->dev && Platform->dev->extSRAMSizes[0])
-        {
             sram_size = Platform->dev->extSRAMSizes[0];
-        }
 
-        if (sram_base != gcvINVALID_PHYSICAL_ADDRESS && sram_gpu_base != gcvINVALID_PHYSICAL_ADDRESS && sram_size)
-        {
-            if ((CPUPhysical >= sram_base) && (CPUPhysical < (sram_base + sram_size)))
-            {
+        if (sram_base != gcvINVALID_PHYSICAL_ADDRESS &&
+            sram_gpu_base != gcvINVALID_PHYSICAL_ADDRESS &&
+            sram_size) {
+            if (CPUPhysical >= sram_base && (CPUPhysical < (sram_base + sram_size))) {
                 *GPUPhysical = CPUPhysical - sram_base + sram_gpu_base;
 
                 return gcvSTATUS_OK;
@@ -1084,25 +980,9 @@ _GetGPUPhysical(
     return gcvSTATUS_OK;
 }
 
-gceSTATUS _DmaExit(gcsPLATFORM *Platform)
-{
-    int i;
-    for (i = 0; i < gcdDEVICE_COUNT; i++) {
-        struct device *dev = Platform->params.devices[i];
-        if (!dev) continue;
-        g2d_reset(dev, i, 0);
-        g2d_set_clock(dev, i, 0);
-        show_clk_status(i);
-    }
-    return gcvSTATUS_OK;
-}
-
 #if gcdENABLE_MP_SWITCH
 gceSTATUS
-_SwitchCoreCount(
-    IN gcsPLATFORM *Platform,
-    OUT gctUINT32 *Count
-    )
+_SwitchCoreCount(gcsPLATFORM *Platform, gctUINT32 *Count)
 {
     *Count = Platform->coreCount;
 
@@ -1112,200 +992,228 @@ _SwitchCoreCount(
 
 #if gcdENABLE_VIDEO_MEMORY_MIRROR
 gceSTATUS
-_dmaCopy(
-    IN gctPOINTER Object,
-    IN gctPOINTER DstNode,
-    IN gctPOINTER SrcNode
-    )
+_dmaCopy(gctPOINTER Object, gcsDMA_TRANS_INFO *Info)
 {
     gceSTATUS status = gcvSTATUS_OK;
     gckKERNEL kernel = (gckKERNEL)Object;
-    gckVIDMEM_NODE dst_node_obj = (gckVIDMEM_NODE)DstNode;
-    gckVIDMEM_NODE src_node_obj = (gckVIDMEM_NODE)SrcNode;
+    gckVIDMEM_NODE dst_node_obj = (gckVIDMEM_NODE)Info->dst_node;
+    gckVIDMEM_NODE src_node_obj = (gckVIDMEM_NODE)Info->src_node;
     gctPOINTER src_ptr = gcvNULL, dst_ptr = gcvNULL;
     gctSIZE_T size0, size1;
     gctPOINTER src_mem_handle = gcvNULL, dst_mem_handle = gcvNULL;
     gctBOOL src_need_unmap = gcvFALSE, dst_need_unmap = gcvFALSE;
 
+    gcsPLATFORM *platform = kernel->os->device->platform;
+#if USE_LINUX_PCIE
+    struct _gcsPLATFORM_PCIE *pcie_platform = (struct _gcsPLATFORM_PCIE *)platform;
+    struct pci_dev *pdev = pcie_platform->pcie_info[kernel->device->platformIndex].pdev;
+
+    /* Make compiler happy. */
+    pdev = pdev;
+#else
+    /* Make compiler happy. */
+    platform = platform;
+#endif
+
+#if gcdDISABLE_NODE_OFFSET
+    Info->offset = 0;
+#endif
+
     status = gckVIDMEM_NODE_GetSize(kernel, src_node_obj, &size0);
     if (status)
-    {
         return status;
-    }
 
     status = gckVIDMEM_NODE_GetSize(kernel, dst_node_obj, &size1);
     if (status)
-    {
         return status;
-    }
 
     status = gckVIDMEM_NODE_GetMemoryHandle(kernel, src_node_obj, &src_mem_handle);
     if (status)
-    {
         return status;
-    }
 
     status = gckVIDMEM_NODE_GetMemoryHandle(kernel, dst_node_obj, &dst_mem_handle);
     if (status)
-    {
         return status;
-    }
 
     status = gckVIDMEM_NODE_GetMapKernel(kernel, src_node_obj, &src_ptr);
     if (status)
-    {
         return status;
-    }
 
-    if (!src_ptr)
-    {
+    if (!src_ptr) {
         gctSIZE_T offset;
 
         status = gckVIDMEM_NODE_GetOffset(kernel, src_node_obj, &offset);
         if (status)
-        {
             return status;
-        }
 
-        status = gckOS_CreateKernelMapping(
-                    kernel->os,
-                    src_mem_handle,
-                    offset,
-                    size0,
-                    &src_ptr);
+        offset += Info->offset;
+        status = gckOS_CreateKernelMapping(kernel->os, src_mem_handle, offset, size0, &src_ptr);
 
         if (status)
-        {
             goto error;
-        }
 
         src_need_unmap = gcvTRUE;
-    }
+    } else
+        src_ptr += Info->offset;
 
     status = gckVIDMEM_NODE_GetMapKernel(kernel, dst_node_obj, &dst_ptr);
     if (status)
-    {
         return status;
-    }
 
-    if (!dst_ptr)
-    {
+    if (!dst_ptr) {
         gctSIZE_T offset;
 
         status = gckVIDMEM_NODE_GetOffset(kernel, dst_node_obj, &offset);
         if (status)
-        {
             return status;
-        }
 
-        status = gckOS_CreateKernelMapping(
-            kernel->os,
-            dst_mem_handle,
-            offset,
-            size1,
-            &dst_ptr);
+        offset += Info->offset;
+        status = gckOS_CreateKernelMapping(kernel->os, dst_mem_handle, offset, size1, &dst_ptr);
 
         if (status)
-        {
             goto error;
-        }
 
         dst_need_unmap = gcvTRUE;
-    }
+    } else
+        dst_ptr += Info->offset;
 
+
+#if gcdDISABLE_NODE_OFFSET
     gckOS_MemCopy(dst_ptr, src_ptr, gcmMIN(size0, size1));
+#else
+    gckOS_MemCopy(dst_ptr, src_ptr, gcmMIN(Info->bytes, gcmMIN(size0, size1)));
+#endif
 
 error:
     if (src_need_unmap && src_ptr)
-    {
-        gckOS_DestroyKernelMapping(
-            kernel->os,
-            src_mem_handle,
-            src_ptr);
-    }
+        gckOS_DestroyKernelMapping(kernel->os, src_mem_handle, src_ptr);
 
     if (dst_need_unmap && dst_ptr)
-    {
-        gckOS_DestroyKernelMapping(
-            kernel->os,
-            dst_mem_handle,
-            dst_ptr);
-    }
+        gckOS_DestroyKernelMapping(kernel->os, dst_mem_handle, dst_ptr);
 
     return status;
 }
 #endif
 
-int gckPLATFORM_Init(struct platform_driver *pdrv,
-            struct _gcsPLATFORM **platform)
+int gckPLATFORM_Init(struct platform_driver *pdrv, struct _gcsPLATFORM **platform)
 {
     int ret = 0;
 #if !gcdSUPPORT_DEVICE_TREE_SOURCE
+
+#if USE_LINUX_PCIE
+    u32 timeout = msecs_to_jiffies(5000);
+    struct _gcsPCIEInfo *pcie_info;
+    struct pci_dev *pdev = NULL;
+    int info_count, dev_count = 0;
+    int idx = 0;
+# endif
+
     struct platform_device *default_dev = platform_device_alloc(pdrv->driver.name, -1);
 
-    printk(KERN_ERR "lsheng Called gckPLATFORM_Init.\n");
     if (!default_dev) {
-        printk(KERN_ERR "galcore: platform_device_alloc failed.\n");
+        pr_err("galcore: platform_device_alloc failed.\n");
         return -ENOMEM;
     }
 
     /* Add device */
     ret = platform_device_add(default_dev);
     if (ret) {
-        printk(KERN_ERR "galcore: platform_device_add failed.\n");
-        platform_device_put(default_dev);
-        return ret;
+        pr_err("galcore: platform_device_add failed.\n");
+        goto put_dev;
     }
 
 #if USE_LINUX_PCIE
-    ret = pci_register_driver(&gpu_pci_subdriver);
-    if (ret)
-    {
-        platform_device_unregister(default_dev);
-        return ret;
+    info_count = gcmCOUNTOF(vivpci_ids);
+
+    do {
+        pdev = pci_get_device(vivpci_ids[idx].vendor, vivpci_ids[idx].device, pdev);
+        if (pdev)
+            dev_count++;
+        else
+            idx++;
+    } while (idx < info_count);
+
+    gcmkASSERT(dev_count <= gcdPLATFORM_COUNT);
+
+    for (idx = 0; idx < dev_count; idx++) {
+        pcie_info = &default_platform.pcie_info[idx];
+        init_completion(&pcie_info->probed);
     }
-#endif
+
+    ret = pci_register_driver(&gpu_pci_subdriver);
+    if (ret) {
+        goto del_dev;
+    }
+
+    for (idx = 0; idx < dev_count; idx++) {
+        pcie_info = &default_platform.pcie_info[idx];
+
+        timeout = wait_for_completion_timeout(&pcie_info->probed, timeout);
+        if (timeout == 0) {
+            gcmkTRACE(gcvLEVEL_ERROR, "[galcore] failed to probe pcie device");
+            ret = -ENODEV;
+            goto pci_unregister;
+        }
+    }
+
+# endif
 #else
     pdrv->driver.of_match_table = gpu_dt_ids;
-    ret = gpu_power_domain_init();
-    if (ret) {
-        printk(KERN_ERR "galcore: gpu_gpc_init failed.\n");
-    }
 #endif
 
     *platform = (gcsPLATFORM *)&default_platform;
     return ret;
+
+#if !gcdSUPPORT_DEVICE_TREE_SOURCE
+#if USE_LINUX_PCIE
+pci_unregister:
+    pci_unregister_driver(&gpu_pci_subdriver);
+del_dev:
+    platform_device_del(default_dev);
+# endif
+put_dev:
+    platform_device_put(default_dev);
+    return ret;
+#endif
+}
+
+gceSTATUS _DmaExit(gcsPLATFORM *Platform)
+{
+    int i;
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        struct device *dev = Platform->params.devices[i];
+        if (!dev) continue;
+        g2d_reset(dev, i, 0);
+        show_clk_status(i);
+    }
+    return gcvSTATUS_OK;
 }
 
 int gckPLATFORM_Terminate(struct _gcsPLATFORM *platform)
 {
 #if !gcdSUPPORT_DEVICE_TREE_SOURCE
+#if USE_LINUX_PCIE
+    unsigned int dev_index;
+    struct _gcsPLATFORM_PCIE *pcie_platform = (struct _gcsPLATFORM_PCIE *)platform;
+
+    for (dev_index = 0; dev_index < pcie_platform->device_number; dev_index++) {
+        unsigned int i;
+
+        for (i = 0; i < gcdMAX_PCIE_BAR; i++) {
+            if (pcie_platform->pcie_info[dev_index].bar[i].logical != 0)
+                pci_iounmap(pcie_platform->pcie_info[dev_index].pdev,
+                            pcie_platform->pcie_info[dev_index].bar[i].logical);
+        }
+    }
+
+    pci_unregister_driver(&gpu_pci_subdriver);
+# endif
     if (platform->device) {
         platform_device_unregister(platform->device);
         platform->device = NULL;
     }
-
-#if USE_LINUX_PCIE
-    {
-        unsigned int dev_index;
-        struct _gcsPLATFORM_PCIE *pcie_platform = (struct _gcsPLATFORM_PCIE *)platform;
-        for (dev_index = 0; dev_index < pcie_platform->device_number; dev_index++)
-        {
-            unsigned int i;
-            for (i = 0; i < gcdMAX_PCIE_BAR; i++)
-            {
-                if (pcie_platform->pcie_info[dev_index].bar[i].logical != 0)
-                {
-                    pci_iounmap(pcie_platform->pcie_info[dev_index].pdev, pcie_platform->pcie_info[dev_index].bar[i].logical);
-                }
-            }
-        }
-
-        pci_unregister_driver(&gpu_pci_subdriver);
-    }
-#endif
 #else
-    gpu_power_domain_exit();
+    gpu_remove_power_domains(platform->device);
 #endif
     return 0;
 }
