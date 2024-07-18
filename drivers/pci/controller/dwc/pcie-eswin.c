@@ -39,6 +39,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/property.h>
 #include "pcie-designware.h"
+#include <linux/pm_runtime.h>
 
 struct eswin_pcie {
 	struct dw_pcie pci;
@@ -269,7 +270,7 @@ static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 
 	/* config eswin vendor id and win2030 device id */
 	dw_pcie_writel_dbi(pci, PCIE_TYPE_DEV_VEND_ID, 0x20301fe1);
-	
+
 	/* lane fix config, real driver NOT need, default x4 */
 	val = dw_pcie_readl_dbi(pci, PCIE_PORT_MULTI_LANE_CTRL);
 	val &= 0xffffff80;
@@ -310,6 +311,9 @@ static int __exit eswin_pcie_remove(struct platform_device *pdev)
 
 	dw_pcie_host_deinit(&pcie->pci.pp);
 
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
 	win2030_tbu_power(&pdev->dev, false);
 	eswin_pcie_power_off(pcie);
 	eswin_pcie_clk_disable(pcie);
@@ -322,6 +326,7 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
 	struct eswin_pcie *pcie;
+	int err;
 
 	pcie = devm_kzalloc(dev, sizeof(*pcie), GFP_KERNEL);
 	if (!pcie)
@@ -342,7 +347,7 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 		dev_err(dev, "pcie_aux clock source missing or invalid\n");
 		return PTR_ERR(pcie->pcie_aux);
 	}
-		
+
 	pcie->pcie_cfg = devm_clk_get(dev, "pcie_cfg_clk");
 	if (IS_ERR(pcie->pcie_cfg)) {
 		dev_err(dev, "pcie_cfg_clk clock source missing or invalid\n");
@@ -356,7 +361,7 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 	}
 
 	pcie->pcie_aclk = devm_clk_get(dev, "pcie_aclk");
-	
+
 	if (IS_ERR(pcie->pcie_aclk)) {
 		dev_err(dev, "pcie_aclk clock source missing or invalid\n");
 		return PTR_ERR(pcie->pcie_aclk);
@@ -380,7 +385,20 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pcie);
 
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	err = pm_runtime_get_sync(dev);
+	if (err < 0) {
+		dev_err(dev, "pm_runtime_get_sync failed: %d\n", err);
+		goto pm_runtime_put;
+	}
+
 	return dw_pcie_host_init(&pci->pp);
+
+pm_runtime_put:
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+	return err;
 }
 
 static const struct of_device_id eswin_pcie_of_match[] = {
@@ -388,11 +406,60 @@ static const struct of_device_id eswin_pcie_of_match[] = {
 	{},
 };
 
+static int eswin_pcie_suspend(struct device *dev)
+{
+	struct eswin_pcie *pcie = dev_get_drvdata(dev);
+	int err = 0;
+
+	dev_dbg(dev, "%s\n", __func__);
+	if (!pm_runtime_status_suspended(dev)) {
+		err = eswin_pcie_clk_disable(pcie);
+	}
+
+	return err;
+}
+
+static int eswin_pcie_resume(struct device *dev)
+{
+	struct eswin_pcie *pcie = dev_get_drvdata(dev);
+	int err = 0;
+
+	dev_dbg(dev, "%s\n", __func__);
+	if (!pm_runtime_status_suspended(dev)) {
+		err = eswin_pcie_clk_enable(pcie);
+	}
+
+	return err;
+}
+
+static int eswin_pcie_runtime_suspend(struct device *dev)
+{
+	struct eswin_pcie *pcie = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	return eswin_pcie_clk_disable(pcie);
+}
+
+static int eswin_pcie_runtime_resume(struct device *dev)
+{
+	struct eswin_pcie *pcie = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	return eswin_pcie_clk_enable(pcie);
+
+}
+
+static const struct dev_pm_ops eswin_pcie_pm_ops = {
+	RUNTIME_PM_OPS(eswin_pcie_runtime_suspend, eswin_pcie_runtime_resume, NULL)
+	NOIRQ_SYSTEM_SLEEP_PM_OPS(eswin_pcie_suspend, eswin_pcie_resume)
+};
+
 static struct platform_driver eswin_pcie_driver = {
 	.driver = {
 		   .name = "eswin-pcie",
 		   .of_match_table = eswin_pcie_of_match,
 		   .suppress_bind_attrs = true,
+		   .pm = &eswin_pcie_pm_ops,
 	},
 	.probe = eswin_pcie_probe,
 	.remove = __exit_p(eswin_pcie_remove),
