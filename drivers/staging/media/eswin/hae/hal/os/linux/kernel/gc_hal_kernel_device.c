@@ -2458,6 +2458,7 @@ threadRoutine(void *ctxt)
 
             return 0;
         }
+        gckOS_Signal(kernel->os, kernel->hardware->feIdleSignal, gcvTRUE);
 
         gckKERNEL_Notify(kernel, gcvNOTIFY_INTERRUPT);
     }

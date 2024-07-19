@@ -1125,16 +1125,12 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
 
     if (command->feType == gcvHW_FE_END) {
         gctUINT idle = 0;
-        gctUINT64 startTicks,currentTicks;
-        gckOS_GetTime(&startTicks);
         /* Make sure FE is idle. */
         do {
             gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                                0x00004, &idle));
-            gckOS_GetTime(&currentTicks);
-            if (currentTicks - startTicks > gcdGPU_2D_TIMEOUT * 1000u) {
-                dumpCurrentState(Hardware, Address, Bytes);
-                gcmkONERROR(gcvSTATUS_TIMEOUT);
+            if (idle != 0x7FFFFFFF) {
+                gcmkONERROR(gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvFALSE, gcdGPU_2D_TIMEOUT));
             }
         } while (idle != 0x7FFFFFFF);
     }
@@ -1215,6 +1211,10 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
 
 OnError:
     /* Return the status. */
+    if (status == gcvSTATUS_TIMEOUT) {
+        dumpCurrentState(Hardware, Address, Bytes);
+    }
+
     gcmkFOOTER();
     return status;
 }

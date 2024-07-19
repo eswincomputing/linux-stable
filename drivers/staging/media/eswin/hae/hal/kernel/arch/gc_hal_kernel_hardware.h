@@ -249,6 +249,8 @@ struct _gckHARDWARE {
     gctUINT32                   devID;
 
     gctBOOL                     largeVA;
+
+    gctSIGNAL                   feIdleSignal;
 };
 
 gceSTATUS
