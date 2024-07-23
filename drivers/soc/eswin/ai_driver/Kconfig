@@ -1,0 +1,11 @@
+config ESWIN_DSP
+    tristate "Eswin DSP"
+    default n
+
+config ESWIN_NPU
+    tristate "Eswin NPU"
+    default n
+    depends on ESWIN_DSP
+    select ESWIN_DEV_DMA_BUF
+    select ESWIN_IOMMU_RSV
+    select ESWIN_RSVMEM_HEAP

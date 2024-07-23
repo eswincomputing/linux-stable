@@ -1,3 +1,5 @@
+source "drivers/soc/eswin/ai_driver/Kconfig"
+
 if SOC_SIFIVE || SOC_STARFIVE
 
 config ESWIN_KHANDLE
