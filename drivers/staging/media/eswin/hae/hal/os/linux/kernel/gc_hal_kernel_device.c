@@ -2267,6 +2267,16 @@ isrRoutine(int irq, void *ctxt)
         return IRQ_HANDLED;
     }
 
+    /* interrupt came when the clock disable, so set power on to handle interrupt */
+    if(status == gcvSTATUS_GENERIC_IO){
+        gckHARDWARE_SetPowerState(kernel->hardware, gcvPOWER_ON_AUTO);
+        status = gckHARDWARE_Interrupt(kernel->hardware);
+        if (gcmIS_SUCCESS(status)) {
+            up(kernel->sema);
+            return IRQ_HANDLED;
+        }
+    }
+
     return IRQ_NONE;
 }
 
