@@ -63,12 +63,6 @@ static u32 __init_or_module sifive_errata_probe(unsigned long archid,
 	int idx;
 	u32 cpu_req_errata = 0;
 
-#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-	/* Set this just to make core cbo code happy */
-	riscv_cbom_block_size = 1;
-	riscv_noncoherent_supported();
-#endif
-
 	for (idx = 0; idx < ERRATA_SIFIVE_NUMBER; idx++)
 		if (errata_list[idx].check_func(archid, impid))
 			cpu_req_errata |= (1U << idx);
@@ -100,6 +94,14 @@ void sifive_errata_patch_func(struct alt_entry *begin, struct alt_entry *end,
 
 	if (stage == RISCV_ALTERNATIVES_EARLY_BOOT)
 		return;
+
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	/* Set this just to make core cbo code happy */
+	if (stage == RISCV_ALTERNATIVES_BOOT) {
+		riscv_cbom_block_size = 1;
+		riscv_noncoherent_supported();
+	}
+#endif
 
 	cpu_req_errata = sifive_errata_probe(archid, impid);
 
