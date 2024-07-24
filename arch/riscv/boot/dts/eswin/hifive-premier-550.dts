@@ -582,6 +582,7 @@
 
 &fan_control {
 	status = "okay";
+	eswin,pwm_inverted;
 };
 
 &d0_i2c0 {
