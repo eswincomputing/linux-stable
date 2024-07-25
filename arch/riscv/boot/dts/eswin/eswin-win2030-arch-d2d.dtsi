@@ -34,7 +34,22 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		timebase-frequency = <RTCCLK_FREQ>;
-
+		idle-states {
+			CPU_RET: cpu-retentive {
+				compatible = "riscv,idle-state";
+				riscv,sbi-suspend-param = <0x00000000>;
+				entry-latency-us = <20>;
+				exit-latency-us = <40>;
+				min-residency-us = <80>;
+			};
+			CPU_NONRET: cpu-nonretentive {
+				compatible = "riscv,idle-state";
+				riscv,sbi-suspend-param = <0x80000000>;
+				entry-latency-us = <250>;
+				exit-latency-us = <500>;
+				min-residency-us = <950>;
+			};
+		};
 		cpu-map {
 		#if (CHIPLET_AND_DIE & 0x2)
 			cluster0 {
@@ -109,6 +124,7 @@
 			numa-node-id = <0>;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -156,6 +172,7 @@
 			numa-node-id = <0>;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu1_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -203,6 +220,7 @@
 			numa-node-id = <0>;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu2_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -250,6 +268,7 @@
 			numa-node-id = <0>;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu3_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -309,6 +328,7 @@
 			numa-node-id = <1>;
 			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
 			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu4_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -356,6 +376,7 @@
 			numa-node-id = <1>;
 			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
 			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu5_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -402,6 +423,7 @@
 			numa-node-id = <1>;
 			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
 			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu6_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -448,6 +470,7 @@
 			numa-node-id = <1>;
 			clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
 			operating-points-v2 = <&d1_cpu_opp_table>;
+			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
 			cpu7_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
