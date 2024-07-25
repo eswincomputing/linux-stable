@@ -288,6 +288,14 @@ _TryToIdleGPU(gckEVENT Event)
                         continue;
 
                     if ((1 << i) & broCoreMask) {
+                        gcmkONERROR(gckEVENT_IsEmpty(kernel->eventObj, &empty));
+                        if (!empty) {
+                            /* A brother have events, quit. */
+                            gcmkVERIFY_OK(gckOS_ReleaseMutex(device->os, device->powerMutex));
+                            gcmkFOOTER();
+                            return gcvSTATUS_OK;
+                        }
+
                         status = gckOS_AcquireMutex(hardware->os, hardware->powerMutex, 0);
                         if (status == gcvSTATUS_TIMEOUT) {
                             gcmkVERIFY_OK(gckOS_ReleaseMutex(device->os, device->powerMutex));
@@ -1825,7 +1833,7 @@ gckEVENT_Notify(gckEVENT Event, gctUINT32 IDs, gceEVENT_FAULT *Fault)
 
             /* Clear the BUS ERROR event. */
             if (fault & gcvEVENT_BUS_ERROR_FAULT)
-                pending |= (1 << 31);
+                pending |= (1U << 31);
 
             gckOS_AtomClearMask(Event->pending, pending);
 
