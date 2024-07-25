@@ -409,14 +409,15 @@ static const struct of_device_id eswin_pcie_of_match[] = {
 static int eswin_pcie_suspend(struct device *dev)
 {
 	struct eswin_pcie *pcie = dev_get_drvdata(dev);
-	int err = 0;
 
 	dev_dbg(dev, "%s\n", __func__);
 	if (!pm_runtime_status_suspended(dev)) {
-		err = eswin_pcie_clk_disable(pcie);
+		win2030_tbu_power(pcie->pci.dev, false);
+		eswin_pcie_power_off(pcie);
+		eswin_pcie_clk_disable(pcie);
 	}
 
-	return err;
+	return 0;
 }
 
 static int eswin_pcie_resume(struct device *dev)
@@ -426,7 +427,7 @@ static int eswin_pcie_resume(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 	if (!pm_runtime_status_suspended(dev)) {
-		err = eswin_pcie_clk_enable(pcie);
+		err = eswin_pcie_host_init(&pcie->pci.pp);
 	}
 
 	return err;
