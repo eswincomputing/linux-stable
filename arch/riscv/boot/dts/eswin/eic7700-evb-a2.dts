@@ -90,53 +90,25 @@
 			reg = <0x0 0x59000000 0x0 0x400000>;
 		};
 
-		smpmemtest_rsv0@91200000 {
-			reg = <0 0x91200000 0 0x2000000>;
-			no-map;
-		};
-
-		lpcpu0_reserved: lpcpu@a0000000 {
-			no-map;
-			reg = <0x0 0xa0000000 0x0 0x100000>;
-		};
-
-		secure_memory_nid_0_part_0 {
-			compatible = "eswin-reserve-memory";
-			reg = <0x0 0xb0000000 0x0 0x8000000>;
-			no-map;
-		};
-
-		secure_memory_nid_0_part_1 {
-			compatible = "eswin-reserve-memory";
-			reg = <0x0 (0xb0000000 + 0x8000000) 0x0 0x8000000>;
-			no-map;
-		};
-
 		g2d_4GB_boundary_reserved_4k {
 			no-map;
 			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
+		g2d_8GB_boundary_reserved_4k {
+			no-map;
+			reg = <0x1 0xfffff000 0x0 0x1000>;
+		};
+
+		g2d_12GB_boundary_reserved_4k {
+			no-map;
+			reg = <0x2 0xfffff000 0x0 0x1000>;
+		};
+
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x1 0x40000000 0x2 0x80000000>;
+			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
-		};
-
-		mmz_nid_0_part_1 {
-			compatible = "eswin-reserve-memory";
-			reg = <0x3 0xc0000000 0x0 0x40000000>;
-			no-map;
-		};
-	};
-
-	soc {
-		reset_test@1e00e000 {
-			compatible	= "reset_test";
-			resets = <&d0_reset SCPU_RST_CTRL SW_SCPU_BUS_RSTN>,
-					 <&d0_reset SCPU_RST_CTRL SW_SCPU_CORE_RSTN>,
-					 <&d0_reset SCPU_RST_CTRL SW_SCPU_DBG_RSTN>;
-			reset-names = "bus", "core", "dbg";
 		};
 	};
 
