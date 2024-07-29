@@ -29,6 +29,9 @@
 #define MCPU_SP0_DYMN_CSR_EN_BIT        3
 #define MCPU_SP0_DYMN_CSR_GNT_BIT       3
 
+#define CORE_NAME_VE                    ("video-enc0")
+#define CORE_NAME_JE                    ("jpeg-enc0")
+
 typedef struct _venc_clk_rst {
 	struct reset_control        *rstc_cfg;
 	struct reset_control        *rstc_axi;
@@ -77,16 +80,17 @@ extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
 static int venc_dev_open(struct device *dev);
 static int venc_dev_close(struct device *dev);
 static int venc_pm_enable(struct platform_device *pdev);
+static void enc_pm_disable(struct platform_device *pdev);
 
 extern VCMD_CONFIG vc8000e_vcmd_core_array[];
 extern int venc_vcmd_core_num;
 
 /** <TODO> the je & ve should be seperated as two devices*/
 static u8 numa_id_array[4] = {0};
-struct platform_device *venc_get_platform_device(u32 core_id)
+static struct platform_device *venc_get_platform_device(u32 core_id)
 {
 	struct platform_device *pdev = NULL;
-	u8 numa_id;
+	u8 numa_id = 0xff;
 
 	if (core_id >= venc_vcmd_core_num) {
 		LOG_ERR("invalid core_id = %u, venc_vcmd_core_num = %u\n", core_id, venc_vcmd_core_num);
@@ -102,7 +106,7 @@ struct platform_device *venc_get_platform_device(u32 core_id)
 	return pdev;
 }
 
-int venc_wait_core_idle(u32 core_id) {
+static int venc_wait_core_idle(u32 core_id) {
 	if (0 == vcmd_supported) {
 		return hantroenc_wait_core_idle(core_id);
 	} else {
@@ -111,9 +115,9 @@ int venc_wait_core_idle(u32 core_id) {
 }
 
 /** <TODO> the je & ve should be seperated as two devices*/
-int venc_wait_device_idle(struct platform_device *pdev)
+static int venc_wait_device_idle(struct platform_device *pdev)
 {
-	int ret;
+	int ret = 0;
 
 	if (pdev == venc_pdev) {
 		ret = venc_wait_core_idle(0);
@@ -136,8 +140,8 @@ int venc_wait_device_idle(struct platform_device *pdev)
 
 static int venc_device_node_scan(unsigned char *compatible)
 {
-	struct property *prop;
-	struct device_node *np;
+	struct property *prop = NULL;
+	struct device_node *np = NULL;
 
 	np = of_find_compatible_node(NULL, NULL, compatible);
 	if (!np) {
@@ -161,7 +165,7 @@ static int venc_device_node_scan(unsigned char *compatible)
 
 static int venc_device_nodes_check(void)
 {
-	int i, venc_dev_num = 0;
+	int i = 0, venc_dev_num = 0;
 	unsigned char compatible[32] = {0};
 
 	for (i = 0; i < 2; i++) {
@@ -182,7 +186,7 @@ static int venc_device_nodes_check(void)
 		index++; \
 	} while (0)
 
-int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
+static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 {
 	static int subsys_id = 0;
 	static int core_index = 0;
@@ -299,7 +303,7 @@ static int venc_sys_reset_init(struct platform_device *pdev, venc_clk_rst_t *vcr
 
 static int venc_sys_reset_release(venc_clk_rst_t *vcrt)
 {
-	int ret;
+	int ret = 0;
 
 	ret = reset_control_deassert(vcrt->rstc_cfg);
 	WARN_ON(0 != ret);
@@ -327,7 +331,7 @@ static int venc_sys_reset_release(venc_clk_rst_t *vcrt)
 
 static int venc_sys_clk_init(struct platform_device *pdev, venc_clk_rst_t *vcrt)
 {
-	int ret;
+	int ret = 0;
 
 	vcrt->aclk = devm_clk_get(&pdev->dev, "aclk");
 	if (IS_ERR(vcrt->aclk)) {
@@ -404,8 +408,8 @@ static int venc_sys_clk_init(struct platform_device *pdev, venc_clk_rst_t *vcrt)
 
 static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 {
-	int ret;
-	long rate;
+	int ret = 0;
+	long rate = 0;
 
 	ret = clk_set_parent(vcrt->vc_mux, vcrt->spll2_fout1);
 	if (ret < 0) {
@@ -524,7 +528,7 @@ static int venc_hardware_reset(venc_clk_rst_t *vcrt)
 	return 0;
 }
 
-static int venc_smmu_dynm_sid_init(struct platform_device *pdev)
+static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type)
 {
 	int ret;
 	unsigned int reg_val, vccsr_addr[4] = {0};
@@ -532,6 +536,11 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev)
 	struct regmap *regmap;
 	void __iomem *venc_csr_reg = NULL;
 
+	if (VCMD_TYPE_ENCODER != module_type && VCMD_TYPE_JPEG_ENCODER != module_type)
+	{
+		LOG_ERR("Unknown module type %u, while smmu sid init\n", module_type);
+		return -1;
+	}
 	regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscfg");
 	if (IS_ERR(regmap)) {
 		dev_err(&pdev->dev, "No syscfg phandle specified\n");
@@ -561,10 +570,13 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev)
 		return -1;
 	}
 
-	writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_AWSSID_OFF));
-	writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_ARSSID_OFF));
-	writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_AWSSID_OFF));
-	writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_ARSSID_OFF));
+	if (VCMD_TYPE_ENCODER == module_type) {
+		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_AWSSID_OFF));
+		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_ARSSID_OFF));
+	} else {
+		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_AWSSID_OFF));
+		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_ARSSID_OFF));
+	}
 
 	regmap_read(regmap, dynm_csr_en_off, &reg_val);
 	reg_val |= (1 << MCPU_SP0_DYMN_CSR_EN_BIT);
@@ -585,10 +597,10 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev)
 
 	return 0;
 }
-#endif
+#endif /** end of SUPPORT_DMA_HEAP*/
 
 /* Temporary using this func to do crg init for d1 */
-int venc_d1_clk_reset_init(void)
+static int venc_d1_clk_reset_init(void)
 {
 	void __iomem *d1_crg_reg = NULL;
 
@@ -604,6 +616,211 @@ int venc_d1_clk_reset_init(void)
 	return 0;
 }
 
+static int enc_reset_core(struct device *dev, u16 module_type)
+{
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	int ret = 0;
+
+	if (VCMD_TYPE_ENCODER == module_type) {
+		ret = reset_control_reset(vcrt->rstc_ve_cfg);
+		WARN_ON(0 != ret);
+		ret = reset_control_reset(vcrt->rstc_ve_axi);
+		WARN_ON(0 != ret);
+	} else if (VCMD_TYPE_JPEG_ENCODER == module_type) {
+		ret = reset_control_reset(vcrt->rstc_je_cfg);
+		WARN_ON(0 != ret);
+		ret = reset_control_reset(vcrt->rstc_je_axi);
+		WARN_ON(0 != ret);
+	} else {
+		LOG_ERR("Unknown module type %u, while core reset\n", module_type);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
+{
+	struct device_node *chi = NULL;
+	char *core_name_tag = "";
+
+	if (VCMD_TYPE_ENCODER == mod_type)
+		core_name_tag = CORE_NAME_VE;
+	else
+		core_name_tag = CORE_NAME_JE;
+	for_each_child_of_node(dev->of_node, chi) {
+		const char *core_name;
+		if (of_property_read_string(chi, "core-name", &core_name)) {
+			LOG_ERR("Sub dev core not found, mod_type = %u\n", mod_type);
+			return -1;
+		}
+
+		if (!strcmp(core_name, core_name_tag)) {
+			LOG_INFO("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
+			win2030_tbu_power_by_dev_and_node(dev, chi, powerUp);
+		}
+	}
+
+	return 0;
+}
+
+static int venc_pm_enable(struct platform_device *pdev) {
+	/** enable runtime PM */
+	WARN_ON(pm_runtime_enabled(&pdev->dev));
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
+	return 0;
+}
+
+static void enc_pm_disable(struct platform_device *pdev) {
+	pm_runtime_disable(&pdev->dev);
+}
+
+static int venc_dev_open(struct device *dev)
+{
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	int ret = -1;
+
+	if (atomic_dec_return(&prvdata->dev_open_gate) < 0) {
+		LOG_DBG("The device is opening\n");
+		atomic_inc(&prvdata->dev_open_gate);
+		return 0;
+	}
+	ret = venc_sys_clk_enable(vcrt);
+	if (ret) {
+		LOG_ERR("open device, venc enable clock failed\n");
+		goto end;
+	}
+	ret = enc_tbu_power(dev, VCMD_TYPE_ENCODER, true);
+	if (ret != 0) {
+		LOG_ERR("ve: open device, tbu power up failed\n");
+		goto end;
+	}
+	ret = enc_tbu_power(dev, VCMD_TYPE_JPEG_ENCODER, true);
+	if (ret != 0) {
+		LOG_ERR("je: open device, tbu power up failed\n");
+		goto end;
+	}
+	prvdata->dev_closed = 0;
+
+end:
+	LOG_DBG("dev open, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
+	atomic_inc(&prvdata->dev_open_gate);
+	return ret;
+}
+
+static int venc_dev_close(struct device *dev)
+{
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	int ret;
+
+	if (atomic_dec_return(&prvdata->dev_close_gate) < 0) {
+		LOG_DBG("The device is closing\n");
+		atomic_inc(&prvdata->dev_close_gate);
+		return 0;
+	}
+	/** check the device be idle*/
+	ret = venc_wait_device_idle(pdev);
+	if (0 == ret) {
+		/** timeout*/
+		LOG_ERR("Timeout for venc_suspend\n");
+		ret = -ETIMEDOUT;
+		goto end;
+	} else if (ret < 0) {
+		LOG_ERR("Interrupt triggered while venc_suspend\n");
+		ret = -ERESTARTSYS;
+		goto end;
+	}
+	ret = enc_tbu_power(dev, VCMD_TYPE_ENCODER, false);
+	if (ret != 0) {
+		LOG_ERR("ve: close device, tbu power down failed\n");
+		goto end;
+	}
+	ret = enc_tbu_power(dev, VCMD_TYPE_JPEG_ENCODER, false);
+	if (ret != 0) {
+		LOG_ERR("je: close device, tbu power down failed\n");
+		goto end;
+	}
+	ret = venc_clk_disable(vcrt);
+	if (ret) {
+		LOG_ERR("close device, venc disable clock failed\n");
+		goto end;
+	}
+	prvdata->dev_closed = 1;
+
+end:
+	LOG_DBG("dev closed, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
+	atomic_inc(&prvdata->dev_close_gate);
+	return ret;
+}
+
+/** interface functions might be called by others files*/
+int enc_pm_runtime_sync(u32 core_id) {
+	struct platform_device *pdev = venc_get_platform_device(core_id);
+
+	if (!pdev) {
+		LOG_ERR("get platform device failed for pm sync, core_id = %u\n", core_id);
+	}
+
+	return pm_runtime_get_sync(&pdev->dev);
+}
+
+int enc_pm_runtime_put(u32 core_id) {
+	struct platform_device *pdev = venc_get_platform_device(core_id);
+
+	if (!pdev) {
+		LOG_ERR("get platform device failed for pm put, core_id = %u\n", core_id);
+	}
+
+	return pm_runtime_put(&pdev->dev);
+}
+
+int enc_reset_system(u32 core_id) {
+	struct platform_device *pdev = venc_get_platform_device(core_id);
+	int ret = 0;
+	u16 mod_type = vc8000e_vcmd_core_array[core_id].sub_module_type;
+
+	if (!pdev) {
+		LOG_ERR("get platform device failed for reset system, core_id = %u\n", core_id);
+		return -1;
+	}
+	if (VCMD_TYPE_ENCODER != mod_type && VCMD_TYPE_JPEG_ENCODER != mod_type) {
+		LOG_ERR("Unsupported module type %u, while reset system\n", mod_type);
+		return -1;
+	}
+	/** enc tbu power down*/
+	ret = enc_tbu_power(&pdev->dev, mod_type, false);
+	if (ret != 0) {
+		LOG_ERR("mod_type=%u: reset system tbu power down failed\n", mod_type);
+		return -1;
+	}
+	/** enc core reset*/
+	ret = enc_reset_core(&pdev->dev, mod_type);
+	if (ret != 0) {
+		LOG_ERR("mod_type=%u: core reset failed\n", mod_type);
+		return -1;
+	}
+	/** enc tbu power up*/
+	ret = enc_tbu_power(&pdev->dev, mod_type, true);
+	if (ret != 0) {
+		LOG_ERR("mod_type=%u: reset system tbu power up failed\n", mod_type);
+		return -1;
+	}
+#ifdef SUPPORT_DMA_HEAP
+	venc_smmu_dynm_sid_init(pdev, mod_type);
+#endif
+
+	return 0;
+}
+/** end of interface functions*/
+
 static int hantro_venc_probe(struct platform_device *pdev)
 {
 	static int pdev_count = 0;
@@ -617,7 +834,7 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	platform_set_drvdata(pdev, (void *)vcrt);
+	platform_set_drvdata(pdev, (void *)prvdata);
 
 	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
 		numa_id = 0;
@@ -665,15 +882,24 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		venc_pdev_d1 = pdev;
 
 #ifdef SUPPORT_DMA_HEAP
-	ret = win2030_tbu_power(&pdev->dev, true);
+	ret = enc_tbu_power(&pdev->dev, VCMD_TYPE_ENCODER, true);
 	if (ret != 0) {
-		LOG_ERR("venc: tbu power up failed\n");
+		LOG_ERR("ve: tbu power up failed\n");
 		return -1;
 	}
-
-	ret = venc_smmu_dynm_sid_init(pdev);
+	ret = enc_tbu_power(&pdev->dev, VCMD_TYPE_JPEG_ENCODER, true);
+	if (ret != 0) {
+		LOG_ERR("je: tbu power up failed\n");
+		return -1;
+	}
+	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_ENCODER);
 	if (ret < 0) {
-		LOG_ERR("venc: dynamic smmu sid set failed");
+		LOG_ERR("ve: dynamic smmu sid set failed");
+		return -1;
+	}
+	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_JPEG_ENCODER);
+	if (ret < 0) {
+		LOG_ERR("je: dynamic smmu sid set failed");
 		return -1;
 	}
 
@@ -717,27 +943,28 @@ static int hantro_venc_remove(struct platform_device *pdev)
 #ifdef SUPPORT_DMA_HEAP
 	int ret;
 	venc_clk_rst_t *vcrt;
-	venc_dev_prvdata *prvdata;
 #endif
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
-	pm_runtime_dont_use_autosuspend(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
-
+	enc_pm_disable(pdev);
 	if (vcmd_supported == 0)
 		hantroenc_normal_cleanup();
 	else
 		vc8000e_vcmd_cleanup();
 
 #ifdef SUPPORT_DMA_HEAP
-	ret = win2030_tbu_power(&pdev->dev, false);
-	if (ret) {
-		LOG_ERR("venc tbu power down failed\n");
+	ret = enc_tbu_power(&pdev->dev, VCMD_TYPE_ENCODER, false);
+	if (ret != 0) {
+		LOG_ERR("ve: tbu power down failed\n");
 		return -1;
 	}
-	prvdata = platform_get_drvdata(pdev);
+	ret = enc_tbu_power(&pdev->dev, VCMD_TYPE_JPEG_ENCODER, false);
+	if (ret != 0) {
+		LOG_ERR("je: tbu power down failed\n");
+		return -1;
+	}
 	vcrt = &prvdata->vcrt;
 	venc_hardware_reset(vcrt);
-	// venc_clk_disable(vcrt);
 #endif
 
 	return 0;
@@ -761,101 +988,6 @@ int venc_pm_runtime_put(u32 core_id) {
 	}
 
 	return pm_runtime_put(&pdev->dev);
-}
-
-static int venc_pm_enable(struct platform_device *pdev) {
-	/** enable runtime PM */
-	WARN_ON(pm_runtime_enabled(&pdev->dev));
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-
-	return 0;
-}
-
-static int venc_dev_open(struct device *dev)
-{
-	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
-	int ret = -1;
-
-	if (atomic_dec_return(&prvdata->dev_open_gate) < 0) {
-		LOG_DBG("The device is opening\n");
-		atomic_inc(&prvdata->dev_open_gate);
-		return 0;
-	}
-	// if (prvdata->dev_closed == 0) {
-	// 	ret = 0;
-	// 	goto end;
-	// }
-	ret = venc_sys_clk_enable(vcrt);
-	if (ret) {
-		LOG_ERR("open device, venc enable clock failed\n");
-		goto end;
-	}
-	ret = win2030_tbu_power(dev, true);
-	if (ret) {
-		LOG_ERR("open device, tbu power on failed\n");
-		goto end;
-	}
-	prvdata->dev_closed = 0;
-
-end:
-	LOG_DBG("dev open, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
-	atomic_inc(&prvdata->dev_open_gate);
-	return ret;
-}
-
-static int venc_dev_close(struct device *dev)
-{
-	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
-	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
-	int ret;
-
-	if (atomic_dec_return(&prvdata->dev_close_gate) < 0) {
-		LOG_DBG("The device is closing\n");
-		atomic_inc(&prvdata->dev_close_gate);
-		return 0;
-	}
-	// if (prvdata->dev_closed == 1) {
-	// 	ret = 0;
-	// 	goto end;
-	// }
-
-	/** check the device be idle*/
-	LOG_DBG("venc device closing, waiting device idle\n");
-	ret = venc_wait_device_idle(pdev);
-	LOG_DBG("enc device closing, waiting device idle ret=%d\n", ret);
-	if (0 == ret) {
-		/** timeout*/
-		LOG_ERR("Timeout for venc_suspend\n");
-		ret = -ETIMEDOUT;
-		goto end;
-	} else if (ret < 0) {
-		LOG_ERR("Interrupt triggered while venc_suspend\n");
-		ret = -ERESTARTSYS;
-		goto end;
-	}
-
-	/** close the venc device*/
-	ret = win2030_tbu_power(dev, false);
-	if (ret) {
-		LOG_ERR("close device, tbu power down failed\n");
-		goto end;
-	}
-	ret = venc_clk_disable(vcrt);
-	if (ret) {
-		LOG_ERR("close device, venc disable clock failed\n");
-		goto end;
-	}
-	prvdata->dev_closed = 1;
-
-end:
-	LOG_DBG("dev closed, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
-	atomic_inc(&prvdata->dev_close_gate);
-	return ret;
 }
 
 static int venc_runtime_suspend(struct device *dev) {

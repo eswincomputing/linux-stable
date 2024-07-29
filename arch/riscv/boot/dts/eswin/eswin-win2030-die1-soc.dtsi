@@ -438,19 +438,20 @@
 			iommus = <&smmu1 WIN2030_SID_VENC>;
 			vccsr-reg = <0x0 0x701c0000 0x0 0x1000>;
 			numa-node-id = <1>;
-			tbus = <WIN2030_TBUID_VENC>, <WIN2030_TBUID_JENC>;
 			dma-noncoherent;
 
 			venc_1: venc0@70110000 {
 				core-name = "video-enc0";
 				base-addr = <0x70110000>;
 				interrupts = <229>;
+				tbus = <WIN2030_TBUID_VENC>;
 			};
 
 			jenc_1: jenc0@70130000 {
 				core-name = "jpeg-enc0";
 				base-addr = <0x70130000>;
 				interrupts = <232>;
+				tbus = <WIN2030_TBUID_JENC>;
 			};
 		};
 		/*mailbox between u84 & scpu*/

@@ -1027,19 +1027,20 @@
 			iommus = <&smmu0 WIN2030_SID_VENC>;
 			vccsr-reg = <0x0 0x501c0000 0x0 0x1000>;
 			numa-node-id = <0>;
-			tbus = <WIN2030_TBUID_VENC>, <WIN2030_TBUID_JENC>;
 			dma-noncoherent;
 
 			venc_0: venc0@50110000 {
 				core-name = "video-enc0";
 				base-addr = <0x50110000>;
 				interrupts = <229>;
+				tbus = <WIN2030_TBUID_VENC>;
 			};
 
 			jenc_0: jenc0@50130000 {
 				core-name = "jpeg-enc0";
 				base-addr = <0x50130000>;
 				interrupts = <232>;
+				tbus = <WIN2030_TBUID_JENC>;
 			};
 		};
 
