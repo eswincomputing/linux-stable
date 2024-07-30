@@ -51,12 +51,6 @@
 #include "core.h"
 #include "io.h"
 
-
-#define dwc3_eswin_AUTOSUSPEND_DELAY 500 /* ms */
-#define PERIPHERAL_DISCONNECT_TIMEOUT 1000000 /* us */
-#define WAIT_FOR_HCD_READY_TIMEOUT 5000000 /* us */
-#define XHCI_TSTCTRL_MASK (0xf << 28)
-
 #define AWSMMUSID GENMASK(31, 24) // The sid of write operation
 #define AWSMMUSSID GENMASK(23, 16) // The ssid of write operation
 #define ARSMMUSID GENMASK(15, 8) // The sid of read operation
@@ -77,14 +71,12 @@
 struct dwc3_eswin {
 	int num_clocks;
 	bool connected;
-	bool skip_suspend;
 	bool suspended;
 	bool force_mode;
 	bool is_phy_on;
 	struct device *dev;
 	struct clk **clks;
 	struct dwc3 *dwc;
-	struct reset_control *otg_rst;
 	struct extcon_dev *edev;
 	struct usb_hcd *hcd;
 	struct notifier_block device_nb;
