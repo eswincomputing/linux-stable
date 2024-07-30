@@ -131,7 +131,7 @@ struct es_dw200_private {
 #define VSE_OFFLINE_MODE 0
 #define ISP_ONLINE_VSE_MODE 1
 #define DWE_ONLINE_VSE_MODE 2
-#define ES_WAIT_TIMEOUT_MS msecs_to_jiffies(10000)
+#define ES_WAIT_TIMEOUT_MS msecs_to_jiffies(1000)
 #define ES_BUSY 0
 #define ES_IDLE 1
 #define RET_HW_COMMOND 0x11
@@ -186,11 +186,47 @@ static unsigned int dewarp_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
+static int obtain_dewarp_mis(struct device *dev)
+{
+	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
+	struct dw200_subdev *pdwe_dev;
+	int ret = 0;
+	unsigned int dwe_mis, vse_mis;
+	unsigned long flags;
+
+	pdwe_dev = (struct dw200_subdev *)pdriver_dev->private;
+
+	//dw200 is working wait done
+	vse_read_irq((struct dw200_subdev *)pdwe_dev, &vse_mis);
+	dwe_read_irq((struct dw200_subdev *)pdwe_dev, &dwe_mis);
+	if (vse_mis) {
+		spin_lock_irqsave(&vse_irq_lock, flags);
+		vse_clear_irq((struct dw200_subdev *)pdwe_dev, vse_mis);
+		atomic_set(&vse_irq_trigger_mis, vse_mis);
+		atomic_dec(&pdriver_dev->trigger_atom);
+		wake_up_interruptible_all(&vse_irq_wait_q);
+		spin_unlock_irqrestore(&vse_irq_lock, flags);
+		ret |= vse_mis;
+	}
+	dwe_mis = dwe_mis & 0x1;
+	if (dwe_mis) {
+		spin_lock_irqsave(&dwe_irq_lock, flags);
+		dwe_clear_irq((struct dw200_subdev *)pdwe_dev, dwe_mis << 24);
+		atomic_set(&dwe_irq_trigger_mis, dwe_mis);
+		atomic_dec(&pdriver_dev->trigger_atom);
+		wake_up_interruptible_all(&dwe_irq_wait_q);
+		spin_unlock_irqrestore(&dwe_irq_lock, flags);
+		ret |= dwe_mis;
+	}
+	return ret;
+}
+
 #ifdef ES_DW200_SDK
 static int triggerDwe(struct es_dw200_private *pes_dw200_priv)
 {
 	struct dw200_subdev *pdw200_dev = &pes_dw200_priv->dw200;
 	int ret = -1;
+	struct es_dewarp_driver_dev *pdriver_dev = pes_dw200_priv->pdriver_dev;
 
 	pr_debug("%s, In \n", __FUNCTION__);
 	ret = dwe_reset(pdw200_dev);
@@ -216,7 +252,7 @@ static int triggerDwe(struct es_dw200_private *pes_dw200_priv)
 
 	ret = dwe_enable_bus(pdw200_dev, true);
 	ret = dwe_start(pdw200_dev);
-
+	atomic_inc(&pdriver_dev->trigger_atom);
 	pr_debug("%s, Out\n", __FUNCTION__);
 	return 0;
 }
@@ -227,6 +263,7 @@ static int triggerVse(struct es_dw200_private *pes_dw200_priv)
 	int ret = -1;
 	u64 vse_output_addrs[3] = { 0 };
 	int i = 0;
+	struct es_dewarp_driver_dev *pdriver_dev = pes_dw200_priv->pdriver_dev;
 
 	pr_debug("%s, 1.reset vse\n", __FUNCTION__);
 	ret = vse_reset(pdw200_dev);
@@ -252,7 +289,7 @@ static int triggerVse(struct es_dw200_private *pes_dw200_priv)
 		 pdw200_dev->buf_info[VSE_INPUT_BUFFER_0].addr);
 	vse_start_dma_read(pdw200_dev,
 			   pdw200_dev->buf_info[VSE_INPUT_BUFFER_0].addr);
-
+	atomic_inc(&pdriver_dev->trigger_atom);
 	pr_debug("%s, 7.trigger ok.\n", __FUNCTION__);
 	return 0;
 }
@@ -459,6 +496,7 @@ static long waitDweDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 	u32 reg = 0;
 	u32 irq_trigger = 0;
 	struct dw200_subdev *pdwe_dev = &pes_dw200_priv->dw200;
+	struct es_dewarp_driver_dev *pdriver_dev = pes_dw200_priv->pdriver_dev;
 	ret = wait_event_interruptible_timeout(dwe_irq_wait_q, CheckIrq(1),
 					       timeout);
 	// ret = wait_event_interruptible(dwe_irq_wait_q, atomic_read(&dwe_irq_trigger_mis));
@@ -475,6 +513,7 @@ static long waitDweDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 		pr_err("do dw200 top reset\n");
 		wait_event_interruptible(vse_reserve_wait_q, vse_status);
 		reset_control_reset(pdwe_dev->dw_crg.rstc_dwe);
+		atomic_dec(&pdriver_dev->trigger_atom);
 		ret = -ETIMEDOUT;
 	} else {
 		dwe_disable_irq(pdwe_dev);
@@ -497,6 +536,7 @@ static long waitVseDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 {
 	int ret = -1;
 	struct dw200_subdev *pdwe_dev = &pes_dw200_priv->dw200;
+	struct es_dewarp_driver_dev *pdriver_dev = pes_dw200_priv->pdriver_dev;
 
 	ret = wait_event_interruptible_timeout(vse_irq_wait_q, CheckIrq(0),
 					       timeout);
@@ -504,6 +544,7 @@ static long waitVseDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 	if (ret < 0) {
 		pr_err("wait_event_interruptible interrupted\n");
 		ret = -ERESTARTSYS;
+		return ret;
 	} else if (ret == 0) {
 		pr_err("Error: %s vse process timeout %lu, ret:%d\n", __func__,
 		       timeout, ret);
@@ -513,6 +554,7 @@ static long waitVseDone(struct es_dw200_private *pes_dw200_priv, long timeout)
 		pr_err("do dw200 top reset\n");
 		wait_event_interruptible(dwe_reserve_wait_q, dwe_status);
 		reset_control_reset(pdwe_dev->dw_crg.rstc_dwe);
+		atomic_dec(&pdriver_dev->trigger_atom);
 		ret = -ETIMEDOUT;
 	}
 	atomic_set(&vse_irq_trigger_mis, 0);
@@ -529,7 +571,6 @@ long es_dw200_ioctl(struct es_dw200_private *pes_dw200_priv, unsigned int cmd,
 {
 	int ret = -1;
 	struct dw200_subdev *pdwe_dev = &pes_dw200_priv->dw200;
-	struct es_dewarp_driver_dev *pdriver_dev = pes_dw200_priv->pdriver_dev;
 	u64 addr;
 
 	switch (cmd) {
@@ -596,21 +637,18 @@ long es_dw200_ioctl(struct es_dw200_private *pes_dw200_priv, unsigned int cmd,
 		// Read private data,and configure vse's regs,
 		// and start hw
 		pr_debug("trigger vse\n");
-		atomic_inc(&pdriver_dev->trigger_atom);
 		triggerVse(pes_dw200_priv);
 		return 0;
 	case DWIOC_ES_TRIGGER_DWE:
 		// Read private data,and configure dwe's regs,
 		// and start hw
 		pr_debug("trigger dwe\n");
-		atomic_inc(&pdriver_dev->trigger_atom);
 		triggerDwe(pes_dw200_priv);
 		return 0;
 	case DWIOC_ES_TRIGGER_DWE_VSE:
 		// Read private data,and configure regs,
 		// and start hw
 		pr_debug("trigger dwe online vse\n");
-		atomic_inc(&pdriver_dev->trigger_atom);
 		triggerDweVse(pes_dw200_priv);
 		return 0;
 
@@ -1442,6 +1480,7 @@ static int dewarp_suspend(struct device *dev)
 	}
 
 	if (atomic_read(&pdriver_dev->trigger_atom)) {
+		obtain_dewarp_mis(dev);
 		//dw200 is working wait done
 		ret = wait_event_interruptible_timeout(
 			pdriver_dev->trigger_wq,
@@ -1469,6 +1508,7 @@ static int dewarp_resume(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
+	int ret = 0;
 
 	pdwe_dev = (struct dw200_subdev *)pdriver_dev->private;
 
@@ -1477,10 +1517,11 @@ static int dewarp_resume(struct device *dev)
 	}
 
 	if (pdriver_dev->suspended) {
-		return vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+		ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+		obtain_dewarp_mis(dev);
 	}
 
-	return 0;
+	return ret;
 }
 
 static const struct dev_pm_ops dewarp_pm_ops = {
