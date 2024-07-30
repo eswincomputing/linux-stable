@@ -511,6 +511,13 @@ _SubmitTimerFunction(gctPOINTER Data)
     gcmkVERIFY_OK(gckEVENT_Submit(event, &eventAttr));
 }
 
+void
+_TryIdleTimerFunction(gctPOINTER Data)
+{
+    gckEVENT event = (gckEVENT)Data;
+    _TryToIdleGPU(event);
+}
+
 /******************************************************************************
  ******************************* gckEVENT API Code ****************************
  ******************************************************************************/
@@ -601,6 +608,10 @@ gckEVENT_Construct(gckKERNEL Kernel, gckCOMMAND Command, gckEVENT *Event)
                                     (gctPOINTER)eventObj,
                                     &eventObj->submitTimer));
 
+    gcmkVERIFY_OK(gckOS_CreateTimer(os, _TryIdleTimerFunction,
+                                    (gctPOINTER)eventObj,
+                                    &eventObj->tryIdleTimer));
+
 #if gcdINTERRUPT_STATISTIC
     gcmkONERROR(gckOS_AtomConstruct(os, &eventObj->interruptCount));
     gcmkONERROR(gckOS_AtomSet(os, eventObj->interruptCount, 0));
@@ -678,6 +689,11 @@ gckEVENT_Destroy(gckEVENT Event)
     if (Event->submitTimer != gcvNULL) {
         gcmkVERIFY_OK(gckOS_StopTimer(Event->os, Event->submitTimer));
         gcmkVERIFY_OK(gckOS_DestroyTimer(Event->os, Event->submitTimer));
+    }
+
+    if (Event->tryIdleTimer != gcvNULL) {
+        gcmkVERIFY_OK(gckOS_StopTimer(Event->os, Event->tryIdleTimer));
+        gcmkVERIFY_OK(gckOS_DestroyTimer(Event->os, Event->tryIdleTimer));
     }
 
     /* Delete the queue mutex. */
@@ -2047,8 +2063,11 @@ gckEVENT_Notify(gckEVENT Event, gctUINT32 IDs, gceEVENT_FAULT *Fault)
         gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_EVENT, "Handled interrupt 0x%x", mask);
     }
 
-    if (IDs == 0)
-        gcmkONERROR(_TryToIdleGPU(Event));
+    if (IDs == 0) {
+        gcmkONERROR(gckOS_StartTimer(Event->kernel->os,
+                                    Event->kernel->eventObj->tryIdleTimer,
+                                    500));
+    }
 
     /* End of event handling. */
     Event->notifyState = -1;
