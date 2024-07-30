@@ -683,7 +683,7 @@
 			interrupt-names = "fanirq";
 			interrupts = <354>;
 			pulses-per-revolution = <1>;
-			pwm-minimun-period = <1000>;
+			pwm-minimum-period = <1000>;
 			pwms = <&d1_pwm0 0 100000>;
 			status = "disabled";
 			label = "d1_fan_control";

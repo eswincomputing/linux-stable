@@ -378,7 +378,7 @@ static int eswin_fan_control_init(struct eswin_fan_control_data *ctl,
 		return -EINVAL;
 
 	/* get pwm minimum period */
-	ret = of_property_read_u32(np, "pwm-minimun-period", &ctl->min_period);
+	ret = of_property_read_u32(np, "pwm-minimum-period", &ctl->min_period);
 	if (ret)
 		return ret;
 
