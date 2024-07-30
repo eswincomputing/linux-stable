@@ -4078,7 +4078,7 @@ static int check_dev_idle(struct hantrovcmd_dev *dev)
 	return idle;
 }
 
-int hantrovcmd_wait_core_idle(u32 core_id)
+int vc8000e_vcmd_wait_core_idle(u32 core_id)
 {
 	struct hantrovcmd_dev *dev = NULL;
     int ret;

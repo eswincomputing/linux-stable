@@ -72,7 +72,7 @@ extern void hantroenc_normal_cleanup(void);
 extern int hantroenc_wait_core_idle(u32 core_id);
 extern int vc8000e_vcmd_init(void);
 extern int vc8000e_vcmd_cleanup(void);
-extern int hantrovcmd_wait_core_idle(u32 core_id);
+extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
 
 static int venc_dev_open(struct device *dev);
 static int venc_dev_close(struct device *dev);
@@ -106,7 +106,7 @@ int venc_wait_core_idle(u32 core_id) {
 	if (0 == vcmd_supported) {
 		return hantroenc_wait_core_idle(core_id);
 	} else {
-		return hantrovcmd_wait_core_idle(core_id);
+		return vc8000e_vcmd_wait_core_idle(core_id);
 	}
 }
 
