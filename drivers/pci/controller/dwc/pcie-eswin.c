@@ -413,7 +413,6 @@ static int eswin_pcie_suspend(struct device *dev)
 	dev_dbg(dev, "%s\n", __func__);
 	if (!pm_runtime_status_suspended(dev)) {
 		win2030_tbu_power(pcie->pci.dev, false);
-		eswin_pcie_power_off(pcie);
 		eswin_pcie_clk_disable(pcie);
 	}
 
@@ -423,14 +422,14 @@ static int eswin_pcie_suspend(struct device *dev)
 static int eswin_pcie_resume(struct device *dev)
 {
 	struct eswin_pcie *pcie = dev_get_drvdata(dev);
-	int err = 0;
 
 	dev_dbg(dev, "%s\n", __func__);
 	if (!pm_runtime_status_suspended(dev)) {
-		err = eswin_pcie_host_init(&pcie->pci.pp);
+		eswin_pcie_clk_enable(pcie);
+		win2030_tbu_power(pcie->pci.dev, true);
 	}
 
-	return err;
+	return 0;
 }
 
 static int eswin_pcie_runtime_suspend(struct device *dev)
