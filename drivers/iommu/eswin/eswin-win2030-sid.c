@@ -754,7 +754,7 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
 		return -EFAULT;
 	#else
-		pr_info("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
+		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
 		nid = 0;
 	#endif
 	}

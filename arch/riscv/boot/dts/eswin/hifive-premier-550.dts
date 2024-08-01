@@ -50,6 +50,10 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+		opensbi_domain_config: domain-config {
+			compatible = "opensbi,domain,config";
+			system-suspend-test;
+		};
 	};
 
 	cpus {
