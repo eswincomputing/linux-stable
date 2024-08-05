@@ -18,10 +18,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "eswin-win2030-platform.dtsi"
-
 #include "eswin-win2030-arch-d2d.dtsi"
-
 
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <dt-bindings/mailbox/eswin-mailbox.h>
@@ -29,6 +26,7 @@
 #include <dt-bindings/clock/win2030-clock.h>
 #include <dt-bindings/i2c/i2c.h>
 #include <dt-bindings/interconnect/eswin,win2030.h>
+#include <dt-bindings/power/eswin,eic770x-pmu.h>
 
 / {
 #if (CHIPLET_AND_DIE == 0x1)
@@ -302,7 +300,7 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <57>;
 			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
-			clocks = <&d1_clock WIN2030_CLK_HSP_DMA0_CLK>;
+			clocks = <&d1_clock WIN2030_CLK_HSP_DMA0_CLK>,
 					 <&d1_clock WIN2030_CLK_HSP_DMA0_CLK_TEST>;
 			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_DMA0_RSTN>,
@@ -621,7 +619,7 @@
 
 		d1_lpcpu:lpcpu@1 {
 			compatible = "eswin,win2030-lpcpu";
-			fw-region = <&lpcpu1_reserved>;
+			/* fw-region = <&lpcpu1_reserved>; */
 			clocks = <&d1_clock WIN2030_CLK_CLK_LPCPU_CORE>,
 					<&d1_clock WIN2030_CLK_CLK_LPCPU_BUS>;
 			clock-names = "core_clk", "bus_clk";
@@ -739,6 +737,7 @@
 				interrupts = <107>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
+				/*
 				d1_es8316: es8316@10 {
 					compatible = "everest,es8316";
 					reg = <0x10>;
@@ -752,6 +751,7 @@
 						};
 					};
 				};
+				*/
 		};
 		d1_i2c3: i2c@70980000 {
 				compatible = "snps,designware-i2c";
@@ -914,7 +914,7 @@
 			dma-noncoherent;
 		};
 
-		dev_llc_d1: llc@71c00000 {
+		d1_llc_dev: llc@71c00000 {
 			compatible = "eswin,llc";
 			reg = <0x0 0x71c00000 0x0 0x400000>;
 			eswin,syscfg = <&d1_sys_con 0x324>;
@@ -1370,7 +1370,7 @@
 				};
 			};
 		};
-		die1_rtc: rtc@71818000 {
+		d1_rtc: rtc@71818000 {
 			compatible = "eswin,win2030-rtc";
 			reg = <0x0 0x71818000 0x0 0x400>;
 			eswin,syscfg = <&d1_sys_con 0x3c0>;
@@ -1384,7 +1384,7 @@
 			status = "disabled";
 		};
 
-		pcie_die1: pcie@0x74000000 {
+		d0_pcie: pcie@0x74000000 {
 			compatible = "eswin,win2030-pcie";
 			clocks = <&d1_clock WIN2030_CLK_PCIET_ACLK>,
 				 <&d1_clock WIN2030_CLK_PCIET_CFG_CLK>,

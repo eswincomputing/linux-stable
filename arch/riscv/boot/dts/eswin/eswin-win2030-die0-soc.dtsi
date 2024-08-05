@@ -18,11 +18,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#if (!(CHIPLET_AND_DIE & 0x2))
 #include "eswin-win2030-arch.dtsi"
-#else
-#include "eswin-win2030-arch-d2d.dtsi"
-#endif
+
 
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <dt-bindings/mailbox/eswin-mailbox.h>
