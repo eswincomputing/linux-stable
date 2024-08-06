@@ -1168,6 +1168,7 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
     gcmkONERROR(gckOS_MemoryBarrier(Hardware->os, gcvNULL));
 
     if (Hardware->type == gcvHARDWARE_2D) {
+        gcmkONERROR(gckOS_Signal(Hardware->os, Hardware->feIdleSignal, gcvFALSE));
         gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
                                           0x00658, control));
     } else {
