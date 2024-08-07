@@ -477,6 +477,7 @@ void eswin_bootspi_wp_cfg(struct es_spi_priv *priv, int enable)
 	struct device *dev = priv->dev;
 
 	dev_info(dev, "Boot spi flash write protection %s\n", enable ? "enabled" : "disabled");
+	pm_runtime_get_sync(dev);
 	if (enable) {
 		eswin_bootspi_flash_write_protection_cfg(priv, enable);
 		gpiod_set_value(priv->wp_gpio, enable); //gpio output low, enable protection
@@ -484,6 +485,7 @@ void eswin_bootspi_wp_cfg(struct es_spi_priv *priv, int enable)
 		gpiod_set_value(priv->wp_gpio, enable); //gpio output high, disable protection
 		eswin_bootspi_flash_write_protection_cfg(priv, enable);
 	}
+	pm_runtime_put_sync(dev);
 }
 
 static ssize_t wp_enable_show(struct device *dev,
