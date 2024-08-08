@@ -47,13 +47,6 @@
 				exit-latency-us = <40>;
 				min-residency-us = <80>;
 			};
-			CPU_NONRET: cpu-nonretentive {
-				compatible = "riscv,idle-state";
-				riscv,sbi-suspend-param = <0x80000000>;
-				entry-latency-us = <250>;
-				exit-latency-us = <500>;
-				min-residency-us = <950>;
-			};
 		};
 		L17: cpu@0 {
 			clock-frequency = <0>;
@@ -91,7 +84,7 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
-			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
+			cpu-idle-states = <&CPU_RET>;
 			L14: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -134,7 +127,7 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
-			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
+			cpu-idle-states = <&CPU_RET>;
 			L19: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -177,7 +170,7 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
-			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
+			cpu-idle-states = <&CPU_RET>;
 			L24: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -220,7 +213,7 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
-			cpu-idle-states = <&CPU_RET &CPU_NONRET>;
+			cpu-idle-states = <&CPU_RET>;
 			L29: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
