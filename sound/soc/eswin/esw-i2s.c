@@ -287,65 +287,8 @@ static void i2s_stop(struct i2s_dev *i2s_drvdata,
 	}
 }
 
-#define	COMP1_MAX_WORDSIZE	5
-static const u32 i2s_formats[COMP1_MAX_WORDSIZE] = {
-	SNDRV_PCM_FMTBIT_S16_LE,
-	SNDRV_PCM_FMTBIT_S16_LE,
-	SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE,
-	SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE,
-	SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE
-};
-
-static int i2s_configure_dai(struct i2s_dev *i2s_drvdata,
-				   struct snd_soc_dai_driver *i2s_dai,
-				   unsigned int rates)
-{
-	u32 idx;
-	u32 fifo_depth;
-	u32 comp1, comp2;
-
-	comp1 = i2s_read_reg(i2s_drvdata->i2s_base, i2s_drvdata->i2s_reg_comp1);
-	comp2 = i2s_read_reg(i2s_drvdata->i2s_base, i2s_drvdata->i2s_reg_comp2);
-	fifo_depth = 1 << (1 + COMP1_FIFO_DEPTH_GLOBAL(comp1));
-
-	if (COMP1_TX_ENABLED(comp1)) {
-		dev_dbg(i2s_drvdata->dev, " i2s: play supported\n");
-		idx = COMP1_TX_WORDSIZE_0(comp1);
-		if (WARN_ON(idx >= ARRAY_SIZE(i2s_formats)))
-			return -EINVAL;
-		i2s_dai->playback.formats = i2s_formats[idx];
-		i2s_dai->playback.channels_min = MIN_CHANNEL_NUM;
-	    i2s_dai->playback.channels_max =
-				 (COMP1_TX_CHANNELS(comp1) + 1) << 1;
-		i2s_dai->playback.rates = rates;
-	}
-
-	if (COMP1_RX_ENABLED(comp1)){
-		dev_dbg(i2s_drvdata->dev, "i2s: record supported\n");
-		idx = COMP2_RX_WORDSIZE_0(comp2);
-		if (WARN_ON(idx >= ARRAY_SIZE(i2s_formats)))
-			return -EINVAL;
-		i2s_dai->capture.formats = i2s_formats[idx];
-		i2s_dai->capture.channels_min = MIN_CHANNEL_NUM;
-		i2s_dai->capture.channels_max =
-				 (COMP1_RX_CHANNELS(comp1) + 1) << 1;
-		i2s_dai->capture.rates = rates;
-	}
-
-	if (COMP1_MODE_EN(comp1)) {
-		dev_dbg(i2s_drvdata->dev, "eswin: i2s master mode supported\n");
-		i2s_drvdata->capability |= DW_I2S_MASTER;
-	} else {
-		dev_dbg(i2s_drvdata->dev, "eswin: i2s slave mode supported\n");
-		i2s_drvdata->capability |= DW_I2S_SLAVE;
-	}
-	i2s_drvdata->fifo_th = fifo_depth / 2;
-	return 0;
-}
-
-static int i2s_configure_dai_by_dt(struct i2s_dev *dev,
-				   struct snd_soc_dai_driver *i2s_dai,
-				   struct resource *res)
+static int i2s_configure_res_by_dt(struct i2s_dev *dev,
+								   struct resource *res)
 {
 	struct snd_soc_component *component;
 	struct dmaengine_pcm *pcm;
@@ -354,7 +297,6 @@ static int i2s_configure_dai_by_dt(struct i2s_dev *dev,
 	u32 fifo_depth;
 	u32 idx;
 	u32 idx2;
-	int ret;
 
 	dev_info(dev->dev, "comp1:0x%x, comp2:0x%x\n", comp1, comp2);
 	fifo_depth = 1 << (1 + COMP1_FIFO_DEPTH_GLOBAL(comp1));
@@ -364,11 +306,16 @@ static int i2s_configure_dai_by_dt(struct i2s_dev *dev,
 		dev_err(dev->dev, "idx:%d inval\n", idx);
 		return -EINVAL;
 	}
-	ret = i2s_configure_dai(dev, i2s_dai, SNDRV_PCM_RATE_8000_192000);
-	if (ret < 0) {
-		dev_err(dev->dev, "i2s_configure_dai failed: %d\n", ret);
-		return ret;
+
+	if (COMP1_MODE_EN(comp1)) {
+		dev_dbg(dev->dev, "eswin: i2s master mode supported\n");
+		dev->capability |= DW_I2S_MASTER;
+	} else {
+		dev_dbg(dev->dev, "eswin: i2s slave mode supported\n");
+		dev->capability |= DW_I2S_SLAVE;
 	}
+	dev->fifo_th = fifo_depth / 2;
+
 	component = snd_soc_lookup_component(dev->dev, SND_DMAENGINE_PCM_DRV_NAME);
 	if (!component) {
 		dev_err(dev->dev, "Can not find snd_soc_component\n");
@@ -593,6 +540,7 @@ static const struct snd_soc_dai_ops i2s_dai_ops = {
 	.set_fmt	= i2s_set_fmt,
 };
 
+#ifdef CONFIG_PM
 static int i2s_runtime_suspend(struct device *dev)
 {
 	struct i2s_dev *i2s_drvdata = dev_get_drvdata(dev);
@@ -646,6 +594,10 @@ static int i2s_resume(struct snd_soc_component *component)
 
 	return 0;
 }
+#else
+#define i2s_suspend NULL
+#define i2s_resume NULL
+#endif
 
 static int i2s_reset(struct platform_device *pdev, struct i2s_dev *i2s)
 {
@@ -812,8 +764,8 @@ static int i2s_probe(struct platform_device *pdev)
 	}
 	i2s_drvdata->dev = &pdev->dev;
 
-	clk_id = "mclk";
 	if (of_node_name_prefix(pdev->dev.of_node, "i2s0")) {
+		clk_id = "mclk";
 		g_mclk = devm_clk_get(&pdev->dev, clk_id);
 		if (IS_ERR(g_mclk))
 			return PTR_ERR(g_mclk);
@@ -877,9 +829,9 @@ static int i2s_probe(struct platform_device *pdev)
 
 	i2s_drvdata->i2s_reg_comp1 = I2S_COMP_PARAM_1;
 	i2s_drvdata->i2s_reg_comp2 = I2S_COMP_PARAM_2;
-	ret = i2s_configure_dai_by_dt(i2s_drvdata, &i2s_dai[0], res);
+	ret = i2s_configure_res_by_dt(i2s_drvdata, res);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "i2s_configure_dai_by_dt failed\n");
+		dev_err(&pdev->dev, "i2s_configure_res_by_dt failed\n");
 		goto err_probe;
 	}
 
@@ -887,8 +839,9 @@ static int i2s_probe(struct platform_device *pdev)
 
 	audio_proc_module_init();
 
+#ifdef CONFIG_PM
 	clk_disable(i2s_drvdata->clk);
-
+#endif
 	return 0;
 err_probe:
 	clk_disable_unprepare(i2s_drvdata->clk);
