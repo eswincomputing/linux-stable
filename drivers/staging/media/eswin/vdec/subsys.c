@@ -56,6 +56,8 @@
 
 #include "subsys.h"
 #include "dts_parser.h"
+#include <linux/pm_runtime.h>
+#include <linux/platform_device.h>
 
 #define LOG_TAG DEC_DEV_NAME ":subs"
 #include "vc_drv_log.h"
@@ -209,4 +211,44 @@ void CheckSubsysCoreArray(struct subsys_config *subsys, int *vcmd)
 		LOG_INFO("[%d] multicorebase 0x%08lx, iosize %d\n",
 				i, multicorebase[i], iosize[i]);
 	}
+}
+
+struct platform_device *vdec_get_platform_device(u32 core_id)
+{
+	struct platform_device *pdev = NULL;
+	u32 core_num = 4;
+	u8 numa_id;
+
+	if (core_id >= core_num) {
+		LOG_ERR("invalid core_id = %u, core_num = %u\n", core_id, core_num);
+		return NULL;
+	}
+	numa_id = numa_id_array[core_id];
+
+	if (0 == numa_id)
+		pdev = platformdev;
+	else if (1 == numa_id)
+		pdev = platformdev_d1;
+
+	return pdev;
+}
+
+int vdec_pm_runtime_sync(u32 core_id) {
+	struct platform_device *pdev = vdec_get_platform_device(core_id);
+
+	if (!pdev) {
+		LOG_ERR("get platform device failed for pm sync, core_id = %u\n", core_id);
+	}
+
+	return pm_runtime_get_sync(&pdev->dev);
+}
+
+int vdec_pm_runtime_put(u32 core_id) {
+	struct platform_device *pdev = vdec_get_platform_device(core_id);
+
+	if (!pdev) {
+		LOG_ERR("get platform device failed for pm put, numa_id = %u\n", core_id);
+	}
+
+	return pm_runtime_put(&pdev->dev);
 }

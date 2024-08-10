@@ -8,6 +8,7 @@
 int vdec_device_nodes_check(void);
 extern struct SubsysDesc subsys_array[VDEC_MAX_SUBSYS];
 extern struct CoreDesc core_array[VDEC_MAX_CORE];
-extern int vdec_trans_device_nodes(struct platform_device *pdev);
+extern u8 numa_id_array[4];
+extern int vdec_trans_device_nodes(struct platform_device *pdev, u8 numa_id);
 
 #endif /* __DTS_PARSER_H__ */

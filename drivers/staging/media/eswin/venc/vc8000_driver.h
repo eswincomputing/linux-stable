@@ -71,6 +71,9 @@
 #include "vc8000_axife.h"
 #endif
 
+#define ENC_DEV_IDLEWAIT_TIME       (msecs_to_jiffies(10000))
+
+#define ENC_CORE_NUM                (4)
 
 #undef ptr_t
 #define ptr_t PTR_T_KERNEL
@@ -81,16 +84,18 @@ struct dmabuf_cfg {
 	int dmabuf_fd;
 	unsigned long iova;
 };
+#endif
 
 #ifdef __KERNEL__
-struct dmabuf_priv {
+struct filp_priv {
+#ifdef SUPPORT_DMA_HEAP
 	struct heap_root root;
 	struct heap_root root_d1;
+#endif
 	void *dev;
+	atomic_t core_tasks[ENC_CORE_NUM];  /** for task count of 4 cores*/
 };
 #endif
-#endif
-
 
 #define ENC_HW_ID1                  0x48320100
 #define ENC_HW_ID2                  0x80006000

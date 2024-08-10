@@ -828,6 +828,8 @@ struct _gckEVENT {
 
     gctPOINTER                  submitTimer;
 
+    gctPOINTER                  tryIdleTimer;
+
 #if gcdINTERRUPT_STATISTIC
     gctPOINTER                  interruptCount;
 #endif

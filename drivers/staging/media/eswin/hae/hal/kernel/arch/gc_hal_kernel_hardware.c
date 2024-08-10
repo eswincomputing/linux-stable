@@ -2033,6 +2033,8 @@ gckHARDWARE_Construct(gckOS Os, gckKERNEL Kernel, gckHARDWARE *Hardware)
     /* Check if big endian */
     hardware->bigEndian = (*(gctUINT8 *)&data == 0xff);
 
+    gcmkONERROR(gckOS_CreateSignal(Os, gcvTRUE, &hardware->feIdleSignal));
+
     /* Initialize the fast clear. */
     gcmkONERROR(gckHARDWARE_SetFastClear(hardware, -1, -1));
 
@@ -2319,6 +2321,8 @@ gckHARDWARE_Destroy(gckHARDWARE Hardware)
 
     /* Mark the object as unknown. */
     Hardware->object.type = gcvOBJ_UNKNOWN;
+
+    gcmkONERROR(gckOS_DestroySignal(Hardware->os, Hardware->feIdleSignal));
 
     /* Free the object. */
     gcmkONERROR(gcmkOS_SAFE_FREE(Hardware->os, Hardware));
@@ -3473,7 +3477,7 @@ gckHARDWARE_Fence(gckHARDWARE Hardware, gceENGINE Engine, gctPOINTER Logical,
 gceSTATUS
 gckHARDWARE_UpdateQueueTail(gckHARDWARE Hardware, gctPOINTER Logical, gctUINT32 Offset)
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
 
     gcmkHEADER_ARG("Hardware=%p Logical=%p Offset=0x%08x",
                    Hardware, Logical, Offset);
@@ -9659,6 +9663,7 @@ gckHARDWARE_ExecuteFunctions(gcsFUNCTION_EXECUTION_PTR Execution)
         } else {
             gcmkONERROR(gckWLFE_Execute(hardware, address,
                                         Execution->funcCmd[i].bytes));
+            gcmkONERROR(gckOS_WaitSignal(hardware->os, hardware->feIdleSignal, gcvFALSE, gcdGPU_2D_TIMEOUT));
         }
 
 #if gcdLINK_QUEUE_SIZE
@@ -11047,7 +11052,7 @@ gckHARDWARE_CancelJob(gckHARDWARE Hardware)
     }
 
     for (i = 0; i < 32; i++) {
-        if (mask & (1 << i))
+        if (mask & (1U << i))
             count++;
     }
 

@@ -301,7 +301,20 @@ static int dwc_clks_config(void *priv, bool enabled)
 			dev_err(dwc_priv->dev, "failed to enable tx clock: %d\n", ret);
 			return ret;
 		}
+
+		ret = win2030_tbu_power(dwc_priv->dev, true);
+		if (ret) {
+			dev_err(dwc_priv->dev, "failed to power up tbu\n");
+			return ret;
+		}
 	} else {
+
+		ret = win2030_tbu_power(dwc_priv->dev, false);
+		if (ret) {
+			dev_err(dwc_priv->dev, "failed to power down tbu\n");
+			return ret;
+		}
+
 		clk_disable_unprepare(dwc_priv->clk_tx);
 		clk_disable_unprepare(dwc_priv->clk_csr);
 		clk_disable_unprepare(dwc_priv->clk_app);

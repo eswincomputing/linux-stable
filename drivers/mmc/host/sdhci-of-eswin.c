@@ -271,7 +271,7 @@ static int eswin_sdhci_delay_tuning(struct sdhci_host *host, u32 opcode)
 	}
 
 	delay = (delay_min + delay_max) / 2;
-	pr_info("%s: set delay:0x%x\n", mmc_hostname(host->mmc), delay);
+	pr_debug("%s: set delay:0x%x\n", mmc_hostname(host->mmc), delay);
 	eswin_sdhci_disable_card_clk(host);
 	eswin_sdhci_config_phy_delay(host, delay);
 	eswin_sdhci_enable_card_clk(host);
@@ -318,7 +318,7 @@ static int eswin_sdhci_phase_code_tuning(struct sdhci_host *host, u32 opcode)
 	}
 
 	phase_code = (code_min + code_max) / 2;
-	pr_info("%s: set phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
+	pr_debug("%s: set phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
 
 	eswin_sdhci_disable_card_clk(host);
 	sdhci_writew(host, phase_code, VENDOR_AT_SATA_R);
@@ -476,9 +476,15 @@ static int eswin_sdhci_suspend(struct device *dev)
 	struct eswin_sdhci_data *eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
-	ret = sdhci_pltfm_suspend(dev);
+	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
+		mmc_retune_needed(host->mmc);
+
+	ret = sdhci_suspend_host(host);
 	if (ret)
 		return ret;
+
+	win2030_tbu_power(dev, false);
+	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(eswin_sdhci->clk_ahb);
 
 	return 0;
@@ -504,60 +510,14 @@ static int eswin_sdhci_resume(struct device *dev)
 		dev_err(dev, "can't enable clk_ahb\n");
 		return ret;
 	}
-
-	ret = sdhci_pltfm_resume(dev);
-	if (ret) {
-		dev_err(dev, "pltfm resume failed!\n");
-		goto clk_disable;
-	}
-
-	return 0;
-clk_disable:
-	clk_disable_unprepare(eswin_sdhci->clk_ahb);
-
-	return ret;
-}
-
-static int eswin_sdhci_runtime_suspend(struct device *dev)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct eswin_sdhci_data *eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
-	int ret;
-
-	ret = sdhci_runtime_suspend_host(host);
-	if (ret)
-		return ret;
-
-	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
-		mmc_retune_needed(host->mmc);
-
-	clk_disable_unprepare(pltfm_host->clk);
-	clk_disable_unprepare(eswin_sdhci->clk_ahb);
-
-	return 0;
-}
-
-static int eswin_sdhci_runtime_resume(struct device *dev)
-{
-	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct eswin_sdhci_data *eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
-	int ret;
-
-	ret = clk_prepare_enable(eswin_sdhci->clk_ahb);
-	if (ret) {
-		dev_err(dev, "can't enable clk_ahb\n");
-		return ret;
-	}
-
 	ret = clk_prepare_enable(pltfm_host->clk);
 	if (ret) {
 		dev_err(dev, "can't enable mainck\n");
 		goto clk_ahb_disable;
 	}
+	win2030_tbu_power(dev, true);
 
-	ret = sdhci_runtime_resume_host(host, 0);
+	ret = sdhci_resume_host(host);
 	if (ret) {
 		dev_err(dev, "runtime resume failed!\n");
 		goto clk_disable;
@@ -1110,8 +1070,6 @@ static void eswin_sdhci_shutdown(struct platform_device *pdev)
 
 static const struct dev_pm_ops eswin_sdhci_pmops = {
 	SET_SYSTEM_SLEEP_PM_OPS(eswin_sdhci_suspend, eswin_sdhci_resume)
-	SET_RUNTIME_PM_OPS(eswin_sdhci_runtime_suspend,
-			   eswin_sdhci_runtime_resume, NULL)
 };
 
 static struct platform_driver eswin_sdhci_driver =

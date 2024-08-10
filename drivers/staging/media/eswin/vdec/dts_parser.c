@@ -11,6 +11,7 @@
 
 struct SubsysDesc subsys_array[VDEC_MAX_SUBSYS] = {0};
 struct CoreDesc core_array[VDEC_MAX_CORE] = {0};
+u8 numa_id_array[4] = {0};
 
 static int vdec_device_node_scan(unsigned char *compatible)
 {
@@ -60,7 +61,7 @@ int vdec_device_nodes_check(void)
 		index++; \
 	} while (0)
 
-int vdec_trans_device_nodes(struct platform_device *pdev)
+int vdec_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 {
 	extern unsigned int vcmd;
 	int jpeg = 0;
@@ -125,6 +126,7 @@ int vdec_trans_device_nodes(struct platform_device *pdev)
 		if (jpeg && vcmd)
 			hw_type = HW_VC8000DJ;
 
+		numa_id_array[subsys_id] = numa_id;
 		VDEC_CORE_ARRAY_ASSIGN(core_index, subsys_id, hw_type, (base_addr + vdec_addr[0]), vdec_addr[1], child_irq);
 		subsys_id++;
 	}

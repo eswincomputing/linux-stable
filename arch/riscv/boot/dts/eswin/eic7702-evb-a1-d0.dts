@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device Tree file for Eswin EIC7700 SoC.
+ * Device Tree file for Eswin EIC7702 SoC only active die0.
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  * SPDX-License-Identifier: GPL-2.0
@@ -48,15 +48,10 @@
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
 		rtc0 = &die0_rtc;
-		rtc1 = &pcf_rtc;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
-		opensbi_domain_config: domain-config {
-			compatible = "opensbi,domain,config";
-			system-suspend-test;
-		};
 	};
 
 	cpus {
@@ -113,48 +108,6 @@
 			compatible = "eswin-reserve-memory";
 			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
-		};
-	};
-
-	leds {
-		compatible = "gpio-leds";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio107_default &pinctrl_gpio108_default &pinctrl_gpio109_default>;
-
-		gpio-107 {
-			gpios = <&portd 11 GPIO_ACTIVE_HIGH>;
-			label = "power";
-			linux,default-trigger = "default-on";
-		};
-
-		gpio-108 {
-			gpios = <&portd 12 GPIO_ACTIVE_LOW>;
-			label = "heartbeat";
-			linux,default-trigger = "heartbeat";
-		};
-
-		gpio-109 {
-			gpios = <&portd 13 GPIO_ACTIVE_HIGH>;
-			label = "gpio-109";
-			linux,default-trigger = "default-off";
-		};
-
-		gpio-110 {
-			gpios = <&portd 14 GPIO_ACTIVE_HIGH>;
-			label = "gpio-109";
-			linux,default-trigger = "default-off";
-		};
-	};
-
-	gpio-keys {
-		compatible = "gpio-keys";
-
-		ok_key {
-			label = "OK";
-			linux,code = <KEY_OK>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio6_default>;
-			gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
@@ -340,9 +293,9 @@
 &dsi_panel {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio5_default &pinctrl_gpio111_default>;
-	backlight0-gpios = <&porta 5 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&portd 15 GPIO_ACTIVE_HIGH>;
+	pinctrl-0 = <&pinctrl_gpio27_default &pinctrl_gpio106_default>;
+	backlight0-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
+	rst-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
 };
 
 &dw_hdmi {
@@ -449,8 +402,6 @@
 	drive-impedance-ohm = <50>;
 	enable-cmd-pullup;
 	enable-data-pullup;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
 	no-sdio;
 	no-sd;
 };
@@ -467,22 +418,14 @@
 };
 
 &sdio1 {
-	/* wifi module */
-	status = "okay";
-	delay_code = <0x29>;
-	drive-impedance-ohm = <33>;
-	enable-cmd-pullup;
-	enable-data-pullup;
-	keep-power-in-suspend;
-	non-removable;
-	no-sd;
-	no-mmc;
+	/* unused */
+	status = "disabled";
 };
 
 &d0_gmac0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio94_default>;
-	rst-gpios = <&portc 30 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&pinctrl_gpio15_default>;
+	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 
@@ -491,8 +434,8 @@
 
 &d0_gmac1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio16_default>;
-	rst-gpios = <&porta 16 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&pinctrl_gpio14_default>;
+	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 
@@ -501,8 +444,6 @@
 
 &d0_sata {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sata_act_led_default>;
 };
 
 &d0_usbdrd3_0 {
@@ -539,12 +480,12 @@
 };
 
 &d0_uart1 {
-	/* BT M.2 KEY-E */
+	/* RS232 DB9 */
 	status = "okay";
 };
 
 &d0_uart2 {
-	/* RS232 DB9 */
+	/* pin header */
 	status = "okay";
 };
 
@@ -583,29 +524,8 @@
 };
 
 &ssi1 {
-	/* spi flash */
+	/* unused */
 	status = "disabled";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_spi2_default>;
-	num-cs = <2>;
-	spi-flash@0 {
-		compatible = "winbond,w25q128fw",
-					"jedec,spi-nor";
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <4800000>;
-		rx-sample-delay-ns = <10>;
-	};
-	spi-flash@1 {
-		compatible = "winbond,w25q128fw",
-					"jedec,spi-nor";
-		reg = <1>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <4800000>;
-		rx-sample-delay-ns = <10>;
-	};
 };
 
 &bootspi {
@@ -727,21 +647,6 @@
 };
 
 &d0_i2c5 {
-	/* mipi csi4/csi5 */
-	status = "disabled";
-};
-
-&d0_i2c6 {
-	/* unused */
-	status = "disabled";
-};
-
-&d0_i2c7 {
-	/* unused */
-	status = "disabled";
-};
-
-&d0_i2c8 {
 	/* io extended for mipi csi */
 	status = "okay";
 	tca6416_0: gpio@20 {
@@ -767,23 +672,28 @@
 	};
 };
 
+&d0_i2c6 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_i2c7 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_i2c8 {
+	/* unused */
+	status = "disabled";
+};
+
 &d0_i2c9 {
 	/* unused */
 	status = "disabled";
 };
 
 &d0_aon_i2c0 {
-	/* temp sensor & rtc */
-	status = "okay";
-	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
-	pcf_rtc:rtc@51 {
-		compatible = "nxp,pcf8563";
-		reg = <0x51>;
-	};
-};
-
-&d0_aon_i2c1 {
-	/* ina226x4 */
+	/* ina226x4 & tmp102aidrlr */
 	status = "okay";
 	i2c-sda-hold-time-ns = <0x40>;
 	ina226@45 {
@@ -794,26 +704,31 @@
 		shunt-resistor = <1000>;
 	};
 	ina226@44 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "soc_vdd";
-			reg = <0x44>;
-			shunt-resistor = <1000>;
-		};
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "soc_vdd";
+		reg = <0x44>;
+		shunt-resistor = <1000>;
+	};
 	ina226@41 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "lpddr_vdd";
-			reg = <0x41>;
-			shunt-resistor = <1000>;
-		};
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "lpddr_vdd";
+		reg = <0x41>;
+		shunt-resistor = <1000>;
+	};
 	ina226@48 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "dc_vdd";
-			reg = <0x48>;
-			shunt-resistor = <1000>;
-		};
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "dc_vdd";
+		reg = <0x48>;
+		shunt-resistor = <1000>;
+	};
+};
+
+&d0_aon_i2c1 {
+	/* serdes clk buffer rc22514a */
+	status = "okay";
 };
 
 &pwm0 {
@@ -872,23 +787,21 @@
 /* GPIO Function Description
 
 	gpio0   : pcie prstn(I)
-	gpio5   : led back light power on/off(O)
-	gpio6   : system key(I)
-	gpio10  : dsi touch interrupt(I)
-	gpio11  : head phone plug/unplug detection2(I)
-	gpio12  : tf card power on/off(O)
-	gpio14  : bt wake host(I)
-	gpio15  : wlan wake host(I)
-	gpio16  : gphy1 resetn(O)
+	gpio11  : tmp alert(I)
+	gpio13  : tf card detect(I)
+	gpio14  : gphy1 resetn(O)
+	gpio15  : gphy0 resetn(O)
+	gpio18  : ina226 alert(I)
+	gpio20  : lcd touch int(I)
+	gpio21  : head phone plug/unplug detection2(I)
+	gpio27  : black light pwr_en(O)
 	gpio28  : head phone plug/unplug detection1(I)
-	gpio34  : m.2 power on/off(O)
-	gpio94  : gphy0 resetn(O)
-	gpio106 : touch reset(O)
-	gpio107 : system led0(O)
-	gpio108 : system led1(O)
-	gpio109 : system led2(O)
-	gpio110 : system led3(O)
-	gpio111 : mipi dsi resetn(O)
+	gpio68  : fan pwm(O)
+	gpio69  : fan touch(I)
+	gpio92  : frex gp0(O)
+	gpio93  : frex gp1(O)
+	gpio106 : mipi dsi resetn(O)
+	gpio111 : lcd touch resetn(O)
 */
 
 &gpio0 {
@@ -897,3 +810,4 @@
 &dev_llc_d0{
 	apply_npu_high_freq;
 };
+

@@ -304,4 +304,11 @@ config ESWIN_MBOX
 	  to send message between application processors and MCU. Say Y here if
 	  you want to build the eswin mailbox controller driver.
 
+config ESWIN_LPCPU
+	tristate "Eswin LPCPU"
+	depends on ESWIN_MBOX
+	help
+	  Lpcpu driver implementation for the eswin platform. Say Y here if
+	  you want to build the eswin lpcpu driver.
+
 endif

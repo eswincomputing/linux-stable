@@ -1211,7 +1211,7 @@
 
 		d0_lpcpu:lpcpu@0 {
 			compatible = "eswin,win2030-lpcpu";
-			fw-region = <&lpcpu0_reserved>;
+			/* fw-region = <&lpcpu0_reserved>; */
 			clocks = <&d0_clock WIN2030_CLK_CLK_LPCPU_CORE>,
 					<&d0_clock WIN2030_CLK_CLK_LPCPU_BUS>;
 			clock-names = "core_clk", "bus_clk";

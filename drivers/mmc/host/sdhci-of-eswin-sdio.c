@@ -356,9 +356,17 @@ static int eswin_sdhci_sdio_suspend(struct device *dev)
 		sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
-	ret = sdhci_pltfm_suspend(dev);
+	pm_runtime_get_sync(dev);
+
+	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
+		mmc_retune_needed(host->mmc);
+
+	ret = sdhci_suspend_host(host);
 	if (ret)
 		return ret;
+
+	win2030_tbu_power(dev, false);
+	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 
 	return 0;
@@ -380,20 +388,29 @@ static int eswin_sdhci_sdio_resume(struct device *dev)
 		sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
+	pm_runtime_put_sync(dev);
 	ret = clk_prepare_enable(eswin_sdhci_sdio->clk_ahb);
 	if (ret) {
-		dev_err(dev, "can't enable clk_ahb\n");
+		dev_err(dev, "can't enable clk_ahb.\n");
 		return ret;
 	}
-
-	ret = sdhci_pltfm_resume(dev);
+	ret = clk_prepare_enable(pltfm_host->clk);
 	if (ret) {
-		dev_err(dev, "pltfm resume failed!\n");
+		dev_err(dev, "can't enable mainck.\n");
+		goto clk_ahb_disable;
+	}
+	win2030_tbu_power(dev, true);
+
+	ret = sdhci_resume_host(host);
+	if (ret) {
+		dev_err(dev, "runtime resume failed!\n");
 		goto clk_disable;
 	}
 
 	return 0;
 clk_disable:
+	clk_disable_unprepare(pltfm_host->clk);
+clk_ahb_disable:
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 
 	return ret;
@@ -413,6 +430,7 @@ static int eswin_sdhci_sdio_runtime_suspend(struct device *dev)
 	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
 		mmc_retune_needed(host->mmc);
 
+	win2030_tbu_power(dev, false);
 	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 
@@ -437,6 +455,7 @@ static int eswin_sdhci_sdio_runtime_resume(struct device *dev)
 		dev_err(dev, "can't enable mainck\n");
 		goto clk_ahb_disable;
 	}
+	win2030_tbu_power(dev, true);
 
 	ret = sdhci_runtime_resume_host(host, 0);
 	if (ret) {

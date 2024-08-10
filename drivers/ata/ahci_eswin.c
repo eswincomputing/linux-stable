@@ -160,7 +160,7 @@ static int __init eswin_reset(struct device *dev)
     struct reset_control *pmalive_rst;
     struct reset_control *rbc_rst;
     struct reset_control *apb_rst;
-    int rc;
+    int ret;
     asic0_rst = devm_reset_control_get_shared(dev, "asic0");
     if (IS_ERR_OR_NULL(asic0_rst)) {
         dev_err(dev, "Failed to asic0_rst handle\n");
@@ -186,28 +186,26 @@ static int __init eswin_reset(struct device *dev)
         dev_err(dev, "Failed to apb_rst handle\n");
         return -EFAULT;
     }
-    printk("eswin sata before reset control deasser\n");
     if (asic0_rst) {
-        rc = reset_control_deassert(asic0_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_deassert(asic0_rst);
+        WARN_ON(0 != ret);
     }
     if (oob_rst) {
-        rc = reset_control_deassert(oob_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_deassert(oob_rst);
+        WARN_ON(0 != ret);
     }
     if (pmalive_rst) {
-        rc = reset_control_deassert(pmalive_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_deassert(pmalive_rst);
+        WARN_ON(0 != ret);
     }
     if (rbc_rst) {
-        rc = reset_control_deassert(rbc_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_deassert(rbc_rst);
+        WARN_ON(0 != ret);
     }
     if (apb_rst) {
-        rc = reset_control_deassert(apb_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_deassert(apb_rst);
+        WARN_ON(0 != ret);
     }
-    printk("eswin sata after reset control deasser\n");
     return 0;
 }
 
@@ -218,7 +216,7 @@ static int eswin_unreset(struct device *dev)
     struct reset_control *oob_rst;
     struct reset_control *pmalive_rst;
     struct reset_control *rbc_rst;
-    int rc;
+    int ret;
 
     asic0_rst = devm_reset_control_get_shared(dev, "asic0");
     if (IS_ERR_OR_NULL(asic0_rst)) {
@@ -241,20 +239,20 @@ static int eswin_unreset(struct device *dev)
         return -EFAULT;
     }
     if (asic0_rst) {
-        rc = reset_control_assert(asic0_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_assert(asic0_rst);
+        WARN_ON(0 != ret);
     }
     if (oob_rst) {
-        rc = reset_control_assert(oob_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_assert(oob_rst);
+        WARN_ON(0 != ret);
     }
     if (pmalive_rst) {
-        rc = reset_control_assert(pmalive_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_assert(pmalive_rst);
+        WARN_ON(0 != ret);
     }
     if (rbc_rst) {
-        rc = reset_control_assert(rbc_rst);
-        WARN_ON(0 != rc);
+        ret = reset_control_assert(rbc_rst);
+        WARN_ON(0 != ret);
     }
     return 0;
 }
@@ -262,22 +260,26 @@ static int eswin_unreset(struct device *dev)
 static int ahci_probe(struct platform_device *pdev)
 {
     struct device *dev = &pdev->dev;
-    struct device_node *np = dev->of_node;
     struct ahci_host_priv *hpriv;
     const struct ata_port_info *port;
-    int rc;
+    int ret;
     hpriv = ahci_platform_get_resources(pdev,
                         0);
     if (IS_ERR(hpriv))
         return PTR_ERR(hpriv);
 
-    rc = eswin_reset(dev);
-    if (rc)
-        return rc;
+    ret = eswin_reset(dev);
+    if (ret)
+        return ret;
     eswin_sata_init(dev);
     eswin_sata_sid_cfg(dev);
     win2030_tbu_power(&pdev->dev, true);
-    rc = dma_set_mask_and_coherent(dev,DMA_BIT_MASK(41));
+    ret = dma_set_mask_and_coherent(dev,DMA_BIT_MASK(41));
+    if (ret)
+        return ret;
+    ret = ahci_platform_enable_regulators(hpriv);
+    if (ret)
+        return ret;
     of_property_read_u32(dev->of_node,
                 "ports-implemented", &hpriv->saved_port_map);
 
@@ -288,15 +290,15 @@ static int ahci_probe(struct platform_device *pdev)
     if (!port){
         port = &ahci_port_info;
     }
-    rc = ahci_platform_init_host(pdev, hpriv, port,
+    ret = ahci_platform_init_host(pdev, hpriv, port,
                 &ahci_platform_sht);
-    if (rc)
+    if (ret)
         goto disable_resources;
 
     return 0;
 disable_resources:
     ahci_platform_disable_resources(hpriv);
-    return rc;
+    return ret;
 }
 
 static int ahci_remove(struct platform_device *pdev)
@@ -307,8 +309,34 @@ static int ahci_remove(struct platform_device *pdev)
     return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(ahci_pm_ops, ahci_platform_suspend,
-            ahci_platform_resume);
+static int eswin_ahci_suspend(struct device *dev)
+{
+	int ret;
+
+    win2030_tbu_power(dev, false);
+
+	ret = ahci_platform_suspend(dev);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int eswin_ahci_resume(struct device *dev)
+{
+	int ret;
+
+	ret = ahci_platform_resume(dev);
+	if (ret)
+		return ret;
+
+	win2030_tbu_power(dev, true);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(ahci_pm_ops, eswin_ahci_suspend,
+            eswin_ahci_resume);
 
 static const struct of_device_id ahci_of_match[] = {
     { .compatible = "snps,eswin-ahci", },
