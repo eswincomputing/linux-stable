@@ -277,14 +277,18 @@ static struct eswin_mux_clock win2030_mux_clks[] = {
 
 };
 
-/*The hardware decides vaule 0, 1 and 2 both means 2 divsor, so we have to add these ugly tables*/
-static struct clk_div_table u_3_bit_special_div_table[8];
-static struct clk_div_table u_4_bit_special_div_table[16];
-static struct clk_div_table u_6_bit_special_div_table[64];
-static struct clk_div_table u_7_bit_special_div_table[128];
-static struct clk_div_table u_8_bit_special_div_table[256];
-static struct clk_div_table u_11_bit_special_div_table[2048];
-static struct clk_div_table u_16_bit_special_div_table[65536];
+/*
+ The hardware decides vaule 0, 1 and 2 both means 2 divsor, so we have to add these ugly tables.
+ When using these tables, the clock framework will use the last member being 0 as a marker to indicate the end of the table,
+ so an additional member is required.
+ */
+static struct clk_div_table u_3_bit_special_div_table[8 + 1];
+static struct clk_div_table u_4_bit_special_div_table[16 + 1];
+static struct clk_div_table u_6_bit_special_div_table[64 + 1];
+static struct clk_div_table u_7_bit_special_div_table[128 + 1];
+static struct clk_div_table u_8_bit_special_div_table[256 + 1];
+static struct clk_div_table u_11_bit_special_div_table[2048 + 1];
+static struct clk_div_table u_16_bit_special_div_table[65536 + 1];
 
 static struct eswin_divider_clock win2030_div_clks[] = {
 	{ WIN2030_DIVDER_U_SYS_CFG_DIV_DYNM, "divder_u_sys_cfg_div_dynm",   "fixed_rate_clk_spll0_fout3", 0,
@@ -1157,10 +1161,12 @@ static void special_div_table_init(struct clk_div_table *table, int table_size)
 		table[i].val = i;
 		table[i].div = 2;
 	}
-	for (i = 3; i < table_size; i++) {
+	for (i = 3; i < table_size -1; i++) {
 		table[i].val = i;
 		table[i].div = i;
 	}
+	table[table_size -1].val = 0;
+	table[table_size -1].div = 0;
 	return;
 }
 

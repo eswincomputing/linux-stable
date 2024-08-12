@@ -54,6 +54,14 @@
 #define ES_SPI_CSR_15			0x3c	/*CHIP_DESELECT_TIME*/
 #define ES_SPI_CSR_16			0x40	/*POWER_DOWN_TIME*/
 
+/* Flash opcodes. */
+#define SPINOR_OP_RDSR3		0x15	/* Read status register 3 */
+#define SPINOR_OP_WRSR3		0x11	/* Write status register 3 */
+#define SPINOR_BLOCK_LOCK		0x36	/* Individual Block/Sector Lock */
+#define SPINOR_BLOCK_UNLOCK		0x39	/* Individual Block/Sector UnLock */
+#define SPINOR_GLOBAL_BLOCK_LOCK		0x7E	/* global Block/Sector UnLock */
+#define SPINOR_GLOBAL_BLOCK_UNLOCK		0x98	/* global Block/Sector UnLock */
+
 #define ES_SYSCSR_SPIMODECFG			0x340
 
 #define ES_CONCSR_SPI_INTSEL			0x3c0
@@ -417,7 +425,7 @@ uint8_t eswin_bootspi_read_flash_status_register(struct es_spi_priv *priv,
 	return 0;
 }
 
-uint8_t eswin_bootspi_write_flash_status_register(struct es_spi_priv *priv,
+static uint8_t eswin_bootspi_write_flash_status_register(struct es_spi_priv *priv,
 		uint8_t register_data, int flash_cmd)
 {
 	u32 command;
@@ -441,7 +449,27 @@ uint8_t eswin_bootspi_write_flash_status_register(struct es_spi_priv *priv,
 	return 0;
 }
 
-int eswin_bootspi_flash_write_protection_cfg(struct es_spi_priv *priv, int enable)
+static void eswin_bootspi_write_flash_global_block_lock_register(
+	struct es_spi_priv *priv, int flash_cmd)
+{
+	u32 command;
+
+	//Flash global block lock register not need data
+	eswin_bootspi_read_write_cfg(priv, 1, 0);
+
+	command = eswin_bootspi_read(priv, ES_SPI_CSR_06);
+	command &= ~((0xFF << 6) | (0x1 << 5) | (0xF << 1) | 0x1);
+	command |= ((flash_cmd << SPI_COMMAND_CODE_FIELD_POSITION) |
+			(SPI_COMMAND_MOVE_VALUE << SPI_COMMAND_MOVE_FIELD_POSITION) |
+			(SPIC_CMD_TYPE_CHIP_ERASE << SPI_COMMAND_TYPE_FIELD_POSITION) | SPI_COMMAND_VALID);
+	eswin_bootspi_write(priv, ES_SPI_CSR_06, command);
+
+	//Wait command finish
+	eswin_bootspi_wait_over(priv);
+	//printf("[%s %d]: command 0x%x\n",__func__,__LINE__, command);
+}
+
+static int eswin_bootspi_flash_global_wp_cfg(struct es_spi_priv *priv, int enable)
 {
 	uint8_t register_data, request_register_data;
 
@@ -449,20 +477,33 @@ int eswin_bootspi_flash_write_protection_cfg(struct es_spi_priv *priv, int enabl
 
 	//Update status register1
 	eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR);
-	/*
-	  SRP SEC TB BP2 BP1 BP0 WEL BUSY
-	 */
-	if (enable) {
-		request_register_data = register_data | ((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7));
-	} else {
-		request_register_data = register_data & (~((1 << 2) | (1 << 3) | (1 << 4) | (1 << 7)));
-	}
-
+	request_register_data = register_data;
+		/*
+			  SRP SEC TB BP2 BP1 BP0 WEL BUSY
+	 	*/
+	request_register_data |= (1 << 5);  //TB 1, bottom
+	request_register_data &= ~(1 << 6);  // SEC 0, 64K
 	if (request_register_data != register_data) {
 		eswin_bootspi_write_flash_status_register(priv, request_register_data, SPINOR_OP_WRSR);
 	}
 
-	//eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR);
+	//Update status register3
+	eswin_bootspi_read_flash_status_register(priv, &register_data, SPINOR_OP_RDSR3);
+	request_register_data = register_data;
+		/*
+			  R DRV1 DRV0 R R WPS R R
+	 	*/
+	request_register_data |= (1 << 2);   //WPS 1, individual block
+	if (request_register_data != register_data) {
+		eswin_bootspi_write_flash_status_register(priv, request_register_data, SPINOR_OP_WRSR3);
+	}
+
+	//Update global lock/unlock register
+	if (enable) {
+		eswin_bootspi_write_flash_global_block_lock_register(priv, SPINOR_GLOBAL_BLOCK_LOCK);
+	} else {
+		eswin_bootspi_write_flash_global_block_lock_register(priv, SPINOR_GLOBAL_BLOCK_UNLOCK);
+	}
 
 	external_cs_manage(priv, true);
 	return 0;
@@ -472,18 +513,18 @@ int eswin_bootspi_flash_write_protection_cfg(struct es_spi_priv *priv, int enabl
 	0: disable write_protection
 	1: enable write_protection
 */
-void eswin_bootspi_wp_cfg(struct es_spi_priv *priv, int enable)
+static void eswin_bootspi_wp_cfg(struct es_spi_priv *priv, int enable)
 {
 	struct device *dev = priv->dev;
 
 	dev_info(dev, "Boot spi flash write protection %s\n", enable ? "enabled" : "disabled");
 	pm_runtime_get_sync(dev);
 	if (enable) {
-		eswin_bootspi_flash_write_protection_cfg(priv, enable);
+		eswin_bootspi_flash_global_wp_cfg(priv, enable);
 		gpiod_set_value(priv->wp_gpio, enable); //gpio output low, enable protection
 	} else {
 		gpiod_set_value(priv->wp_gpio, enable); //gpio output high, disable protection
-		eswin_bootspi_flash_write_protection_cfg(priv, enable);
+		eswin_bootspi_flash_global_wp_cfg(priv, enable);
 	}
 	pm_runtime_put_sync(dev);
 }
@@ -513,6 +554,96 @@ static ssize_t wp_enable_store(struct device *dev,
 }
 
 static DEVICE_ATTR_RW(wp_enable);
+
+#define ALIGNMENT_SIZE 0x10000    // 64KB alignment
+static void eswin_bootspi_write_flash_individual_block_lock_register(
+	struct es_spi_priv *priv, u32 addr, int flash_cmd)
+{
+	u32 command;
+
+	eswin_bootspi_read_write_cfg(priv, 3, addr);
+
+	command = eswin_bootspi_read(priv, ES_SPI_CSR_06);
+	command &= ~((0xFF << 6) | (0x1 << 5) | (0xF << 1) | 0x1);
+	command |= ((flash_cmd << SPI_COMMAND_CODE_FIELD_POSITION) |
+			(SPI_COMMAND_MOVE_VALUE << SPI_COMMAND_MOVE_FIELD_POSITION) |
+			(SPIC_CMD_TYPE_BLOCK_ERASE_TYPE2 << SPI_COMMAND_TYPE_FIELD_POSITION) | SPI_COMMAND_VALID);
+
+	eswin_bootspi_write(priv, ES_SPI_CSR_06, command);
+
+	//Wait command finish
+	eswin_bootspi_wait_over(priv);
+
+	//printk("[%s %d]: command 0x%x, addr 0x%x, flash_cmd 0x%x\n",__func__,__LINE__, command, addr, flash_cmd);
+}
+
+static int eswin_bootspi_region_wp_cfg(struct es_spi_priv *priv, u32 addr, u32 size, int enable)
+{
+	struct device *dev = priv->dev;
+	uint32_t i;
+	int flash_cmd;
+
+	dev_info(dev, "Region write protection %s: addr=0x%x, size=0x%x\n",
+	         enable ? "enabled" : "disabled", addr, size);
+
+	pm_runtime_get_sync(dev);
+
+	flash_cmd = enable ? SPINOR_BLOCK_LOCK : SPINOR_BLOCK_UNLOCK;
+
+	external_cs_manage(priv, false);
+
+	for (i = 0; i < size; i += ALIGNMENT_SIZE) {
+		eswin_bootspi_write_flash_individual_block_lock_register(priv, addr + i, flash_cmd);
+	}
+	external_cs_manage(priv, true);
+
+	pm_runtime_put_sync(dev);
+	return 0;
+}
+
+static ssize_t region_wp_enable_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
+{
+	struct es_spi_priv *priv = dev_get_drvdata(dev);
+	u32 addr, size;
+	unsigned long enable;
+	int ret;
+
+	// Parsing the input buffer
+	ret = sscanf(buf, "%x %x %lu", &addr, &size, &enable);
+	if (ret != 3) {
+		dev_err(dev, "invalid format %s\n", buf);
+		return -EINVAL;
+	}
+
+	// Check if the address is 64KB aligned
+	if ((uintptr_t)addr % ALIGNMENT_SIZE != 0) {
+		dev_err(dev, "addr 0x%x is not aligned to 64KB\n", addr);
+		return -EINVAL;
+	}
+
+	// Check if the size is 64KB aligned
+	if (size % ALIGNMENT_SIZE != 0) {
+		dev_err(dev, "size 0x%x is not aligned to 64KB\n", size);
+		return -EINVAL;
+	}
+
+	// Call the region write protection configuration function
+	eswin_bootspi_region_wp_cfg(priv, addr, size, enable);
+
+	return count;
+}
+
+static ssize_t region_wp_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	// This is a placeholder. You may want to display the status of region protection
+	// For simplicity, we'll return a static message for now.
+	return sprintf(buf, "Use echo <addr> <size> <enable> > region_wp_enable to configure region WP\n");
+}
+
+static DEVICE_ATTR_RW(region_wp_enable);
 
 static int eswin_bootspi_exec_op(struct spi_mem *mem,
 				 const struct spi_mem_op *op)
@@ -596,7 +727,7 @@ static int eswin_bootspi_exec_op(struct spi_mem *mem,
 
 	dev_dbg(dev, "[%s %d]: data direction=%d, opcode = 0x%x, cmd_type 0x%x\n",
 		__func__,__LINE__, op->data.dir, priv->opcode, priv->cmd_type);
-
+/*
 	if (priv->wp_enabled) {
 		switch(priv->opcode) {
 			case SPINOR_OP_BE_4K:
@@ -614,6 +745,7 @@ static int eswin_bootspi_exec_op(struct spi_mem *mem,
 				return -EACCES;
 		}
 	}
+*/
 	external_cs_manage(priv, false);
 
 	if (read) {
@@ -756,6 +888,13 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	// Register the new region_wp_enable attribute
+	ret = device_create_file(&pdev->dev, &dev_attr_region_wp_enable);
+	if (ret) {
+		device_remove_file(&pdev->dev, &dev_attr_wp_enable);
+		return ret;
+	}
+
 	ret = clk_prepare_enable(priv->cfg_clk);
 	if (ret) {
 		dev_err(dev, "could not enable cfg clock: %d\n", ret);
@@ -774,7 +913,6 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 		dev_err(dev, "could not enable clock: %d\n", ret);
 		goto out_clk;
 	}
-
 	pm_runtime_set_autosuspend_delay(dev, 2000);
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_get_noresume(dev);
@@ -784,6 +922,8 @@ static int eswin_bootspi_probe(struct platform_device *pdev)
 	ret = devm_spi_register_controller(dev, master);
 	if (ret)
 		goto out_register_controller;
+
+	eswin_bootspi_wp_cfg(priv, 1);
 
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);

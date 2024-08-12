@@ -38,7 +38,7 @@
 #define MAX_ENUM_SIZE 254
 
 static int win2030_noc_user_flag_dump(char *buf,
-	struct win2030_bitfield *bitfield, unsigned bf_value)
+	struct win2030_bitfield *bitfield, unsigned long bf_value)
 {
 	int i;
 	int count = 1;
