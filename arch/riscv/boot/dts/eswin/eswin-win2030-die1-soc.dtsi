@@ -2047,6 +2047,7 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 			iommus = <&smmu1 WIN2030_SID_DW>;
+			tbus = <WIN2030_TBUID_DW>;
 			eswin,vi_top_csr = <&d1_vi_top_csr 0x1008>;
 			reg = <0x0 0x71020000 0x0 0xc00>, <0x0 0x71020c00 0x0 0x120>;
 			numa-node-id = <1>;
