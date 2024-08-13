@@ -1237,6 +1237,18 @@
 			dma-noncoherent;
 		};
 
+		d1_graphcard0: graphcard4 {
+			compatible = "audio-graph-card";
+		};
+
+		d1_graphcard1: graphcard5 {
+			compatible = "audio-graph-card";
+		};
+
+		d1_graphcard2: graphcard6 {
+			compatible = "audio-graph-card";
+		};
+
 		d1_dsp_subsys:dsp_subsys@72280400 {
 			#address-cells = <2>;
 			#size-cells = <2>;

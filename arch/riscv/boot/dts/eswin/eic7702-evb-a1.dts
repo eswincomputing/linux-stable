@@ -508,7 +508,16 @@
 	};
 };
 &d1_dw_hdmi {
-	status = "disabled";
+	status = "okay";
+	ports {
+		port@2 {
+			reg = <2>;
+			d1_hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d1_i2s0_endpoint>;
+			};
+		};
+	};
 };
 
 &dw_hdmi_hdcp2 {
@@ -521,6 +530,7 @@
 
 &d0_i2s0 {
 	status = "okay";
+	numa-node-id = <0>;
 	d0_i2s0_port: port {
 		d0_i2s0_endpoint: endpoint {
 			remote-endpoint = <&hdmi_in_i2s>;
@@ -528,12 +538,21 @@
 		};
 	};
 };
+
 &d1_i2s0 {
-	status = "disabled";
+	status = "okay";
+	numa-node-id = <1>;
+	d1_i2s0_port: port {
+		d1_i2s0_endpoint: endpoint {
+			remote-endpoint = <&d1_hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
 };
 
 &d0_i2s1 {
 	status = "okay";
+	numa-node-id = <0>;
 	d0_i2s1_port: port {
 		d0_i2s1_endpoint: endpoint {
 			remote-endpoint = <&d0_codec0_endpoint>;
@@ -541,12 +560,21 @@
 		};
 	};
 };
+
 &d1_i2s1 {
-	status = "disabled";
+	status = "okay";
+	numa-node-id = <1>;
+	d1_i2s1_port: port {
+		d1_i2s1_endpoint: endpoint {
+			remote-endpoint = <&d1_codec0_endpoint>;
+			dai-format = "i2s";
+		};
+	};
 };
 
 &d0_i2s2 {
 	status = "okay";
+	numa-node-id = <0>;
 	d0_i2s2_port: port {
 		d0_i2s2_endpoint: endpoint {
 			remote-endpoint = <&d0_codec1_endpoint>;
@@ -554,8 +582,16 @@
 		};
 	};
 };
+
 &d1_i2s2 {
-	status = "disabled";
+	status = "okay";
+	numa-node-id = <1>;
+	d1_i2s2_port: port {
+		d1_i2s2_endpoint: endpoint {
+			remote-endpoint = <&d1_codec1_endpoint>;
+			dai-format = "i2s";
+		};
+	};
 };
 
 &d0_graphcard0 {
@@ -572,12 +608,26 @@
 
 &d0_graphcard2 {
 	status = "okay";
-	label = "HDMI Audio";
+	label = "HDMI Audio-0";
 	dais = <&d0_i2s0_port>;
 };
 
-&d1_graphcard {
-	status = "disabled";
+&d1_graphcard0 {
+	status = "okay";
+	label = "Analog Audio-2";
+	dais = <&d1_i2s1_port>;
+};
+
+&d1_graphcard1 {
+	status = "okay";
+	label = "Analog Audio-3";
+	dais = <&d1_i2s2_port>;
+};
+
+&d1_graphcard2 {
+	status = "okay";
+	label = "HDMI Audio-1";
+	dais = <&d1_i2s0_port>;
 };
 
 &isp_0 {
@@ -701,7 +751,7 @@
 };
 
 &d1_gmac0 {
-/*	
+/*
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio13_default>;
 	rst-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
@@ -792,7 +842,7 @@
 };
 
 &d1_aon_dmac {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_uart0 {
@@ -1003,8 +1053,32 @@
 		};
 	};
 };
+
 &d1_i2c0 {
-	status = "disabled";
+	/* codec es8388 */
+	status = "okay";
+	d1_es8388_0: es8388-0@10 {
+		compatible = "eswin,es8388";
+		reg = <0x10>;
+		#sound-dai-cells = <0>;
+		port {
+			d1_codec0_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d1_i2s1_endpoint>;
+			};
+		};
+	};
+	d1_es8388_1: es8388-1@11 {
+		compatible = "eswin,es8388";
+		reg = <0x11>;
+		#sound-dai-cells = <0>;
+		port {
+			d1_codec1_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d1_i2s2_endpoint>;
+			};
+		};
+	};
 };
 
 &d0_i2c1 {
