@@ -1153,7 +1153,7 @@ static int wait_abort_rdy(struct hantrovcmd_dev *dev)
 	return dev->working_state == WORKING_STATE_IDLE;
 }
 
-static int select_vcmd(bi_list_node *new_cmdbuf_node)
+static int select_vcmd(bi_list_node *new_cmdbuf_node, u16 nid)
 {
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
 	bi_list_node *curr_cmdbuf_node = NULL;
@@ -1170,6 +1170,17 @@ static int select_vcmd(bi_list_node *new_cmdbuf_node)
 	u32 cmdbuf_id = 0;
 
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+	if (nid < vcmd_type_core_num[cmdbuf_obj->module_type]) {
+		dev = vcmd_manager[cmdbuf_obj->module_type][nid];
+		list = &dev->list_manager;
+
+		spin_lock_irqsave(dev->spinlock, flags);
+		bi_list_insert_node_tail(list, new_cmdbuf_node);
+		spin_unlock_irqrestore(dev->spinlock, flags);
+		cmdbuf_obj->core_id = dev->core_id;
+		return 0;
+	}
+
 	//there is an empty vcmd to be used
 	while (1) {
 		dev = vcmd_manager[cmdbuf_obj->module_type][vcmd_position[cmdbuf_obj->module_type]];
@@ -1809,7 +1820,7 @@ static long link_and_run_cmdbuf(struct file *filp,
 		    &vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]))
 		return -ERESTARTSYS;
 
-	return_value = select_vcmd(new_cmdbuf_node);
+	return_value = select_vcmd(new_cmdbuf_node, input_para->nid);
 	if (return_value)
 		return return_value;
 

@@ -227,6 +227,8 @@ struct exchange_parameter {
 	u16 cmdbuf_id;
 	/* just used for polling. */
 	u16 core_id;
+	/* which die will be used, 0xFFFF: not specify */
+	u16 nid;
 };
 
 #define DEC_DRIVER_NAME "es_vdec_drv"
