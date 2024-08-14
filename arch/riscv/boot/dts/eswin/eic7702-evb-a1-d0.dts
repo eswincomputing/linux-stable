@@ -409,7 +409,7 @@
 &sdio0 {
 	/* sd card */
 	status = "okay";
-	delay_code = <0x29>;
+	delay_code = <0x55>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;

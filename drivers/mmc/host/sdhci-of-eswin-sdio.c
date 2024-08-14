@@ -333,6 +333,7 @@ static const struct sdhci_ops eswin_sdhci_sdio_cqe_ops = {
 static const struct sdhci_pltfm_data eswin_sdhci_sdio_cqe_pdata = {
 	.ops = &eswin_sdhci_sdio_cqe_ops,
 	.quirks = SDHCI_QUIRK_BROKEN_CQE |
+		SDHCI_QUIRK_SINGLE_POWER_WRITE |
 		SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN |
 		SDHCI_QUIRK_BROKEN_TIMEOUT_VAL,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
@@ -457,7 +458,7 @@ static int eswin_sdhci_sdio_runtime_resume(struct device *dev)
 	}
 	win2030_tbu_power(dev, true);
 
-	ret = sdhci_runtime_resume_host(host, 0);
+	ret = sdhci_runtime_resume_host(host, 1);
 	if (ret) {
 		dev_err(dev, "runtime resume failed!\n");
 		goto clk_disable;
