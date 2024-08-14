@@ -3,6 +3,7 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_modes.h>
 #include <linux/backlight.h>
+#include <linux/of.h>
 
 #include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
@@ -11,6 +12,8 @@
 #include <video/mipi_display.h>
 #include <video/of_videomode.h>
 #include <video/videomode.h>
+#include <video/of_display_timing.h>
+#include <video/of_videomode.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
@@ -68,6 +71,8 @@ struct es_panel {
 
 	struct gpio_desc *gpio_backlight0;
 	struct gpio_desc *gpio_reset;
+	enum mipi_dsi_pixel_format format;
+	unsigned int lanes;
 };
 
 static void es_panel_dcs_write(struct es_panel *ctx, const void *data,
@@ -572,14 +577,14 @@ void es_panel_4_lanes_panel_init(struct es_panel *ctx)
 	es_panel_dcs_write_seq_static(ctx, 0xD3, 0x44, 0x33, 0x05, 0x03, 0x4A,
 				      0x4A, 0x33, 0x17, 0x22, 0x43,
 				      0x6E); // set GVDDP=4.1V, GVDDN=-4.1V,
-		// VGHO=12V,      VGLO=-11V
+	// VGHO=12V,      VGLO=-11V
 	es_panel_dcs_write_seq_static(ctx, 0xD5, 0x8B, 0x00, 0x00, 0x00, 0x01,
 				      0x7D, 0x01, 0x7D, 0x01, 0x7D, 0x00, 0x00,
 				      0x00, 0x00); // set VCOM
 	es_panel_dcs_write_seq_static(ctx, 0xD6, 0x00, 0x00, 0x08, 0x17, 0x23,
 				      0x65, 0x77, 0x44, 0x87, 0x00, 0x00,
 				      0x09); // P12_D[3] for sleep in
-		// current reduce setting
+	// current reduce setting
 	es_panel_dcs_write_seq_static(ctx, 0xEC, 0x76, 0x1E, 0x32, 0x00, 0x46,
 				      0x00, 0x00);
 	es_panel_dcs_write_seq_static(
@@ -783,8 +788,7 @@ static int es_panel_get_modes(struct drm_panel *panel,
 			return -ENOMEM;
 		}
 	}
-	dev_info(
-		pr_dev,
+	dev_dbg(pr_dev,
 		"get modes user_mode_inited:%d, clock:%d, hdisplay:%u, hsyncStart:%u, hsyncEnd:%u, htotal:%u\n"
 		"vdisplay:%u vsyncStart:%u vsyncEnd:%u vtotal:%u width_mm:%d, height_mm:%d flags:0x%08x \n",
 		ctx->user_mode_inited, mode->clock, mode->hdisplay,
@@ -798,6 +802,16 @@ static int es_panel_get_modes(struct drm_panel *panel,
 
 	connector->display_info.width_mm = ctx->user_mode.width_mm;
 	connector->display_info.height_mm = ctx->user_mode.height_mm;
+
+	if (ctx->format == MIPI_DSI_FMT_RGB888) {
+		bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+	} else if (ctx->format == MIPI_DSI_FMT_RGB666) {
+		bus_format = MEDIA_BUS_FMT_RGB666_1X18;
+	} else if (ctx->format == MIPI_DSI_FMT_RGB565) {
+		bus_format = MEDIA_BUS_FMT_RGB565_1X16;
+	} else {
+		dev_err(pr_dev, "format:%d not support\n", ctx->format);
+	}
 	drm_display_info_set_bus_formats(&connector->display_info, &bus_format,
 					 1);
 	connector->display_info.bus_flags = DRM_BUS_FLAG_PIXDATA_DRIVE_NEGEDGE;
@@ -819,10 +833,10 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 	struct es_panel *ctx;
 	int ret;
 	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
+	int val;
 
 	// for print
 	pr_dev = dev;
-
 	dev_info(pr_dev, "[%s] Enter\n", __func__);
 
 	dsi_node = of_get_parent(dev->of_node);
@@ -840,12 +854,6 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 		}
 	}
 
-	/*
-        if (remote_node != dev->of_node) {
-            dev_info(pr_dev,"%s+ skip probe due to not current es_panel\n", __func__);
-            return -ENODEV;
-        }
-    */
 	ctx = devm_kzalloc(dev, sizeof(struct es_panel), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -854,9 +862,13 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 	ctx->dev = dev;
 
 	// default val, if other value, set it on:IOC_ES_MIPI_TX_SET_MODE.
-	dsi->lanes = LANES;
-	dsi->format = MIPI_DSI_FMT_RGB888;
-	// dsi->mode_flags = MIPI_DSI_MODE_VIDEO;
+	if (!of_property_read_u32(dev->of_node, "dsi,format", &val))
+		dsi->format = val;
+	if (!of_property_read_u32(dev->of_node, "dsi,lanes", &val))
+		dsi->lanes = val;
+	ctx->format = dsi->format;
+	ctx->lanes = dsi->lanes;
+
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM |
 			  MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
 
@@ -885,8 +897,6 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 
 	drm_panel_init(&ctx->panel, dev, &es_panel_drm_funcs,
 		       DRM_MODE_CONNECTOR_DPI);
-	//	ctx->panel.dev = dev;
-	//	ctx->panel.funcs = &es_panel_drm_funcs;
 
 	drm_panel_add(&ctx->panel);
 

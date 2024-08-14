@@ -25,6 +25,7 @@
 #include <video/mipi_display.h>
 #include <drm/drm_simple_kms_helper.h>
 #include <drm/bridge/dw_mipi_dsi.h>
+#include <linux/media-bus-format.h>
 
 #include "es_crtc.h"
 #include "es_mipi_dsi.h"
@@ -214,9 +215,21 @@ static void es_dsi_encoder_disable(struct drm_encoder *encoder)
 		container_of(encoder, struct es_mipi_dsi, encoder);
 	struct mipi_dsi_priv *dsi_priv = &es_dsi->dsi_priv;
 
-	DRM_INFO("enter, encoder = 0x%px\n", encoder);
+	DRM_DEBUG("enter, encoder = 0x%px\n", encoder);
 
 	clk_disable_unprepare(dsi_priv->ivideo_clk);
+}
+
+static int
+es_dsi_encoder_atomic_check(struct drm_encoder *encoder,
+				   struct drm_crtc_state *crtc_state,
+				   struct drm_connector_state *conn_state)
+{
+	struct es_crtc_state *s = to_es_crtc_state(crtc_state);
+	struct drm_display_info *info = &conn_state->connector->display_info;
+	u32 bus_format = info->bus_formats[0];
+	s->output_fmt = bus_format;
+	return 0;
 }
 
 static bool es_dsi_encoder_mode_fixup(struct drm_encoder *encoder,
@@ -228,9 +241,9 @@ static bool es_dsi_encoder_mode_fixup(struct drm_encoder *encoder,
 	struct drm_crtc_state *crtc_state =
 		container_of(mode, struct drm_crtc_state, mode);
 
-	DRM_INFO("enter, bind crtc%d\n", drm_crtc_index(crtc_state->crtc));
-	DRM_INFO("mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
-	DRM_INFO("adj_mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj_mode));
+	DRM_DEBUG("enter, bind crtc%d\n", drm_crtc_index(crtc_state->crtc));
+	DRM_DEBUG("mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
+	DRM_DEBUG("adj_mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj_mode));
 
 	es_dsi->crtc = crtc_state->crtc;
 	return true;
@@ -240,8 +253,8 @@ static void es_dsi_encoder_mode_set(struct drm_encoder *encoder,
 				    struct drm_display_mode *mode,
 				    struct drm_display_mode *adj_mode)
 {
-	DRM_INFO("mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
-	DRM_INFO("adj_mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj_mode));
+	DRM_DEBUG("mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
+	DRM_DEBUG("adj_mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj_mode));
 }
 
 static void es_dsi_encoder_mode_enable(struct drm_encoder *encoder)
@@ -251,7 +264,7 @@ static void es_dsi_encoder_mode_enable(struct drm_encoder *encoder)
 		container_of(encoder, struct es_mipi_dsi, encoder);
 	struct mipi_dsi_priv *dsi_priv = &es_dsi->dsi_priv;
 
-	DRM_INFO("enter, encoder = 0x%px\n", encoder);
+	DRM_DEBUG("enter, encoder = 0x%px\n", encoder);
 
 	ret = clk_prepare_enable(dsi_priv->ivideo_clk);
 	if (ret)
@@ -263,6 +276,7 @@ static const struct drm_encoder_helper_funcs es_dsi_encoder_helper_funcs = {
 	.mode_set = es_dsi_encoder_mode_set,
 	.enable = es_dsi_encoder_mode_enable,
 	.disable = es_dsi_encoder_disable,
+	.atomic_check = es_dsi_encoder_atomic_check,
 };
 
 static void es_mipi_dsi_phy_write(struct mipi_dsi_priv *dsi, u8 test_code,
@@ -598,7 +612,7 @@ static int es_mipi_dsi_bind(struct device *dev, struct device *master,
 	if (ret)
 		goto exit3;
 
-	DRM_INFO("mipi dsi bind done\n");
+	DRM_DEBUG("mipi dsi bind done\n");
 
 	return 0;
 

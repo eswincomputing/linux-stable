@@ -1834,7 +1834,8 @@
 			dsi_panel:dsi_panel@0 {
 				compatible = "eswin,generic-panel";
 				reg = <0>;
-
+				dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+				dsi,lanes = <4>;
 				port {
 					panel_in: endpoint {
 						remote-endpoint = <&mipi_dsi_out>;
