@@ -4119,6 +4119,7 @@ static const struct dev_pm_ops eswin_vdec_dev_pm_ops = {
 static const struct of_device_id eswin_vdec_match[] = {
 	{ .compatible = "eswin,video-decoder0", },
 	{ .compatible = "eswin,video-decoder1", },
+	{/* sentinel */},
 };
 
 static struct platform_driver eswin_vdec_driver = {
