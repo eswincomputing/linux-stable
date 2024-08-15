@@ -73,6 +73,8 @@
 			SNDRV_PCM_RATE_8000)
 #define ESW_I2S_FORMATS (SNDRV_PCM_FMTBIT_S32_LE)
 
+#define I2S0_IO_ADDR 0x51600124
+
 static struct clk *g_mclk;
 
 static u32 dmaen_txch[] = {
@@ -742,6 +744,8 @@ static int i2s_probe(struct platform_device *pdev)
 	int ret;
 	const char *clk_id;
 	struct snd_dmaengine_pcm_config *config;
+	void __iomem *i2s0_io_base;
+	int reg_val;
 
 	dev_info(&pdev->dev, "dev name:%s\n", pdev->dev.of_node->name);
 	i2s_drvdata = devm_kzalloc(&pdev->dev, sizeof(*i2s_drvdata), GFP_KERNEL);
@@ -782,6 +786,32 @@ static int i2s_probe(struct platform_device *pdev)
 		if (ret != 0) {
 			dev_err(&pdev->dev, "i2s_reset failed\n");
 			goto err_probe;
+		}
+
+		if (!of_property_read_bool(pdev->dev.of_node, "io_reuse_enable")) {
+			i2s0_io_base = devm_ioremap(&pdev->dev, I2S0_IO_ADDR, 12);
+			if (!i2s0_io_base) {
+				dev_err(i2s_drvdata->dev, "failed to remap i2s0 io ctl\n");
+				return -ENOMEM;
+			}
+
+			/* set the i2s0 WCLK io to GPIO func */
+			reg_val = readl((char *)i2s0_io_base);
+			reg_val &= 0xfff8ffff;
+			reg_val |= 0x20000;
+			writel(reg_val, (char *)i2s0_io_base);
+
+			/* set the i2s0 SDI io to GPIO func */
+			reg_val = readl((char *)i2s0_io_base + 4);
+			reg_val &= 0xfff8ffff;
+			reg_val |= 0x20000;
+			writel(reg_val, (char *)i2s0_io_base + 4);
+
+			/* set the i2s0 SDO io to GPIO func */
+			reg_val = readl((char *)i2s0_io_base + 8);
+			reg_val &= 0xfff8ffff;
+			reg_val |= 0x20000;
+			writel(reg_val, (char *)i2s0_io_base + 8);
 		}
 	}
 

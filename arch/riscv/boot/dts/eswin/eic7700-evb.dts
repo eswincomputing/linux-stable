@@ -325,6 +325,7 @@
 
 &d0_i2s0 {
 	status = "okay";
+	io_reuse_enable;
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
