@@ -4064,16 +4064,16 @@ int vc8000e_vcmd_cleanup(void)
 
 static int check_dev_idle(struct hantrovcmd_dev *dev)
 {
-    /** the devices must not be power down now.*/
+	/** the devices must not be power down now.*/
 	int idle = 0;
 	u8 vcmd_state = vcmd_get_register_value((const void *)dev->hwregs,
 						dev->reg_mirror, HWIF_VCMD_WORK_STATE);
 
 	if (WORKING_STATE_STALL != vcmd_state
-        && WORKING_STATE_WORKING != vcmd_state) {
-        idle = 1;
-    }
-    LOG_INFO("check_dev_idle, vcmd_state = %u\n", vcmd_state);
+		&& WORKING_STATE_WORKING != vcmd_state) {
+		idle = 1;
+	}
+	LOG_DBG("check_dev_idle, vcmd_state = %u\n", vcmd_state);
 
 	return idle;
 }
@@ -4081,18 +4081,18 @@ static int check_dev_idle(struct hantrovcmd_dev *dev)
 int vc8000e_vcmd_wait_core_idle(u32 core_id)
 {
 	struct hantrovcmd_dev *dev = NULL;
-    int ret;
+	int ret;
 
 	if (core_id >= venc_vcmd_core_num) {
 		LOG_ERR("invalid core_id = %u, venc_vcmd_core_num = %u\n", core_id, venc_vcmd_core_num);
 		return -ERESTARTSYS;
 	}
 	dev = &hantrovcmd_data[core_id];
-    LOG_INFO("enc wait core idle, core_id = %u\n", core_id);
+	LOG_DBG("enc wait core idle, core_id = %u\n", core_id);
 
 	ret = wait_event_interruptible_timeout(*dev->wait_queue, check_dev_idle(dev), ENC_DEV_IDLEWAIT_TIME);
 
-    LOG_INFO("enc wait core idle exit, core_id = %u, ret = %d\n", core_id, ret);
+	LOG_DBG("enc wait core idle exit, core_id = %u, ret = %d\n", core_id, ret);
 
-    return ret;
+	return ret;
 }

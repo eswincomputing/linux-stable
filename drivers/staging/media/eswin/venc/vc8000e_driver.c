@@ -781,7 +781,7 @@ static int venc_dev_open(struct device *dev)
 	int ret = -1;
 
 	if (atomic_dec_return(&prvdata->dev_open_gate) < 0) {
-		LOG_INFO("The device is opening\n");
+		LOG_DBG("The device is opening\n");
 		atomic_inc(&prvdata->dev_open_gate);
 		return 0;
 	}
@@ -802,7 +802,7 @@ static int venc_dev_open(struct device *dev)
 	prvdata->dev_closed = 0;
 
 end:
-	LOG_INFO("dev open, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
+	LOG_DBG("dev open, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
 	atomic_inc(&prvdata->dev_open_gate);
 	return ret;
 }
@@ -815,7 +815,7 @@ static int venc_dev_close(struct device *dev)
 	int ret;
 
 	if (atomic_dec_return(&prvdata->dev_close_gate) < 0) {
-		LOG_INFO("The device is opening\n");
+		LOG_DBG("The device is closing\n");
 		atomic_inc(&prvdata->dev_close_gate);
 		return 0;
 	}
@@ -825,9 +825,9 @@ static int venc_dev_close(struct device *dev)
 	// }
 
 	/** check the device be idle*/
-	LOG_INFO("venc device closing, waiting device idle\n");
+	LOG_DBG("venc device closing, waiting device idle\n");
 	ret = venc_wait_device_idle(pdev);
-	LOG_INFO("enc device closing, waiting device idle ret=%d\n", ret);
+	LOG_DBG("enc device closing, waiting device idle ret=%d\n", ret);
 	if (0 == ret) {
 		/** timeout*/
 		LOG_ERR("Timeout for venc_suspend\n");
@@ -853,34 +853,34 @@ static int venc_dev_close(struct device *dev)
 	prvdata->dev_closed = 1;
 
 end:
-	LOG_INFO("dev closed, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
+	LOG_DBG("dev closed, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
 	atomic_inc(&prvdata->dev_close_gate);
 	return ret;
 }
 
 static int venc_runtime_suspend(struct device *dev) {
-	LOG_INFO("runtime suspend\n");
+	LOG_DBG("runtime suspend\n");
 	return venc_dev_close(dev);
 }
 
 static int venc_runtime_resume(struct device *dev) {
-	LOG_INFO("runtime resume\n");
+	LOG_DBG("runtime resume\n");
 	return venc_dev_open(dev);
 }
 
 static int venc_suspend(struct device *dev) {
-	LOG_INFO("generic suspend\n");
+	LOG_DBG("generic suspend\n");
 	if (pm_runtime_status_suspended(dev)) {
-		LOG_INFO("generic suspend, venc is suspended already\n");
+		LOG_DBG("generic suspend, venc is suspended already\n");
 		return 0;
 	}
 	return venc_dev_close(dev);
 }
 
 static int venc_resume(struct device *dev) {
-	LOG_INFO("generic resume\n");
+	LOG_DBG("generic resume\n");
 	if (pm_runtime_status_suspended(dev)) {
-		LOG_INFO("generic resume, venc is resumed already\n");
+		LOG_DBG("generic resume, venc is resumed already\n");
 		return 0;
 	}
 	return venc_dev_open(dev);
