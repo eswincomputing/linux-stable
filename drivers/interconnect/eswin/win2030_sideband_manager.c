@@ -143,6 +143,7 @@ static int win2030_noc_register_sideband_mgr(struct device_node *np,
 
 		bf->sbm_id = values_tab[2 * i];
 	}
+	kfree(bf_name);
 	noc_device->sbm = sbm;
 	list_add_tail(&sbm->link, &win2030_noc_ctrl.sbm_link);
 	return 0;

@@ -91,7 +91,7 @@ const char **win2030_get_strings_from_dts(struct device *_dev,
 			return ERR_PTR(-ENOMEM);
 
 		of_property_for_each_string(np, property_name, prop, s)
-		lut[i++] = s;
+			lut[i++] = s;
 
 		/* To find out the end of the list */
 		lut[lut_len] = NULL;
