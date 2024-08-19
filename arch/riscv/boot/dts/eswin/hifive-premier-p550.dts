@@ -674,7 +674,7 @@
 	/* PCA9450 & SiC451 & INA226 & PAC1934 */
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 15>;
-	iic_hold_time = <0x40>;
+	i2c-sda-hold-time-ns = <0x40>;
 	pac1934:pmic@10 {
 		compatible = "microchip,pac1934";
 		/*update all register data*/
