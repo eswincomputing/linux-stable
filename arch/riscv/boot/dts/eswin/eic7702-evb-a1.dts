@@ -457,15 +457,17 @@
 &video_output {
 	status = "okay";
 };
+
 &d1_video_output {
-	status = "disabled";
+	status = "okay";
 };
 
 &dc {
 	status = "okay";
 };
+
 &d1_dc {
-	status = "disabled";
+	status = "okay";
 };
 
 &dc_test {
@@ -476,32 +478,33 @@
 };
 
 &virtual_display {
-	status = "okay";
+	status = "disabled";
 };
+
 &d1_virtual_display {
 	status = "disabled";
 };
 
-&dsi_output {
-	status = "okay";
-};
-&d1_dsi_output {
-	status = "disabled";
-};
-
 &dsi_controller {
-    status = "okay";
+    status = "disabled";
 };
 &d1_dsi_controller {
 	status = "disabled";
 };
 
 &dsi_panel {
-	status = "okay";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio27_default &pinctrl_die0_gpio106_default>;
 	backlight0-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
 	rst-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
+};
+&d1_dsi_panel {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die1_gpio69_default &pinctrl_die1_gpio21_default>;
+	backlight0-gpios = <&d1_portc 5 GPIO_ACTIVE_HIGH>;
+	rst-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
 };
 
 &dw_hdmi {
@@ -657,7 +660,7 @@
 	status = "okay";
 };
 &d1_dewarp {
-	status = "disabled";
+	status = "okay";
 };
 
 &mipi_dphy_rx {

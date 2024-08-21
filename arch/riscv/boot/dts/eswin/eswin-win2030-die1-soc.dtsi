@@ -30,7 +30,7 @@
 
 / {
 #if (CHIPLET_AND_DIE == 0x1)
-    aliases {
+	aliases {
 		serial0 = &d1_uart0;
 		ethernet0 = &d1_gmac0;
 		ethernet1 = &d1_gmac1;
@@ -610,7 +610,7 @@
 			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0x80000000>;
 			iommus = <&smmu1 WIN2030_SID_SCPU>, <&smmu1 WIN2030_SID_CRYPT>;
 			eswin,syscfg = <&d1_sys_con SCPU_SID_REG_OFFSET 0>,
-			               <&d1_sys_con CRYPT_SID_REG_OFFSET 0>;
+						   <&d1_sys_con CRYPT_SID_REG_OFFSET 0>;
 			mboxes = <&d1_mbox0 0>;
 			mbox-names = "u84_scpu";
 			numa-node-id = <1>;
@@ -1402,15 +1402,15 @@
 			#size-cells = <2>;
 			#interrupt-cells = <1>;
 			reg = <0x0 0x74000000 0x0 0x4000000>,	/* IP registers */
-			      <0x0 0x60000000 0x0 0x800000>,	/* Configuration space */
-			      <0x0 0x70000000 0x0 0x100000>;
+				  <0x0 0x60000000 0x0 0x800000>,	/* Configuration space */
+				  <0x0 0x70000000 0x0 0x100000>;
 			reg-names = "dbi", "config", "mgmt";
 			device_type = "pci";
 			/* dma-coherent; */
 			bus-range = <0x0 0xff>;
 
-			ranges = <0x81000000  0x0 0x60800000  0x0 0x60800000 0x0 0x800000>,      /* I/O */
-				 <0x82000000  0x0 0x61000000  0x0 0x61000000 0x0 0xf000000>,    /* mem */
+			ranges = <0x81000000  0x0 0x60800000  0x0 0x60800000 0x0 0x800000>,	  /* I/O */
+				 <0x82000000  0x0 0x61000000  0x0 0x61000000 0x0 0xf000000>,	/* mem */
 				 <0xc3000000 0xa0 0x00000000 0xa0 0x00000000 0x2 0x00000000>;  /* mem prefetchable */
 
 			num-lanes = <0x4>;
@@ -1594,193 +1594,177 @@
 			status = "disabled";
 		};
 
-        d1_video_output: display-subsystem {
-            compatible = "eswin,display-subsystem";
-            ports = <&d1_dc_out>;
-            dma-noncoherent;
-        };
+		d1_video_output: display-subsystem@1 {
+			compatible = "eswin,display-subsystem";
+			ports = <&d1_dc_out>;
+			numa-node-id = <1>;
+			dma-noncoherent;
+		};
 
-        d1_dc: display_control@702c0000 {
-            compatible = "eswin,dc";
-            reg = <0x0 0x702c0000 0x0 0x100>, <0x0 0x702c0180 0x0 0x700>, <0x0 0x702c1400 0x0 0x1400>;
-            interrupt-parent = <&plic1>;
-            interrupts = <238>;
+		d1_dc: display_control@702c0000 {
+			compatible = "eswin,dc";
+			reg = <0x0 0x702c0000 0x0 0x100>, <0x0 0x702c0180 0x0 0x700>, <0x0 0x702c1400 0x0 0x1400>;
+			interrupt-parent = <&plic1>;
+			interrupts = <238>;
 
-            clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>,
-			         <&d1_clock WIN2030_CLK_VO_PIXEL_CLK>,
-			         <&d1_clock WIN2030_CLK_VO_ACLK>,
-			         <&d1_clock WIN2030_SPLL0_FOUT1>,
-			         <&d1_clock WIN2030_MUX_U_VO_ACLK_ROOT_2MUX1_GFREE>;
-            clock-names = "cfg_clk", "pix_clk", "axi_clk", "spll0_fout1", "vo_mux";
+			clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>,
+					 <&d1_clock WIN2030_CLK_VO_PIXEL_CLK>,
+					 <&d1_clock WIN2030_CLK_VO_ACLK>,
+					 <&d1_clock WIN2030_SPLL0_FOUT1>,
+					 <&d1_clock WIN2030_MUX_U_VO_ACLK_ROOT_2MUX1_GFREE>;
+			clock-names = "cfg_clk", "pix_clk", "axi_clk", "spll0_fout1", "vo_mux";
 			resets = <&d1_reset VO_RST_CTRL SW_VO_AXI_RSTN>,
 					 <&d1_reset VO_RST_CTRL SW_VO_CFG_RSTN>,
 					 <&d1_reset VO_RST_CTRL SW_VO_DC_RSTN>,
 					 <&d1_reset VO_RST_CTRL SW_VO_DC_PRSTN>;
 			reset-names = "vo_arst", "vo_prst", "dc_arst", "dc_prst";
-		dma-noncoherent;
-
-
-            d1_dc_out: port {
-                #address-cells = <1>;
-                #size-cells = <0>;
-
-                d1_dc_out_dpi0: endpoint@0 {
-                    reg = <0>;
-                    remote-endpoint = <&d1_dsi_input0>;
-                };
-
-                d1_dc_out_dpi1: endpoint@1 {
-                    reg = <1>;
-                    remote-endpoint = <&d1_vd_input>;
-                };
-
-                d1_dc_out_hdmi: endpoint@2 {
-                    reg = <2>;
-                    remote-endpoint = <&d1_hdmi_in_dc>;
-                };
-            };
-        };
-
-        d1_virtual_display: es_wb {
-            compatible = "eswin,virtual_display";
-            bpp = /bits/ 8 <8>;
-
-            port {
-                d1_vd_input: endpoint {
-                    remote-endpoint = <&d1_dc_out_dpi1>;
-                };
-            };
-        };
-
-        d1_dsi_output: dsi-output {
-            compatible = "eswin,dsi-encoder";
-
-            ports {
-                #address-cells = <1>;
-                #size-cells = <0>;
-
-                /* input */
-                port@0 {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
-                    reg = <0>;
-                    d1_dsi_input0: endpoint@0 {
-                        reg = <0>;
-                        remote-endpoint = <&d1_dc_out_dpi0>;
-                    };
-                };
-
-                /* output */
-                port@1 {
-                    reg = <1>;
-                    d1_dsi_out:endpoint {
-                        remote-endpoint = <&d1_mipi_dsi_in>;
-                    };
-                };
-            };
-        };
-
-        d1_dsi_controller: mipi_dsi@70270000 {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            compatible = "eswin,dw-mipi-dsi";
-            reg = <0x0 0x70270000 0x0 0x10000>;
-            clocks = <&d1_clock WIN2030_CLK_CLK_MIPI_TXESC>;
-            clock-names = "pclk";
-
-            /*
-            phys = <&dphy>;
-            phy-names = "dphy";
-            */
-
-            ports {
-                #address-cells = <1>;
-                #size-cells = <0>;
-
-                port@0 {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
-                    reg = <0>;
-
-                    d1_mipi_dsi_in: endpoint {
-                        remote-endpoint = <&d1_dsi_out>;
-                    };
-                };
-
-                port@1 {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
-                    reg = <1>;
-
-                    d1_mipi_dsi_out: endpoint {
-                        remote-endpoint = <&d1_panel_in>;
-                    };
-                };
-            };
-
-            panel@1 {
-                compatible = "eswin,generic-panel";
-                reg = <0>;
-                dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
-                dsi,lanes = <4>;
-
-                port {
-                    d1_panel_in: endpoint {
-                        remote-endpoint = <&d1_mipi_dsi_out>;
-                    };
-                };
-            };
-        };
-
-        d1_dc_test: dctest@702c0000 {
-            compatible = "eswin,dc";
-            reg = <0x0 0x702c0000 0x0 0x10000>;
-            interrupt-parent = <&plic1>;
-            interrupts = <238>;
-        };
-
-        d1_dw_hdmi: hdmi@702a0000 {
-            compatible = "eswin,eswin-dw-hdmi";
-            reg = <0x0 0x702a0000 0x0 0x20000>;
-            pinctrl-names = "default";
-            //pinctrl-0 = <&hdmi_i2c_xfer>;
-            interrupt-parent = <&plic1>;
-            interrupts = <274>;
-            clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>, <&d1_clock WIN2030_CLK_VO_CEC_CLK>,
-					 <&d1_clock WIN2030_CLK_VO_CR_CLK>;
-            clock-names = "iahb", "cec", "isfr";
-            //power-domains = <&power WIN2030_PD_HDCP>;
-            reg-io-width = <4>;
-            ddc-i2c-scl-high-time-ns = <4708>;
-            ddc-i2c-scl-low-time-ns = <4916>;
-            #sound-dai-cells = <0>;
-            resets = <&d1_reset VO_PHYRST_CTRL SW_VO_HDMI_PRSTN>,
-                     <&d1_reset VO_PHYRST_CTRL SW_HDMI_PHYCTRL_RSTN>,
-                     <&d1_reset VO_PHYRST_CTRL SW_VO_HDMI_RSTN>;
-            reset-names = "prstn", "phyrstn", "rstn";
-
-            ports {
-                port@0 {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
-                    d1_hdmi_in_dc: endpoint@0 {
-                        reg = <0>;
-                        remote-endpoint = <&d1_dc_out_hdmi>;
-                    };
-                };
-            };
-        };
-
-        d1_dw_hdmi_hdcp2: hdmi-hdcp2@70290000 {
-            compatible = "eswin,dw-hdmi-hdcp2";
-            reg = <0x0 0x70290000 0x0 0x10000>;
-            interrupt-parent = <&plic1>;
-            interrupts = <275>;
-            clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>,
-                 <&d1_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
-            clock-names ="pclk_hdcp2", "hdcp2_clk_hdmi";
 			dma-noncoherent;
-        };
+			numa-node-id = <1>;
+
+			d1_dc_out: port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				d1_dc_out_dsi: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&d1_dsi_input>;
+				};
+
+				d1_dc_out_dpi1: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&d1_vd_input>;
+				};
+
+				d1_dc_out_hdmi: endpoint@2 {
+					reg = <2>;
+					remote-endpoint = <&d1_hdmi_in_dc>;
+				};
+			};
+		};
+
+		d1_virtual_display: es_wb@1 {
+			compatible = "eswin,virtual_display";
+			bpp = /bits/ 8 <8>;
+			numa-node-id = <1>;
+
+			port {
+				d1_vd_input: endpoint {
+					remote-endpoint = <&d1_dc_out_dpi1>;
+				};
+			};
+		};
+
+		d1_dsi_output: dsi-output@1 {
+			compatible = "eswin,dsi-encoder";
+			numa-node-id = <1>;
+			status = "disabled";
+		};
+
+		d1_dsi_controller: mipi_dsi@70270000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "eswin,dsi";
+			reg = <0x0 0x70270000 0x0 0x10000>;
+			clocks = <&d1_clock WIN2030_CLK_CLK_MIPI_TXESC>;
+			clock-names = "pclk";
+			resets = <&d1_reset VO_PHYRST_CTRL SW_VO_MIPI_PRSTN>;
+			reset-names ="phyrstn";
+			numa-node-id = <1>;
+
+			/*
+			phys = <&dphy>;
+			phy-names = "dphy";
+			*/
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+
+					d1_dsi_input: endpoint {
+						remote-endpoint = <&d1_dc_out_dsi>;
+					};
+				};
+
+				port@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <1>;
+
+					d1_mipi_dsi_out: endpoint {
+						remote-endpoint = <&d1_panel_in>;
+					};
+				};
+			};
+
+			d1_dsi_panel:dsi_panel@1 {
+				compatible = "eswin,generic-panel";
+				reg = <0>;
+				dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+				dsi,lanes = <4>;
+				port {
+					d1_panel_in: endpoint {
+						remote-endpoint = <&d1_mipi_dsi_out>;
+					};
+				};
+			};
+		};
+
+		d1_dc_test: dctest@702c0000 {
+			compatible = "eswin,dc";
+			reg = <0x0 0x702c0000 0x0 0x10000>;
+			interrupt-parent = <&plic1>;
+			interrupts = <238>;
+		};
+
+		d1_dw_hdmi: hdmi@702a0000 {
+			compatible = "eswin,eswin-dw-hdmi";
+			reg = <0x0 0x702a0000 0x0 0x20000>;
+			pinctrl-names = "default";
+			//pinctrl-0 = <&hdmi_i2c_xfer>;
+			interrupt-parent = <&plic1>;
+			interrupts = <274>;
+			clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>, <&d1_clock WIN2030_CLK_VO_CEC_CLK>,
+					 <&d1_clock WIN2030_CLK_VO_CR_CLK>;
+			clock-names = "iahb", "cec", "isfr";
+			//power-domains = <&power WIN2030_PD_HDCP>;
+			reg-io-width = <4>;
+			ddc-i2c-scl-high-time-ns = <4708>;
+			ddc-i2c-scl-low-time-ns = <4916>;
+			#sound-dai-cells = <0>;
+			resets = <&d1_reset VO_PHYRST_CTRL SW_VO_HDMI_PRSTN>,
+					 <&d1_reset VO_PHYRST_CTRL SW_HDMI_PHYCTRL_RSTN>,
+					 <&d1_reset VO_PHYRST_CTRL SW_VO_HDMI_RSTN>;
+			reset-names = "prstn", "phyrstn", "rstn";
+			numa-node-id = <1>;
+
+			ports {
+				port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					d1_hdmi_in_dc: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&d1_dc_out_hdmi>;
+					};
+				};
+			};
+		};
+
+		d1_dw_hdmi_hdcp2: hdmi-hdcp2@70290000 {
+			compatible = "eswin,dw-hdmi-hdcp2";
+			reg = <0x0 0x70290000 0x0 0x10000>;
+			interrupt-parent = <&plic1>;
+			interrupts = <275>;
+			clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>,
+				 <&d1_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
+			clock-names ="pclk_hdcp2", "hdcp2_clk_hdmi";
+			dma-noncoherent;
+			numa-node-id = <1>;
+		};
 
 		d1_wdt0: watchdog@0x70800000 {
 			compatible = "snps,dw-wdt";
@@ -1830,34 +1814,34 @@
 			status = "disabled";
 		};
 
-                d1_gc820: g2d@70140000 {
-                        compatible = "eswin,galcore_d1";
-                        clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
-                                        <&d1_clock WIN2030_CLK_VC_CFG_CLK>,
-                                        <&d1_clock WIN2030_CLK_G2D_CFG_CLK>,
-                                        <&d1_clock WIN2030_CLK_CLK_G2D_ST2>,
-                                        <&d1_clock WIN2030_CLK_G2D_CLK>,
-                                        <&d1_clock WIN2030_CLK_G2D_ACLK>,
-                                        <&d1_clock WIN2030_CLK_VC_MON_PCLK>;
-                        clock-names = "vc_aclk", "vc_cfg", "g2d_cfg", "g2d_st2", "g2d_clk", "g2d_aclk","mon_pclk";
-                        resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
-                                        <&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
-                                        <&d1_reset VC_RST_CTRL SW_VC_MONCFG_RSTN>,
-                                        <&d1_reset G2D_RST_CTRL SW_G2D_CORE_RSTN>,
-                                        <&d1_reset G2D_RST_CTRL SW_G2D_CFG_RSTN>,
-                                        <&d1_reset G2D_RST_CTRL SW_G2D_AXI_RSTN>;
-                        reset-names = "axi", "cfg", "moncfg", "g2d_core", "g2d_cfg", "g2d_axi";
-                        reg = <0 0x70140000 0 0x40000>, <0 0x70180000 0 0x40000>;
-                        reg-names = "core_2d", "core_2d1";
-                        fe-apb-offset = <0x800>;
-                        interrupt-parent = <&plic1>;
-                        interrupts = <49>, <50>;
-                        interrupt-names = "core_2d", "core_2d1";
-                        enable-mmu = <1>;
-                        contiguous-size = <0xa00000>;
-                        recovery = <0>;
+				d1_gc820: g2d@70140000 {
+						compatible = "eswin,galcore_d1";
+						clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
+										<&d1_clock WIN2030_CLK_VC_CFG_CLK>,
+										<&d1_clock WIN2030_CLK_G2D_CFG_CLK>,
+										<&d1_clock WIN2030_CLK_CLK_G2D_ST2>,
+										<&d1_clock WIN2030_CLK_G2D_CLK>,
+										<&d1_clock WIN2030_CLK_G2D_ACLK>,
+										<&d1_clock WIN2030_CLK_VC_MON_PCLK>;
+						clock-names = "vc_aclk", "vc_cfg", "g2d_cfg", "g2d_st2", "g2d_clk", "g2d_aclk","mon_pclk";
+						resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
+										<&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
+										<&d1_reset VC_RST_CTRL SW_VC_MONCFG_RSTN>,
+										<&d1_reset G2D_RST_CTRL SW_G2D_CORE_RSTN>,
+										<&d1_reset G2D_RST_CTRL SW_G2D_CFG_RSTN>,
+										<&d1_reset G2D_RST_CTRL SW_G2D_AXI_RSTN>;
+						reset-names = "axi", "cfg", "moncfg", "g2d_core", "g2d_cfg", "g2d_axi";
+						reg = <0 0x70140000 0 0x40000>, <0 0x70180000 0 0x40000>;
+						reg-names = "core_2d", "core_2d1";
+						fe-apb-offset = <0x800>;
+						interrupt-parent = <&plic1>;
+						interrupts = <49>, <50>;
+						interrupt-names = "core_2d", "core_2d1";
+						enable-mmu = <1>;
+						contiguous-size = <0xa00000>;
+						recovery = <0>;
 			dma-noncoherent;
-                };
+				};
 
 		d1_sdhci_emmc: mmc@70450000 {
 			compatible = "eswin,emmc-sdhci-5.1";
@@ -1977,36 +1961,36 @@
 		d1_vi_top_csr: vi_common_top_csr@0x71030000 {
 			compatible = "esw,vi-common-csr", "syscon";
 			clocks = <&d1_clock WIN2030_CLK_VI_ACLK>,
-			         <&d1_clock WIN2030_CLK_VI_CFG_CLK>,
-			         <&d1_clock WIN2030_CLK_VI_DIG_ISP_CLK>,
-			         <&d1_clock WIN2030_CLK_VI_DVP_CLK>,
-			         <&d1_clock WIN2030_CLK_VI_PHY_CFG>,
-			         <&d1_clock WIN2030_CLK_VI_PHY_TXCLKESC>,
-			         <&d1_clock WIN2030_CLK_VI_SHUTTER_0>,
-			         <&d1_clock WIN2030_CLK_VI_SHUTTER_1>,
-			         <&d1_clock WIN2030_CLK_VI_SHUTTER_2>,
-			         <&d1_clock WIN2030_CLK_VI_SHUTTER_3>,
-			         <&d1_clock WIN2030_CLK_VI_SHUTTER_4>,
-			         <&d1_clock WIN2030_CLK_VI_SHUTTER_5>,
-			         <&d1_clock WIN2030_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-			         <&d1_clock WIN2030_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
-			         <&d1_clock WIN2030_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
-			         <&d1_clock WIN2030_SPLL0_FOUT1>,
-			         <&d1_clock WIN2030_VPLL_FOUT1>;
+					 <&d1_clock WIN2030_CLK_VI_CFG_CLK>,
+					 <&d1_clock WIN2030_CLK_VI_DIG_ISP_CLK>,
+					 <&d1_clock WIN2030_CLK_VI_DVP_CLK>,
+					 <&d1_clock WIN2030_CLK_VI_PHY_CFG>,
+					 <&d1_clock WIN2030_CLK_VI_PHY_TXCLKESC>,
+					 <&d1_clock WIN2030_CLK_VI_SHUTTER_0>,
+					 <&d1_clock WIN2030_CLK_VI_SHUTTER_1>,
+					 <&d1_clock WIN2030_CLK_VI_SHUTTER_2>,
+					 <&d1_clock WIN2030_CLK_VI_SHUTTER_3>,
+					 <&d1_clock WIN2030_CLK_VI_SHUTTER_4>,
+					 <&d1_clock WIN2030_CLK_VI_SHUTTER_5>,
+					 <&d1_clock WIN2030_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock WIN2030_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
+					 <&d1_clock WIN2030_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
+					 <&d1_clock WIN2030_SPLL0_FOUT1>,
+					 <&d1_clock WIN2030_VPLL_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
-			              "phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
-			              "sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
+						  "phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
+						  "sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
 			resets = <&d1_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-			         <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-			         <&d1_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
-			         <&d1_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
-			         <&d1_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
-			         <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
-			         <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
-			         <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
-			         <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
-			         <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
-			         <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
+					 <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+					 <&d1_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
+					 <&d1_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
+					 <&d1_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
+					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
+					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
+					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
+					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
+					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
+					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
 			reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
 
 			id = <0>;
@@ -2045,16 +2029,16 @@
 		d1_dewarp: dewarp@71020000 {
 			compatible = "eswin,dewarp";
 			clocks = <&d1_clock WIN2030_CLK_VI_ACLK>,
-			         <&d1_clock WIN2030_CLK_VI_CFG_CLK>,
-			         <&d1_clock WIN2030_CLK_VI_DIG_DW_CLK>,
-			         <&d1_clock WIN2030_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-			         <&d1_clock WIN2030_MUX_U_VI_DW_ROOT_2MUX1>,
-			         <&d1_clock WIN2030_SPLL0_FOUT1>,
-			         <&d1_clock WIN2030_VPLL_FOUT1>;
+					 <&d1_clock WIN2030_CLK_VI_CFG_CLK>,
+					 <&d1_clock WIN2030_CLK_VI_DIG_DW_CLK>,
+					 <&d1_clock WIN2030_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock WIN2030_MUX_U_VI_DW_ROOT_2MUX1>,
+					 <&d1_clock WIN2030_SPLL0_FOUT1>,
+					 <&d1_clock WIN2030_VPLL_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
 			resets = <&d1_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-			         <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-			         <&d1_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
+					 <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+					 <&d1_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
 			reset-names = "axi", "cfg", "dwe";
 
 			interrupt-parent = <&plic1>;
