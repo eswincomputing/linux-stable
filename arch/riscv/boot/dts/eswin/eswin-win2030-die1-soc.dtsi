@@ -911,6 +911,7 @@
 			reset-names = "e31_core";
 
 			numa-node-id = <1>;
+			firmware-name = "eic7700_die1_e31_fw";
 			dma-noncoherent;
 		};
 
