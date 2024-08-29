@@ -788,6 +788,13 @@ static int vcmd_type_core_num[MAX_VCMD_TYPE];
 
 static struct semaphore vcmd_reserve_cmdbuf_sem[MAX_VCMD_TYPE]; //for reserve
 
+#define CMDBUF_LOCK_NUM 8
+static spinlock_t cmdbuf_lock[CMDBUF_LOCK_NUM];
+#define LOCK_CMDBUF_NODE(cmdbuf_id, flags) \
+	spin_lock_irqsave(&cmdbuf_lock[(cmdbuf_id) % CMDBUF_LOCK_NUM], flags)
+#define UNLOCK_CMDBUF_NODE(cmdbuf_id, flags) \
+	spin_unlock_irqrestore(&cmdbuf_lock[(cmdbuf_id) % CMDBUF_LOCK_NUM], flags)
+
 /* PCI base register address (memalloc) */
 //extern unsigned long gBaseDDRHw;
 //extern unsigned int mmu_enable;
@@ -1569,7 +1576,10 @@ static long reserve_cmdbuf(struct file *filp,
 	cmdbuf_obj->process_manager_obj = process_manager_obj;
 
 	input_para->cmdbuf_id = cmdbuf_obj->cmdbuf_id;
+
+	LOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 	global_cmdbuf_node[input_para->cmdbuf_id] = new_cmdbuf_node;
+	UNLOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 
 	return 0;
 }
@@ -1622,13 +1632,10 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 				list, new_cmdbuf_node);
 			if (new_cmdbuf_node) {
 				//free node
-#ifdef SUPPORT_DMA_HEAP
-				spin_lock_irqsave(&fp_priv->vcmdlock, flags);
-#endif
+				LOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 				global_cmdbuf_node[cmdbuf_obj->cmdbuf_id] = NULL;
-#ifdef SUPPORT_DMA_HEAP
-				spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
-#endif
+				UNLOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
+
 				if (cmdbuf_obj->process_manager_obj) {
 					spin_lock_irqsave(&cmdbuf_obj->process_manager_obj->spinlock,
 							  flags);
@@ -1660,6 +1667,7 @@ static long release_cmdbuf_node(bi_list *list, bi_list_node *cmdbuf_node)
 {
 	bi_list_node *new_cmdbuf_node = NULL;
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
+	unsigned long flags = 0;
 	/*get cmdbuf object according to cmdbuf_id*/
 	new_cmdbuf_node = cmdbuf_node;
 	if (!new_cmdbuf_node)
@@ -1669,7 +1677,9 @@ static long release_cmdbuf_node(bi_list *list, bi_list_node *cmdbuf_node)
 	if (new_cmdbuf_node) {
 		//free node
 		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+		LOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 		global_cmdbuf_node[cmdbuf_obj->cmdbuf_id] = NULL;
+		UNLOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 		free_cmdbuf_node(new_cmdbuf_node);
 		return 0;
 	}
@@ -1680,6 +1690,7 @@ static long release_cmdbuf_node_cleanup(bi_list *list)
 {
 	bi_list_node *new_cmdbuf_node = NULL;
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
+	unsigned long flags = 0;
 
 	while (1) {
 		new_cmdbuf_node = list->head;
@@ -1689,7 +1700,9 @@ static long release_cmdbuf_node_cleanup(bi_list *list)
 		bi_list_remove_node(list, new_cmdbuf_node);
 		//free node
 		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+		LOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 		global_cmdbuf_node[cmdbuf_obj->cmdbuf_id] = NULL;
+		UNLOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 		free_cmdbuf_node(new_cmdbuf_node);
 	}
 	return 0;
@@ -1913,38 +1926,19 @@ static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 	int k;
 	bi_list_node *new_cmdbuf_node = NULL;
 	struct hantrovcmd_dev *dev = NULL;
-#ifdef SUPPORT_DMA_HEAP
 	unsigned long flags = 0;
-	struct filp_priv *fp_priv = NULL;
-	if (!filp || !filp->private_data) {
-		LOG_ERR("check mc: invalid filp\n");
-		return 0;
-	}
-	fp_priv = (struct filp_priv *)filp->private_data;
-#endif
 
 	for (k = 0; k < TOTAL_DISCRETE_CMDBUF_NUM; k++) {
+		LOCK_CMDBUF_NODE(k, flags);
 		new_cmdbuf_node = global_cmdbuf_node[k];
 		if (!new_cmdbuf_node) {
-			continue;
-		}
-
-#ifdef SUPPORT_DMA_HEAP
-		spin_lock_irqsave(&fp_priv->vcmdlock, flags);
-#endif
-		new_cmdbuf_node = global_cmdbuf_node[k];
-		if (!new_cmdbuf_node) {
-#ifdef SUPPORT_DMA_HEAP
-			spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
-#endif
+			UNLOCK_CMDBUF_NODE(k, flags);
 			continue;
 		}
 
 		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 		if (!cmdbuf_obj || cmdbuf_obj->filp != filp) {
-#ifdef SUPPORT_DMA_HEAP
-			spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
-#endif
+			UNLOCK_CMDBUF_NODE(k, flags);
 			continue;
 		}
 		dev = &hantrovcmd_data[cmdbuf_obj->core_id];
@@ -1953,15 +1947,11 @@ static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 			if (!cmdbuf_obj->waited) {
 				*irq_status_ret = cmdbuf_obj->cmdbuf_id;
 				cmdbuf_obj->waited = 1;
-#ifdef SUPPORT_DMA_HEAP
-				spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
-#endif
+				UNLOCK_CMDBUF_NODE(k, flags);
 				return 1;
 			}
 		}
-#ifdef SUPPORT_DMA_HEAP
-		spin_unlock_irqrestore(&fp_priv->vcmdlock, flags);
-#endif
+		UNLOCK_CMDBUF_NODE(k, flags);
 	}
 
 	return 0;
@@ -2590,6 +2580,7 @@ static void vcmd_delink_rm_cmdbuf(struct hantrovcmd_dev *dev,
 	struct cmdbuf_obj *cmdbuf_obj = (struct cmdbuf_obj *)cmdbuf_node->data;
 	bi_list_node *prev = cmdbuf_node->previous;
 	bi_list_node *next = cmdbuf_node->next;
+	unsigned long flags = 0;
 
 	LOG_DBG("Delink and remove cmdbuf [%d] from vcmd list.\n",
 	       cmdbuf_obj->cmdbuf_id);
@@ -2609,7 +2600,9 @@ static void vcmd_delink_rm_cmdbuf(struct hantrovcmd_dev *dev,
 #endif
 
 	bi_list_remove_node(list, cmdbuf_node);
+	LOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 	global_cmdbuf_node[cmdbuf_obj->cmdbuf_id] = NULL;
+	UNLOCK_CMDBUF_NODE(cmdbuf_obj->cmdbuf_id, flags);
 	free_cmdbuf_node(cmdbuf_node);
 
 	cmdbuf_update_jmp_cmd(dev->hw_version_id, prev ? prev->data : NULL,
@@ -2627,7 +2620,6 @@ int hantrovcmd_open(struct inode *inode, struct file *filp)
 	struct process_manager_obj *process_manager_obj = NULL;
 	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
-	spin_lock_init(&fp_priv->vcmdlock);
 	fp_priv->dev = (void *)dev;
 
 	process_manager_node = create_process_manager_node();
@@ -4181,6 +4173,10 @@ int hantrovcmd_init(void)
 	cmdbuf_used_pos = 1;
 	cmdbuf_used[0] = 1;
 	cmdbuf_used_residual -= 1;
+
+	for (i = 0; i < CMDBUF_LOCK_NUM; i++) {
+		spin_lock_init(&cmdbuf_lock[i]);
+	}
 
 	create_kernel_process_manager();
 	for (i = 0; i < MAX_VCMD_TYPE; i++) {

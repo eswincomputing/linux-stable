@@ -164,7 +164,6 @@ struct filp_priv {
 	struct heap_root root_d1;
 #endif
 	void *dev;
-	spinlock_t vcmdlock;
 	atomic_t core_tasks[DEC_CORE_NUM];  /** for task count of 4 cores*/
 };
 #endif
