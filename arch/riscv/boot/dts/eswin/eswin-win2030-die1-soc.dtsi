@@ -981,7 +981,7 @@
 		};
 
 		d1_pinctrl: pinctrl@0x71600080 {
-			compatible = "eswin,win2030-pinctrl";
+			compatible = "eswin,eic7x-pinctrl";
 			reg = <0x0 0x71600080 0x0 0x1FFF80>;
 			status = "disabled";
 			d1_pinctrl_pwm0_default: pwm0-default{
