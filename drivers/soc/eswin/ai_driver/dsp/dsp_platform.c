@@ -79,6 +79,13 @@
 #define SCU_DSPT_DIV_SEL BIT_ULL(19)
 #define SCU_DSPT_DIV_EN BIT_ULL(23)
 
+// from eswin/dsp/framework/lsp/memmap.xmm .dram1.perfdata(0x2813ffc8)
+#define DSP_FLAT_ADDR 0x5b13fe70
+#define DSP_FW_STATE_ADDR 0x5b13ffb0
+#define DSP_PERF_START_ADDR 0x5b13ffc8
+#define DIE_BASE_INTERVAL 0x20000000
+#define DSP_CORE_INTERVAL 0x40000
+
 enum dsp_irq_mode {
 	DSP_IRQ_NONE,
 	DSP_IRQ_LEVEL,
@@ -339,6 +346,17 @@ void es_dsp_release(struct es_dsp_hw *hw)
 	return;
 }
 
+static int check_dsp_fw_state(struct es_dsp *dsp)
+{
+	struct dsp_fw_state_t *dsp_state = (struct dsp_fw_state_t *)dsp->dsp_fw_state_base;
+	if (dsp_state == NULL) {
+		return 0;
+	}
+	dsp_err("%s, %d, exccause=0x%x, ps=0x%x, pc=0x%x.\n", __func__, __LINE__, dsp_state->exccause, dsp_state->ps, dsp_state->pc);
+	dsp_err("%s, %d, fw_state=%d, npu_state=%d, dsp_state=%d, func_state=%d.\n", __func__, __LINE__, dsp_state->fw_state, dsp_state->npu_task_state, dsp_state->dsp_task_state, dsp_state->func_state);
+	return 0;
+}
+
 static int dsp_send_msg_by_mbx(struct es_dsp *dsp, void *data)
 {
 	unsigned long flags;
@@ -351,6 +369,9 @@ static int dsp_send_msg_by_mbx(struct es_dsp *dsp, void *data)
 	while (true) {
 		if (count > 3) {
 			spin_unlock_irqrestore(&dsp->mbox_lock, flags);
+			dsp_err("%s, %d, tx mbxlock = 0x%x, fifo status=0x%x.\n", __func__, __LINE__, readl(dsp->mbox_tx_base + ESWIN_MBOX_WR_LOCK),
+					readl(dsp->mbox_tx_base + ESWIN_MBOX_FIFO_STATUS));
+			check_dsp_fw_state(dsp);
 			return -EBUSY;
 		}
 		writel(dsp->mbox_lock_bit,
@@ -390,14 +411,15 @@ void dsp_send_invalid_code_seg(struct es_dsp_hw *hw, struct dsp_op_desc *op)
 	h2d_msg.command = DSP_CMD_INVALID_ICACHE;
 	h2d_msg.size = op->op_shared_seg_size >> DSP_2M_SHIFT;
 	h2d_msg.iova_ptr = op->iova_base;
-
+	dsp_debug("DSP, send inv iov=0x%x.\n", op->iova_base);
 	ret = dsp_send_msg_by_mbx(hw->es_dsp, (void *)&h2d_msg);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(NULL, "Failed to send message via mailbox\n");
+	}
 	return;
 }
 
-void es_dsp_send_irq(struct es_dsp_hw *hw, dsp_request_t *req)
+int es_dsp_send_irq(struct es_dsp_hw *hw, dsp_request_t *req)
 {
 	es_dsp_h2d_msg h2d_msg;
 	int ret;
@@ -406,11 +428,12 @@ void es_dsp_send_irq(struct es_dsp_hw *hw, dsp_request_t *req)
 	h2d_msg.poll_mode = req->poll_mode;
 	h2d_msg.sync_cache = req->sync_cache;
 	h2d_msg.iova_ptr = req->dsp_flat1_iova;
-
+	dsp_debug("DSP, send irq iova=0x%x.\n", req->dsp_flat1_iova);
 	ret = dsp_send_msg_by_mbx(hw->es_dsp, (void *)&h2d_msg);
-	if (ret < 0)
-		dev_err(NULL, "Failed to send message via mailbox\n");
-	return;
+	if (ret < 0) {
+		dev_err(NULL, " dsp mailbox send message busy, try again.\n");
+	}
+	return ret;
 }
 
 /*
@@ -1047,6 +1070,7 @@ int es_dsp_map_resource(struct es_dsp *dsp)
 {
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 	int ret;
+	unsigned long base;
 
 	hw->flat_dma_pool = dma_pool_create("dsp_flat_dma", dsp->dev,
 					    sizeof(struct es_dsp_flat1_desc) +
@@ -1079,6 +1103,32 @@ int es_dsp_map_resource(struct es_dsp *dsp)
 		ret = -ENOMEM;
 		return ret;
 	}
+
+	base = DSP_PERF_START_ADDR + dsp->numa_id * DIE_BASE_INTERVAL +
+	       DSP_CORE_INTERVAL * dsp->process_id;
+
+	dsp->perf_reg_base = devm_ioremap(dsp->dev, base, sizeof(es_dsp_perf_info));
+	if (!dsp->perf_reg_base) {
+		dev_err(dsp->dev, "ioremap for perf reg err.\n");
+		return -ENOMEM;
+	}
+
+	base = DSP_FW_STATE_ADDR + dsp->numa_id * DIE_BASE_INTERVAL +
+	       DSP_CORE_INTERVAL * dsp->process_id;
+	dsp->dsp_fw_state_base = devm_ioremap(dsp->dev, base, 0x18);
+	if (!dsp->dsp_fw_state_base) {
+		dev_err(dsp->dev, "ioremap for dsp fw state err.\n");
+		return -ENOMEM;
+	}
+
+	base = DSP_FLAT_ADDR + dsp->numa_id * DIE_BASE_INTERVAL +
+	       DSP_CORE_INTERVAL * dsp->process_id;
+	dsp->flat_base = devm_ioremap(dsp->dev, base, 0x140);
+	if (!dsp->flat_base) {
+		dev_err(dsp->dev, "ioremap for dsp flat base err.\n");
+		return -ENOMEM;
+	}
+
 	return 0;
 }
 

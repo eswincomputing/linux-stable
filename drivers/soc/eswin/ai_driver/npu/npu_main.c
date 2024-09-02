@@ -558,7 +558,7 @@ static int32_t __exit edla_remove(struct platform_device *pdev)
 	return 0;
 }
 
-int npu_runtime_suspend(struct device *dev)
+int __maybe_unused npu_runtime_suspend(struct device *dev)
 {
 	struct nvdla_device *ndev = dev_get_drvdata(dev);
 	int ret;
@@ -567,12 +567,14 @@ int npu_runtime_suspend(struct device *dev)
 		dla_error("%s, %d, ndev is null.\n", __func__, __LINE__);
 		return -EIO;
 	}
+
+	npu_tbu_power(dev, false);
 	ret = npu_disable_clock(ndev);
 	dla_debug("%s, %d, ret=%d.\n", __func__, __LINE__, ret);
 	return ret;
 }
 
-int npu_runtime_resume(struct device *dev)
+int __maybe_unused npu_runtime_resume(struct device *dev)
 {
 	struct nvdla_device *ndev = dev_get_drvdata(dev);
 	int ret;
@@ -582,11 +584,16 @@ int npu_runtime_resume(struct device *dev)
 		return -EIO;
 	}
 	ret = npu_enable_clock(ndev);
+    if (ret) {
+        dla_error("%s, %d, enable clock err, ret = %d.\n", __func__, __LINE__, ret);
+        return ret;
+    }
+	npu_tbu_power(dev, true);
 	dla_debug("%s, %d, ret=%d.\n", __func__, __LINE__, ret);
 	return ret;
 }
 
-int npu_suspend(struct device *dev)
+int __maybe_unused npu_suspend(struct device *dev)
 {
 	int ret;
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(dev);
@@ -616,7 +623,7 @@ int npu_suspend(struct device *dev)
 	return 0;
 }
 
-int npu_resume(struct device *dev)
+int __maybe_unused npu_resume(struct device *dev)
 {
 	int ret;
 	struct nvdla_device *ndev = dev_get_drvdata(dev);
@@ -683,7 +690,7 @@ static struct platform_driver edla_driver =
 	{
 		.name = DRIVER_NAME,
 		.of_match_table = of_match_ptr(edla_of_match),
-		.pm = &npu_hw_pm_ops,
+		.pm = pm_ptr(&npu_hw_pm_ops),
 	},
 };
 

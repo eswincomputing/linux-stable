@@ -60,6 +60,7 @@ struct operator_funcs {
 };
 #endif
 
+
 typedef struct es_dsp_buffer_t {
     ES_U32 addr;
     ES_U32 size;
@@ -133,6 +134,14 @@ typedef struct {
      */
     ES_U32 reserved : 11;
 } es_dsp_h2d_msg;
+struct dsp_hw_flat_test {
+    struct operator_funcs funcs;
+    ES_U32 num_buffer;
+    ES_U32 input_index;
+    ES_U32 output_index;
+    ES_U32 flat_iova;
+    es_dsp_buffer buffers[0];
+};
 
 typedef struct {
     /**

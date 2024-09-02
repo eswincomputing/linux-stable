@@ -22,6 +22,38 @@
 #define DSP_OP_LIB_DIR "/lib/firmware/dsp_kernels"
 #endif
 
+/*
+ * bit7-0: dsp fw state.
+ * 0: dsp fw not inited.
+ * 1: dsp is alive
+ * 2: dsp is died.
+ * bit15-8: npu task state.
+ * 0: no npu task process.
+ * 1: npu task is processing.
+ * bit23-16: dsp task state.
+ * 0: no dsp task process.
+ * 1: dsp task is processing.
+ * bit31-24: task func state:
+ * 0: no func exec
+ * 1: prepare func is executing.
+ * 2: prepare func is done.
+ * 3: eval func is executing.
+ * 4: eval func is done
+ */
+struct dsp_fw_state_t {
+    ES_U32 exccause;
+    ES_U32 ps;
+    ES_U32 pc;
+    union {
+        struct {
+            ES_U32 fw_state : 8;
+            ES_U32 npu_task_state : 8;
+            ES_U32 dsp_task_state : 8;
+            ES_U32 func_state : 8;
+        };
+        ES_U32 val;
+    };
+};
 
 typedef struct es_dsp_buffer_group_t {
     es_dsp_buffer* buffers;
