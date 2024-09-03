@@ -23,7 +23,7 @@
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
-#include <linux/es_iommu_rsv.h>
+#include "es_iommu_rsv.h"
 #include "eswin-dsp-subsys.h"
 
 #include "dsp_platform.h"

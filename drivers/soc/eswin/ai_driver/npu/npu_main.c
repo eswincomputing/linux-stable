@@ -36,7 +36,7 @@
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <linux/win2030_noc.h>
 #include <linux/iommu.h>
-#include <linux/es_iommu_rsv.h>
+#include "es_iommu_rsv.h"
 #include "dla_log.h"
 #include "dla_engine.h"
 #include "dla_engine_internal.h"
