@@ -247,6 +247,7 @@ static const struct of_device_id edla_of_match[] = {
 	},
 	{},
 };
+MODULE_DEVICE_TABLE(of, edla_of_match);
 
 void *npu_get_win_engine(void *arg_nvdla_dev)
 {
