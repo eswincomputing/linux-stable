@@ -6,7 +6,7 @@
 // modified, adapted, translated, or created derivative work of, in whole or in part.
 
 #include <linux/dma-buf.h>
-#include <linux/dsp_dma_buf.h>
+#include "dsp_dma_buf.h"
 #include <linux/device.h>
 #include "dsp_main.h"
 

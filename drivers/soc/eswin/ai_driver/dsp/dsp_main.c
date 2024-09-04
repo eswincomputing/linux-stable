@@ -56,7 +56,7 @@
 #define DSP_SUBSYS_HILOAD_CLK 1040000000
 #define DSP_SUBSYS_LOWLOAD_CLK 5200000
 
-#define ES_DSP_DEFAULT_TIMEOUT (100 * 2)
+#define ES_DSP_DEFAULT_TIMEOUT (100* 6)
 
 #ifdef DEBUG
 #pragma GCC optimize("O0")
@@ -236,8 +236,15 @@ static void dsp_process_expire_work(struct work_struct *work)
 	dsp_request_t *req;
 	unsigned long flags;
 	int ret;
+	struct dsp_fw_state_t *dsp_fw_state =
+		(struct dsp_fw_state_t *)dsp->dsp_fw_state_base;
 
-	dsp_err("%s, %d, task timeout.\n", __func__, __LINE__);
+	dsp_err("%s, %d, task timeout, dsp fw state=0x%x, excause=0x%x, ps=0x%x, pc=0x%x, dsp_task=0x%x"
+		"npu_task=0x%x, func_state=0x%x\n",
+		__func__, __LINE__, dsp_fw_state->fw_state,
+		dsp_fw_state->exccause, dsp_fw_state->ps, dsp_fw_state->pc,
+		dsp_fw_state->dsp_task_state, dsp_fw_state->npu_task_state,
+		dsp_fw_state->func_state);
 	ret = es_dsp_reboot_core(dsp->hw_arg);
 	if (ret < 0) {
 		dsp_err("reboot dsp core failed.\n");
@@ -695,7 +702,7 @@ int dsp_boot_firmware(struct es_dsp *dsp)
 	return 0;
 }
 
-int dsp_suspend(struct device *dev)
+int __maybe_unused dsp_suspend(struct device *dev)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	int ret;
@@ -716,11 +723,12 @@ int dsp_suspend(struct device *dev)
 	win2030_tbu_power(dsp->dev, false);
 	es_dsp_core_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
-	dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__, __LINE__, dsp->process_id);
+	dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
+		  __LINE__, dsp->process_id);
 	return 0;
 }
 
-int dsp_resume(struct device *dev)
+int __maybe_unused dsp_resume(struct device *dev)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	int ret;
@@ -760,7 +768,8 @@ int dsp_resume(struct device *dev)
 
 	pm_runtime_mark_last_busy(dsp->dev);
 	pm_runtime_put_autosuspend(dsp->dev);
-	dsp_debug("dsp_core%d Generic resume ok, dsp->off=%d.\n", dsp->process_id, dsp->off);
+	dsp_debug("dsp_core%d Generic resume ok, dsp->off=%d.\n",
+		  dsp->process_id, dsp->off);
 	return 0;
 err_firm:
 	es_dsp_hw_uninit(dsp);
@@ -773,16 +782,18 @@ out:
 	return ret;
 }
 
-int dsp_runtime_suspend(struct device *dev)
+int __maybe_unused dsp_runtime_suspend(struct device *dev)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
-	dsp_debug("%s, dsp core%d runtime suspend.\n", __func__, dsp->process_id);
+	dsp_debug("%s, dsp core%d runtime suspend.\n", __func__,
+		  dsp->process_id);
+	win2030_tbu_power(dev, false);
 	es_dsp_core_clk_disable(dsp);
 	return 0;
 }
 EXPORT_SYMBOL(dsp_runtime_suspend);
 
-int dsp_runtime_resume(struct device *dev)
+int __maybe_unused dsp_runtime_resume(struct device *dev)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	int ret = 0;
@@ -798,6 +809,7 @@ int dsp_runtime_resume(struct device *dev)
 		dev_err(dsp->dev, "couldn't enable DSP\n");
 		goto out;
 	}
+	win2030_tbu_power(dev, true);
 	dsp_debug("dsp core%d, runtime resume ok.\n", dsp->process_id);
 out:
 	return ret;
@@ -965,7 +977,8 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	ret = es_dsp_map_resource(dsp);
 	if (ret < 0) {
-		dsp_err("%s, %d, dsp map resource err, ret=%d.\n", __func__, __LINE__, ret);
+		dsp_err("%s, %d, dsp map resource err, ret=%d.\n", __func__,
+			__LINE__, ret);
 		goto err_map_res;
 	}
 	init_waitqueue_head(&dsp->hd_ready_wait);
@@ -983,7 +996,8 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	ret = dsp_enable_mbox_clock(dsp);
 	if (ret < 0) {
-		dsp_err("%s, %d, enable mbox clock err, ret = %d.\n", __func__, __LINE__, ret);
+		dsp_err("%s, %d, enable mbox clock err, ret = %d.\n", __func__,
+			__LINE__, ret);
 		goto err_mbox_clk;
 	}
 	ret = es_dsp_clk_enable(dsp);
@@ -1097,10 +1111,9 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-static const struct dev_pm_ops es_dsp_hw_pm_ops = {
-	SYSTEM_SLEEP_PM_OPS(dsp_suspend, dsp_resume)
-	SET_RUNTIME_PM_OPS(dsp_runtime_suspend, dsp_runtime_resume, NULL) };
+static const struct dev_pm_ops es_dsp_hw_pm_ops = { SYSTEM_SLEEP_PM_OPS(
+	dsp_suspend, dsp_resume) SET_RUNTIME_PM_OPS(dsp_runtime_suspend,
+						    dsp_runtime_resume, NULL) };
 
 static struct platform_driver es_dsp_hw_driver = {
 	.probe   = es_dsp_hw_probe,
@@ -1108,7 +1121,7 @@ static struct platform_driver es_dsp_hw_driver = {
 	.driver  = {
 		.name = DRIVER_NAME,
 		.of_match_table = of_match_ptr(es_dsp_hw_match),
-		.pm = &es_dsp_hw_pm_ops,
+		.pm = pm_ptr(&es_dsp_hw_pm_ops),
 	},
 };
 

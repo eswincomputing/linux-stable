@@ -9,6 +9,8 @@ ccflags-y += -I$(srctree)/drivers/memory/eswin/codacache/
 ccflags-y += -I$(srctree)/$(src)/include
 ccflags-y += -I$(srctree)/$(src)/../dsp
 ccflags-y += -I$(srctree)/$(src)/../include
+ccflags-y += -I$(srctree)/drivers/memory/eswin/es_iommu_rsv/include/linux
+ccflags-y += -I$(srctree)/drivers/memory/eswin/es_dev_buf/include/linux
 
 ccflags-y += -DNPU_DEV_SIM=$(NPU_DEV_SIM)
 ccflags-y += -DENABLE_PROGRAM_CORE=$(ENABLE_PROGRAM_CORE)

@@ -17,7 +17,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-map-ops.h>
 #include "internal_interface.h"
-#include <linux/dsp_dma_buf.h>
+#include "dsp_dma_buf.h"
 
 struct user_model;
 

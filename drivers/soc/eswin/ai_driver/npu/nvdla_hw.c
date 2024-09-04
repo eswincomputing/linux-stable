@@ -27,7 +27,7 @@
 #include <linux/version.h>
 #include <asm/cacheflush.h>
 #include <linux/iommu.h>
-#include <linux/es_iommu_rsv.h>
+#include "es_iommu_rsv.h"
 #include "dla_interface.h"
 // TODO(yuzaiqiang) The header files dla_interface.h and llc_spram.h both define the same
 // macro CACHE_LINE_SIZE, resulting in a riscv compilation error.

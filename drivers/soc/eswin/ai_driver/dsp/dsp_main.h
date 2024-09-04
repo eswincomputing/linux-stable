@@ -128,6 +128,9 @@ struct es_dsp {
 	struct work_struct task_work;
 
 	struct es_dsp_stats *stats;
+	void __iomem *perf_reg_base;
+	u32 __iomem *dsp_fw_state_base;
+	void __iomem *flat_base;
 
 	struct timer_list task_timer;
 	struct work_struct expire_work;
@@ -146,7 +149,6 @@ struct es_dsp {
 	u32 device_uart;
 	struct resource *mbox_tx_res;
 	struct resource *mbox_rx_res;
-
 
 	u64 send_time;
 	u64 done_time;
@@ -179,7 +181,7 @@ struct es_dsp {
 
 /* 0xFF9B_0000 -- 0xFFFB_0000 for SPAD */
 #define DSP_IDDR_IOVA 0xff9b0000
-#define DSP_IDDR_IOVA_SIZE 0x400000
+#define DSP_IDDR_IOVA_SIZE 0x600000
 
 #define DSP_DEVICE_AUX_E31_IOVA 0xfffb0000  // unused iova
 #define DSP_DEVICE_AUX_E31_IOVA_SIZE 0x1000

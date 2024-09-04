@@ -9,51 +9,51 @@
 #include <linux/proc_fs.h>
 #include <linux/kernel.h>
 #include <linux/seq_file.h>
+#include <linux/iommu.h>
 #include "dsp_main.h"
 
 static struct proc_dir_entry *proc_es_dsp;
 extern int dsp_log_level;
 int dsp_perf_enable = 0;
 
-// from eswin/dsp/framework/lsp/memmap.xmm .dram1.perfdata(0x2813ffc0)
-#define DSP_PERF_START_ADDR 0x5b13ffc0
-#define DIE_BASE_INTERVAL 0x20000000
-#define DSP_CORE_INTERVAL 0x40000
-
 void get_dsp_perf_info(es_dsp_perf_info *perf_info, int die_num, int dsp_num)
 {
 	struct es_dsp *dsp = NULL;
-	void *iomem = NULL;
-	unsigned long phys;
 
 	memset((void *)perf_info, 0, sizeof(es_dsp_perf_info));
 	dsp = es_proc_get_dsp(die_num, dsp_num);
 	if (!dsp) {
 		return;
 	}
-
-	phys = DSP_PERF_START_ADDR + die_num * DIE_BASE_INTERVAL +
-	       DSP_CORE_INTERVAL * dsp_num;
-	iomem = ioremap(phys, sizeof(es_dsp_perf_info));
-	if (!iomem) {
-		return;
-	}
-	memcpy((void *)perf_info, iomem, sizeof(es_dsp_perf_info));
-
-	iounmap(iomem);
+	memcpy((void *)perf_info, dsp->perf_reg_base, sizeof(es_dsp_perf_info));
 }
+
+static char *fw_state[] = {
+	"Not_ready",
+	"Alive",
+	"Hang",
+};
+
+static char *func_state[] = {
+	"No_task", "prep_run", "prep_done", "eval_run", "eval_done",
+};
 
 static int stats_show(struct seq_file *m, void *p)
 {
 	struct es_dsp *dsp;
 	int i, j;
 	dsp_request_t req;
+	dsp_request_t *myreq;
 	struct timespec64 ts;
 	const int die_cnt = 2;
 	const int dsp_cnt = 4;
 	es_dsp_perf_info perf_info;
 	int k;
-
+	u32 state, cause, ps, pc;
+	u32 fw_val, npu_task, dsp_task, func_val;
+	struct dsp_fw_state_t *dsp_fw_state;
+	struct iommu_domain *domain;
+	phys_addr_t phys;
 	seq_printf(
 		m,
 		"--------------------------------DSP PARAM INFO----------------------------------\n");
@@ -74,6 +74,96 @@ static int stats_show(struct seq_file *m, void *p)
 			}
 		}
 	}
+
+	seq_printf(m, "\n");
+	seq_printf(
+		m,
+		"--------------------------DSP FW STATE--------------------------------------\n");
+	seq_printf(m,
+		   "  %-5s %-6s\t %-8s\t %-8s   %-8s"
+		   "   %-8s\t    %-8s   %-8s   %-10s\n",
+		   "DieId", "CoreId", "fw_state", "cause", "ps", "pc",
+		   "npu_task", "dsp_task", "func_state");
+	for (j = 0; j < die_cnt; j++) {
+		for (i = 0; i < dsp_cnt; i++) {
+			dsp = es_proc_get_dsp(j, i);
+			if (dsp == NULL) {
+				continue;
+			}
+			if (!dsp->dsp_fw_state_base) {
+				continue;
+			}
+			dsp_fw_state =
+				(struct dsp_fw_state_t *)dsp->dsp_fw_state_base;
+			cause = dsp_fw_state->exccause;
+			ps = dsp_fw_state->ps;
+			pc = dsp_fw_state->pc;
+			fw_val = dsp_fw_state->fw_state;
+			dsp_task = dsp_fw_state->dsp_task_state;
+			npu_task = dsp_fw_state->npu_task_state;
+			func_val = dsp_fw_state->func_state;
+			seq_printf(
+				m,
+				"  %-5d %-6d\t %-8s\t 0x%-8x 0x%-8x 0x%-8x\t %-8s %-8s %-10s\n",
+				j, i, fw_state[fw_val], cause, ps, pc,
+				npu_task ? "run" : "no_task",
+				dsp_task ? "run" : "no_task",
+				func_state[func_val]);
+		}
+	}
+
+	seq_printf(
+		m,
+		"--------------------------dsp hw flat content--------------------------------------\n");
+	for (j = 0; j < die_cnt; j++) {
+		struct dsp_op_desc *opdesc;
+		struct dsp_hw_flat_test *hw_flat;
+		for (i = 0; i < dsp_cnt; i++) {
+			dsp = es_proc_get_dsp(j, i);
+			if (dsp == NULL) {
+				continue;
+			}
+			domain = iommu_get_domain_for_dev(dsp->dev);
+
+			hw_flat = dsp->flat_base;
+			if (hw_flat->flat_iova == 0) {
+				continue;
+			}
+			phys = iommu_iova_to_phys(domain, hw_flat->flat_iova);
+			seq_printf(m, "die=%d, core=%d, flat iova = 0x%x, phys=0x%lx.\n", j, i, hw_flat->flat_iova, phys);
+			seq_printf(m, "num_buf=%d, input_idx=%d, out_idx=%d.\n", hw_flat->num_buffer, hw_flat->input_index, hw_flat->output_index);
+		}
+	}
+	seq_printf(
+		m,
+		"--------------------------DSP Current Task--------------------------------------\n");
+
+	for (j = 0; j < die_cnt; j++) {
+		struct dsp_op_desc *opdesc;
+		for (i = 0; i < dsp_cnt; i++) {
+			dsp = es_proc_get_dsp(j, i);
+			if (dsp == NULL) {
+				continue;
+			}
+			if (!dsp->current_task) {
+				continue;
+			}
+			myreq = dsp->current_task;
+			opdesc = (struct dsp_op_desc *)myreq->handle;
+			seq_printf(m, "die=%d, dspcore=%d, opname=%s", j, i, opdesc->name);
+			seq_printf(
+				m,
+				"\tdie=%d core=%d flat_iova=%x num_buf=%x input_idx=%d output_idx=%d\n", j, i, myreq->dsp_flat1_iova, myreq->flat_virt->num_buffer, myreq->flat_virt->input_index,
+				myreq->flat_virt->output_index);
+			domain = iommu_get_domain_for_dev(dsp->dev);
+			seq_printf(m, "domain_type=0x%x.\n", domain->type);
+			for (k = 0; k < myreq->flat_virt->num_buffer; k++) {
+				phys = iommu_iova_to_phys(domain, myreq->flat_virt->buffers[k].addr);
+				seq_printf(m, "buffer[%d]=0x%x. size=0x%x, phys=0x%llx\n", k, myreq->flat_virt->buffers[k].addr, myreq->flat_virt->buffers[k].size, phys);
+			}
+		}
+	}
+
 
 	seq_printf(m, "\n");
 	seq_printf(

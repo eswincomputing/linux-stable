@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include "dsp_main.h"
 struct es_dsp_hw;
-void es_dsp_send_irq(struct es_dsp_hw *, dsp_request_t *);
+int es_dsp_send_irq(struct es_dsp_hw *, dsp_request_t *);
 int es_dsp_reboot_core(struct es_dsp_hw *);
 int es_dsp_enable(struct es_dsp_hw *);
 void es_dsp_disable(struct es_dsp_hw *);

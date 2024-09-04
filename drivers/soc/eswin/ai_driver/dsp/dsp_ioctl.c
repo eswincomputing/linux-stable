@@ -11,7 +11,7 @@
 #include <linux/dma-direct.h>
 #include <linux/slab.h>
 #include "eswin-khandle.h"
-#include <linux/dsp_dma_buf.h>
+#include "dsp_dma_buf.h"
 #include <linux/list.h>
 #include <linux/poll.h>
 #include "dsp_platform.h"
