@@ -82,6 +82,8 @@ static int __init eswin_rsvmem_init_reserved_mem(phys_addr_t base, phys_addr_t s
 {
 	struct mem_block *memblock;
 	phys_addr_t alignment;
+	char *temp;
+	int bname_len;
 
 	/* Sanity checks */
 	if (eswin_rsvmem_block_count == ARRAY_SIZE(eswin_rsvmem_blocks)) {
@@ -113,9 +115,15 @@ static int __init eswin_rsvmem_init_reserved_mem(phys_addr_t base, phys_addr_t s
 
 	/* Set esPagesStart = NULL here, it will be allocated later by fs_initcall*/
 	memblock->esPagesStart = NULL;
-
 	memblock->kPageStart = phys_to_page(base);
+
 	snprintf(memblock->name, BLOCK_MAX_NAME, name);
+	temp = strchr(memblock->name, '@');
+	if (temp) {
+		bname_len = strnlen(memblock->name, BLOCK_MAX_NAME) - strnlen(temp,
+								BLOCK_MAX_NAME);
+		*(memblock->name + bname_len) = '\0';
+	}
 
 	eswin_rsvmem_block_count++;
 
@@ -161,8 +169,8 @@ static int __init rmem_eswin_setup(struct reserved_mem *rmem)
 		return err;
 	}
 
-	pr_info("Reserved memory: created eswin reserve memory at %pa, size %ld MiB\n",
-		&rmem->base, (unsigned long)rmem->size / SZ_1M);
+	pr_info("Reserved memory: created %s eswin reserve memory at %pa, size %ld MiB\n",
+		rmem->name, &rmem->base, (unsigned long)rmem->size / SZ_1M);
 
 	return 0;
 }
