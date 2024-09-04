@@ -859,6 +859,7 @@
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_EMMC_ARSTN>;
 			reset-names = "txrx_rst", "phy_rst", "prstn", "arstn";
 
+			core-clk-reg = <0x51828160>;
 			disable-cqe-dcmd;
 			bus-width = <8>;
 			non-removable;

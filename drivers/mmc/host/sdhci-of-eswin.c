@@ -881,7 +881,13 @@ static int eswin_sdhci_probe(struct platform_device *pdev)
 	eswin_sdhci->host = host;
 	eswin_sdhci->clk_ops = data->clk_ops;
 
-	eswin_sdhci->core_clk_reg = ioremap(ESWIN_EMMC_CORE_CLK_REG, 0x4);
+	ret = of_property_read_u32(dev->of_node, "core-clk-reg", &val);
+	if (ret) {
+		dev_err(dev, "get core clk reg failed.\n");
+		goto err_pltfm_free;
+	}
+
+	eswin_sdhci->core_clk_reg = ioremap(val, 0x4);
 	if (!eswin_sdhci->core_clk_reg) {
 		dev_err(dev, "ioremap core clk reg failed.\n");
 		goto err_pltfm_free;
