@@ -295,7 +295,7 @@
 		};
 
 		d1_dmac0: dma-controller-hsp@0x70430000 {
-			compatible = "snps,axi-dma-1.01a";
+			compatible = "eswin,eic770x-axi-dma";
 			reg = <0x0 0x70430000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <57>;
@@ -322,7 +322,7 @@
 		};
 
 		d1_aon_dmac: dma-controller-aon@0x718c0000 {
-			compatible = "snps,axi-dma-1.01a";
+			compatible = "eswin,eic770x-axi-dma";
 			reg = <0x0 0x718c0000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <289>;
@@ -968,8 +968,9 @@
 				resets = <&d1_reset HSPDMA_RST_CTRL SW_SATA_ASIC0_RSTN>,
 					<&d1_reset HSPDMA_RST_CTRL SW_SATA_OOB_RSTN>,
 					<&d1_reset HSPDMA_RST_CTRL SW_SATA_PMALIVE_RSTN>,
-					<&d1_reset HSPDMA_RST_CTRL SW_SATA_RBC_RSTN>;
-				reset-names = "asic0", "oob", "pmalive", "rbc";
+					<&d1_reset HSPDMA_RST_CTRL SW_SATA_RBC_RSTN>,
+					<&d1_reset HSPDMA_RST_CTRL SW_HSP_SATA_ARSTN>;
+				reset-names = "asic0", "oob", "pmalive", "rbc", "apb";
 				#size-cells = <2>;
 				iommus = <&smmu1 WIN2030_SID_SATA>;
 				tbus = <WIN2030_TBUID_SATA>;
@@ -1384,7 +1385,7 @@
 			status = "disabled";
 		};
 
-		d0_pcie: pcie@0x74000000 {
+		d1_pcie: pcie@0x74000000 {
 			compatible = "eswin,win2030-pcie";
 			clocks = <&d1_clock WIN2030_CLK_PCIET_ACLK>,
 				 <&d1_clock WIN2030_CLK_PCIET_CFG_CLK>,
@@ -1410,24 +1411,23 @@
 
 			ranges = <0x81000000  0x0 0x60800000  0x0 0x60800000 0x0 0x800000>,      /* I/O */
 				 <0x82000000  0x0 0x61000000  0x0 0x61000000 0x0 0xf000000>,    /* mem */
-				 <0xc3000000 0xa0 0x00000000 0xa0 0x00000000 0x20 0x00000000>;  /* mem prefetchable */
+				 <0xc3000000 0xa0 0x00000000 0xa0 0x00000000 0x2 0x00000000>;  /* mem prefetchable */
 
-			/* num-lanes = <0x4>; */
+			num-lanes = <0x4>;
 			/**********************************
 			  	msi_ctrl_io[0~31] : 188~219
 			  	msi_ctrl_int : 220
 			**********************************/
-			interrupts = <220>;
-			interrupt-names = "msi";
+			interrupts = <220>, <179>, <180>, <181>, <182>, <183>, <184>, <185>, <186>;
+			interrupt-names = "msi", "inta", "intb", "intc", "intd";
 			interrupt-parent = <&plic1>;
+			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
+			interrupt-map = <0x0 0x0 0x0 0x1 &plic1 179>,
+							<0x0 0x0 0x0 0x2 &plic1 180>,
+							<0x0 0x0 0x0 0x3 &plic1 181>,
+							<0x0 0x0 0x0 0x4 &plic1 182>;
 			iommus = <&smmu1 0xfe0000>;
 			iommu-map = <0x0 &smmu1 0xff0000 0xffffff>;
-			#ifdef PLATFORM_HAPS
-			gen-x = <1>;
-			#else
-			gen-x = <3>;
-			#endif
-			lane-x = <4>;
 			tbus = <WIN2030_TBUID_PCIE>;
 			status = "disabled";
 			numa-node-id = <1>;
@@ -1562,9 +1562,9 @@
 
 		d1_ssi0: spi1@70810000 {
 			compatible = "snps,eic770x-spi";
-			#address-cells = <2>;
-			#size-cells = <2>;
-			reg = <0x0 0x70810000 0x0 0x5000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0 0x70810000 0x0 0x4000>;
 			spi-max-frequency = <4800000>;
 			clocks = <&d1_clock WIN2030_CLK_LSP_SSI0_PCLK>;
 			clock-names = "clk";
@@ -1575,11 +1575,23 @@
 			numa-node-id = <1>;
 			status = "disabled";
 			dma-noncoherent;
-			d1_spi_demo: spi-demo@0 {
-				compatible = "eswin,demo-spi";
-				reg = <0 0 0 0>;
-				spi-max-frequency = <4800000>;
-			};
+		};
+
+		d1_bootspi: spi@71800000 {
+			compatible = "eswin,bootspi";
+			reg = <0x0 0x71800000 0x0 0x8000>,
+				<0x0 0x71828000 0x0 0x8000>,
+				<0x0 0x7c000000 0x0 0x8000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&d1_clock WIN2030_CLK_CLK_BOOTSPI_CFG>,
+					<&d1_clock WIN2030_CLK_CLK_BOOTSPI>;
+			clock-names = "cfg_clk", "clk";
+			resets = <&d1_reset BOOTSPI_RST_CTRL SW_BOOTSPI_RSTN>;
+			reset-names = "rst";
+			spi-max-frequency = <4800000>;
+			reg-io-width = <4>;
+			status = "disabled";
 		};
 
         d1_video_output: display-subsystem {

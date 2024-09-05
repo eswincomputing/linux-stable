@@ -50,7 +50,6 @@
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
 		rtc0 = &die0_rtc;
-		rtc1 = &pcf_rtc;
 	};
 
 	chosen {
@@ -152,47 +151,19 @@
 		};
 	};
 
+	/* die1 gpio68
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio107_default &pinctrl_gpio108_default &pinctrl_gpio109_default>;
 
-		gpio-107 {
-			gpios = <&portd 11 GPIO_ACTIVE_HIGH>;
-			label = "power";
-			linux,default-trigger = "default-on";
-		};
-
-		gpio-108 {
+		gpio-68 {
 			gpios = <&portd 12 GPIO_ACTIVE_LOW>;
 			label = "heartbeat";
 			linux,default-trigger = "heartbeat";
 		};
-
-		gpio-109 {
-			gpios = <&portd 13 GPIO_ACTIVE_HIGH>;
-			label = "gpio-109";
-			linux,default-trigger = "default-off";
-		};
-
-		gpio-110 {
-			gpios = <&portd 14 GPIO_ACTIVE_HIGH>;
-			label = "gpio-109";
-			linux,default-trigger = "default-off";
-		};
 	};
-
-	gpio-keys {
-		compatible = "gpio-keys";
-
-		ok_key {
-			label = "OK";
-			linux,code = <KEY_OK>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio6_default>;
-			gpios = <&porta 6 GPIO_ACTIVE_LOW>;
-		};
-	};
+	*/
 };
 
 &d0_clock {
@@ -313,6 +284,76 @@
 	status = "okay";
 };
 
+&d1_cfg_noc {
+	status = "okay";
+};
+
+&d1_llc_noc {
+	status = "okay";
+	stat,0 = "TracePort:ddr0_p0_req";
+	stat,1 = "TracePort:ddr1_p0_req";
+	//latency,0 = "TracePort:llcnoc_trans_probe";
+	//pending,0 = "TracePort:llcnoc_trans_probe";
+};
+
+&d1_sys_noc {
+	status = "okay";
+
+	//eswin,DSPT-qos-owner;
+	//eswin,NPU-qos-owner;
+	//eswin,SPISLV_TBU3-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p1_req",
+		 "InitFlow:mcput_snoc_mp/I/0";
+
+	stat,1 = "TracePort:ddr0_p2_req",
+		 "InitFlow:dspt_snoc/I/0",
+		 "AddrBase:0x81000000", "AddrSize:0x30",
+		 "Opcode:RdWrLockUrg", "Status:ReqRsp", "Length:0x8000", "Urgency:0x0";
+
+	stat,2 = "TracePort:ddr1_p1_req",
+		 "Status:Req", "AddrSize:0x28";
+
+	stat,3 = "TracePort:ddr1_p2_req";
+
+	latency,0 = "TracePort:sysnoc_trans_probe_0", "AddrSize:0x0";
+	latency,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x28","Opcode:RdWr";
+	//latency,2 = "TracePort:sysnoc_trans_probe_2";
+
+	//pending,0 = "TracePort:sysnoc_trans_probe_0";
+	//pending,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x0","Opcode:RdWr";
+	pending,0 = "TracePort:sysnoc_trans_probe_2", "AddrSize:0x3";
+};
+
+&d1_media_noc {
+	status = "okay";
+
+	//eswin,GPU-qos-owner;
+	//eswin,TBU2-qos-owner;
+	//eswin,VC-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p3_req";
+	stat,1 = "TracePort:ddr1_p3_req";
+	//latency,0 = "TracePort:mnoc_trans_probe";
+	//pending,0 = "TracePort:mnoc_trans_probe";
+};
+
+&d1_realtime_noc {
+	status = "okay";
+
+	//eswin,TBU0-qos-owner;
+	//eswin,VO-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p4_req";
+	stat,1 = "TracePort:ddr1_p4_req";
+	//latency,0 = "TracePort:rnoc_trans_probe";
+	//pending,0 = "TracePort:rnoc_trans_probe";
+};
+
+&d1_noc_wdt {
+	status = "okay";
+};
+
 &d0_ipc_scpu {
 	status = "okay";
 };
@@ -330,7 +371,7 @@
 &pcie {
 	status = "okay";
 };
-&d0_pcie {
+&d1_pcie {
 	status = "disabled";
 };
 
@@ -602,32 +643,35 @@
 	drive-impedance-ohm = <50>;
 	enable-cmd-pullup;
 	enable-data-pullup;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
 	no-sdio;
 	no-sd;
 };
+
 &d1_sdhci_emmc {
-	status = "disabled";
+	/* emmc */
+	status = "okay";
+	delay_code = <0x17>;
+	drive-impedance-ohm = <50>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	no-sdio;
+	no-sd;
 };
 
 &sdio0 {
 	/* sd card */
 	status = "okay";
-	delay_code = <0x29>;
+	delay_code = <0x55>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
 	no-sdio;
 	no-mmc;
 };
-&d1_sdio0 {
-	status = "disabled";
-};
 
-&sdio1 {
+&d1_sdio0 {
 	/* wifi module */
-	status = "okay";
+	status = "disabled";
 	delay_code = <0x29>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
@@ -637,6 +681,11 @@
 	no-sd;
 	no-mmc;
 };
+
+&sdio1 {
+	status = "disabled";
+};
+
 &d1_sdio1 {
 	status = "disabled";
 };
@@ -650,14 +699,16 @@
 
 	status = "okay";
 };
+
 &d1_gmac0 {
+/*	
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio13_default>;
 	rst-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-
-	status = "okay";
+*/
+	status = "disabled";
 };
 
 &d0_gmac1 {
@@ -669,31 +720,31 @@
 
 	status = "okay";
 };
+
 &d1_gmac1 {
+	/*
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio14_default>;
 	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-
-	status = "okay";
+	*/
+	status = "disabled";
 };
-
 
 &d0_sata {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sata_act_led_default>;
 };
+
 &d1_sata {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_usbdrd3_0 {
 	status = "okay";
 };
 &d1_usbdrd3_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -702,11 +753,18 @@
 	maximum-speed = "super-speed";
 };
 
+&d1_usbdrd_dwc3_0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+};
+
 &d0_usbdrd3_1 {
 	status = "okay";
 };
-&d1_usbdrd3_0 {
-	status = "disabled";
+
+&d1_usbdrd3_1 {
+	status = "okay";
 };
 
 &d0_usbdrd_dwc3_1 {
@@ -714,13 +772,17 @@
 	dr_mode = "host";
 	maximum-speed = "super-speed";
 };
+
 &d1_usbdrd_dwc3_1 {
-	status = "disabled";
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
 };
 
 &d0_dmac0 {
 	status = "okay";
 };
+
 &d1_dmac0 {
 	status = "disabled";
 };
@@ -728,29 +790,32 @@
 &d0_aon_dmac {
 	status = "okay";
 };
+
 &d1_aon_dmac {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart0 {
 	/* debug */
 	status = "okay";
 };
+
 &d1_uart0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart1 {
 	/* BT M.2 KEY-E */
-	status = "okay";
+	status = "disabled";
 };
+
 &d1_uart1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart2 {
 	/* RS232 DB9 */
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart3 {
@@ -787,14 +852,8 @@
 	};
 };
 &d1_ssi0 {
-	status = "disabled";
-};
-
-&ssi1 {
 	/* spi flash */
-	status = "disabled";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_spi2_default>;
+	status = "okay";
 	num-cs = <2>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128fw",
@@ -816,9 +875,31 @@
 	};
 };
 
+&ssi1 {
+	/* unused */
+	status = "disabled";
+};
+
 &bootspi {
 	/* spi flash */
-	status = "okay";
+	status = "disabled";
+	num-cs = <1>;
+	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
+	spi-flash@0 {
+		compatible = "winbond,w25q128jw",
+					"jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <4800000>;
+		rx-sample-delay-ns = <10>;
+	};
+};
+
+&d1_bootspi {
+	/* spi flash */
+	status = "disabled";
 	num-cs = <1>;
 	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
@@ -924,10 +1005,6 @@
 };
 &d1_i2c0 {
 	status = "disabled";
-	eeprom@50 {
-		compatible = "atmel,24c1024";
-		reg = <0x50>;
-	};
 };
 
 &d0_i2c1 {
@@ -1042,12 +1119,36 @@
 };
 
 &d0_aon_i2c0 {
-	/* temp sensor & rtc */
+	/* ina226x4 & tmp102aidrlr */
 	status = "okay";
-	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
-	pcf_rtc:rtc@51 {
-		compatible = "nxp,pcf8563";
-		reg = <0x51>;
+	i2c-sda-hold-time-ns = <0x40>;
+	ina226@45 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "cpu_vdd";
+		reg = <0x45>;
+		shunt-resistor = <1000>;
+	};
+	ina226@44 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "soc_vdd";
+		reg = <0x44>;
+		shunt-resistor = <1000>;
+	};
+	ina226@41 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "lpddr_vdd";
+		reg = <0x41>;
+		shunt-resistor = <1000>;
+	};
+	ina226@48 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "dc_vdd";
+		reg = <0x48>;
+		shunt-resistor = <1000>;
 	};
 };
 &d1_aon_i2c0 {
