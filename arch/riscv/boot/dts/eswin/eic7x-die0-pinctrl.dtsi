@@ -69,7 +69,7 @@
 					function = "gpio7_on_func";
 				};
 				conf {
-					groups = "gpio7_group";
+					groups = "gpio7_on_group";
 					input-enable = <1>;
 					bias-pull-down = <1>;
 				};
@@ -89,7 +89,7 @@
 					function = "gpio8_on_func";
 				};
 				conf {
-					groups = "gpio8_group";
+					groups = "gpio8_on_group";
 					input-enable = <1>;
 					bias-pull-up = <1>;
 				};
@@ -109,7 +109,7 @@
 					function = "gpio9_on_func";
 				};
 				conf {
-					groups = "gpio9_group";
+					groups = "gpio9_on_group";
 					input-enable = <1>;
 					bias-pull-up = <1>;
 				};
@@ -129,7 +129,7 @@
 					function = "gpio17_on_func";
 				};
 				conf {
-					groups = "gpio17_group";
+					groups = "gpio17_on_group";
 					input-enable = <1>;
 					bias-pull-down = <1>;
 				};
@@ -149,7 +149,7 @@
 					function = "gpio64_on_func";
 				};
 				conf {
-					groups = "gpio64_group";
+					groups = "gpio64_on_group";
 					input-enable = <1>;
 					bias-pull-down = <1>;
 				};
@@ -169,7 +169,7 @@
 					function = "gpio65_on_func";
 				};
 				conf {
-					groups = "gpio65_group";
+					groups = "gpio65_on_group";
 					input-enable = <1>;
 					bias-pull-down = <1>;
 				};
@@ -189,7 +189,7 @@
 					function = "gpio66_on_func";
 				};
 				conf {
-					groups = "gpio66_group";
+					groups = "gpio66_on_group";
 					input-enable = <1>;
 					bias-pull-down = <1>;
 				};

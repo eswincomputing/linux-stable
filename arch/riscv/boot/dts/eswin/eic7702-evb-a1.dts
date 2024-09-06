@@ -31,7 +31,8 @@
 #include "eswin-win2030-die0-soc.dtsi"
 #include "eswin-win2030-die1-soc.dtsi"
 
-#include "eic7700-pinctrl.dtsi"
+#include "eic7x-die0-pinctrl.dtsi"
+#include "eic7x-die1-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
@@ -151,19 +152,27 @@
 		};
 	};
 
-	/* die1 gpio68
+	distance-map {
+		compatible = "numa-distance-map-v1";
+		distance-matrix = <0 0 10>,
+				<0 1 15>,
+				<1 0 15>,
+				<1 1 10>;
+	};
+
+	/* die1 gpio68 system led */
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio107_default &pinctrl_gpio108_default &pinctrl_gpio109_default>;
+		pinctrl-0 = <&pinctrl_die1_gpio68_default>;
 
 		gpio-68 {
-			gpios = <&portd 12 GPIO_ACTIVE_LOW>;
+			gpios = <&d1_portc 4 GPIO_ACTIVE_LOW>;
 			label = "heartbeat";
 			linux,default-trigger = "heartbeat";
 		};
 	};
-	*/
+
 };
 
 &d0_clock {
@@ -490,7 +499,7 @@
 &dsi_panel {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio27_default &pinctrl_gpio106_default>;
+	pinctrl-0 = <&pinctrl_die0_gpio27_default &pinctrl_die0_gpio106_default>;
 	backlight0-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
 	rst-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
 };
@@ -742,7 +751,7 @@
 
 &d0_gmac0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio15_default>;
+	pinctrl-0 = <&pinctrl_die0_gpio15_default>;
 	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
@@ -751,19 +760,18 @@
 };
 
 &d1_gmac0 {
-/*
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio13_default>;
-	rst-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
-	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
+	pinctrl-0 = <&pinctrl_die1_gpio13_default>;
+	rst-gpios = <&d1_porta 13 GPIO_ACTIVE_LOW>;
+	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-*/
-	status = "disabled";
+
+	status = "okay";
 };
 
 &d0_gmac1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio14_default>;
+	pinctrl-0 = <&pinctrl_die0_gpio14_default>;
 	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
@@ -772,14 +780,13 @@
 };
 
 &d1_gmac1 {
-	/*
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio14_default>;
-	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
-	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
+	pinctrl-0 = <&pinctrl_die1_gpio14_default>;
+	rst-gpios = <&d1_porta 14 GPIO_ACTIVE_LOW>;
+	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	*/
-	status = "disabled";
+
+	status = "okay";
 };
 
 &d0_sata {
@@ -951,8 +958,8 @@
 	/* spi flash */
 	status = "disabled";
 	num-cs = <1>;
-	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
+	cs-gpios = <&d1_portd 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&d1_portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -1359,14 +1366,14 @@
 	status = "okay";
 };
 &d1_pinctrl {
-	status = "disabled";
+	status = "okay";
 };
 
 &gpio0 {
 	status = "okay";
 };
 &d1_gpio0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dev_llc_d0{

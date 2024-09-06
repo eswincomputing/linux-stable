@@ -239,7 +239,7 @@ static const struct pinctrl_pin_desc eswin_pins[] = {
 			.npins = ARRAY_SIZE(_name ## _pins), \
 		}
 
-#ifdef ARCH_ESWIN_EIC7702_SOC
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const char * const jtag1_on_group[] = {"jtag1_on_group"};
 static const char * const jtag1_off_group[] = {"jtag1_off_group"}; //fun1
 
@@ -327,7 +327,7 @@ static const char * const mipi_csi0_group[] = {"mipi_csi0_group"};
 static const char * const mipi_csi1_group[] = {"mipi_csi1_group"};
 static const char * const mipi_csi2_group[] = {"mipi_csi2_group"};
 static const char * const mipi_csi3_group[] = {"mipi_csi3_group"};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const char * const mipi_csi4_group[] = {"mipi_csi4_group"};
 static const char * const mipi_csi5_group[] = {"mipi_csi5_group"};
 #endif
@@ -420,7 +420,7 @@ static const char * const gpio60_group[] = {"gpio60_group"};
 static const char * const gpio61_group[] = {"gpio61_group"};
 static const char * const gpio62_group[] = {"gpio62_group"};
 static const char * const gpio63_group[] = {"gpio63_group"};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const char * const gpio67_group[] = {"gpio67_group"};
 #endif
 static const char * const gpio68_group[] = {"gpio68_group"};
@@ -439,7 +439,7 @@ static const char * const gpio79_group[] = {"gpio79_group"};
 
 static const char * const gpio80_group[] = {"gpio80_group"};
 static const char * const gpio81_group[] = {"gpio81_group"};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const char * const gpio82_group[] = {"gpio82_group"};
 static const char * const gpio83_group[] = {"gpio83_group"};
 static const char * const gpio84_group[] = {"gpio84_group"};
@@ -493,7 +493,7 @@ static const char * const sata_ref_repeat_clk_p_group[] = {"sata_ref_repeat_clk_
 //func7
 static const char * const clk_d2d_test_out_group[] = {"clk_d2d_test_out_group"};
 static const char * const clk_spll0_test_out_group[] = {"clk_spll0_test_out_group"};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const char * const clk_spll1_test_out_group[] = {"clk_spll1_test_out_group"};
 static const char * const clk_spll2_test_out_group[] = {"clk_spll2_test_out_group"};
 static const char * const clk_vpll_test_out_group[] = {"clk_vpll_test_out_group"};
@@ -503,7 +503,7 @@ static const char * const clk_pll_lpddr_test_out_group[] = {"clk_pll_lpddr_test_
 #endif
 
 
-#ifdef ARCH_ESWIN_EIC7702_SOC
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const unsigned int jtag1_on_pins[] = {20,21,22};
 static const unsigned int jtag1_off_pins[] = {20,21,22};
 
@@ -586,7 +586,7 @@ static const unsigned int mipi_csi0_pins[] = {117,118,119};
 static const unsigned int mipi_csi1_pins[] = {120,121,122};
 static const unsigned int mipi_csi2_pins[] = {123,124,125};
 static const unsigned int mipi_csi3_pins[] = {126,127,128};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const unsigned int mipi_csi4_pins[] = {129,130,131};
 static const unsigned int mipi_csi5_pins[] = {132,133,134};
 #endif
@@ -683,7 +683,7 @@ static const unsigned int gpio60_pins[] = {107};
 static const unsigned int gpio61_pins[] = {108};
 static const unsigned int gpio62_pins[] = {109};
 static const unsigned int gpio63_pins[] = {110};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const unsigned int gpio67_pins[] = {114};
 #endif
 static const unsigned int gpio68_pins[] = {115};
@@ -702,7 +702,7 @@ static const unsigned int gpio79_pins[] = {126};
 
 static const unsigned int gpio80_pins[] = {127};
 static const unsigned int gpio81_pins[] = {128};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const unsigned int gpio82_pins[] = {129};
 static const unsigned int gpio83_pins[] = {130};
 static const unsigned int gpio84_pins[] = {131};
@@ -746,7 +746,7 @@ static const unsigned int csi_mon_out_pins[] = {32,33,34,35,36,37,38,39,40,41,42
 static const unsigned int csi_ocla_clk_pins[] = {96};
 static const unsigned int csi_mon_out_valid_pins[] = {97};
 static const unsigned int csi_parity_error_pins[] = {98};
-#ifdef ARCH_ESWIN_EIC7702_SOC
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const unsigned int csi_dtb_out_pins[] = {99,100,101,102};
 static const unsigned int csi_phy_sel_pins[] = {109};
 #else
@@ -761,7 +761,7 @@ static const unsigned int sata_ref_repeat_clk_p_pins[] = {128};
 //func7
 static const unsigned int clk_d2d_test_out_pins[] = {127};
 static const unsigned int clk_spll0_test_out_pins[] = {128};
-#ifndef ARCH_ESWIN_EIC7702_SOC
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static const unsigned int clk_spll1_test_out_pins[] = {129};
 static const unsigned int clk_spll2_test_out_pins[] = {130};
 static const unsigned int clk_vpll_test_out_pins[] = {131};
@@ -772,7 +772,7 @@ static const unsigned int clk_pll_lpddr_test_out_pins[] = {134};
 
 static const struct eswin_group_desc eswin_pinctrl_groups[] =
 {
-	#ifdef ARCH_ESWIN_EIC7702_SOC
+	#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	//func0
 	ESWIN_PINCTRL_GRP(jtag1_on),
 	ESWIN_PINCTRL_GRP(jtag1_off),
@@ -857,7 +857,7 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
     ESWIN_PINCTRL_GRP(mipi_csi1),
     ESWIN_PINCTRL_GRP(mipi_csi2),
     ESWIN_PINCTRL_GRP(mipi_csi3),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
     ESWIN_PINCTRL_GRP(mipi_csi4),
     ESWIN_PINCTRL_GRP(mipi_csi5),
 	#endif
@@ -950,7 +950,7 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
 	ESWIN_PINCTRL_GRP(gpio61),
 	ESWIN_PINCTRL_GRP(gpio62),
 	ESWIN_PINCTRL_GRP(gpio63),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	ESWIN_PINCTRL_GRP(gpio67),
 	#endif
 	ESWIN_PINCTRL_GRP(gpio68),
@@ -969,7 +969,7 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
 
 	ESWIN_PINCTRL_GRP(gpio80),
 	ESWIN_PINCTRL_GRP(gpio81),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	ESWIN_PINCTRL_GRP(gpio82),
 	ESWIN_PINCTRL_GRP(gpio83),
 	ESWIN_PINCTRL_GRP(gpio84),
@@ -1023,7 +1023,7 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
 	//func7
 	ESWIN_PINCTRL_GRP(clk_d2d_test_out),
 	ESWIN_PINCTRL_GRP(clk_spll0_test_out),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	ESWIN_PINCTRL_GRP(clk_spll1_test_out),
 	ESWIN_PINCTRL_GRP(clk_spll2_test_out),
 	ESWIN_PINCTRL_GRP(clk_vpll_test_out),
@@ -1047,7 +1047,7 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
 
 static const struct eswin_function_desc eswin_pinmux_functions[] = {
 
-	#ifdef ARCH_ESWIN_EIC7702_SOC
+	#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	//func0
 	ESWIN_PINMUX_FUNCTION(jtag1_on, 0, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(jtag1_off, 1, ESWIN_PINMUX_MASK),
@@ -1131,7 +1131,7 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
     ESWIN_PINMUX_FUNCTION(mipi_csi1, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(mipi_csi2, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(mipi_csi3, 0, ESWIN_PINMUX_MASK),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
     ESWIN_PINMUX_FUNCTION(mipi_csi4, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(mipi_csi5, 0, ESWIN_PINMUX_MASK),
 	#endif
@@ -1227,7 +1227,7 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
 	ESWIN_PINMUX_FUNCTION(gpio61, 2, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(gpio62, 2, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(gpio63, 2, ESWIN_PINMUX_MASK),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	ESWIN_PINMUX_FUNCTION(gpio67, 2, ESWIN_PINMUX_MASK),
 	#endif
 	ESWIN_PINMUX_FUNCTION(gpio68, 2, ESWIN_PINMUX_MASK),
@@ -1246,7 +1246,7 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
 
 	ESWIN_PINMUX_FUNCTION(gpio80, 2, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(gpio81, 2, ESWIN_PINMUX_MASK),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	ESWIN_PINMUX_FUNCTION(gpio82, 2, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(gpio83, 2, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(gpio84, 2, ESWIN_PINMUX_MASK),
@@ -1300,7 +1300,7 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
 	//func7
 	ESWIN_PINMUX_FUNCTION(clk_d2d_test_out, 7, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(clk_spll0_test_out, 7, ESWIN_PINMUX_MASK),
-	#ifndef ARCH_ESWIN_EIC7702_SOC
+	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	ESWIN_PINMUX_FUNCTION(clk_spll1_test_out, 7, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(clk_spll2_test_out, 7, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(clk_vpll_test_out, 7, ESWIN_PINMUX_MASK),

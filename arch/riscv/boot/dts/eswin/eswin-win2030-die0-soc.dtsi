@@ -1276,7 +1276,7 @@
 			pwm-minimun-period = <1000>;
 			pwms = <&pwm0 0 100000>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_fan_tach_default>;
+			pinctrl-0 = <&pinctrl_die0_fan_tach_default>;
 			status = "disabled";
 			label = "fan_control";
 		};
@@ -1450,6 +1450,18 @@
 			compatible = "eswin,eic7x-pinctrl";
 			reg = <0x0 0x51600080 0x0 0x1FFF80>;
 			status = "disabled";
+			pinctrl_die0_pwm0_default: pwm0-default{
+				mux {
+					groups = "pwm0_group";
+					function = "pwm0_func";
+				};
+			};
+            pinctrl_die0_fan_tach_default: fan_tach-default{
+				mux {
+					groups = "fan_tach_group";
+					function = "fan_tach_func";
+				};
+			};
 		};
 
 		gpio0: gpio@51600000 {
@@ -1504,7 +1516,7 @@
 			resets = <&d0_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
 			reset-names = "rst";
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_pwm0_default>;
+			pinctrl-0 = <&pinctrl_die0_pwm0_default>;
 			status = "disabled";
 		};
 

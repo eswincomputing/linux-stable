@@ -1024,58 +1024,45 @@
 			};
 		};
 
-		d1_gpio0: gpio@0x71600000 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "eswin,win2030-gpio";
-				reg = <0x0 0x71600000 0x0 0x80>;
-				status = "disabled";
-				eswin,syscfg = <&d1_sys_con 0x3c0>;
+		d1_gpio0: gpio@71600000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x0 0x71600000 0x0 0x80>;
 
 			d1_porta: gpio-port@0 {
-				compatible = "eswin,win2030-gpio-port";
+				compatible = "snps,dw-apb-gpio-port";
 				gpio-controller;
 				#gpio-cells = <2>;
 				ngpios = <32>;
 				reg = <0>;
-				interrupts = <303>;
 				interrupt-parent = <&plic1>;
-				interrupt-state = <0 1 1 1>;
-				direction-input = <5 8 9 16>;
-				direction-output = <1 0 3 1>;
-				gpio-state = <11 1 12 1>;
+				interrupts = <303 304 305 306 307 308 309 310 311 312 313 314 315 316 317 318
+								319 320 321 322 323 324 325 326 327 328 329 330 331 332 333 334>;
 			};
+
 			d1_portb: gpio-port@1 {
-				compatible = "eswin,win2030-gpio-port";
+				compatible = "snps,dw-apb-gpio-port";
 				gpio-controller;
 				#gpio-cells = <2>;
 				ngpios = <32>;
 				reg = <1>;
-				direction-input = <5 13 9 25>;
-				direction-output = <26 0 3 1>;
-				gpio-state = <11 1 17 1>;
 			};
 
 			d1_portc: gpio-port@2 {
-				compatible = "eswin,win2030-gpio-port";
+				compatible = "snps,dw-apb-gpio-port";
 				gpio-controller;
 				#gpio-cells = <2>;
 				ngpios = <32>;
 				reg = <2>;
-				direction-input = <5 13 9 25>;
-				direction-output = <26 0 3 1>;
-				gpio-state = <11 1 17 1>;
 			};
 
 			d1_portd: gpio-port@3 {
-				compatible = "eswin,win2030-gpio-port";
+				compatible = "snps,dw-apb-gpio-port";
 				gpio-controller;
 				#gpio-cells = <2>;
 				ngpios = <16>;
 				reg = <3>;
-				direction-input = <9 1 8 1>;
-				direction-output = <3 1 15 1>;
-				gpio-state = <6 1 5 1>;
 			};
 		};
 
