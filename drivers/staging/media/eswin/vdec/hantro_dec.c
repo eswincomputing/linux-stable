@@ -2434,7 +2434,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			if (dbcfg.iova != iova_d1) {
 				common_dmabuf_heap_release(hmem);
 				common_dmabuf_heap_release(hmem_d1);
-				LOG_ERR("IOVA addrs of d0 and d1 are not the same\n");
+				LOG_ERR("IOVA addrs of d0 and d1 are not the same, 0x%lx != 0x%lx, %d\n", dbcfg.iova, iova_d1, __LINE__);
 				return -EFAULT;
 			}
 		}
@@ -2764,12 +2764,12 @@ static int hantrodec_init(void)
 
 		if (platformdev_d1) {
 			of_dma_configure(&platformdev_d1->dev, platformdev_d1->dev.of_node, true);
-			if (dma_set_mask_and_coherent(&platformdev_d1->dev, DMA_BIT_MASK(48))) {
-				LOG_ERR("48bit dma dev: No suitable DMA available\n");
+			if (dma_set_mask_and_coherent(&platformdev_d1->dev, DMA_BIT_MASK(41))) {
+				LOG_ERR("41bit dma dev: No suitable DMA available\n");
 			}
 
-			if (dma_set_coherent_mask(&platformdev_d1->dev, DMA_BIT_MASK(48))) {
-				LOG_ERR("48bit dma dev: No suitable DMA available\n");
+			if (dma_set_coherent_mask(&platformdev_d1->dev, DMA_BIT_MASK(41))) {
+				LOG_ERR("41bit dma dev: No suitable DMA available\n");
 			}
 		}
 	}
