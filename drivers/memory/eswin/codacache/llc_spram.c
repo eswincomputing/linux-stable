@@ -751,13 +751,13 @@ static int llc_clk_set_parent(struct platform_device *pdev, u8 *is_low_freq)
 	if (spram == NULL)
 		return -EINVAL;
 	np = of_node_get(dev->of_node);
-	npu_regulator = devm_regulator_get_exclusive(dev, "NPU_SVCC");
+	npu_regulator = devm_regulator_get_exclusive(dev, "npu");
 
 	if ((NULL == npu_regulator) || (IS_ERR(npu_regulator)))
 	{
-		dev_warn(dev, "failed to get npu regulator\n");
-		*is_low_freq = 0;
-		return -ENODEV;
+		dev_warn(dev, "failed to get npu regulator,the npu freq will set to 1G\n");
+		*is_low_freq = 1;
+		//return -ENODEV;
 	}
 	else
 	{
@@ -769,6 +769,7 @@ static int llc_clk_set_parent(struct platform_device *pdev, u8 *is_low_freq)
 	if (0 == *is_low_freq)
 	{
 		ret = regulator_set_voltage(npu_regulator, NPU_1P5G_VOLTAGE, NPU_1P5G_VOLTAGE);
+		dev_dbg(dev,"name:%s,volt:%d,ret:%d\n",pdev->name,NPU_1P5G_VOLTAGE,ret);
 		if(0 != ret)
 		{
 			dev_err(dev, "set volt:%duV ret:%d\n", NPU_1P5G_VOLTAGE,ret);
@@ -784,7 +785,7 @@ static int llc_clk_set_parent(struct platform_device *pdev, u8 *is_low_freq)
 		if (((NULL != npu_regulator)) && (!IS_ERR(npu_regulator)))
 		{
 			regulator_set_voltage(npu_regulator, NPU_DEFAULT_VOLTAGE, NPU_DEFAULT_VOLTAGE);
-			dev_dbg(dev, "set volt:%duV ret:%d\n", NPU_1P5G_VOLTAGE,ret);
+			dev_dbg(dev,"name:%s,volt:%d,ret:%d\n",	pdev->name,NPU_DEFAULT_VOLTAGE,ret);
 			/* devm_regulator_put(npu_regulator); */
 			mdelay(10);
 		}
