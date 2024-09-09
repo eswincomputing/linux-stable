@@ -492,7 +492,7 @@
 
 		/*mailbox between u84 & npu_0*/
 		d1_mbox2: mbox@70a40000 {
-			compatible = "eswin,win2030-mailbox";
+			compatible = "eswin,npu1-mailbox";
 			reg = <0 (ESWIN_MAILBOX_U84_TO_NPU_0_REG_BASE + 0x20000000) 0 0x10000>,
 				  <0 (ESWIN_MAILBOX_NPU_0_TO_U84_REG_BASE + 0x20000000) 0 0x10000>;
 			interrupt-parent = <&plic1>;
@@ -889,7 +889,7 @@
 		};
 
 		d1_npu: eswin-npu@71c00000 {
-			compatible = "eswin,npu1";
+			compatible = "eswin,npu";
 			reg = <0x0 0x71c00000 0x0 0x400000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <387 16>;

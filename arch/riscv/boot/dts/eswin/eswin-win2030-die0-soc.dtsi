@@ -484,7 +484,7 @@
 		};
 
 		d0_npu: eswin-npu@51c00000 {
-			compatible = "eswin,npu0";
+			compatible = "eswin,npu";
 			reg = <0x0 0x51c00000 0x0 0x400000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <387 16>;

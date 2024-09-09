@@ -379,42 +379,42 @@
 	status = "okay";
 };
 &d1_npu {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp_subsys {
 	status = "okay";
 };
 &d1_dsp_subsys {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp0 {
 	status = "okay";
 };
 &d1_dsp0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp1 {
 	status = "okay";
 };
 &d1_dsp1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp2 {
 	status = "okay";
 };
 &d1_dsp2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp3 {
 	status = "okay";
 };
 &d1_dsp2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &gpu0 {
@@ -1371,9 +1371,11 @@
 
 &dev_llc_d0{
 	apply_npu_high_freq;
+	status = "okay";
 };
 &d1_llc_dev{
 	apply_npu_high_freq;
+	status = "okay";
 };
 
 /* die0 GPIO Function Description
