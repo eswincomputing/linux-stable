@@ -170,7 +170,6 @@ static int timer_mmap(struct file *file, struct vm_area_struct *vma)
     res = perf_timer->mem;
 
     base = res->start + perf_timer->perf_count * 0x14;
-    printk("%s, %d, chan=%d.\n\n", __func__, __LINE__, perf_timer->perf_count);
     remap_pfn_range(vma, vma->vm_start, base >> 12,
             vma->vm_end - vma->vm_start, vma->vm_page_prot);
     return 0;
