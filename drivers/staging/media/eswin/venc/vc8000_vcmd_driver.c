@@ -249,6 +249,10 @@ struct hantrovcmd_dev {
 #define VCMD_HW_ID                  0x4342
 
 
+#ifdef SUPPORT_DMA_HEAP
+static struct mutex dmaheap_mutex;
+#endif /**SUPPORT_DMA_HEAP*/
+
 static struct noncache_mem vcmd_buf_mem_pool;
 static struct noncache_mem vcmd_status_buf_mem_pool;
 static struct noncache_mem vcmd_registers_mem_pool;
@@ -2065,9 +2069,11 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 
 		LOG_DBG("import dmabuf_fd = %d\n", dbcfg.dmabuf_fd);
 
+		mutex_lock(&dmaheap_mutex);
 		/* map the pha to dma addr(iova)*/
 		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
+			mutex_unlock(&dmaheap_mutex);
 			LOG_ERR("dmabuf-heap import from userspace failed\n");
 			return -ENOMEM;
 		}
@@ -2076,6 +2082,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
 			if(IS_ERR(hmem_d1)) {
 				common_dmabuf_heap_release(hmem);
+				mutex_unlock(&dmaheap_mutex);
 				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
 				return -ENOMEM;
 			}
@@ -2083,8 +2090,12 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 
 		/* get the size of the dmabuf allocated by dmabuf_heap */
 		buf_size = common_dmabuf_heap_get_size(hmem);
-		LOG_DBG("dmabuf info: CPU VA:0x%lx, PA:0x%lx, DMA addr(iova):0x%lx, size=0x%lx\n",
-				(unsigned long)hmem->vaddr, (unsigned long)sg_phys(hmem->sgt->sgl), (unsigned long)sg_dma_address(hmem->sgt->sgl), (unsigned long)buf_size);
+		LOG_DBG("fd = %d, dmabuf info: CPU VA:0x%lx, PA:0x%lx, DMA addr(iova):0x%lx, size=0x%lx\n"
+				, dbcfg.dmabuf_fd
+				, (unsigned long)hmem->vaddr
+				, (unsigned long)sg_phys(hmem->sgt->sgl)
+				, (unsigned long)sg_dma_address(hmem->sgt->sgl)
+				, (unsigned long)buf_size);
 
 		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
 		if (venc_pdev_d1) {
@@ -2094,7 +2105,9 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			if (dbcfg.iova != iova_d1) {
 				common_dmabuf_heap_release(hmem);
 				common_dmabuf_heap_release(hmem_d1);
-				LOG_ERR("VENC_VCMD: IOVA addrs of d0 and d1 are not the same\n");
+				mutex_unlock(&dmaheap_mutex);
+				LOG_ERR("VENC_VCMD: IOVA addrs of d0 and d1 are not the same, 0x%lx vs 0x%lx\n"
+					, dbcfg.iova, iova_d1);
 				return -EFAULT;
 			}
 		}
@@ -2106,9 +2119,11 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			common_dmabuf_heap_release(hmem);
 			if (venc_pdev_d1)
 				common_dmabuf_heap_release(hmem_d1);
+			mutex_unlock(&dmaheap_mutex);
 			LOG_DBG("copy_to_user failed, returned %li\n", retval);
 			return -EFAULT;
 		}
+		mutex_unlock(&dmaheap_mutex);
 
 		return 0;
 	}
@@ -2129,9 +2144,11 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			return -ENOMEM;
 		}
 
+		mutex_lock(&dmaheap_mutex);
 		if (venc_pdev_d1) {
 			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
 			if (IS_ERR(hmem_d1)) {
+				mutex_unlock(&dmaheap_mutex);
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
 			}
@@ -2139,6 +2156,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		}
 
 		common_dmabuf_heap_release(hmem);
+		mutex_unlock(&dmaheap_mutex);
 		return 0;
 	}
 #endif
@@ -3571,6 +3589,10 @@ int vcmd_mem_init(void)
 	dma_addr_t dma_handle = 0;
 	dma_addr_t dma_handle_d1 = 0;
 
+#ifdef SUPPORT_DMA_HEAP
+	mutex_init(&dmaheap_mutex);
+#endif /**SUPPORT_DMA_HEAP*/
+
 	vcmd_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 
 	/* command buffer */
@@ -3677,6 +3699,10 @@ void vcmd_mem_cleanup(void)
 		dma_unmap_page(&venc_pdev_d1->dev,
 				(dma_addr_t)vcmd_registers_mem_pool.busAddress, vcmd_registers_mem_pool.size, DMA_BIDIRECTIONAL);
 	}
+
+#ifdef SUPPORT_DMA_HEAP
+	mutex_destroy(&dmaheap_mutex);
+#endif /**SUPPORT_DMA_HEAP*/
 }
 
 int hantroenc_vcmd_init(void)

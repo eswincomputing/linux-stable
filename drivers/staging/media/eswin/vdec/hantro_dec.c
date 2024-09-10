@@ -331,6 +331,10 @@ int is_clk_on;
 struct timer_list timer;
 #endif
 
+#ifdef SUPPORT_DMA_HEAP
+static struct mutex dmaheap_mutex;
+#endif /**SUPPORT_DMA_HEAP*/
+
 /* for dma_alloc_coherent to allocate mmu &
  * vcmd linear buffers for non-pcie env
  */
@@ -2393,8 +2397,10 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
 		/* map the pha to dma addr(iova)*/
 		/* syscoherent <-> false, flush one time when import; sys,cma <-> true, no fush */
+		mutex_lock(&dmaheap_mutex);
 		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
+			mutex_unlock(&dmaheap_mutex);
 			LOG_ERR("dmabuf-heap alloc from userspace failed\n");
 			return -ENOMEM;
 		}
@@ -2405,6 +2411,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
 			if(IS_ERR(hmem_d1)) {
 				common_dmabuf_heap_release(hmem);
+				mutex_unlock(&dmaheap_mutex);
 				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
 				return -ENOMEM;
 			}
@@ -2417,7 +2424,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			common_dmabuf_heap_release(hmem);
 			if (platformdev_d1)
 				common_dmabuf_heap_release(hmem_d1);
-
+			mutex_unlock(&dmaheap_mutex);
 			return -ENOMEM;
 		}
 
@@ -2434,6 +2441,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			if (dbcfg.iova != iova_d1) {
 				common_dmabuf_heap_release(hmem);
 				common_dmabuf_heap_release(hmem_d1);
+				mutex_unlock(&dmaheap_mutex);
 				LOG_ERR("IOVA addrs of d0 and d1 are not the same, 0x%lx != 0x%lx, %d\n", dbcfg.iova, iova_d1, __LINE__);
 				return -EFAULT;
 			}
@@ -2444,9 +2452,11 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			common_dmabuf_heap_release(hmem);
 			if (platformdev_d1)
 				common_dmabuf_heap_release(hmem_d1);
+			mutex_unlock(&dmaheap_mutex);
 			LOG_ERR("%s %d: copy_from_user failed, returned %li\n", __func__, __LINE__, tmp);
 			return -EFAULT;
 		}
+		mutex_unlock(&dmaheap_mutex);
 
 		return 0;
 	}
@@ -2467,9 +2477,11 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			return -ENOMEM;
 		}
 
+		mutex_lock(&dmaheap_mutex);
 		if (platformdev_d1) {
 			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
 			if (IS_ERR(hmem_d1)) {
+				mutex_unlock(&dmaheap_mutex);
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
 			}
@@ -2478,6 +2490,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		//LOG_INFO("release dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dmabuf_fd, hmem, filp,
 		//	platformdev_d1);
 		common_dmabuf_heap_release(hmem);
+		mutex_unlock(&dmaheap_mutex);
 
 		return 0;
 	}
@@ -3970,6 +3983,9 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+#ifdef SUPPORT_DMA_HEAP
+	mutex_init(&dmaheap_mutex);
+#endif
 	ret = hantrodec_init();
 	if (ret) {
 		LOG_NOTICE("load driver %s failed\n", DEC_DEV_NAME);
@@ -4012,6 +4028,7 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 		LOG_ERR("vdec tbu power down failed\n");
 		return -1;
 	}
+	mutex_destroy(&dmaheap_mutex);
 #endif
 	vcrt = platform_get_drvdata(pdev);
 	vdec_hardware_reset(vcrt);
