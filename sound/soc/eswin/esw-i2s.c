@@ -887,7 +887,6 @@ static int i2s_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0;
 	int nid = 0;
-	struct clk **clk = NULL;
 	unsigned long vo_top_csr;
 	unsigned long i2s0_io_addr;
 	int dai_offset = 0;

@@ -53,7 +53,7 @@
 
 #define HDMI_CEC_CLK 32768
 
-static bool hpd_flag = false;
+static bool hpd_flag[2] = {0, 0};
 
 static const u16 csc_coeff_default[3][4] = {
 	{ 0x2000, 0x0000, 0x0000, 0x0000 },
@@ -176,6 +176,7 @@ struct dw_hdmi {
 	const struct dw_hdmi_plat_data *plat_data;
 	struct dw_hdcp *hdcp;
 	int vic;
+	int numa_id;
 
 	u8 edid[HDMI_EDID_LEN];
 
@@ -319,7 +320,7 @@ static void repo_hpd_event(struct work_struct *p_work)
 		if (hdmi->hdcp && hdmi->hdcp->hdcp2 &&
 		    hdmi->hdcp->hdcp2->enable &&
 		    (tv_hdmi_hdcp2_support(hdmi)) == 1) {
-			hdmi->hdcp->hdcp2->start();
+			hdmi->hdcp->hdcp2->start(hdmi->hdcp->hdcp2);
 		} else {
 			hdmi_tx_hdcp_config(hdmi, &hdmi->previous_mode);
 		}
@@ -344,7 +345,7 @@ static bool check_hdmi_irq(struct dw_hdmi *hdmi, int intr_stat, int phy_int_pol)
 		hdmi->hpd_state = false;
 		if (hdmi->hdcp && hdmi->hdcp->hdcp2 &&
 		    hdmi->hdcp->hdcp2->enable) {
-			hdmi->hdcp->hdcp2->stop();
+			hdmi->hdcp->hdcp2->stop(hdmi->hdcp->hdcp2);
 		}
 		if (hdmi->hdcp && hdmi->hdcp->hdcp_stop) {
 			hdmi->hdcp->hdcp_stop(hdmi->hdcp);
@@ -2614,7 +2615,7 @@ static int dw_hdmi_setup(struct dw_hdmi *hdmi,
 	hdmi_video_packetize(hdmi);
 	hdmi_video_csc(hdmi);
 	hdmi_video_sample(hdmi);
-	if (!hpd_flag) {
+	if (!hpd_flag[hdmi->numa_id]) {
 		hdmi_tx_hdcp_config(hdmi, mode);
 	}
 	dw_hdmi_clear_overflow(hdmi);
@@ -3552,7 +3553,7 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
         */
 		if (intr_stat &
 		    (HDMI_IH_PHY_STAT0_RX_SENSE | HDMI_IH_PHY_STAT0_HPD)) {
-			hpd_flag = true;
+			hpd_flag[hdmi->numa_id] = true;
 			dw_hdmi_setup_rx_sense(hdmi,
 							phy_stat & HDMI_PHY_HPD,
 					        phy_stat & HDMI_PHY_RX_SENSE);
@@ -3572,7 +3573,7 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 			    HDMI_IH_MUTE_PHY_STAT0);
 	}
 
-	hpd_flag = false;
+	hpd_flag[hdmi->numa_id] = false;
 
 	hdcp_stat = hdmi_readb(hdmi, HDMI_A_APIINTSTAT);
 	if (hdcp_stat) {
@@ -3961,7 +3962,9 @@ static const struct file_operations dw_hdmi_phy_fops = {
 
 static void dw_hdmi_register_debugfs(struct device *dev, struct dw_hdmi *hdmi)
 {
-	hdmi->debugfs_dir = debugfs_create_dir("dw-hdmi", NULL);
+	char name[15];
+	sprintf(name, "dw-hdmi-%d", hdmi->numa_id);
+	hdmi->debugfs_dir = debugfs_create_dir(name, NULL);
 	if (IS_ERR(hdmi->debugfs_dir)) {
 		dev_err(dev, "failed to create debugfs dir!\n");
 		return;
@@ -3987,6 +3990,7 @@ static void dw_hdmi_register_hdcp(struct device *dev, struct dw_hdmi *hdmi,
 		.regs = hdmi->regs,
 		.reg_io_width = val,
 		.enable = hdcp1x_enable,
+		.numa_id = hdmi->numa_id,
 	};
 	struct platform_device_info hdcp_device_info = {
 		.parent = dev,
@@ -4134,6 +4138,7 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 	u8 config0;
 	u8 config3;
 	bool hdcp1x_enable = false;
+	int numa_id = 0;
 
 	hdmi = devm_kzalloc(dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
@@ -4156,6 +4161,12 @@ struct dw_hdmi *dw_hdmi_probe(struct platform_device *pdev,
 	ret = dw_hdmi_parse_dt(hdmi);
 	if (ret < 0)
 		return ERR_PTR(ret);
+
+	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
+		numa_id = 0;
+	}
+	dev_info(&pdev->dev, "numa_id=%d\n", numa_id);
+	hdmi->numa_id = numa_id;
 
 	ddc_node = of_parse_phandle(np, "ddc-i2c-bus", 0);
 	if (ddc_node) {
@@ -4581,6 +4592,10 @@ void dw_hdmi_suspend(struct dw_hdmi *hdmi)
 	cancel_delayed_work(&hdmi->work);
 	flush_workqueue(hdmi->workqueue);
 	pinctrl_pm_select_sleep_state(hdmi->dev);
+
+	clk_disable(hdmi->cec_clk);
+	clk_disable(hdmi->iahb_clk);
+	clk_disable(hdmi->isfr_clk);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 
@@ -4590,6 +4605,15 @@ void dw_hdmi_resume(struct dw_hdmi *hdmi)
 	dw_hdmi_init_hw(hdmi);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);
+
+void dw_hdmi_resume_early(struct dw_hdmi *hdmi)
+{
+	dev_dbg(hdmi->dev, "%s", __func__);
+	clk_enable(hdmi->cec_clk);
+	clk_enable(hdmi->iahb_clk);
+	clk_enable(hdmi->isfr_clk);
+}
+EXPORT_SYMBOL_GPL(dw_hdmi_resume_early);
 
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
 MODULE_AUTHOR("Andy Yan <andy.yan@rock-chips.com>");

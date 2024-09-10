@@ -1910,9 +1910,9 @@
 				reg = <0x0 0x50290000 0x0 0x10000>;
 				interrupt-parent = <&plic0>;
 				interrupts = <275>;
-				clocks = <&d0_clock WIN2030_CLK_VO_CFG_CLK>,
+				clocks = <&d0_clock WIN2030_CLK_VO_ACLK>,
 					    <&d0_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
-				clock-names ="pclk_hdcp2", "hdcp2_clk_hdmi";
+				clock-names ="aclk", "iesmclk";
 				dma-noncoherent;
 				numa-node-id = <0>;
 		};
