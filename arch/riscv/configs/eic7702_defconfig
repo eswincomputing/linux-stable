@@ -36,9 +36,10 @@ CONFIG_SMP=y
 CONFIG_NR_CPUS=8
 CONFIG_HOTPLUG_CPU=y
 CONFIG_NUMA=y
+CONFIG_NODES_SHIFT=1
 CONFIG_RISCV_SBI_V01=y
 # CONFIG_RISCV_BOOT_SPINWAIT is not set
-CONFIG_CMDLINE="earlycon=sbi console=ttyS0,115200n8 clk_ignore_unused cma_pernuma=0x2000000 disable_bypass=false firmware_class.path=/lib/firmware/eic7x/"
+CONFIG_CMDLINE="earlycon=sbi console=ttyS0,115200n8 clk_ignore_unused cma_pernuma=0x20000000 disable_bypass=false firmware_class.path=/lib/firmware/eic7x/"
 CONFIG_CMDLINE_EXTEND=y
 # CONFIG_SUSPEND is not set
 CONFIG_CPU_FREQ=y

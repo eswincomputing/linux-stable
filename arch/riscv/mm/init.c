@@ -273,7 +273,6 @@ static void __init setup_bootmem(void)
 	if (!IS_ENABLED(CONFIG_BUILTIN_DTB))
 		memblock_reserve(dtb_early_pa, fdt_totalsize(dtb_early_va));
 
-	dma_contiguous_reserve(dma32_phys_limit);
 	if (IS_ENABLED(CONFIG_64BIT))
 		hugetlb_cma_reserve(PUD_SHIFT - PAGE_SHIFT);
 }
@@ -1507,6 +1506,14 @@ void __init misc_mem_init(void)
 	local_flush_tlb_kernel_range(VMEMMAP_START, VMEMMAP_END);
 #endif
 	zone_sizes_init();
+
+	/*
+	 * Reserve the CMA area after dma32_phys_limit was initialised.
+	 * It must be called after arch_numa_init() which calls numa_init() to
+	 * initialize node_online_map that gets used by dma_contiguous_reserve()
+	 */
+	dma_contiguous_reserve(dma32_phys_limit);
+
 	reserve_crashkernel();
 	memblock_dump_all();
 }
