@@ -1147,7 +1147,7 @@ static int mmz_vb_do_destory_pool(struct esVB_K_POOL_INFO_S *pool, bool is_lock,
 		if (true == is_force) {
 			dev_info(mmz_vb_dev, "%s %d, non-empty pool, still destory it!\n",__func__,__LINE__);
 		} else {
-			dev_info(mmz_vb_dev, "%s %d, non-empty pool, can not destory!\n",__func__,__LINE__);
+			dev_dbg(mmz_vb_dev, "%s %d, non-empty pool, can not destory!\n",__func__,__LINE__);
 			ret = -ENOTEMPTY;
 			goto out;
 		}
@@ -1197,7 +1197,7 @@ static int vb_ioctl_destory_pool(void __user *user_cmd)
 	if (-ENOTEMPTY == ret) {
 		set_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool->flag);
 		up_write(&partitions->idr_lock);
-		dev_info(mmz_vb_dev, "%s %d, pool %d not empty, waiting to destory\n",
+		dev_dbg(mmz_vb_dev, "%s %d, pool %d not empty, waiting to destory\n",
 			__func__,__LINE__, req->PoolId);
 		return 0;
 	} else if (ret) {
@@ -1329,7 +1329,7 @@ static int vb_ioctl_get_config(void __user *user_cmd)
 	mutex_lock(&vb_priv->cfg_lock[enVbUid]);
 	vb_cfg = vb_priv->pVbConfig[enVbUid];
 	if (NULL == vb_cfg) {
-		dev_err(mmz_vb_dev, "%s %d, uid %d cfg not exist!\n", __func__,__LINE__, enVbUid);
+		dev_dbg(mmz_vb_dev, "%s %d, uid %d cfg not exist!\n", __func__,__LINE__, enVbUid);
 		ret = -EFAULT;
 		goto out_unlock;
 	}
