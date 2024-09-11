@@ -350,6 +350,7 @@ static int es_drm_of_component_probe(struct device *dev,
 	struct component_match *match = NULL;
 	int i;
 	bool found = false;
+	bool matched = false;
 
 	if (!dev->of_node)
 		return -EINVAL;
@@ -364,9 +365,10 @@ static int es_drm_of_component_probe(struct device *dev,
 		if (!port)
 			break;
 
-		if (of_device_is_available(port->parent))
+		if (of_device_is_available(port->parent)) {
 			drm_of_component_match_add(dev, &match, compare_of,
 						   port->parent);
+		}
 
 		iommu = of_parse_phandle(port->parent, "iommus", 0);
 
@@ -425,9 +427,30 @@ static int es_drm_of_component_probe(struct device *dev,
 				continue;
 			}
 
-			if (strcmp(remote->name, "panel"))
+#ifdef CONFIG_ESWIN_DW_HDMI
+			if (!strcmp(remote->name, "hdmi")) {
+				matched = true;
+			}
+#endif
+
+#ifdef CONFIG_ESWIN_VIRTUAL_DISPLAY
+			if (!strcmp(remote->name, "es_wb")) {
+				matched = true;
+			}
+#endif
+
+#ifdef CONFIG_ESWIN_MIPI_DSI
+			if (!strcmp(remote->name, "mipi_dsi")) {
+				matched = true;
+			}
+#endif
+			if (matched == true) {
 				drm_of_component_match_add(dev, &match,
 							   compare_of, remote);
+				matched = false;
+				dev_dbg(dev, "matched: %pOF, remote->name:%s\n",
+					 remote, remote->name);
+			}
 
 			of_node_put(remote);
 		}

@@ -439,14 +439,14 @@
 	status = "okay";
 };
 &vdec1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &venc0 {
 	status = "okay";
 };
 &venc1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &video_output {
@@ -473,29 +473,29 @@
 };
 
 &virtual_display {
-	status = "disabled";
+	status = "okay";
 };
 
 &d1_virtual_display {
-	status = "disabled";
+	status = "okay";
 };
 
 &dsi_controller {
-    status = "disabled";
+    status = "okay";
 };
 &d1_dsi_controller {
-	status = "disabled";
+	status = "okay";
 };
 
 &dsi_panel {
-	status = "disabled";
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio27_default &pinctrl_die0_gpio106_default>;
 	backlight0-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
 	rst-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
 };
 &d1_dsi_panel {
-	status = "disabled";
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_gpio69_default &pinctrl_die1_gpio21_default>;
 	backlight0-gpios = <&d1_portc 5 GPIO_ACTIVE_HIGH>;
