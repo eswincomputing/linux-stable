@@ -734,7 +734,10 @@ static void _vcmd_watchdog_stop(struct hantrovcmd_dev *dev){
 static void _vcmd_watchdog_feed(struct hantrovcmd_dev *dev){
 	u32 exetime = dev_wait_job_exetime(dev);
 
-	if (exetime == 0) {
+	/** 1. stop watchdog for the idle devices;
+	 * 2. disable watchdog for the non-VE devcies;
+	*/
+	if (exetime == 0 || dev->vcmd_core_cfg.sub_module_type != VCMD_TYPE_ENCODER) {
 		if (dev->watchdog_active)
 			_vcmd_watchdog_stop(dev);
 	} else {
