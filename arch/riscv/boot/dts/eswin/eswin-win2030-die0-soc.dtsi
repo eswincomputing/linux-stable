@@ -698,6 +698,7 @@
 			contiguous-size = <0xa00000>;
 			recovery = <0>;
 			dma-noncoherent;
+			numa-node-id = <0>;
 		};
 
 		gpu0: gpu@51400000 {

@@ -1814,34 +1814,35 @@
 			status = "disabled";
 		};
 
-				d1_gc820: g2d@70140000 {
-						compatible = "eswin,galcore_d1";
-						clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
-										<&d1_clock WIN2030_CLK_VC_CFG_CLK>,
-										<&d1_clock WIN2030_CLK_G2D_CFG_CLK>,
-										<&d1_clock WIN2030_CLK_CLK_G2D_ST2>,
-										<&d1_clock WIN2030_CLK_G2D_CLK>,
-										<&d1_clock WIN2030_CLK_G2D_ACLK>,
-										<&d1_clock WIN2030_CLK_VC_MON_PCLK>;
-						clock-names = "vc_aclk", "vc_cfg", "g2d_cfg", "g2d_st2", "g2d_clk", "g2d_aclk","mon_pclk";
-						resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
-										<&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
-										<&d1_reset VC_RST_CTRL SW_VC_MONCFG_RSTN>,
-										<&d1_reset G2D_RST_CTRL SW_G2D_CORE_RSTN>,
-										<&d1_reset G2D_RST_CTRL SW_G2D_CFG_RSTN>,
-										<&d1_reset G2D_RST_CTRL SW_G2D_AXI_RSTN>;
-						reset-names = "axi", "cfg", "moncfg", "g2d_core", "g2d_cfg", "g2d_axi";
-						reg = <0 0x70140000 0 0x40000>, <0 0x70180000 0 0x40000>;
-						reg-names = "core_2d", "core_2d1";
-						fe-apb-offset = <0x800>;
-						interrupt-parent = <&plic1>;
-						interrupts = <49>, <50>;
-						interrupt-names = "core_2d", "core_2d1";
-						enable-mmu = <1>;
-						contiguous-size = <0xa00000>;
-						recovery = <0>;
+		d1_gc820: g2d@70140000 {
+			compatible = "eswin,galcore_d1";
+			clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
+					<&d1_clock WIN2030_CLK_VC_CFG_CLK>,
+					<&d1_clock WIN2030_CLK_G2D_CFG_CLK>,
+					<&d1_clock WIN2030_CLK_CLK_G2D_ST2>,
+					<&d1_clock WIN2030_CLK_G2D_CLK>,
+					<&d1_clock WIN2030_CLK_G2D_ACLK>,
+					<&d1_clock WIN2030_CLK_VC_MON_PCLK>;
+			clock-names = "vc_aclk", "vc_cfg", "g2d_cfg", "g2d_st2", "g2d_clk", "g2d_aclk","mon_pclk";
+			resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
+					<&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
+					<&d1_reset VC_RST_CTRL SW_VC_MONCFG_RSTN>,
+					<&d1_reset G2D_RST_CTRL SW_G2D_CORE_RSTN>,
+					<&d1_reset G2D_RST_CTRL SW_G2D_CFG_RSTN>,
+					<&d1_reset G2D_RST_CTRL SW_G2D_AXI_RSTN>;
+			reset-names = "axi", "cfg", "moncfg", "g2d_core", "g2d_cfg", "g2d_axi";
+			reg = <0 0x70140000 0 0x40000>, <0 0x70180000 0 0x40000>;
+			reg-names = "core_2d", "core_2d1";
+			fe-apb-offset = <0x800>;
+			interrupt-parent = <&plic1>;
+			interrupts = <49>, <50>;
+			interrupt-names = "core_2d", "core_2d1";
+			enable-mmu = <1>;
+			contiguous-size = <0xa00000>;
+			recovery = <0>;
 			dma-noncoherent;
-				};
+			numa-node-id = <1>;
+		};
 
 		d1_sdhci_emmc: mmc@70450000 {
 			compatible = "eswin,emmc-sdhci-5.1";
