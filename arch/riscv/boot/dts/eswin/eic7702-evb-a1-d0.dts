@@ -716,6 +716,12 @@
 		reg = <0x44>;
 		shunt-resistor = <1000>;
 	};
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "d0_board_tmp";
+		#thermal-sensor-cells = <1>;
+	};
 };
 
 &d0_aon_i2c1 {
