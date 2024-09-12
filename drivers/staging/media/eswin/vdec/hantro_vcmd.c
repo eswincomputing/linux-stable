@@ -4252,13 +4252,15 @@ err:
 	return result;
 }
 
-void hantrovcmd_cleanup(void)
+void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup)
 {
 	int i = 0;
 	u32 result;
+	u32 core_id = (platformdev_d1 == pdev) ? 2 : 0;
 
 	for (i = 0; i < total_vcmd_core_num; i++) {
-		if (!hantrovcmd_data[i].hwregs)
+		if (!hantrovcmd_data[i].hwregs || (hantrovcmd_data[i].core_id != core_id &&
+			hantrovcmd_data[i].core_id != (core_id) + 1))
 			continue;
 		//disable interrupt at first
 		vcmd_write_reg((const void *)hantrovcmd_data[i].hwregs,
@@ -4280,10 +4282,12 @@ void hantrovcmd_cleanup(void)
 		release_cmdbuf_node_cleanup(&hantrovcmd_data[i].list_manager);
 	}
 
-	release_process_node_cleanup(&global_process_manager);
-
-	vcmd_release_IO();
-	vfree(hantrovcmd_data);
+	if (cleanup) {
+		vcmd_release_IO();
+		release_process_node_cleanup(&global_process_manager);
+		vfree(hantrovcmd_data);
+		hantrovcmd_data = NULL;
+	}
 
 	//release_vcmd_non_cachable_memory();
 	if (pcie) {
@@ -4299,26 +4303,28 @@ void hantrovcmd_cleanup(void)
 		release_mem_region(vcmd_registers_mem_pool.bus_address,
 				   vcmd_registers_mem_pool.size);
 	} else {
-		if (vcmd_buf_mem_pool.virtual_address)
-			dma_free_coherent(
-				&platformdev->dev, vcmd_buf_mem_pool.size,
-				vcmd_buf_mem_pool.virtual_address,
-				(dma_addr_t)vcmd_buf_mem_pool.bus_address);
-		if (vcmd_status_buf_mem_pool.virtual_address)
-			dma_free_coherent(
-				&platformdev->dev,
-				vcmd_status_buf_mem_pool.size,
-				vcmd_status_buf_mem_pool.virtual_address,
-				(dma_addr_t)
-					vcmd_status_buf_mem_pool.bus_address);
-		if (vcmd_registers_mem_pool.virtual_address)
-			dma_free_coherent(
-				&platformdev->dev, vcmd_registers_mem_pool.size,
-				vcmd_registers_mem_pool.virtual_address,
-				(dma_addr_t)
-					vcmd_registers_mem_pool.bus_address);
+		if (pdev == platformdev) {
+			if (vcmd_buf_mem_pool.virtual_address)
+				dma_free_coherent(
+					&platformdev->dev, vcmd_buf_mem_pool.size,
+					vcmd_buf_mem_pool.virtual_address,
+					(dma_addr_t)vcmd_buf_mem_pool.bus_address);
+			if (vcmd_status_buf_mem_pool.virtual_address)
+				dma_free_coherent(
+					&platformdev->dev,
+					vcmd_status_buf_mem_pool.size,
+					vcmd_status_buf_mem_pool.virtual_address,
+					(dma_addr_t)
+						vcmd_status_buf_mem_pool.bus_address);
+			if (vcmd_registers_mem_pool.virtual_address)
+				dma_free_coherent(
+					&platformdev->dev, vcmd_registers_mem_pool.size,
+					vcmd_registers_mem_pool.virtual_address,
+					(dma_addr_t)
+						vcmd_registers_mem_pool.bus_address);
+		}
 
-		if (platformdev_d1) {
+		if (pdev == platformdev_d1) {
 			dma_unmap_page(&platformdev_d1->dev,
 					(dma_addr_t)vcmd_buf_mem_pool.bus_address, vcmd_buf_mem_pool.size, DMA_BIDIRECTIONAL);
 			dma_unmap_page(&platformdev_d1->dev,
@@ -4327,7 +4333,7 @@ void hantrovcmd_cleanup(void)
 					(dma_addr_t)vcmd_registers_mem_pool.bus_address, vcmd_registers_mem_pool.size, DMA_BIDIRECTIONAL);
 		}
 	}
-	LOG_INFO("module removed\n");
+	LOG_INFO("vcmd module removed %s\n", (pdev == platformdev_d1) ? "dev1" : "dev0");
 	return;
 }
 

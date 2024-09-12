@@ -171,7 +171,7 @@ int hantrovcmd_release(struct inode *inode, struct file *filp);
 long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 int hantrovcmd_mmap(struct file *filp, struct vm_area_struct *vma);
 int hantrovcmd_init(void);
-void hantrovcmd_cleanup(void);
+void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup);
 
 int hantrovcmd_wait_core_idle(u32 core_id, long timeout);
 struct platform_device *vdec_get_platform_device(u32 core_id);
