@@ -7,6 +7,7 @@
 #include <linux/types.h>
 #include <linux/scatterlist.h>
 #include <linux/eswin_rsvmem_common.h>
+#include <linux/es_iommu_rsv.h>
 
 #define SYSTEM_DEV_NODE "system"
 #define CMA_DEV_NODE_RES "reserved"
@@ -42,6 +43,8 @@ struct heap_mem {
 	void *vaddr;
 
 	enum dma_data_direction dir;
+	dma_addr_t iova;
+	size_t size;
 };
 
 struct esw_export_buffer_info {
@@ -96,5 +99,9 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj);
 struct heap_mem *common_dmabuf_heap_import_from_kernel(struct heap_root *root, char *name, size_t len, unsigned int fd_flags);
 
 int esw_common_dmabuf_split_export(int dbuf_fd, unsigned int offset, size_t len, int fd_flags, char *name);
+
+struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd, dma_addr_t iova, size_t size);
+void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj);
+void common_dmabuf_heap_rsv_iova_uninit(struct heap_root *root);
 
 #endif

@@ -370,8 +370,8 @@ int iommu_unmap_rsv_iova(struct device *dev, void *cpu_addr, dma_addr_t iova, un
 	phys = iommu_iova_to_phys(domain, iova);
 	if (phys == 0)
 	{
-		dev_err(dev, "%s, iova=0x%llx, have not maps\n", __func__, iova);
-		return -EINVAL;
+		dev_dbg(dev, "%s, iova=0x%llx, have not maps\n", __func__, iova);
+		return -EFAULT;
 	}
 
 	if (!size)
@@ -388,6 +388,61 @@ int iommu_unmap_rsv_iova(struct device *dev, void *cpu_addr, dma_addr_t iova, un
 	return 0;
 }
 EXPORT_SYMBOL(iommu_unmap_rsv_iova);
+
+ssize_t iommu_rsv_iova_map_sgt(struct device *dev, dma_addr_t iova, struct sg_table *sgt, unsigned long attrs, size_t buf_size)
+{
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
+	bool coherent = dev_is_dma_coherent(dev);
+	int ioprot = dma_info_to_prot(DMA_BIDIRECTIONAL, coherent, attrs);
+	struct scatterlist *sg;
+	phys_addr_t phys;
+	int i;
+	size_t size = 0;
+	ssize_t ret = 0;
+
+	phys = iommu_iova_to_phys(domain, iova);
+	if (phys != 0) {
+		if (phys != sg_phys(sgt->sgl)) {
+			dev_err(dev, "%s, iova=0x%llx, have exits phys=0x%llx\n", __func__, iova, phys);
+			return -EINVAL;
+		}
+		else {
+			dev_dbg(dev, "%s, iova=0x%llx mapped!\n", __func__, iova);
+			return ret;
+		}
+	}
+#if 0
+	if (!(ioprot & IOMMU_CACHE))
+	{
+		int i;
+
+		for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
+			dma_prep_coherent(sg_page(sg), sg->length);
+	}
+#endif
+	for_each_sg(sgt->sgl, sg, sgt->orig_nents, i)
+		size += sg->length;
+
+	if (size != buf_size) {
+		dev_err(dev, "%s %d fail, sg size 0x%lx != buf_size 0x%lx\n", __func__, __LINE__, size, buf_size);
+		return -EINVAL;
+	}
+
+	ret = iommu_map_sg(domain, iova, sgt->sgl, sgt->orig_nents, ioprot, GFP_KERNEL);
+	if (ret < 0 || ret < size)
+	{
+		dev_err(dev, "%s %d fail, ret %ld, size %ld\n", __func__, __LINE__, ret, size);
+		goto out;
+	}
+
+	return ret;
+out:
+	if (ret != -ENOMEM && ret != -EREMOTEIO)
+		return -EINVAL;
+
+	return ret;
+}
+EXPORT_SYMBOL(iommu_rsv_iova_map_sgt);
 
 static void eswin_iommu_put_func(void)
 {

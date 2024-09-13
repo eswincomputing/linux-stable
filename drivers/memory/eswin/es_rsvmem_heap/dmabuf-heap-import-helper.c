@@ -24,6 +24,13 @@ struct drm_prime_member {
 	struct rb_node handle_rb;
 };
 
+struct dma_heap_attachment {
+	struct device *dev;
+	struct sg_table *table;
+	struct list_head list;
+	bool mapped;
+};
+
 static int dmabuf_heap_add_buf_handle(struct dmaheap_file_private *prime_fpriv,
 				    struct dma_buf *dma_buf, uint64_t handle)
 {
@@ -432,6 +439,135 @@ common_dmabuf_heap_import_from_kernel(struct heap_root *root, char *name, size_t
 	return dmabuf_heap_import(root, dbuf_fd);
 }
 EXPORT_SYMBOL(common_dmabuf_heap_import_from_kernel);
+
+struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd, dma_addr_t iova, size_t size)
+{
+	struct dma_buf *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct dma_heap_attachment *a;
+
+	uint64_t handle;
+	struct heap_mem *heap_obj;
+	ssize_t ret = 0;
+
+	/* get dmabuf handle */
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR(dma_buf)) {
+		return ERR_CAST(dma_buf);
+	}
+
+	mutex_lock(&root->lock);
+	dev_dbg(root->dev, "%s, fd=%d, iova=0x%llx, size=0x%lx\n", __func__, fd, iova, size);
+
+	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, &handle);
+	if (ret == 0) {
+		heap_obj = (struct heap_mem *)handle;
+		dma_buf_put(dma_buf);
+		kref_get(&heap_obj->refcount);
+		mutex_unlock(&root->lock);
+		return heap_obj;
+	}
+
+	heap_obj = kzalloc(sizeof(*heap_obj), GFP_KERNEL);
+	if (!heap_obj) {
+		mutex_unlock(&root->lock);
+		dma_buf_put(dma_buf);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	attach = dma_buf_attach(dma_buf, root->dev);
+	if (IS_ERR(attach)) {
+		ret = PTR_ERR(attach);
+		goto clean_up;
+	}
+
+	a = (struct dma_heap_attachment *)attach->priv;
+	ret = iommu_rsv_iova_map_sgt(root->dev, iova, a->table, 0, size);
+	dma_buf_detach(dma_buf, attach);
+	if (ret < 0)
+		goto clean_up;
+
+	heap_obj->dbuf_fd = fd;
+	heap_obj->dbuf = dma_buf;
+	heap_obj->root = root;
+	heap_obj->vaddr = NULL;
+	heap_obj->dir = DMA_BIDIRECTIONAL;
+	heap_obj->iova = iova;
+	heap_obj->size = size;
+
+	/* get_dma_buf was called in dmabuf_heap_add_buf_handle()*/
+	ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf, (uint64_t)heap_obj);
+		if (ret) {
+		goto fail_add_handle;
+	}
+	/* get_dma_buf was called in dmabuf_heap_add_buf_handle(), need to put back since
+	 * we don't want to hold the dma_buf in this API
+	*/
+	dma_buf_put(dma_buf);
+
+	kref_init(&heap_obj->refcount);
+
+	list_add(&heap_obj->list, &root->header);
+
+	mutex_unlock(&root->lock);
+
+	dma_buf_put(dma_buf);
+
+	return heap_obj;
+
+fail_add_handle:
+	iommu_unmap_rsv_iova(root->dev, 0, iova, size);
+clean_up:
+	kfree(heap_obj);
+	mutex_unlock(&root->lock);
+	dma_buf_put(dma_buf);
+
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL(common_dmabuf_heap_rsv_iova_map);
+
+static void __common_dmabuf_heap_rsv_iova_unmap(struct kref *kref)
+{
+	struct heap_root *root;
+	struct heap_mem *heap_obj = container_of(kref, struct heap_mem, refcount);
+
+	WARN_ON(!heap_obj);
+	if (!heap_obj)
+		return;
+
+	root = heap_obj->root;
+	WARN_ON(!mutex_is_locked(&root->lock));
+	list_del(&heap_obj->list);
+
+
+	iommu_unmap_rsv_iova(root->dev, 0, heap_obj->iova, heap_obj->size);
+	/* dma_buf_put will be  called in _dmabuf_heap_remove_buf_handle(),
+	 * so, call get_dma_buf first
+	*/
+	get_dma_buf(heap_obj->dbuf);
+	_dmabuf_heap_remove_buf_handle(&root->fp, heap_obj->dbuf);
+	kfree(heap_obj);
+}
+
+void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj)
+{
+	struct heap_root *root = heap_obj->root;
+
+	mutex_lock(&root->lock);
+	kref_put(&heap_obj->refcount, __common_dmabuf_heap_rsv_iova_unmap);
+	mutex_unlock(&root->lock);
+}
+EXPORT_SYMBOL(common_dmabuf_heap_rsv_iova_unmap);
+
+void common_dmabuf_heap_rsv_iova_uninit(struct heap_root *root)
+{
+	struct heap_mem *h, *tmp;
+
+	list_for_each_entry_safe(h, tmp, &root->header, list) {
+		common_dmabuf_heap_rsv_iova_unmap(h);
+	}
+}
+EXPORT_SYMBOL(common_dmabuf_heap_rsv_iova_uninit);
 
 struct esw_exp_attachment {
 	struct heap_mem *hmem;
