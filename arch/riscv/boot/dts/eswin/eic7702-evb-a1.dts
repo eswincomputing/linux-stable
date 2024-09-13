@@ -50,7 +50,10 @@
 		serial0 = &d0_uart0;
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
+		ethernet2 = &d1_gmac0;
+		ethernet3 = &d1_gmac1;
 		rtc0 = &die0_rtc;
+		rtc1 = &d1_rtc;
 	};
 
 	chosen {
@@ -376,7 +379,7 @@
 	status = "okay";
 };
 &d1_pcie {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_npu{
@@ -417,7 +420,7 @@
 &d0_dsp3 {
 	status = "okay";
 };
-&d1_dsp2 {
+&d1_dsp3 {
 	status = "okay";
 };
 
@@ -856,21 +859,27 @@
 };
 
 &d1_uart0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_uart1 {
-	/* BT M.2 KEY-E */
-	status = "disabled";
+	/* RS232 DB9 */
+	status = "okay";
 };
 
 &d1_uart1 {
-	status = "disabled";
+	/* BT M.2 KEY-E */
+	status = "okay";
 };
 
 &d0_uart2 {
-	/* RS232 DB9 */
-	status = "disabled";
+	/* pin header */
+	status = "okay";
+};
+
+&d1_uart2 {
+	/* pin header */
+	status = "okay";
 };
 
 &d0_uart3 {
@@ -878,7 +887,17 @@
 	status = "disabled";
 };
 
+&d1_uart3 {
+	/* unused */
+	status = "disabled";
+};
+
 &d0_uart4 {
+	/* unused */
+	status = "disabled";
+};
+
+&d1_uart4 {
 	/* unused */
 	status = "disabled";
 };
@@ -931,6 +950,11 @@
 };
 
 &ssi1 {
+	/* unused */
+	status = "disabled";
+};
+
+&d1_ssi1 {
 	/* unused */
 	status = "disabled";
 };
@@ -1296,14 +1320,14 @@
 	status = "okay";
 };
 &d1_pvt0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &pvt1 {
 	status = "okay";
 };
 &d1_pvt1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &wdt0 {
@@ -1338,35 +1362,35 @@
 	status = "okay";
 };
 &d1_rtc {
-	status = "disabled";
+	status = "okay";
 };
 
 &timer0 {
 	status = "okay";
 };
 &d1_timer0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &timer1 {
 	status = "okay";
 };
 &d1_timer1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &timer2 {
 	status = "okay";
 };
 &d1_timer2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &timer3 {
 	status = "okay";
 };
 &d1_timer3 {
-	status = "disabled";
+	status = "okay";
 };
 
 &pinctrl {

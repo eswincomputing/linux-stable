@@ -29,13 +29,6 @@
 #include <dt-bindings/power/eswin,eic770x-pmu.h>
 
 / {
-#if (CHIPLET_AND_DIE == 0x1)
-	aliases {
-		serial0 = &d1_uart0;
-		ethernet0 = &d1_gmac0;
-		ethernet1 = &d1_gmac1;
-	};
-#endif
 	d1_cpu_opp_table: opp-table1 {
 		compatible = "operating-points-v2";
 		opp-shared;
@@ -121,7 +114,50 @@
 		};
 
 		d1_uart1: serial@0x70910000 {
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x70910000 0x0 0x10000>;
+			clock-frequency = <LSPCLK_FREQ>;
+			interrupt-parent = <&plic1>;
+			interrupts = <UART1_INT>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			numa-node-id = <1>;
+		};
+
+		d1_uart2: serial@0x70920000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70920000 0x0 0x10000>;
+			clock-frequency = <LSPCLK_FREQ>;
+			interrupt-parent = <&plic1>;
+			interrupts = <UART2_INT>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			numa-node-id = <1>;
+			status = "disabled";
+		};
+
+		d1_uart3: serial@0x70930000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70930000 0x0 0x10000>;
+			clock-frequency = <LSPCLK_FREQ>;
+			interrupt-parent = <&plic1>;
+			interrupts = <UART3_INT>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			numa-node-id = <1>;
+			status = "disabled";
+		};
+
+		d1_uart4: serial@0x70940000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70940000 0x0 0x10000>;
+			clock-frequency = <LSPCLK_FREQ>;
+			interrupt-parent = <&plic1>;
+			interrupts = <UART4_INT>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			numa-node-id = <1>;
+			status = "disabled";
 		};
 
 		d1_sys_con: scu_sys_con@0x71810000 {
@@ -1571,6 +1607,23 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <91>;
 			resets = <&d1_reset SSI_RST_CTRL SW_SSI_RST_N_0>;
+			reset-names = "spi";
+			numa-node-id = <1>;
+			status = "disabled";
+			dma-noncoherent;
+		};
+
+		d1_ssi1: spi@70814000 {
+			compatible = "snps,eic770x-spi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0 0x70814000 0x0 0x4000>;
+			spi-max-frequency = <4800000>;
+			clocks = <&d1_clock WIN2030_CLK_LSP_SSI1_PCLK>;
+			clock-names = "clk";
+			interrupt-parent = <&plic1>;
+			interrupts = <92>;
+			resets = <&d1_reset SSI_RST_CTRL SW_SSI_RST_N_1>;
 			reset-names = "spi";
 			numa-node-id = <1>;
 			status = "disabled";
