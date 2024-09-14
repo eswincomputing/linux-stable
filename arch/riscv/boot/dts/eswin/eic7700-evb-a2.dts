@@ -712,8 +712,18 @@
 };
 
 &d0_i2c2 {
-	/* mipi dsi */
-	status = "disabled";
+	/* touch screen*/
+	status = "ok";
+	gt911:touchscreen@14 {
+		compatible = "goodix,gt911";
+		reg = <0x14>;
+		interrupt-parent = <&porta>;
+		interrupts = <10 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio10_default>;
+		irq-gpios = <&porta 10 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &d0_i2c3 {

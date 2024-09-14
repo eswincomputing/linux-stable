@@ -1478,6 +1478,8 @@
 				ngpios = <32>;
 				reg = <0>;
 				interrupt-parent = <&plic0>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 				interrupts = <303 304 305 306 307 308 309 310 311 312 313 314 315 316 317 318
 								319 320 321 322 323 324 325 326 327 328 329 330 331 332 333 334>;
 			};
