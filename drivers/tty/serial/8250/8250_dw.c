@@ -752,6 +752,7 @@ static const struct dev_pm_ops dw8250_pm_ops = {
 
 static const struct dw8250_platform_data dw8250_dw_apb = {
 	.usr_reg = DW_UART_USR,
+	.cpr_val = 0x22232,
 };
 
 static const struct dw8250_platform_data dw8250_octeon_3860_data = {
