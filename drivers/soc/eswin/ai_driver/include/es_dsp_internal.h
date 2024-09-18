@@ -8,6 +8,7 @@
 #ifndef __ESWIN_DSP_INTERNAL_H__
 #define __ESWIN_DSP_INTERNAL_H__
 #include "es_type.h"
+#include "es_dsp_types.h"
 #include "es_dsp_op_types.h"
 
 #ifdef __cplusplus
@@ -182,6 +183,29 @@ typedef struct {
      */
     ES_U32 reserved;
 } e31_msg_payload_t;
+
+typedef struct DSP_TASK_DESC_S {
+    ES_S32 dspFd;
+    ES_DSP_TASK_S opTask;
+} __attribute__((packed)) ES_DSP_TASK_DESC_S;
+
+/**
+ * @brief Synchronously submit operator tasks to DSP devices, and only return after all tasks are completed.
+ *
+ * @param[in] tasks: pointer to tasks.
+ * @param[in] numTasks: number of tasks.
+ * @return Returns the execution status code: ES_DSP_SUCCESS for success, others for failure.
+ */
+ES_S32 ES_DSP_LL_SubmitTasks(ES_DSP_TASK_DESC_S *tasks, ES_U32 numTasks);
+
+/**
+ * @brief Asynchronously submit operator tasks to DSP devices, and only return after all tasks are completed.
+ *
+ * @param[in] tasks: pointer to tasks.
+ * @param[in] numTasks: number of tasks.
+ * @return Returns the execution status code: ES_DSP_SUCCESS for success, others for failure.
+ */
+ES_S32 ES_DSP_LL_SubmitAsyncTasks(ES_DSP_TASK_DESC_S *tasks, ES_U32 numTasks);
 
 #ifdef __cplusplus
 #if __cplusplus

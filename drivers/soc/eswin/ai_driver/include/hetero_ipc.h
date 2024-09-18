@@ -446,14 +446,14 @@ static void messagebox_send_dsp(u32 op_type, u64 payload)
     dsp_idx = op_type - IDX_KMD_DSP0;
     mbox_base = MAILBOX_E31_TO_DSP_REG[dsp_idx];
     mbox_int = MAILBOX_E31_TO_DSP_INT[dsp_idx];
-    mbox_lock = (1 << dsp_idx);  // must different with dsp driver(8/10/12/14)
+    mbox_lock = BIT1;  // must different with dsp driver(using BIT0)
     timeout = 0;
 
     // check lock bit and fifo
     while (1) {
         reg_write(mbox_base + MBOX_NPU_WR_LOCK, mbox_lock);
 
-        if ((reg_read(mbox_base + MBOX_NPU_WR_LOCK) & mbox_lock) ||
+        if ((reg_read(mbox_base + MBOX_NPU_WR_LOCK) & mbox_lock) &&
             (reg_read(mbox_base + MBOX_NPU_FIFO_OFFSET) & 0x1) == 0) {
             break;
         }
