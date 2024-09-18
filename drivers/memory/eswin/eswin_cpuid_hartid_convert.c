@@ -20,7 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
-#include "eswin_cpuid_hartid_convert.h"
+#include <linux/eswin_cpuid_hartid_convert.h>
 
 unsigned long __eswin_cpuid_to_hartid_map[NR_CPUS] = {
 	[0 ... NR_CPUS-1] = INVALID_HARTID

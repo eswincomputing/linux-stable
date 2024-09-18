@@ -3,6 +3,3 @@ obj-$(CONFIG_ESWIN_RSVMEM_HEAP)	+= eswin_rsvmem_heap.o eswin_rsvmem_common.o dma
 
 
 ES_RSVMEM_HEADER := drivers/memory/eswin/es_rsvmem_heap/include/linux
-
-COPY_HEADERS := $(shell cp $(ES_RSVMEM_HEADER)/*.h include/linux)
-

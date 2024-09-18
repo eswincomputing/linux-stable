@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config CRYPTO_DEV_ESWIN_EIC770x
+	tristate "Support for ESWIN EIC7X crypto block cipher accelerator"
+	depends on ARCH_ESWIN_EIC770X_SOC_FAMILY
+	help
+	  Support for ESWIN SEC Engine in EIC770X SoC
+
+	  To compile this as a module, choose M here: the module
+	  will be called es_cipher.
