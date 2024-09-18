@@ -332,10 +332,6 @@ int is_clk_on;
 struct timer_list timer;
 #endif
 
-#ifdef SUPPORT_DMA_HEAP
-static struct mutex dmaheap_mutex;
-#endif /**SUPPORT_DMA_HEAP*/
-
 /* for dma_alloc_coherent to allocate mmu &
  * vcmd linear buffers for non-pcie env
  */
@@ -2387,7 +2383,6 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 	case HANTRODEC_IOC_DMA_HEAP_GET_IOVA: {
 		struct dmabuf_cfg dbcfg;
 		size_t buf_size = 0;
-		void *cpu_vaddr = NULL;
 		struct heap_mem *hmem, *hmem_d1;
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
@@ -2398,70 +2393,43 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 
 		/* map the pha to dma addr(iova)*/
 		/* syscoherent <-> false, flush one time when import; sys,cma <-> true, no fush */
-		mutex_lock(&dmaheap_mutex);
 		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
-			mutex_unlock(&dmaheap_mutex);
 			LOG_ERR("dmabuf-heap alloc from userspace failed\n");
 			return -ENOMEM;
 		}
+		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
+
+		/* get the size of the dmabuf allocated by dmabuf_heap */
+		buf_size = common_dmabuf_heap_get_size(hmem);
 		//LOG_INFO("import dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dbcfg.dmabuf_fd, hmem, filp,
 		//	platformdev_d1);
 
 		if (platformdev_d1) {
-			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
+			hmem_d1 = common_dmabuf_heap_rsv_iova_map(&fp_priv->root_d1, dbcfg.dmabuf_fd, dbcfg.iova, buf_size);
 			if(IS_ERR(hmem_d1)) {
+				LOG_ERR("dmabuf-heap rsv iova map failed for d1\n");
 				common_dmabuf_heap_release(hmem);
-				mutex_unlock(&dmaheap_mutex);
-				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
 				return -ENOMEM;
 			}
 		}
 
-		/* map the pha to cpu vaddr*/
-		cpu_vaddr = common_dmabuf_heap_map_vaddr(hmem);
-		if (cpu_vaddr == NULL) {
-			LOG_ERR("map to cpu_vaddr failed\n");
-			common_dmabuf_heap_release(hmem);
-			if (platformdev_d1)
-				common_dmabuf_heap_release(hmem_d1);
-			mutex_unlock(&dmaheap_mutex);
-			return -ENOMEM;
-		}
-
-		/* get the size of the dmabuf allocated by dmabuf_heap */
-		buf_size = common_dmabuf_heap_get_size(hmem);
 		LOG_TRACE("dmabuf info: CPU VA:0x%lx, PA:0x%lx, DMA addr(iova):0x%lx, size=0x%lx\n",
 				(unsigned long)hmem->vaddr, (unsigned long)sg_phys(hmem->sgt->sgl), (unsigned long)sg_dma_address(hmem->sgt->sgl), (unsigned long)buf_size);
 
-		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
-		if (platformdev_d1) {
-			unsigned long iova_d1;
-
-			iova_d1 = (unsigned long)sg_dma_address(hmem_d1->sgt->sgl);
-			if (dbcfg.iova != iova_d1) {
-				common_dmabuf_heap_release(hmem);
-				common_dmabuf_heap_release(hmem_d1);
-				mutex_unlock(&dmaheap_mutex);
-				LOG_ERR("IOVA addrs of d0 and d1 are not the same, 0x%lx != 0x%lx, %d\n", dbcfg.iova, iova_d1, __LINE__);
-				return -EFAULT;
-			}
-		}
-
 		tmp = copy_to_user((u32 __user *)arg, &dbcfg, sizeof(struct dmabuf_cfg));
 		if (tmp) {
-			common_dmabuf_heap_release(hmem);
 			if (platformdev_d1)
-				common_dmabuf_heap_release(hmem_d1);
-			mutex_unlock(&dmaheap_mutex);
+				common_dmabuf_heap_rsv_iova_unmap(hmem_d1);
+			common_dmabuf_heap_release(hmem);
 			LOG_ERR("%s %d: copy_from_user failed, returned %li\n", __func__, __LINE__, tmp);
 			return -EFAULT;
 		}
-		mutex_unlock(&dmaheap_mutex);
 
 		return 0;
 	}
 	case HANTRODEC_IOC_DMA_HEAP_PUT_IOVA: {
+		struct dmabuf_cfg dbcfg;
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
@@ -2478,20 +2446,17 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			return -ENOMEM;
 		}
 
-		mutex_lock(&dmaheap_mutex);
 		if (platformdev_d1) {
 			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
 			if (IS_ERR(hmem_d1)) {
-				mutex_unlock(&dmaheap_mutex);
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
 			}
-			common_dmabuf_heap_release(hmem_d1);
+			common_dmabuf_heap_rsv_iova_unmap(hmem_d1);
 		}
 		//LOG_INFO("release dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dmabuf_fd, hmem, filp,
 		//	platformdev_d1);
 		common_dmabuf_heap_release(hmem);
-		mutex_unlock(&dmaheap_mutex);
 
 		return 0;
 	}
@@ -2596,6 +2561,12 @@ static int hantrodec_release(struct inode *inode,
 	int n;
 	hantrodec_t *dev = &hantrodec_data;
 	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+#ifdef SUPPORT_DMA_HEAP
+	struct heap_mem *h, *tmp;
+	dma_addr_t iova;
+	size_t buf_size = 0;
+	struct heap_root *root = &fp_priv->root;
+#endif
 
 	LOG_DBG("closing ...\n");
 
@@ -2623,10 +2594,10 @@ static int hantrodec_release(struct inode *inode,
 
 end:
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (platformdev_d1) {
-		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
+		common_dmabuf_heap_rsv_iova_uninit(&fp_priv->root_d1);
 	}
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 #endif
 	for (u32 core_id = 0; core_id < DEC_CORE_NUM; core_id ++) {
 		/** clear the tasks for pm*/
@@ -3987,9 +3958,6 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-#ifdef SUPPORT_DMA_HEAP
-	mutex_init(&dmaheap_mutex);
-#endif
 	ret = hantrodec_init();
 	if (ret) {
 		LOG_NOTICE("load driver %s failed\n", DEC_DEV_NAME);
@@ -4033,9 +4001,6 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 	if (ret) {
 		LOG_ERR("vdec tbu power down failed\n");
 		return -1;
-	}
-	if (!gdev_count) {
-		mutex_destroy(&dmaheap_mutex);
 	}
 #endif
 	vcrt = platform_get_drvdata(pdev);

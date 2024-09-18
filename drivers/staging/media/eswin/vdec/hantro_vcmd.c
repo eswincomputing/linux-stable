@@ -3256,9 +3256,9 @@ static int vcmd_init(void)
 		vcmd_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 
 		/* command buffer */
-		vcmd_buf_mem_pool.virtual_address = (u32 *)dma_alloc_coherent(&platformdev->dev,
+		vcmd_buf_mem_pool.virtual_address = (u32 *)dma_alloc_attrs(&platformdev->dev,
 			vcmd_buf_mem_pool.size, &dma_handle,
-			GFP_KERNEL | __GFP_DMA32);
+			GFP_KERNEL, DMA_ATTR_FORCE_CONTIGUOUS);
 		vcmd_buf_mem_pool.bus_address = (unsigned long long)dma_handle;
 		vcmd_buf_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_buf_mem_pool.virtual_address));
 
@@ -3293,10 +3293,11 @@ static int vcmd_init(void)
 		/* status buffer */
 		vcmd_status_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 		vcmd_status_buf_mem_pool.virtual_address =
-			(u32 *)dma_alloc_coherent(&platformdev->dev,
+			(u32 *)dma_alloc_attrs(&platformdev->dev,
 						  vcmd_status_buf_mem_pool.size,
 						  &dma_handle,
-						  GFP_KERNEL | __GFP_DMA32);
+						  GFP_KERNEL,
+						  DMA_ATTR_FORCE_CONTIGUOUS);
 		vcmd_status_buf_mem_pool.bus_address = (unsigned long long)dma_handle;
 		vcmd_status_buf_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_status_buf_mem_pool.virtual_address));
 
@@ -3333,10 +3334,11 @@ static int vcmd_init(void)
 		/* register buffer */
 		vcmd_registers_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 		vcmd_registers_mem_pool.virtual_address =
-			(u32 *)dma_alloc_coherent(&platformdev->dev,
+			(u32 *)dma_alloc_attrs(&platformdev->dev,
 						  vcmd_registers_mem_pool.size,
 						  &dma_handle,
-						  GFP_KERNEL | __GFP_DMA32);
+						  GFP_KERNEL,
+						  DMA_ATTR_FORCE_CONTIGUOUS);
 		vcmd_registers_mem_pool.bus_address = (unsigned long long)dma_handle;
 		vcmd_registers_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_registers_mem_pool.virtual_address));
 
@@ -4305,23 +4307,24 @@ void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup)
 	} else {
 		if (pdev == platformdev) {
 			if (vcmd_buf_mem_pool.virtual_address)
-				dma_free_coherent(
+				dma_free_attrs(
 					&platformdev->dev, vcmd_buf_mem_pool.size,
 					vcmd_buf_mem_pool.virtual_address,
-					(dma_addr_t)vcmd_buf_mem_pool.bus_address);
+					(dma_addr_t)vcmd_buf_mem_pool.bus_address,
+					0);
 			if (vcmd_status_buf_mem_pool.virtual_address)
-				dma_free_coherent(
+				dma_free_attrs(
 					&platformdev->dev,
 					vcmd_status_buf_mem_pool.size,
 					vcmd_status_buf_mem_pool.virtual_address,
-					(dma_addr_t)
-						vcmd_status_buf_mem_pool.bus_address);
+					(dma_addr_t)vcmd_status_buf_mem_pool.bus_address,
+					0);
 			if (vcmd_registers_mem_pool.virtual_address)
-				dma_free_coherent(
+				dma_free_attrs(
 					&platformdev->dev, vcmd_registers_mem_pool.size,
 					vcmd_registers_mem_pool.virtual_address,
-					(dma_addr_t)
-						vcmd_registers_mem_pool.bus_address);
+					(dma_addr_t)vcmd_registers_mem_pool.bus_address,
+					0);
 		}
 
 		if (pdev == platformdev_d1) {
