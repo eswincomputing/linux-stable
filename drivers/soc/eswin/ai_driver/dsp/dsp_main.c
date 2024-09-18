@@ -56,7 +56,7 @@
 #define DSP_SUBSYS_HILOAD_CLK 1040000000
 #define DSP_SUBSYS_LOWLOAD_CLK 5200000
 
-#define ES_DSP_DEFAULT_TIMEOUT (100* 6)
+#define ES_DSP_DEFAULT_TIMEOUT (100 * 6)
 
 #ifdef DEBUG
 #pragma GCC optimize("O0")
@@ -105,7 +105,7 @@ int es_dsp_exec_cmd_timeout(void)
 	return fw_timeout;
 }
 
-static void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req)
+void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req)
 {
 	struct prio_array *array = &dsp->array;
 	unsigned long flags;
@@ -175,7 +175,7 @@ static void __dsp_send_task(struct es_dsp *dsp)
 	es_dsp_send_irq(dsp->hw_arg, (void *)req);
 }
 
-static void dsp_schedule_task(struct es_dsp *dsp)
+void dsp_schedule_task(struct es_dsp *dsp)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&dsp->send_lock, flags);
@@ -245,6 +245,11 @@ static void dsp_process_expire_work(struct work_struct *work)
 		dsp_fw_state->exccause, dsp_fw_state->ps, dsp_fw_state->pc,
 		dsp_fw_state->dsp_task_state, dsp_fw_state->npu_task_state,
 		dsp_fw_state->func_state);
+
+	if (dsp->stats->last_op_name) {
+		dsp_err("%s, %d, op name = %s.\n", __func__, __LINE__,
+			dsp->stats->last_op_name);
+	}
 	ret = es_dsp_reboot_core(dsp->hw_arg);
 	if (ret < 0) {
 		dsp_err("reboot dsp core failed.\n");
@@ -721,7 +726,7 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	pm_runtime_mark_last_busy(dsp->dev);
 	pm_runtime_put_noidle(dsp->dev);
 	win2030_tbu_power(dsp->dev, false);
-	es_dsp_core_clk_disable(dsp);
+	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
 	dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
 		  __LINE__, dsp->process_id);
@@ -743,7 +748,7 @@ int __maybe_unused dsp_resume(struct device *dev)
 		dsp_err("dsp resume mbox clock err.\n");
 		return ret;
 	}
-	ret = es_dsp_core_clk_enable(dsp);
+	ret = es_dsp_clk_enable(dsp);
 	if (ret < 0) {
 		dev_err(dsp->dev, "couldn't enable DSP\n");
 		goto out;
@@ -788,7 +793,7 @@ int __maybe_unused dsp_runtime_suspend(struct device *dev)
 	dsp_debug("%s, dsp core%d runtime suspend.\n", __func__,
 		  dsp->process_id);
 	win2030_tbu_power(dev, false);
-	es_dsp_core_clk_disable(dsp);
+	es_dsp_clk_disable(dsp);
 	return 0;
 }
 EXPORT_SYMBOL(dsp_runtime_suspend);
@@ -804,7 +809,7 @@ int __maybe_unused dsp_runtime_resume(struct device *dev)
 	dsp_debug("%s, dsp core%d runtime resumng.....\n\n", __func__,
 		  dsp->process_id);
 
-	ret = es_dsp_core_clk_enable(dsp);
+	ret = es_dsp_clk_enable(dsp);
 	if (ret < 0) {
 		dev_err(dsp->dev, "couldn't enable DSP\n");
 		goto out;

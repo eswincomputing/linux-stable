@@ -36,6 +36,7 @@
 #define DSP_IOCTL_ENABLE_PERF _IO(ES_DSP_IOCTL_MAGIC, 22)
 #define DSP_IOCTL_GET_PERF_DATA _IO(ES_DSP_IOCTL_MAGIC, 23)
 #define DSP_IOCTL_GET_FW_PERF_DATA _IO(ES_DSP_IOCTL_MAGIC, 24)
+#define DSP_IOCTL_SUBMIT_TSKS_ASYNC _IO(ES_DSP_IOCTL_MAGIC, 25)
 
 typedef struct dsp_ioctl_pre_dma_t {
     ES_DEV_BUF_S desc;
@@ -54,6 +55,7 @@ typedef struct dsp_ioctl_unload_t {
 } __attribute__((packed)) dsp_ioctl_unload_s;
 
 typedef struct dsp_ioctl_task_t {
+    ES_U32 task_num;
     ES_DSP_TASK_S task;
     ES_S32 result;
 } __attribute__((packed)) dsp_ioctl_task_s;

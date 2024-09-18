@@ -85,6 +85,7 @@ struct dsp_user_req_async {
 	/* async_ll, cbarg, callback and dsp_file Can Only use for Lowlevel interface*/
 	struct list_head async_ll;
 	struct dsp_file *dsp_file;
+	bool need_notify;
 	u64 cbarg;
 	u64 callback;
 };
@@ -214,4 +215,6 @@ void dsp_op_release(struct kref *kref);
 
 int es_dsp_exec_cmd_timeout(void);
 struct es_dsp *es_proc_get_dsp(int dieid, int dspid);
+void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req);
+void dsp_schedule_task(struct es_dsp *dsp);
 #endif

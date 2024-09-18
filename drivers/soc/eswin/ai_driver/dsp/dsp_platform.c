@@ -255,7 +255,8 @@ int es_dsp_clk_disable(struct es_dsp *dsp)
 		return ret;
 	}
 
-	//clk_disable_unprepare(hw->aclk);
+	clk_disable_unprepare(hw->aclk);
+	clk_disable_unprepare(hw->subsys->cfg_clk);
 	dsp_debug("%s, %d, done.\n", __func__, __LINE__);
 	return ret;
 }
@@ -263,13 +264,18 @@ int es_dsp_clk_enable(struct es_dsp *dsp)
 {
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 	int ret;
-	if (!__clk_is_enabled(hw->aclk)) {
-		ret = clk_prepare_enable(hw->aclk);
-		if (ret) {
-			dev_err(dsp->dev, "failed to enable aclk: %d\n", ret);
-			return ret;
-		}
+
+	ret = clk_prepare_enable(hw->subsys->cfg_clk);
+	if (ret) {
+		dev_err(dsp->dev, "failed to enable cfg clk, ret=%d.\n", ret);
+		return ret;
 	}
+	ret = clk_prepare_enable(hw->aclk);
+	if (ret) {
+		dev_err(dsp->dev, "failed to enable aclk: %d\n", ret);
+		return ret;
+	}
+
 	ret = es_dsp_core_clk_enable(dsp);
 	if (ret) {
 		clk_disable_unprepare(hw->aclk);
