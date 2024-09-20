@@ -104,6 +104,7 @@
 #include "hantroaxife.h"
 #include "hantroafbc.h"
 #include "dts_parser.h"
+#include "vdec_allocator.h"
 
 #define LOG_TAG DEC_DEV_NAME ":main"
 #include "vc_drv_log.h"
@@ -547,6 +548,8 @@ static char *IoctlCmdStr(unsigned int cmd)
 #ifdef SUPPORT_DMA_HEAP
 		IOCTL_CMD_STR_CASE(HANTRODEC_IOC_DMA_HEAP_GET_IOVA);
 #endif
+		IOCTL_CMD_STR_CASE(HANTRODEC_IOC_ATTACH_USER_MEM);
+		IOCTL_CMD_STR_CASE(HANTRODEC_IOC_DETACH_USER_MEM);
 	default:
 		return "Invalid ioctl cmd";
 	}
@@ -2509,6 +2512,70 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		return 0;
 	}
 #endif
+	case HANTRODEC_IOC_ATTACH_USER_MEM: {
+		user_memory_desc desc;
+		struct device *dev = NULL;
+
+		if (copy_from_user(&desc, (void __user *)arg, sizeof(desc)) != 0) {
+			return -EFAULT;
+		}
+
+		LOG_DBG("attach user memory: memory %px, size: %lu, nid: %u\n", desc.memory, desc.size, desc.nid);
+		if (!desc.memory || !desc.size) {
+			LOG_ERR("invalid param, addr=%px, size=%lu\n", desc.memory, desc.size);
+			return -EINVAL;
+		}
+		do {
+			if (desc.nid == 1) {
+				if (platformdev_d1) {
+					dev = &platformdev_d1->dev;
+				} else {
+					break;
+				}
+			} else if (!desc.nid) {
+				if (platformdev) {
+					dev = &platformdev->dev;
+				} else {
+					break;
+				}
+			} else {
+				break;
+			}
+		} while (0);
+		if (!dev) {
+			LOG_ERR("%d::invalid nid: %u\n", __LINE__, desc.nid);
+			return -ENODEV;
+		}
+		LOG_DBG("%d: nid: %u, dev: %px\n", __LINE__, desc.nid, dev);
+
+		if (vdec_attach_user_memory(filp, dev, &desc)) {
+			return -EFAULT;
+		}
+		tmp = copy_to_user((u32 __user *)arg, &desc, sizeof(desc));
+		if (tmp) {
+			LOG_ERR("%s %d: copy_from_user failed, returned %li\n", __func__, __LINE__, tmp);
+			return -EFAULT;
+		}
+	} break;
+	case HANTRODEC_IOC_DETACH_USER_MEM: {
+		user_memory_desc desc;
+		if (copy_from_user(&desc, (void __user *)arg, sizeof(desc)) != 0) {
+			return -EFAULT;
+		}
+
+		if (vdec_detach_user_memory(filp, &desc)) {
+			return -EFAULT;
+		}
+	} break;
+	case HANTRODEC_IOC_SYNC_USER_MEM_CACHE: {
+		user_memory_desc desc;
+		if (copy_from_user(&desc, (void __user *)arg, sizeof(desc)) != 0) {
+			return -EFAULT;
+		}
+		if (vdec_sync_user_memory_cache(filp, &desc, ES_CACHE_CLEAN)) {
+			return -EFAULT;
+		}
+	} break;
 	default: {
 		if (_IOC_TYPE(cmd) == HANTRO_IOC_MMU) {
 			volatile u8 *mmu_hwregs[MAX_SUBSYS_NUM][2];
@@ -2560,6 +2627,7 @@ static int hantrodec_open(struct inode *inode, struct file *filp)
 	for (u32 core_id = 0; core_id < DEC_CORE_NUM; core_id ++) {
 		atomic_set(&(fp_priv->core_tasks[core_id]), 0);
 	}
+	init_bi_list((bi_list*)&fp_priv->user_memory_list);
 	filp->private_data = (void *)fp_priv;
 	LOG_DBG("dev opened\n");
 
@@ -2604,6 +2672,7 @@ static int hantrodec_release(struct inode *inode,
 			ReleasePostProcessor(dev, n);
 		}
 	}
+	vdec_clean_user_memory(&fp_priv->user_memory_list);
 
 	MMURelease(filp, hantrodec_data.hwregs[0][HW_MMU]);
 

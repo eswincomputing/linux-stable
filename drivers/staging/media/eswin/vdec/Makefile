@@ -8,6 +8,7 @@ es_vdec-objs := hantro_dec.o \
 		vcmdswhwregisters.o \
 		subsys.o \
 		hantro_afbc.o \
-		dts_parser.o
+		dts_parser.o \
+		vdec_allocator.o
 
 obj-$(CONFIG_VIDEO_ESWIN_VDEC) += es_vdec.o
