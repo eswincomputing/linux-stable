@@ -15,7 +15,7 @@
 #define DW_HDMI_HDCP_H
 
 #include <linux/miscdevice.h>
-#include <linux/dsp_dma_buf.h>
+#include "dsp_dma_buf.h"
 
 #define DW_HDCP_DRIVER_NAME "dw-hdmi-hdcp"
 #define HDCP_PRIVATE_KEY_SIZE 280

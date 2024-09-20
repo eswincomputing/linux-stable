@@ -939,19 +939,8 @@ static int __maybe_unused dw_hdmi_eswin_resume(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused dw_hdmi_eswin_resume_early(struct device *dev)
-{
-	struct eswin_hdmi *hdmi = dev_get_drvdata(dev);
-
-	dw_hdmi_resume_early(hdmi->hdmi);
-
-	return 0;
-}
-
-static const struct dev_pm_ops dw_hdmi_eswin_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(dw_hdmi_eswin_suspend, dw_hdmi_eswin_resume)
-	.resume_early = dw_hdmi_eswin_resume_early,
-};
+static const struct dev_pm_ops dw_hdmi_eswin_pm = {	SET_SYSTEM_SLEEP_PM_OPS(
+	dw_hdmi_eswin_suspend, dw_hdmi_eswin_resume) };
 
 struct platform_driver dw_hdmi_eswin_pltfm_driver = {
     .probe  = dw_hdmi_eswin_probe,

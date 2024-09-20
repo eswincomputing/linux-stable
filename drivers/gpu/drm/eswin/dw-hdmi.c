@@ -4592,10 +4592,6 @@ void dw_hdmi_suspend(struct dw_hdmi *hdmi)
 	cancel_delayed_work(&hdmi->work);
 	flush_workqueue(hdmi->workqueue);
 	pinctrl_pm_select_sleep_state(hdmi->dev);
-
-	clk_disable(hdmi->cec_clk);
-	clk_disable(hdmi->iahb_clk);
-	clk_disable(hdmi->isfr_clk);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 
@@ -4605,15 +4601,6 @@ void dw_hdmi_resume(struct dw_hdmi *hdmi)
 	dw_hdmi_init_hw(hdmi);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);
-
-void dw_hdmi_resume_early(struct dw_hdmi *hdmi)
-{
-	dev_dbg(hdmi->dev, "%s", __func__);
-	clk_enable(hdmi->cec_clk);
-	clk_enable(hdmi->iahb_clk);
-	clk_enable(hdmi->isfr_clk);
-}
-EXPORT_SYMBOL_GPL(dw_hdmi_resume_early);
 
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
 MODULE_AUTHOR("Andy Yan <andy.yan@rock-chips.com>");
