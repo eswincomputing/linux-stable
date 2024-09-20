@@ -74,6 +74,7 @@
 #endif
 
 #include "hantrovcmd.h"
+#include "bidirect_list.h"
 
 enum CoreType {
 	/* Decoder */
@@ -165,8 +166,15 @@ struct filp_priv {
 #endif
 	void *dev;
 	atomic_t core_tasks[DEC_CORE_NUM];  /** for task count of 4 cores*/
+	bi_list user_memory_list;
 };
 #endif
+
+typedef struct {
+	void *memory;  /* user space memory addr */
+	size_t size;   /* memory size */
+	__u32 nid;     /* numa id */
+} user_memory_desc;
 
 /* Use 'k' as magic number */
 #define HANTRODEC_IOC_MAGIC 'k'
@@ -251,6 +259,15 @@ struct filp_priv {
 #define HANTRODEC_IOC_DMA_HEAP_FD_SPLIT                                        \
 	_IOR(HANTRODEC_IOC_MAGIC, 35, struct dmabuf_split *)
 
-#define HANTRODEC_IOC_MAXNR 35
+#define HANTRODEC_IOC_ATTACH_USER_MEM                                          \
+	_IOWR(HANTRODEC_IOC_MAGIC, 36, user_memory_desc *)
+
+#define HANTRODEC_IOC_DETACH_USER_MEM                                          \
+	_IOR(HANTRODEC_IOC_MAGIC, 37, user_memory_desc *)
+
+#define HANTRODEC_IOC_SYNC_USER_MEM_CACHE                                      \
+	_IOR(HANTRODEC_IOC_MAGIC, 38, user_memory_desc *)
+
+#define HANTRODEC_IOC_MAXNR 38
 
 #endif /* !_HANTRODEC_H_ */
