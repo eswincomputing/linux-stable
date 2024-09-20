@@ -7,6 +7,7 @@
 #define __ES_VIRTUAL_H_
 
 struct es_virtual_display {
+	u32 enable;
 	struct drm_encoder encoder;
 	struct drm_connector connector;
 	struct device *dc;
