@@ -592,7 +592,15 @@ static int runtime_lock_request(struct user_context *uctx, struct file *file,
 	struct win_engine *engine;
 
 	engine = get_engine_from_file(file);
-	if (cmd == ES_NPU_IOCTL_MUTEX_LOCK) {
+	if (cmd == ES_NPU_IOCTL_MUTEX_TRYLOCK) {
+		if (down_trylock(&engine->runtime_sem)) {
+			return -EINTR;
+		}
+		BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
+		atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
+		dla_debug("try %s, %d locked\n", __func__, __LINE__);
+
+	} else if (cmd == ES_NPU_IOCTL_MUTEX_LOCK) {
 		if (down_interruptible(&engine->runtime_sem)) {
 			return -EINTR;
 		}
@@ -872,6 +880,7 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case ES_NPU_IOCTL_MUTEX_LOCK:
 	case ES_NPU_IOCTL_MUTEX_UNLOCK:
+	case ES_NPU_IOCTL_MUTEX_TRYLOCK:
 		ret = runtime_lock_request(uctx, file, cmd);
 		break;
 	case ES_NPU_IOCTL_HETERO_CMD:
@@ -950,7 +959,8 @@ int npu_dev_open(struct inode *inode, struct file *file)
 	engine = ndev->win_engine;
 	ret = npu_pm_get(ndev);
 	if (ret < 0) {
-		dla_error("%s, %d, npu_pm_get failed, ret = %d.\n", __func__, __LINE__, ret);
+		dla_error("%s, %d, npu_pm_get failed, ret = %d.\n", __func__,
+			  __LINE__, ret);
 		return ret;
 	}
 	spin_lock_irqsave(&engine->executor_lock, flags);
