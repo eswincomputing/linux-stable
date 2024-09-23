@@ -258,7 +258,7 @@ typedef struct _modelShmDesc {
     uint16_t kmdSubModelId;     // kmd submodel id
     uint32_t kmdNetworkAddrId;  // kmd network address index in model
     int32_t dspFd[DSP_MAX_CORE_NUM];
-    addrListDesc_t addrList;    // model address list
+    addrListDesc_t addrList;  // model address list
 } modelShmDesc_t;
 
 typedef struct _modelRec {
@@ -296,7 +296,7 @@ typedef struct _modelRec {
 #define ES_NPU_IOCTL_PREPARE_DMA_BUF ES_NPU_IOWR(0xf, int)
 #define ES_NPU_IOCTL_UNPREPARE_DMA_BUF ES_NPU_IOWR(0x10, int)
 
-#define ES_NPU_IOCTL_UNPREPARE_DMA_BUF ES_NPU_IOWR(0x10, int)
+#define ES_NPU_IOCTL_MUTEX_TRYLOCK ES_NPU_IOWR(0x11, int)
 
 #define NPU_HETERO_CMD_BASE 'h'
 #define NPU_HETERO_IOWR(nr, type) _IOWR(NPU_HETERO_CMD_BASE, nr, type)
