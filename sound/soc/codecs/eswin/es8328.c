@@ -789,12 +789,6 @@ static int es8328_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	snd_soc_component_write(component, ES8328_LDACVOL, 0);
 	snd_soc_component_write(component, ES8328_RDACVOL, 0);
 
-	/* Set L/R Out Volume */
-	snd_soc_component_write(component, ES8328_LOUT1VOL, 0x1e);
-	snd_soc_component_write(component, ES8328_ROUT1VOL, 0x1e);
-	snd_soc_component_write(component, ES8328_LOUT2VOL, 0x1e);
-	snd_soc_component_write(component, ES8328_ROUT2VOL, 0x1e);
-
 	/* Set MIC PGA Volume */
 	snd_soc_component_write(component, ES8328_ADCCONTROL1, 0x88);
 
