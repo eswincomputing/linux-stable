@@ -75,6 +75,8 @@
 
 #define I2S0_IO_ADDR 0x51600124
 
+#define HDMI_DAI_NAME "i2s0-hdmi"
+
 static struct clk *g_mclk;
 
 static u32 dmaen_txch[] = {
@@ -375,9 +377,13 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai_link *dai_link = rtd->dai_link;
 
 	dai_link->trigger_stop = SND_SOC_TRIGGER_ORDER_LDC;
+
+	if (!strcmp(cpu_dai->name, HDMI_DAI_NAME)) {
+		dai_link->playback_only = 1;
+	}
+
 	return 0;
 }
-
 
 static int i2s_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
@@ -660,18 +666,11 @@ static const struct snd_soc_component_driver i2s_component = {
 
 static struct snd_soc_dai_driver i2s_dai[4] = {
 	{
-		.name = "i2s0-hdmi",
+		.name = HDMI_DAI_NAME,
 		.id = 0,
 		.ops = &i2s_dai_ops,
 		.playback = {
 			.stream_name = "Playback",
-			.channels_min = MIN_CHANNEL_NUM,
-			.channels_max = MAX_CHANNEL_NUM,
-			.rates = ESW_I2S_RATES,
-			.formats = ESW_I2S_FORMATS,
-		},
-		.capture = {
-			.stream_name = "Capture",
 			.channels_min = MIN_CHANNEL_NUM,
 			.channels_max = MAX_CHANNEL_NUM,
 			.rates = ESW_I2S_RATES,
