@@ -19,4 +19,10 @@ config ESWIN_DSP_SUBSYS
 
       If unsure, say N.
 
+config EIC7X_D2D
+    bool "Eswin EIC7X D2D interrupt status"
+    depends on ARCH_ESWIN_EIC7702_SOC
+    help
+        This is interrputs status of D2D which includes error interrupts.
+
 endif

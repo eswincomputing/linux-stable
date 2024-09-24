@@ -2264,5 +2264,37 @@
 			numa-node-id = <1>;
 			dma-noncoherent;
 		};
+
+		d1_ddr0: ddr-controller@0 {
+			compatible = "eswin,ddrc-1.20a";
+			interrupt-parent = <&plic1>;
+			interrupts = <10>;
+			interrupt-names = "ddr-ecc";
+			reg = <0x0 0x72300000 0x0 0x40000>;
+			ctrl-id = <0>;
+			numa-node-id = <1>;
+			status = "disabled";
+		};
+
+		d1_ddr1: ddr-controller@1 {
+			compatible = "eswin,ddrc-1.20a";
+			interrupt-parent = <&plic1>;
+			interrupts = <299>;
+			interrupt-names = "ddr-ecc";
+			reg = <0x0 0x72380000 0x0 0x40000>;
+			ctrl-id = <1>;
+			numa-node-id = <1>;
+			status = "disabled";
+		};
+
+		d1_d2d: d2d-unit@72100000 {
+			compatible = "eswin,eic7x-d2d";
+			interrupt-parent = <&plic1>;
+			interrupts = <287>, <288>;
+			reg = <0x0 0x72100000 0x0 0x1000>;
+			reg-names = "control";
+			numa-node-id = <1>;
+			status = "disabled";
+		};
 };
 

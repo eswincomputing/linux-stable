@@ -202,6 +202,14 @@
 	status = "okay";
 };
 
+&d1_ddr0 {
+	status = "okay";
+};
+
+&d1_ddr1 {
+	status = "okay";
+};
+
 &smmu0 {
 	status = "okay";
 };
@@ -1437,6 +1445,14 @@
 &d1_llc_dev{
 	/* apply_npu_1G_freq; */
 	npu-supply=<&d1_npu_vcc>;
+	status = "okay";
+};
+
+&d2d {
+	status = "okay";
+};
+
+&d1_d2d {
 	status = "okay";
 };
 

@@ -2259,6 +2259,7 @@
 			interrupt-names = "ddr-ecc";
 			reg = <0x0 0x52300000 0x0 0x40000>;
 			ctrl-id = <0>;
+			numa-node-id = <0>;
 			status = "disabled";
 		};
 
@@ -2269,6 +2270,17 @@
 			interrupt-names = "ddr-ecc";
 			reg = <0x0 0x52380000 0x0 0x40000>;
 			ctrl-id = <1>;
+			numa-node-id = <0>;
+			status = "disabled";
+		};
+
+		d2d: d2d-unit@52100000 {
+			compatible = "eswin,eic7x-d2d";
+			interrupt-parent = <&plic0>;
+			interrupts = <287>, <288>;
+			reg = <0x0 0x52100000 0x0 0x1000>;
+			reg-names = "control";
+			numa-node-id = <0>;
 			status = "disabled";
 		};
 };
