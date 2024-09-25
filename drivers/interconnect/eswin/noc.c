@@ -2323,19 +2323,14 @@ static struct platform_driver win2030_noc_driver = {
 		.of_match_table = of_match_ptr(win2030_noc_of_match),},
 };
 
-static int __init win2030_noc_init(void)
-{
-	return platform_driver_register(&win2030_noc_driver);
-}
-
 static void __exit win2030_noc_exit(void)
 {
 	platform_driver_unregister(&win2030_noc_driver);
 }
 
-subsys_initcall(win2030_noc_init);
+module_platform_driver(win2030_noc_driver);
 module_exit(win2030_noc_exit);
 
-MODULE_AUTHOR("huangyifeng@eswincomputing.com");
+MODULE_AUTHOR("huangyifeng<huangyifeng@eswincomputing.com>");
 MODULE_VERSION("1.0.0");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

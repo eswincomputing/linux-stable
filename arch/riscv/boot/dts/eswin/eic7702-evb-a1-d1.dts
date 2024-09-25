@@ -821,6 +821,9 @@
 &gpio0 {
 	status = "okay";
 };
-/* &dev_llc_d1{
-	apply_npu_1G_freq;
-}; */
+&dev_llc_d0{
+	/* apply_npu_1G_freq; */
+	npu-supply=<&npu_vcc1>;
+	status = "okay";
+};
+
