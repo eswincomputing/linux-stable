@@ -309,6 +309,8 @@ struct nvdla_device *get_nvdla_dev(int i)
 	return static_nvdla_dev[i];
 }
 
+static int32_t  npu_probe_result = 0;
+
 static int32_t edla_probe(struct platform_device *pdev)
 {
 	int32_t err = 0;
@@ -511,6 +513,7 @@ err_iomap_emission:
 	release_mem_region(E31_EMISSION_DTIM_BASE, E31_EMISSION_DTIM_SIZE);
 err_mem0:
 	npu_put_dt_resources(nvdla_dev);
+	npu_probe_result = err;
 	return err;
 }
 
@@ -703,6 +706,11 @@ static int __init npu_modules_init(void)
 	if (err < 0) {
 		dla_error("NPU:platform_register_drivers failed!err=%d\n", err);
 		return err;
+	}
+	if (npu_probe_result < 0) {
+		dla_error("NPU:npu_probe_result failed:%d\n", npu_probe_result);
+		platform_driver_unregister(&edla_driver);
+		return npu_probe_result;
 	}
 	err = npu_platform_init();
 	if (err) {

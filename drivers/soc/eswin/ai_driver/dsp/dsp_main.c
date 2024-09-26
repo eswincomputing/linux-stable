@@ -949,6 +949,8 @@ static void dsp_init_prio_array(struct es_dsp *dsp)
 	set_bit(DSP_MAX_PRIO, array->bitmap);
 }
 
+static int32_t  dsp_probe_result = 0;
+
 static int es_dsp_hw_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1093,6 +1095,7 @@ err_clk_init:
 	es_dsp_put_subsys(dsp);
 	dsp_free_hw(dsp);
 	dev_err(&pdev->dev, "%s: ret = %d\n", __func__, ret);
+	dsp_probe_result = ret;
 	return ret;
 }
 
@@ -1155,6 +1158,12 @@ static int __init es_dsp_module_init(void)
 	if (ret) {
 		dsp_err("cannot register platform drv\n");
 		return ret;
+	}
+
+	if (dsp_probe_result < 0) {
+		dsp_err("es dsp_probe_result error:%d\n", dsp_probe_result);
+		platform_driver_unregister(&es_dsp_hw_driver);
+		return dsp_probe_result;
 	}
 
 	ret = es_dsp_platform_init();
