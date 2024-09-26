@@ -498,6 +498,11 @@ int dsp_alloc_hw(struct platform_device *pdev, struct es_dsp *dsp)
 	return 0;
 }
 
+int wait_for_current_tsk_done(struct es_dsp *dsp)
+{
+	return 0;
+}
+
 void dsp_free_hw(struct es_dsp *dsp)
 {
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;

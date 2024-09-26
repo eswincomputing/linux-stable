@@ -329,7 +329,6 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 		}
 	}
 
-	dsp->current_task = NULL;
 	spin_unlock_irqrestore(&dsp->send_lock, flags);
 	BUG_ON(timer_pending(&dsp->task_timer));
 
@@ -338,12 +337,14 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 
 	req->d2h_msg = *msg;
 	dsp_complete_work(dsp, req);
+	dsp->current_task = NULL;
 
 	dsp_debug("%s, current task req = 0x%px.\n", __func__, req);
 	dsp_info("op name:%s take time:%lld\n", dsp->stats->last_op_name,
 		 dsp->stats->last_task_time);
-
-	dsp_schedule_task(dsp);
+	if (dsp->off == false) {
+		dsp_schedule_task(dsp);
+	}
 	return IRQ_HANDLED;
 }
 EXPORT_SYMBOL(dsp_irq_handler);
@@ -717,10 +718,23 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	if (ret < 0) {
 		return ret;
 	}
+	dsp->off = true;
+
+	if (dsp->current_task != NULL) {
+		ret = wait_for_current_tsk_done(dsp);
+		if (ret) {
+			dsp_err("%s, %d, cannot wait for current task done, ret = %d.\n", __func__, __LINE__, ret);
+			dsp->off = false;
+			return ret;
+		}
+	}
+
+	flush_work(&dsp->task_work);
+
+	dsp_disable_irq(dsp);
 	es_dsp_hw_uninit(dsp);
 
 	dsp_release_firmware(dsp);
-	dsp_disable_irq(dsp);
 	dsp_halt(dsp);
 
 	pm_runtime_mark_last_busy(dsp->dev);
@@ -728,7 +742,7 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	win2030_tbu_power(dsp->dev, false);
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
-	dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
+		dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
 		  __LINE__, dsp->process_id);
 	return 0;
 }
@@ -737,8 +751,6 @@ int __maybe_unused dsp_resume(struct device *dev)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	int ret;
-	if (dsp->off)
-		goto out;
 
 	dsp_debug("%s, dsp core%d generic resuming..\n\n", __func__,
 		  dsp->process_id);
@@ -775,6 +787,8 @@ int __maybe_unused dsp_resume(struct device *dev)
 	pm_runtime_put_autosuspend(dsp->dev);
 	dsp_debug("dsp_core%d Generic resume ok, dsp->off=%d.\n",
 		  dsp->process_id, dsp->off);
+	dsp->off = false;
+	dsp_schedule_task(dsp);
 	return 0;
 err_firm:
 	es_dsp_hw_uninit(dsp);
@@ -792,6 +806,7 @@ int __maybe_unused dsp_runtime_suspend(struct device *dev)
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	dsp_debug("%s, dsp core%d runtime suspend.\n", __func__,
 		  dsp->process_id);
+
 	win2030_tbu_power(dev, false);
 	es_dsp_clk_disable(dsp);
 	return 0;
@@ -1096,6 +1111,8 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	if (NULL != dsp->miscdev.this_device) {
 		misc_deregister(&dsp->miscdev);
 	}
+
+	cancel_work_sync(&dsp->task_work);
 	es_dsp_hw_uninit(dsp);
 
 	pm_runtime_disable(dsp->dev);

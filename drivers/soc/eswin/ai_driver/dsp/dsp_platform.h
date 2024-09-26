@@ -55,5 +55,6 @@ int dsp_enable_irq(struct es_dsp *dsp);
 void dsp_disable_irq(struct es_dsp *dsp);
 void dsp_disable_mbox_clock(struct es_dsp *dsp);
 int dsp_enable_mbox_clock(struct es_dsp *dsp);
+int wait_for_current_tsk_done(struct es_dsp *dsp);
 
 #endif
