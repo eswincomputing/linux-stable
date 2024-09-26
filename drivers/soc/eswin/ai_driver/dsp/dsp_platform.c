@@ -352,6 +352,28 @@ void es_dsp_release(struct es_dsp_hw *hw)
 	return;
 }
 
+int wait_for_current_tsk_done(struct es_dsp *dsp)
+{
+	const int sleep_retries = 5;
+	const int wake_retries = 20;
+	int i, j;
+
+	for (i = 0; i < sleep_retries; i++) {
+		for (j = 0; j < wake_retries; j++) {
+			if (dsp->current_task == NULL) {
+				break;
+			}
+			usleep_range(100, 5000);
+		}
+
+		if (j < wake_retries) {
+			return 0;
+		}
+	}
+	dsp_err("%s, %d, Timeout for wait current task done.\n", __func__, __LINE__);
+	return -ETIMEDOUT;
+}
+
 static int check_dsp_fw_state(struct es_dsp *dsp)
 {
 	struct dsp_fw_state_t *dsp_state = (struct dsp_fw_state_t *)dsp->dsp_fw_state_base;
@@ -1237,6 +1259,7 @@ void dsp_disable_irq(struct es_dsp *dsp)
 	if (dsp->mbox_irq) {
 		disable_irq(dsp->mbox_irq);
 	}
+	synchronize_irq(dsp->mbox_irq);
 }
 
 int dsp_enable_irq(struct es_dsp *dsp)

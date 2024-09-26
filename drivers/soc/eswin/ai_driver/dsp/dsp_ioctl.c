@@ -1170,7 +1170,10 @@ static int dsp_open(struct inode *inode, struct file *flip)
 	int ret;
 
 	dsp_info("%s %d, pid %d\n", __func__, __LINE__, current->pid);
-
+	if (dsp->off) {
+		dsp_err("%s, %d, dsp fw is offline.\n", __func__, __LINE__);
+		return -EIO;
+	}
 	ret = es_dsp_pm_get_sync(dsp);
 	if (ret < 0) {
 		dsp_err("%s, %d, pm get sync err, ret=%d.\n", __func__,
