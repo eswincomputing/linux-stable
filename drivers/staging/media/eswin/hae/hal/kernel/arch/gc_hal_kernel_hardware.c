@@ -2033,7 +2033,8 @@ gckHARDWARE_Construct(gckOS Os, gckKERNEL Kernel, gckHARDWARE *Hardware)
     /* Check if big endian */
     hardware->bigEndian = (*(gctUINT8 *)&data == 0xff);
 
-    gcmkONERROR(gckOS_CreateSignal(Os, gcvTRUE, &hardware->feIdleSignal));
+    gcmkONERROR(gckOS_CreateSignal(Os, gcvFALSE, &hardware->feIdleSignal));
+    gcmkONERROR(gckOS_Signal(Os, hardware->feIdleSignal, gcvTRUE));
 
     /* Initialize the fast clear. */
     gcmkONERROR(gckHARDWARE_SetFastClear(hardware, -1, -1));
@@ -9664,6 +9665,7 @@ gckHARDWARE_ExecuteFunctions(gcsFUNCTION_EXECUTION_PTR Execution)
             gcmkONERROR(gckWLFE_Execute(hardware, address,
                                         Execution->funcCmd[i].bytes));
             gcmkONERROR(gckOS_WaitSignal(hardware->os, hardware->feIdleSignal, gcvFALSE, gcdGPU_2D_TIMEOUT));
+            gcmkONERROR(gckOS_Signal(hardware->os, hardware->feIdleSignal, gcvTRUE));
         }
 
 #if gcdLINK_QUEUE_SIZE
