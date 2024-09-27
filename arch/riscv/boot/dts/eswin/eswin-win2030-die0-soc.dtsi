@@ -544,8 +544,8 @@
 			ranges;
 			dma-ranges = <0x0 0x30000000 0x0 0xc0000000 0x0 0xce000000>;
 			compatible = "es-dsp-subsys", "simple-bus";
-			clocks = <&d0_clock WIN2030_CLK_DSPT_CFG_CLK>;
-			clock-names = "cfg_clk";
+			clocks = <&d0_clock WIN2030_CLK_DSPT_CFG_CLK>, <&d0_clock WIN2030_CLK_DSPT_ACLK>;
+			clock-names = "cfg_clk", "aclk";
 			resets = <&d0_reset DSP_RST_CTRL SW_DSP_AXI_RSTN>,
 					<&d0_reset DSP_RST_CTRL SW_DSP_CFG_RSTN>,
 					<&d0_reset DSP_RST_CTRL SW_DSP_DIV4_RSTN>,
