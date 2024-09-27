@@ -68,6 +68,14 @@ static inline int dsp_subsys_clk_init(struct platform_device *pdev,
 		dev_err(&pdev->dev, "failed to get cfg_clk: %d\n", ret);
 		return ret;
 	}
+
+	subsys->aclk = devm_clk_get(&pdev->dev, "aclk");
+	if (IS_ERR(subsys->aclk)) {
+		ret = PTR_ERR(subsys->aclk);
+		dev_err(&pdev->dev, "failed to get aclk: %d\n", ret);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -102,13 +110,13 @@ static int dsp_subsys_reset(struct es_dsp_subsys *subsys)
 	return 0;
 }
 
-static int dsp_subsys_clk_enable(struct es_dsp_subsys *subsys)
+static int dsp_subsys_aclk_enable(struct es_dsp_subsys *subsys)
 {
 	int ret;
 
-	ret = clk_prepare_enable(subsys->cfg_clk);
+	ret = clk_prepare_enable(subsys->aclk);
 	if (ret) {
-		dev_err(&subsys->pdev->dev, "failed to enable cfg_clk: %d\n", ret);
+		dev_err(&subsys->pdev->dev, "failed to enable aclk: %d\n", ret);
 		return ret;
 	}
 	return 0;
@@ -294,7 +302,7 @@ static int es_dsp_subsys_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = dsp_subsys_clk_enable(subsys);
+	ret = dsp_subsys_aclk_enable(subsys);
 	if (0 != ret) {
 		return ret;
 	}

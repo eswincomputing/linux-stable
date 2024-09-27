@@ -39,6 +39,7 @@ struct es_dsp_subsys {
 	struct reset_control *rstc_div_2;
 	struct reset_control *rstc_div_3;
 	struct clk *cfg_clk;
+	struct clk *aclk;
 	dsp_subsys_status_pfunc dsp_subsys_status;
 };
 #endif
