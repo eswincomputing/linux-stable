@@ -27,6 +27,7 @@
 #include <dt-bindings/i2c/i2c.h>
 #include <dt-bindings/interconnect/eswin,win2030.h>
 #include <dt-bindings/power/eswin,eic770x-pmu.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	d1_cpu_opp_table: opp-table1 {
@@ -97,6 +98,55 @@
 			opp-hz = /bits/ 64 <CLK_FREQ_1400M>;
 			opp-microvolt = <800000>;
 			clock-latency-ns = <70000>;
+		};
+	};
+
+	thermal-zones {
+		d1_thermal0 {
+			polling-delay-passive = <500>; /*ms*/
+			polling-delay = <5000>; /*ms*/
+			sustainable-power = <1200>; /*mW*/
+			thermal-sensors = <&d1_pvt0>;
+
+			trips {
+				d1_threshold: trip-point0 {
+					temperature = <60000>; /* DC*1000 */
+					hysteresis = <1000>; /* DC*1000 */
+					type = "passive";
+				};
+				d1_target: trip-point1 {
+					temperature = <70000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				d1_crit: trip-point2 {
+					temperature     = <110000>;
+					hysteresis      = <0>;
+					type            = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&d1_target>;
+					contribution = <1024>;
+					cooling-device =
+						<&cpu_4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&d1_target>;
+					contribution = <1024>; /*TBD*/
+					cooling-device = <&d1_npu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&d1_target>;
+					contribution = <1024>; /*TBD*/
+					cooling-device = <&d1_gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
 		};
 	};
 };
@@ -646,7 +696,7 @@
 			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0x80000000>;
 			iommus = <&smmu1 WIN2030_SID_SCPU>, <&smmu1 WIN2030_SID_CRYPT>;
 			eswin,syscfg = <&d1_sys_con SCPU_SID_REG_OFFSET 0>,
-						   <&d1_sys_con CRYPT_SID_REG_OFFSET 0>;
+			               <&d1_sys_con CRYPT_SID_REG_OFFSET 0>;
 			mboxes = <&d1_mbox0 0>;
 			mbox-names = "u84_scpu";
 			numa-node-id = <1>;
@@ -688,6 +738,7 @@
 			reg = <0x0 0x70b00000 0x0 0x10000>;
 			interrupts = <349>;
 			interrupt-parent = <&plic1>;
+			#thermal-sensor-cells = <0>;
 			status = "disabled";
 			label = "d1_pvt0";
 		};
@@ -717,7 +768,7 @@
 			interrupt-names = "fanirq";
 			interrupts = <354>;
 			pulses-per-revolution = <1>;
-			pwm-minimun-period = <1000>;
+			pwm-minimum-period = <1000>;
 			pwms = <&d1_pwm0 0 100000>;
 			status = "disabled";
 			label = "d1_fan_control";
@@ -773,21 +824,6 @@
 				interrupts = <107>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
-				/*
-				d1_es8316: es8316@10 {
-					compatible = "everest,es8316";
-					reg = <0x10>;
-					interrupts = <107>;
-					interrupt-parent = <&plic1>;
-					#sound-dai-cells = <0>;
-					port {
-						d1_codec_endpoint: endpoint {
-							system-clock-frequency = <12288000>;
-							remote-endpoint = <&d1_i2s0_endpoint>;
-						};
-					};
-				};
-				*/
 		};
 		d1_i2c3: i2c@70980000 {
 				compatible = "snps,designware-i2c";
@@ -949,6 +985,9 @@
 			numa-node-id = <1>;
 			firmware-name = "eic7700_die1_e31_fw";
 			dma-noncoherent;
+
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <0>; /*TBD*/
 		};
 
 		d1_llc_dev: llc@71c00000 {
@@ -993,6 +1032,9 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <15>;
 			dma-noncoherent;
+
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <0>; /*TBD*/
 		};
 
 		d1_sata: sata@0x70420000 {
@@ -1282,8 +1324,8 @@
 			ranges;
 			dma-ranges = <0x0 0x30000000 0x0 0xc0000000 0x0 0xce000000>;
 			compatible = "es-dsp-subsys", "simple-bus";
-			clocks = <&d1_clock WIN2030_CLK_DSPT_CFG_CLK>;
-			clock-names = "cfg_clk";
+			clocks = <&d1_clock WIN2030_CLK_DSPT_CFG_CLK>,  <&d1_clock WIN2030_CLK_DSPT_ACLK>;
+			clock-names = "cfg_clk", "aclk";
 			resets = <&d1_reset DSP_RST_CTRL SW_DSP_AXI_RSTN>,
 				<&d1_reset DSP_RST_CTRL SW_DSP_CFG_RSTN>,
 				<&d1_reset DSP_RST_CTRL SW_DSP_DIV4_RSTN>,
@@ -2291,7 +2333,7 @@
 			compatible = "eswin,eic7x-d2d";
 			interrupt-parent = <&plic1>;
 			interrupts = <287>, <288>;
-			reg = <0x0 0x72100000 0x0 0x1000>;
+			reg = <0x0 0x72100000 0x0 0x50000>;
 			reg-names = "control";
 			numa-node-id = <1>;
 			status = "disabled";
