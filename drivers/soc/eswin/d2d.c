@@ -28,19 +28,22 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-
+#include <linux/workqueue.h>
+#include <linux/delay.h>
 /**
  * D2D error unit register map
  * 0x28 : d2d common interrupt
  * 0x30 : d2d common interrupt2
  */
 
+#define PHY_OFFSET              0x40000
 #define REG_D2D_INTR_SUMMARY    0x810
 #define REG_D2D_INTR2_SUMMARY   0x814
 #define REG_D2D_INTR_MASK       0x818
 #define REG_D2D_INTR2_MASK      0x81c
 #define REG_D2D_COMMON_INTR     0x828
 #define REG_D2D_COMMON_INTR2    0x830
+#define REG_D2D_SPARE_FIRMWARE  0x4034
 
 #define D2D_CNTRL_TOP_INTR  (0x1<<8)
 #define SERDES_INTR  (0x1<<9)
@@ -53,9 +56,10 @@ struct d2d_device {
 	void __iomem *control;
 	int plic_irq;
     int numa_id;
+	struct delayed_work	delay_work;
 };
 
-static char *d2d_err_desc = {
+static char *d2d_err_desc[] = {
     "RX_ERR_ALL_INT",
     "RX_LOCAL_LINKUP_INT",
     "RX_REMOTE_LINKUP_INT",
@@ -115,6 +119,21 @@ static irqreturn_t d2d_irqhandle(int irq, void *dev_id)
     }
 
 	return IRQ_HANDLED;
+}
+
+static void adaptation_delay_work_fn(struct work_struct *work)
+{
+	struct d2d_device *d2d_dev = container_of(to_delayed_work(work), struct d2d_device, delay_work);
+	void __iomem *base = d2d_dev->control;
+	void *reg_addr = (void *)(base + PHY_OFFSET + REG_D2D_SPARE_FIRMWARE);
+	unsigned int rdata = readl(reg_addr);
+	rdata = rdata | 0x1004000;
+	writel(rdata, reg_addr);
+	while(rdata & 0x1004000) {
+		schedule_timeout_interruptible(msecs_to_jiffies(10));
+		rdata = readl(reg_addr);
+	}
+	schedule_delayed_work(&d2d_dev->delay_work, msecs_to_jiffies(2 * MSEC_PER_SEC));
 }
 
 static const struct of_device_id eic7x_d2d_error_of_match[] = {
@@ -184,6 +203,8 @@ static int  d2d_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev,"registered irq %s, base %d, num %ld\n", d2d_irq_src[i],
 			platform_get_irq(pdev, 0), D2D_IRQ_NUMBER);
 	}
+	INIT_DELAYED_WORK(&d2d_dev->delay_work, adaptation_delay_work_fn);
+	schedule_delayed_work(&d2d_dev->delay_work, msecs_to_jiffies(2 * MSEC_PER_SEC));
 
 	dev_info(dev, "D2D-%d init OK\n",d2d_dev->numa_id);
 	return 0;
