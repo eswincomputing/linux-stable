@@ -10,7 +10,13 @@
 
 #include "hetero_types.h"
 #include "es_type.h"
+
+
+#if defined(__KERNEL__)
 #include <uapi/linux/es_vb_user.h>
+#else
+#include "es_vb_user.h"
+#endif
 
 enum {
     mem_flag_swap,

@@ -9,7 +9,11 @@
 #define __ESWIN_DSP_TYPES_H__
 
 #include "es_type.h"
+#if defined(__KERNEL__)
 #include <uapi/linux/es_vb_user.h>
+#else
+#include "es_vb_user.h"
+#endif
 
 #ifdef __cplusplus
 #if __cplusplus
