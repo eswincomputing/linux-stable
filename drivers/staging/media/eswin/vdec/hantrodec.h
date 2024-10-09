@@ -170,6 +170,7 @@ struct filp_priv {
 };
 #endif
 
+#define VDEC_USER_SPACE_SUPPORT
 typedef struct {
 	void *memory;  /* user space memory addr */
 	size_t size;   /* memory size */
