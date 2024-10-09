@@ -1428,9 +1428,25 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 		return -1;
 	}
 	module_type = cmdbuf_obj->module_type;
+	if (VCMD_TYPE_ENCODER != module_type && VCMD_TYPE_JPEG_ENCODER != module_type) {
+		LOG_ERR("vcmd: ERROR cmdbuf_id = %u, module_type = %u\n", cmdbuf_id, module_type);
+		return -1;
+	}
 	//TODO
 	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[module_type]))
 		return -ERESTARTSYS;
+	new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
+	if (!new_cmdbuf_node) {
+		up(&vcmd_reserve_cmdbuf_sem[module_type]);
+		LOG_ERR("vcmd: ERROR cmdbuf_id = %u !!\n", cmdbuf_id);
+		return -1;
+	}
+	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+	if (cmdbuf_obj->filp != filp) {
+		up(&vcmd_reserve_cmdbuf_sem[module_type]);
+		LOG_ERR("vcmd: ERROR cmdbuf_id = %u !!\n", cmdbuf_id);
+		return -1;
+	}
 	dev = &hantrovcmd_data[cmdbuf_obj->core_id];
 
 	//spin_lock_irqsave(dev->spinlock, flags);
@@ -2445,12 +2461,11 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 	long retVal = 0;
 
 	LOG_DBG("dev closed for process %p\n", (void *)filp);
-	if (down_interruptible(
-		    &vcmd_reserve_cmdbuf_sem[dev->vcmd_core_cfg.sub_module_type]))
-		goto error;
 
 	if (dev->hw_version_id >= HW_ID_1_2_1) {
 		for (core_id = 0; core_id < venc_vcmd_core_num; core_id++) {
+			if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
+					goto error;
 			spin_lock_irqsave(dev[core_id].spinlock, flags);
 			new_cmdbuf_node = dev[core_id].list_manager.head;
 			while (1) {
@@ -2524,7 +2539,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 								LOG_ERR("vcmd: too long before vcmd core to IDLE state\n");
 								spin_unlock_irqrestore(
 									dev[core_id].spinlock, flags);
-								up(&vcmd_reserve_cmdbuf_sem[dev->vcmd_core_cfg.sub_module_type]);
+								up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
 								goto error;
 							}
 						}
@@ -2668,7 +2683,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 					restart_cmdbuf->cmdbuf_id);
 				vcmd_write_register_value((const void *)dev[core_id].hwregs,
 							  dev[core_id].reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT,
-					dev->sw_cmdbuf_rdy_num);
+							  dev[core_id].sw_cmdbuf_rdy_num);
 #ifdef VCMD_DEBUG_INTERNAL
 				printk_vcmd_register_debug(
 					(const void *)dev[core_id].hwregs, "before restart");
@@ -2703,9 +2718,12 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 			// VCMD aborted but not restarted, nedd to wake up
 			if (vcmd_aborted && !restart_cmdbuf)
 				wake_up_interruptible_all(dev[core_id].wait_queue);
+			up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
 		}
 	} else {
 		for (core_id = 0; core_id < venc_vcmd_core_num; core_id++) {
+			if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
+					goto error;
 			spin_lock_irqsave(dev[core_id].spinlock, flags);
 			new_cmdbuf_node = dev[core_id].list_manager.head;
 			while (1) {
@@ -2745,7 +2763,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 						software_triger_abort = 1;
 						if (wait_event_interruptible(*dev[core_id].wait_abort_queue, wait_abort_rdy(&dev[core_id]))) {
 							spin_unlock_irqrestore(dev[core_id].spinlock, flags);
-							up(&vcmd_reserve_cmdbuf_sem[dev->vcmd_core_cfg.sub_module_type]);
+							up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
 							software_triger_abort = 0;
 							goto error;
 						}
@@ -2759,11 +2777,11 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 						//link
 						last_cmdbuf_node =
 							find_last_linked_cmdbuf(dev[core_id].list_manager.tail);
-						record_last_cmdbuf_rdy_num = dev->sw_cmdbuf_rdy_num;
-						vcmd_link_cmdbuf(dev, last_cmdbuf_node);
+						record_last_cmdbuf_rdy_num = dev[core_id].sw_cmdbuf_rdy_num;
+						vcmd_link_cmdbuf(&dev[core_id], last_cmdbuf_node);
 						//re-run
 						if (dev[core_id].sw_cmdbuf_rdy_num)
-							vcmd_start(dev, last_cmdbuf_node);
+							vcmd_start(&dev[core_id], last_cmdbuf_node);
 					}
 					release_cmdbuf_num++;
 					LOG_DBG("release reserved cmdbuf\n");
@@ -2771,6 +2789,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 				new_cmdbuf_node = next_cmdbuf;
 			}
 			spin_unlock_irqrestore(dev[core_id].spinlock, flags);
+			up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
 		}
 	}
 
@@ -2791,7 +2810,6 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 	bi_list_remove_node(&global_process_manager, process_manager_node);
 	spin_unlock_irqrestore(&vcmd_process_manager_lock, flags);
 	free_process_manager_node(process_manager_node);
-	up(&vcmd_reserve_cmdbuf_sem[dev->vcmd_core_cfg.sub_module_type]);
 
 	for (u32 core_id = 0; core_id < ENC_CORE_NUM; core_id ++) {
 		/** clear the tasks for pm*/
@@ -4024,6 +4042,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 
 	if (dev->hw_version_id > HW_ID_1_0_C && (irq_status & 0x3f)) {
 		//if error,read from register directly.
+		LOG_INFO("irq_status of %d is: 0x%x, error occurred\n", dev->core_id, irq_status);
 		cmdbuf_id =
 			vcmd_get_register_value((const void *)dev->hwregs,
 						dev->reg_mirror,
@@ -4064,7 +4083,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 
 	if (dev->hw_version_id < HW_ID_1_1_1) {
 		if (vcmd_get_register_mirror_value(dev->reg_mirror, HWIF_VCMD_IRQ_RESET)) {
-			LOG_DBG("VCMD_IRQ_RESET, working state from %u to idle, cmdbuf_id = %u\n"
+			LOG_INFO("VCMD_IRQ_RESET, working state from %u to idle, cmdbuf_id = %u\n"
 				, dev->working_state, cmdbuf_id);
 			//reset error,all cmdbuf that is not  done will be run again.
 			new_cmdbuf_node = dev->list_manager.head;
@@ -4187,7 +4206,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 	if (vcmd_get_register_mirror_value(dev->reg_mirror, HWIF_VCMD_IRQ_BUSERR)) {
-		LOG_DBG("VCMD_IRQ_BUSERR, working state from %u to idle, cmdbuf_id = %u\n"
+		LOG_INFO("VCMD_IRQ_BUSERR, working state from %u to idle, cmdbuf_id = %u\n"
 			, dev->working_state, cmdbuf_id);
 		//bus error, don't need to reset where to record status?
 		new_cmdbuf_node = dev->list_manager.head;
@@ -4256,7 +4275,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 	if (vcmd_get_register_mirror_value(dev->reg_mirror, HWIF_VCMD_IRQ_TIMEOUT)) {
 		//time out,need to reset
 		new_cmdbuf_node = dev->list_manager.head;
-		LOG_DBG("VCMD_IRQ_TIMEOUT, working state from %u to idle, cmdbuf_id = %u\n"
+		LOG_INFO("VCMD_IRQ_TIMEOUT, working state from %u to idle, cmdbuf_id = %u\n"
 			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
@@ -4319,7 +4338,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 	if (vcmd_get_register_mirror_value(dev->reg_mirror, HWIF_VCMD_IRQ_CMDERR)) {
 		//command error,don't need to reset
 		new_cmdbuf_node = dev->list_manager.head;
-		LOG_DBG("VCMD_IRQ_CMDERR, working state from %u to idle, cmdbuf_id = %u\n"
+		LOG_INFO("VCMD_IRQ_CMDERR, working state from %u to idle, cmdbuf_id = %u\n"
 			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
@@ -4390,7 +4409,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 					   HWIF_VCMD_IRQ_ENDCMD)) {
 		//end command interrupt
 		new_cmdbuf_node = dev->list_manager.head;
-		LOG_DBG("VCMD_IRQ_ENDCMD, working state from %u to idle, cmdbuf_id = %u\n"
+		LOG_INFO("VCMD_IRQ_ENDCMD, working state from %u to idle, cmdbuf_id = %u\n"
 			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
