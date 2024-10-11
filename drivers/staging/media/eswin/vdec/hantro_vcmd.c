@@ -1613,12 +1613,17 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	fp_priv = (struct filp_priv *)filp->private_data;
 
 	/*get cmdbuf object according to cmdbuf_id*/
+	LOCK_CMDBUF_NODE(cmdbuf_id, flags);
 	new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 	if (!new_cmdbuf_node) {
+		UNLOCK_CMDBUF_NODE(cmdbuf_id, flags);
 		//should not happen
 		LOG_ERR("ERROR cmdbuf_id !!\n");
 		return -1;
 	}
+	global_cmdbuf_node[cmdbuf_id] = NULL;
+	UNLOCK_CMDBUF_NODE(cmdbuf_id, flags);
+
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 	if (cmdbuf_obj->filp != filp) {
 		//should not happen
@@ -2013,6 +2018,7 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
 	bi_list_node *new_cmdbuf_node = NULL;
 	struct hantrovcmd_dev *dev = NULL;
+	unsigned int ret = 0;
 
 	if (cmdbuf_id != ANY_CMDBUF_ID) {
 		LOG_DBG("wait_cmdbuf_ready\n");
@@ -2100,13 +2106,16 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 	}
 	if (check_mc_cmdbuf_irq(filp, cmdbuf_obj, irq_status_ret))
 		return 0;
-	if (wait_event_interruptible(
+	ret = wait_event_interruptible_timeout(
 				mc_wait_queue,
-				check_mc_cmdbuf_irq(filp, cmdbuf_obj,
-						    irq_status_ret))) {
-		LOG_DBG("multicore wait queue interrupted\n");
+				check_mc_cmdbuf_irq(filp, cmdbuf_obj, irq_status_ret),
+				msecs_to_jiffies(600));
+
+	if (ret <= 0) {
+		LOG_DBG("multicore wait queue interrupted or timeout, ret = %u\n", ret);
 		return -ERESTARTSYS;
 	}
+
 	return 0;
 }
 
@@ -2321,7 +2330,7 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			__put_user(cmdbuf_id, (u16 __user *)arg);
 			return tmp; //return core_id
 		}
-		__put_user(0, (u16 __user *)arg);
+		//__put_user(0, (u16 __user *)arg);
 		return -1;
 
 		break;
@@ -4494,7 +4503,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 						dev->reg_mirror,
 						HWIF_VCMD_CMDBUF_EXECUTING_ID);
 		if (cmdbuf_id >= TOTAL_DISCRETE_CMDBUF_NUM) {
-			LOG_ERR("isr error cmdbuf_id greater than the ceiling !!\n");
+			LOG_ERR("isr error cmdbuf_id greater than the ceiling !! %d\n", __LINE__);
 			spin_unlock_irqrestore(dev->spinlock, flags);
 			return IRQ_HANDLED;
 		}
@@ -4520,7 +4529,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		cmdbuf_id = *(dev->vcmd_reg_mem_virtual_address +
 			      EXECUTING_CMDBUF_ID_ADDR);
 		if (cmdbuf_id >= TOTAL_DISCRETE_CMDBUF_NUM) {
-			LOG_ERR("isr error cmdbuf_id greater than the ceiling !!\n");
+			LOG_ERR("isr error cmdbuf_id greater than the ceiling !! %d\n", __LINE__);
 			spin_unlock_irqrestore(dev->spinlock, flags);
 			return IRQ_HANDLED;
 		}
@@ -4563,7 +4572,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 			if (!new_cmdbuf_node) {
-				LOG_ERR("isr error cmdbuf_id !!\n");
+				LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
@@ -4626,7 +4635,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 			if (!new_cmdbuf_node) {
-				LOG_ERR("isr error cmdbuf_id !!\n");
+				LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
@@ -4697,7 +4706,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 			if (!new_cmdbuf_node) {
-				LOG_ERR("isr error cmdbuf_id !!\n");
+				LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
@@ -4765,7 +4774,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 			if (!new_cmdbuf_node) {
-				LOG_ERR("isr error cmdbuf_id !!\n");
+				LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
@@ -4839,7 +4848,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 			if (!new_cmdbuf_node) {
-				LOG_ERR("isr error cmdbuf_id !!\n");
+				LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
@@ -4894,14 +4903,14 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 	if (cmdbuf_id) {
 		if (dev->hw_version_id <= HW_ID_1_0_C) {
 			if (cmdbuf_id >= TOTAL_DISCRETE_CMDBUF_NUM) {
-				LOG_ERR("isr error cmdbuf_id greater than the ceiling !!\n");
+				LOG_ERR("isr error cmdbuf_id greater than the ceiling !! %d\n", __LINE__);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
 		}
 		new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 		if (!new_cmdbuf_node) {
-			LOG_ERR("isr error cmdbuf_id !!\n");
+			LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 			spin_unlock_irqrestore(dev->spinlock, flags);
 			return IRQ_HANDLED;
 		}
