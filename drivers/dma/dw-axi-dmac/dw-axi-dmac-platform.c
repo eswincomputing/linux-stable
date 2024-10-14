@@ -1566,6 +1566,10 @@ static int dw_probe(struct platform_device *pdev)
 	dma_cap_set(DMA_SLAVE, dw->dma.cap_mask);
 	dma_cap_set(DMA_CYCLIC, dw->dma.cap_mask);
 
+	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-aon")) {
+		dma_cap_set(DMA_PRIVATE, dw->dma.cap_mask);
+	}
+
 	/* DMA capabilities */
 	dw->dma.max_burst = hdata->axi_rw_burst_len;
 	dw->dma.src_addr_widths = AXI_DMA_BUSWIDTHS;
