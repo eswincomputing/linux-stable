@@ -114,6 +114,7 @@ struct um_desc {
     size_t                  pageCount;
     size_t                  extraPage;
     unsigned int            alloc_from_res;
+    int                     noncached;
 };
 
 static void *alloc_memory(size_t bytes)
@@ -244,7 +245,7 @@ import_page_map(gckOS Os, struct device *dev, struct um_desc *um,
                             (flags & VM_WRITE) ? 1 : 0, 0,
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,6,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,0)
                             pages);
 #else
                             pages, NULL);
@@ -292,7 +293,7 @@ import_page_map(gckOS Os, struct device *dev, struct um_desc *um,
             goto error;
         }
 
-        result = dma_map_sg(dev, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE);
+        result = dma_map_sg_attrs(dev, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
         if (unlikely(result != um->sgt.nents)) {
             pr_warn("[galcore]: %s: dma_map_sg failed\n", __func__);
             goto error;
@@ -301,7 +302,7 @@ import_page_map(gckOS Os, struct device *dev, struct um_desc *um,
         if (Os->iommu)
             um->dmaHandle = sg_dma_address(um->sgt.sgl);
 
-        dma_sync_sg_for_cpu(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
+        /*dma_sync_sg_for_cpu(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);*/
     }
 
     um->type = UM_PAGE_MAP;
@@ -332,13 +333,13 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
     struct page **pages = gcvNULL;
     int result = 0;
     size_t pageCount = 0;
-
+	unsigned int           data      = 0;
     if (!current->mm)
         return -ENOTTY;
 
     down_read(&current_mm_mmap_sem);
     vma = find_vma(current->mm, addr);
-#if !gcdUSING_PFN_FOLLOW
+#if !gcdUSING_PFN_FOLLOW && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
     up_read(&current_mm_mmap_sem);
 #endif
 
@@ -365,25 +366,28 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
     }
 
     for (i = 0; i < pfn_count; i++) {
-#if gcdUSING_PFN_FOLLOW
+#if gcdUSING_PFN_FOLLOW || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
         int ret = 0;
         ret = follow_pfn(vma, addr, &pfns[i]);
         if (ret < 0) {
+            ret = gckOS_ReadMappedPointer(Os, (gctPOINTER)addr, &data);
+            if (!ret)
+                ret = follow_pfn(vma, addr, &pfns[i]);
+            if (ret < 0) {
             up_read(&current_mm_mmap_sem);
             goto err;
+            }
         }
 #else
         /* protect pfns[i] */
+        spinlock_t  *ptl;
         pgd_t *pgd;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
         p4d_t *p4d;
 # endif
         pud_t *pud;
         pmd_t *pmd;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,6,0)
         pte_t *pte;
-        spinlock_t  *ptl;
-#endif
         pgd = pgd_offset(current->mm, addr);
         if (pgd_none(*pgd) || pgd_bad(*pgd))
             goto err;
@@ -408,23 +412,25 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
         if (pmd_none(*pmd) || pmd_bad(*pmd))
             goto err;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,6,0)
         pte = pte_offset_map_lock(current->mm, pmd, addr, &ptl);
-
+        if (!pte_present(*pte)) {
+            if (pte)
+                pte_unmap_unlock(pte, ptl);
+            if (gcmIS_SUCCESS(gckOS_ReadMappedPointer(Os, (gctPOINTER)addr, &data)))
+                pte = pte_offset_map_lock(current->mm, pmd, addr, &ptl);
         if (!pte_present(*pte)) {
             pte_unmap_unlock(pte, ptl);
             goto err;
         }
-
+        }
         pfns[i] = pte_pfn(*pte);
         pte_unmap_unlock(pte, ptl);
 #endif
 
-#endif
         /* Advance to next. */
         addr += PAGE_SIZE;
     }
-#if gcdUSING_PFN_FOLLOW
+#if gcdUSING_PFN_FOLLOW || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
     up_read(&current_mm_mmap_sem);
 #endif
 
@@ -464,7 +470,7 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
             goto err;
         }
 
-        result = dma_map_sg(dev, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE);
+        result = dma_map_sg_attrs(dev, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 
         if (unlikely(result != um->sgt.nents)) {
 #if gcdUSE_LINUX_SG_TABLE_API
@@ -637,6 +643,10 @@ _Import(gckOS Os, PLINUX_MDL Mdl, gctPOINTER Memory,
     UserMemory->pageCount = pageCount;
     UserMemory->extraPage = extraPage;
 
+    if ((vm_flags & VM_PFNMAP) && pgprot_dmacoherent(vma->vm_page_prot).pgprot == vma->vm_page_prot.pgprot) {
+        UserMemory->noncached = 1;
+    }
+
     /* Success. */
     gcmkFOOTER();
     return gcvSTATUS_OK;
@@ -706,11 +716,11 @@ release_page_map(gckOS Os, struct device *dev, struct um_desc *um)
 {
     int i;
 
-    dma_sync_sg_for_device(dev, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE);
+    /*dma_sync_sg_for_device(dev, um->sgt.sgl, um->sgt.nents, DMA_TO_DEVICE);
 
-    dma_sync_sg_for_cpu(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
+    dma_sync_sg_for_cpu(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);*/
 
-    dma_unmap_sg(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
+    dma_unmap_sg_attrs(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 
     um->dmaHandle = 0;
 
@@ -740,7 +750,7 @@ release_pfn_map(gckOS Os, struct device *dev, struct um_desc *um)
     int i;
 
     if (um->pfns_valid) {
-        dma_unmap_sg(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
+        dma_unmap_sg_attrs(dev, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 
 #if gcdUSE_LINUX_SG_TABLE_API
         sg_free_table(&um->sgt);
@@ -759,11 +769,7 @@ release_pfn_map(gckOS Os, struct device *dev, struct um_desc *um)
                 SetPageDirty(page);
 
             if (um->refs[i])
-#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 6, 0)
-                unpin_user_page(page);
-#else
                 put_page(page);
-#endif
         }
     }
 
@@ -844,6 +850,11 @@ _UserMemoryCache(gckALLOCATOR Allocator, PLINUX_MDL Mdl, gctSIZE_T Offset,
     }
 
     if (um->type == UM_PFN_MAP && um->pfns_valid == 0) {
+        _MemoryBarrier();
+        return gcvSTATUS_OK;
+    }
+
+    if (um->type == UM_PFN_MAP && um->noncached == 1) {
         _MemoryBarrier();
         return gcvSTATUS_OK;
     }
