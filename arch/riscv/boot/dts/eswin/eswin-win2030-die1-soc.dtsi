@@ -29,6 +29,7 @@
 #include <dt-bindings/clock/win2030-clock.h>
 #include <dt-bindings/i2c/i2c.h>
 #include <dt-bindings/interconnect/eswin,win2030.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 #if (CHIPLET_AND_DIE == 0x1)
@@ -106,6 +107,55 @@
 			opp-hz = /bits/ 64 <CLK_FREQ_1400M>;
 			opp-microvolt = <800000>;
 			clock-latency-ns = <70000>;
+		};
+	};
+
+	thermal-zones {
+		d1_thermal0 {
+			polling-delay-passive = <500>; /*ms*/
+			polling-delay = <5000>; /*ms*/
+			sustainable-power = <1200>; /*mW*/
+			thermal-sensors = <&d1_pvt0>;
+
+			trips {
+				d1_threshold: trip-point0 {
+					temperature = <60000>; /* DC*1000 */
+					hysteresis = <1000>; /* DC*1000 */
+					type = "passive";
+				};
+				d1_target: trip-point1 {
+					temperature = <70000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				d1_crit: trip-point2 {
+					temperature     = <110000>;
+					hysteresis      = <0>;
+					type            = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&d1_target>;
+					contribution = <1024>;
+					cooling-device =
+						<&cpu_4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&d1_target>;
+					contribution = <1024>; /*TBD*/
+					cooling-device = <&d1_npu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&d1_target>;
+					contribution = <1024>; /*TBD*/
+					cooling-device = <&d1_gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
 		};
 	};
 };
@@ -654,6 +704,7 @@
 			reg = <0x0 0x70b00000 0x0 0x10000>;
 			interrupts = <349>;
 			interrupt-parent = <&plic1>;
+			#thermal-sensor-cells = <0>;
 			status = "disabled";
 			label = "d1_pvt0";
 		};
@@ -912,6 +963,9 @@
 
 			numa-node-id = <1>;
 			dma-noncoherent;
+
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <0>; /*TBD*/
 		};
 
 		dev_llc_d1: llc@71c00000 {
@@ -956,6 +1010,9 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <15>;
 			dma-noncoherent;
+
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <0>; /*TBD*/
 		};
 
 		d1_sata: sata@0x70420000 {

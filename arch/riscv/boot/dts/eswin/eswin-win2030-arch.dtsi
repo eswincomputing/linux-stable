@@ -84,6 +84,8 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <324>;
 			cpu-idle-states = <&CPU_RET>;
 			L14: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -127,6 +129,8 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <324>;
 			cpu-idle-states = <&CPU_RET>;
 			L19: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -170,6 +174,8 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <324>;
 			cpu-idle-states = <&CPU_RET>;
 			L24: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -213,6 +219,8 @@
 			tlb-split;
 			clocks = <&d0_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
 			operating-points-v2 = <&d0_cpu_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <324>;
 			cpu-idle-states = <&CPU_RET>;
 			L29: interrupt-controller {
 				#interrupt-cells = <1>;
