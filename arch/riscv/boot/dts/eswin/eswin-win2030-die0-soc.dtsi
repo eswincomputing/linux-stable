@@ -785,12 +785,8 @@
 			interrupt-names = "intrq", "msi", "pme";
 			interrupts = <58>, <59>, <60>;
 			ports-implemented = <0x1>;
-			resets = <&d0_reset HSPDMA_RST_CTRL SW_SATA_ASIC0_RSTN>,
-					<&d0_reset HSPDMA_RST_CTRL SW_SATA_OOB_RSTN>,
-					<&d0_reset HSPDMA_RST_CTRL SW_SATA_PMALIVE_RSTN>,
-					<&d0_reset HSPDMA_RST_CTRL SW_SATA_RBC_RSTN>,
-					<&d0_reset HSPDMA_RST_CTRL SW_HSP_SATA_ARSTN>;
-			reset-names = "asic0", "oob", "pmalive", "rbc", "apb";
+			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_SATA_ARSTN>;
+			reset-names = "apb";
 			#size-cells = <2>;
 			iommus = <&smmu0 WIN2030_SID_SATA>;
 			tbus = <WIN2030_TBUID_SATA>;
