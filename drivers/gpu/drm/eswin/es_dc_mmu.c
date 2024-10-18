@@ -18,8 +18,6 @@
 
 #include "es_dc_mmu.h"
 
-static bool mmu_construct = false;
-
 int _allocate_memory(u32 bytes, void **memory)
 {
 	void *mem = NULL;
@@ -298,9 +296,6 @@ int dc_mmu_construct(struct device *dev, dc_mmu_pt *mmu)
 	u32 size = 0;
 	int ret = 0;
 
-	if (mmu_construct)
-		return 0;
-
 	mem = kzalloc(sizeof(dc_mmu), GFP_KERNEL);
 	if (!mem)
 		return -ENOMEM;
@@ -351,7 +346,6 @@ int dc_mmu_construct(struct device *dev, dc_mmu_pt *mmu)
 	memset(mmu_t->safe_page_logical, 0, size);
 
 	*mmu = mmu_t;
-	mmu_construct = true;
 
 	return 0;
 }

@@ -834,7 +834,6 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 	int ret;
 	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
 	int val;
-
 	// for print
 	pr_dev = dev;
 	dev_info(pr_dev, "[%s] Enter\n", __func__);
@@ -886,6 +885,7 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 			PTR_ERR(ctx->gpio_reset));
 		return PTR_ERR(ctx->gpio_reset);
 	}
+
 	msleep(50);
 
 	gpiod_set_value(ctx->gpio_reset, 1);
@@ -904,11 +904,12 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		drm_panel_remove(&ctx->panel);
 
-	es_panel_chrdev_create(ctx);
+	// es_panel_chrdev_create(ctx);
 	INIT_LIST_HEAD(&ctx->init_cmd_list);
 	ctx->init_cmd_writted = 0;
 	memset(&ctx->enable_cmd_buf, 0, sizeof(user_cmd_buffer_t));
 	memset(&ctx->disable_cmd_buf, 0, sizeof(user_cmd_buffer_t));
+	dev_info(pr_dev, "[%s] Leave\n", __func__);
 	return ret;
 }
 
@@ -923,7 +924,7 @@ void es_panel_remove(struct mipi_dsi_device *dsi)
 	devm_gpiod_put(ctx->dev, ctx->gpio_backlight0);
 	devm_gpiod_put(ctx->dev, ctx->gpio_reset);
 
-	es_panel_chrdev_destroy(ctx);
+	// es_panel_chrdev_destroy(ctx);
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
 

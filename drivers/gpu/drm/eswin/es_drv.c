@@ -65,7 +65,7 @@ static int es_debugfs_planes_show(struct seq_file *s, void *data)
 	struct drm_device *dev = node->minor->dev;
 	struct drm_plane *plane = NULL;
 
-	list_for_each_entry (plane, &dev->mode_config.plane_list, head) {
+	list_for_each_entry(plane, &dev->mode_config.plane_list, head) {
 		struct drm_plane_state *state = plane->state;
 		struct es_plane_state *plane_state = to_es_plane_state(state);
 
@@ -101,8 +101,8 @@ static void es_debugfs_init(struct drm_minor *minor)
 #endif
 
 static struct drm_driver es_drm_driver = {
-	.driver_features =
-		DRIVER_MODESET | DRIVER_ATOMIC | DRIVER_GEM | DRIVER_SYNCOBJ,
+	.driver_features = DRIVER_MODESET | DRIVER_ATOMIC | DRIVER_GEM |
+			   DRIVER_SYNCOBJ,
 	.lastclose = drm_fb_helper_lastclose,
 	.gem_prime_import = es_gem_prime_import,
 	.gem_prime_import_sg_table = es_gem_prime_import_sg_table,
@@ -226,13 +226,12 @@ static int es_drm_bind(struct device *dev)
 {
 	struct drm_device *drm_dev;
 	struct es_drm_private *priv;
-	int ret;
+	int ret, id;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
 	static u64 dma_mask = DMA_BIT_MASK(40);
 #else
 	static u64 dma_mask = DMA_40BIT_MASK;
 #endif
-
 	drm_dev = drm_dev_alloc(&es_drm_driver, dev);
 	if (IS_ERR(drm_dev))
 		return PTR_ERR(drm_dev);
@@ -280,6 +279,20 @@ static int es_drm_bind(struct device *dev)
 
 	drm_fbdev_generic_setup(drm_dev, 32);
 
+	ret = of_property_read_u32(dev->of_node, "numa-node-id", &id);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "Failed to read index property, ret = %d\n",
+			      ret);
+		return ret;
+	}
+	DRM_INFO("drm dev is on die%d\n", id);
+	priv->die_id = id;
+	priv->mmu_constructed = false;
+
+	if (drm_dev->unique) {
+		sprintf(drm_dev->unique, "%d", id);
+	}
+	DRM_INFO("drm_dev name:%s\n", drm_dev->unique);
 	return 0;
 
 err_helper:
@@ -323,88 +336,38 @@ static const struct component_master_ops es_drm_ops = {
 	.unbind = es_drm_unbind,
 };
 
-static struct platform_driver *drm_sub_drivers[] = {
-	/* put display control driver at start */
-	&dc_platform_driver,
-
-/* connector */
-
-/* bridge */
-#if 1
-#ifdef CONFIG_ESWIN_DW_HDMI
-	&dw_hdmi_eswin_pltfm_driver,
-#endif
-#ifdef CONFIG_DW_HDMI_I2S_AUDIO
-	&snd_dw_hdmi_driver,
-#endif
-
-#ifdef CONFIG_DW_HDMI_CEC
-	&dw_hdmi_cec_driver,
-#endif
-
-#ifdef CONFIG_DW_HDMI_HDCP
-	&dw_hdmi_hdcp_driver,
-#endif
-#endif
-
-#ifdef CONFIG_ESWIN_VIRTUAL_DISPLAY
-	&virtual_display_platform_driver,
-#endif
-
-#ifdef CONFIG_ESWIN_MIPI_DSI
-	&es_mipi_dsi_driver,
-#endif
-
-};
-#define NUM_DRM_DRIVERS                                                        \
-	(sizeof(drm_sub_drivers) / sizeof(struct platform_driver *))
-
-static int compare_dev(struct device *dev, void *data)
+static int compare_of(struct device *dev, void *data)
 {
-	return dev == (struct device *)data;
+	// DRM_INFO("Comparing of node %pOF with %pOF\n", dev->of_node, data);
+	return dev->of_node == data;
 }
 
-static struct component_match *es_drm_match_add(struct device *dev)
+static int es_drm_of_component_probe(struct device *dev,
+				     int (*compare_of)(struct device *, void *),
+				     const struct component_master_ops *m_ops)
 {
+	struct device_node *ep, *port, *remote;
 	struct component_match *match = NULL;
 	int i;
-
-	for (i = 0; i < NUM_DRM_DRIVERS; ++i) {
-		struct platform_driver *drv = drm_sub_drivers[i];
-		struct device *p = NULL, *d;
-
-		while ((d = platform_find_device_by_driver(p, &drv->driver))) {
-			put_device(p);
-
-			component_match_add(dev, &match, compare_dev, d);
-			p = d;
-		}
-		put_device(p);
-	}
-
-	return match ?: ERR_PTR(-ENODEV);
-}
-
-static int es_drm_platform_of_probe(struct device *dev)
-{
-	struct device_node *np = dev->of_node;
-	struct device_node *port;
 	bool found = false;
-	int i;
+	bool matched = false;
 
-	if (!np)
-		return -ENODEV;
+	if (!dev->of_node)
+		return -EINVAL;
 
+	/*
+	 * Bind the crtc's ports first, so that drm_of_find_possible_crtcs()
+	 * called from encoder's .bind callbacks works as expected
+	 */
 	for (i = 0;; i++) {
 		struct device_node *iommu;
-
-		port = of_parse_phandle(np, "ports", i);
+		port = of_parse_phandle(dev->of_node, "ports", i);
 		if (!port)
 			break;
 
-		if (!of_device_is_available(port->parent)) {
-			of_node_put(port);
-			continue;
+		if (of_device_is_available(port->parent)) {
+			drm_of_component_match_add(dev, &match, compare_of,
+						   port->parent);
 		}
 
 		iommu = of_parse_phandle(port->parent, "iommus", 0);
@@ -422,34 +385,85 @@ static int es_drm_platform_of_probe(struct device *dev)
 		of_node_put(port);
 	}
 
-	if (i == 0) {
-		DRM_DEV_ERROR(dev, "missing 'ports' property\n");
-		return -ENODEV;
-	}
-
 	if (!found) {
 		DRM_DEV_ERROR(dev, "No available DC found.\n");
 		return -ENODEV;
 	}
 
-	return 0;
+	if (i == 0) {
+		dev_err(dev, "missing 'ports' property\n");
+		return -ENODEV;
+	}
+
+	if (!match) {
+		dev_err(dev, "no available port\n");
+		return -ENODEV;
+	}
+
+	/*
+	 * For bound crtcs, bind the encoders attached to their remote endpoint
+	 */
+	for (i = 0;; i++) {
+		port = of_parse_phandle(dev->of_node, "ports", i);
+		if (!port)
+			break;
+
+		if (!of_device_is_available(port->parent)) {
+			of_node_put(port);
+			continue;
+		}
+
+		for_each_child_of_node(port, ep) {
+			remote = of_graph_get_remote_port_parent(ep);
+			if (!remote || !of_device_is_available(remote)) {
+				of_node_put(remote);
+				continue;
+			} else if (!of_device_is_available(remote->parent)) {
+				dev_warn(
+					dev,
+					"parent device of %pOF is not available\n",
+					remote);
+				of_node_put(remote);
+				continue;
+			}
+
+#ifdef CONFIG_ESWIN_DW_HDMI
+			if (!strcmp(remote->name, "hdmi")) {
+				matched = true;
+			}
+#endif
+
+#ifdef CONFIG_ESWIN_VIRTUAL_DISPLAY
+			if (!strcmp(remote->name, "es_wb")) {
+				matched = true;
+			}
+#endif
+
+#ifdef CONFIG_ESWIN_MIPI_DSI
+			if (!strcmp(remote->name, "mipi_dsi")) {
+				matched = true;
+			}
+#endif
+			if (matched == true) {
+				drm_of_component_match_add(dev, &match,
+							   compare_of, remote);
+				matched = false;
+				dev_dbg(dev, "matched: %pOF, remote->name:%s\n",
+					 remote, remote->name);
+			}
+
+			of_node_put(remote);
+		}
+		of_node_put(port);
+	}
+	return component_master_add_with_match(dev, m_ops, match);
 }
 
 static int es_drm_platform_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
-	struct component_match *match;
-	int ret;
+	DRM_INFO("drm platform probe enter\n");
 
-	ret = es_drm_platform_of_probe(dev);
-	if (ret)
-		return ret;
-
-	match = es_drm_match_add(dev);
-	if (IS_ERR(match))
-		return PTR_ERR(match);
-
-	return component_master_add_with_match(dev, &es_drm_ops, match);
+	return es_drm_of_component_probe(&pdev->dev, compare_of, &es_drm_ops);
 }
 
 static int es_drm_platform_remove(struct platform_device *pdev)
@@ -499,25 +513,52 @@ static struct platform_driver es_drm_platform_driver = {
     },
 };
 
+static struct platform_driver *const drivers[] = {
+	&es_drm_platform_driver,
+	/* put display control driver at start */
+	&dc_platform_driver,
+
+/* connector */
+
+/* bridge */
+#if 1
+#ifdef CONFIG_ESWIN_DW_HDMI
+	&dw_hdmi_eswin_pltfm_driver,
+#endif
+#ifdef CONFIG_DW_HDMI_I2S_AUDIO
+	&snd_dw_hdmi_driver,
+#endif
+
+#ifdef CONFIG_DW_HDMI_CEC
+	&dw_hdmi_cec_driver,
+#endif
+
+#ifdef CONFIG_DW_HDMI_HDCP
+	&dw_hdmi_hdcp_driver,
+#endif
+#endif
+
+#ifdef CONFIG_ESWIN_VIRTUAL_DISPLAY
+	&virtual_display_platform_driver,
+#endif
+
+#ifdef CONFIG_ESWIN_MIPI_DSI
+	&es_mipi_dsi_driver,
+#endif
+};
+
 static int __init es_drm_init(void)
 {
-	int ret;
+	DRM_INFO("drm init enter\n");
 
-	ret = platform_register_drivers(drm_sub_drivers, NUM_DRM_DRIVERS);
-	if (ret)
-		return ret;
-
-	ret = platform_driver_register(&es_drm_platform_driver);
-	if (ret)
-		platform_unregister_drivers(drm_sub_drivers, NUM_DRM_DRIVERS);
-
-	return ret;
+	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
 }
 
 static void __exit es_drm_fini(void)
 {
-	platform_driver_unregister(&es_drm_platform_driver);
-	platform_unregister_drivers(drm_sub_drivers, NUM_DRM_DRIVERS);
+	DRM_INFO("drm exit enter\n");
+
+	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
 }
 
 module_init(es_drm_init);

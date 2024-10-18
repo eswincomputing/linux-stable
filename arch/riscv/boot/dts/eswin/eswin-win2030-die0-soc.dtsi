@@ -1780,9 +1780,10 @@
 			compatible = "audio-graph-card";
 		};
 
-		video_output: display-subsystem {
+		video_output: display-subsystem@0 {
 			compatible = "eswin,display-subsystem";
 			ports = <&dc_out>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1809,6 +1810,7 @@
 					 <&d0_reset VO_RST_CTRL SW_VO_DC_PRSTN>;
 			reset-names = "vo_arst", "vo_prst", "dc_arst", "dc_prst";
 			dma-noncoherent;
+			numa-node-id = <0>;
 
 			dc_out: port {
 				#address-cells = <1>;
@@ -1831,9 +1833,10 @@
 			};
 		};
 
-		virtual_display: es_wb {
+		virtual_display: es_wb@0 {
 			compatible = "eswin,virtual_display";
 			bpp = /bits/ 8 <8>;
+			numa-node-id = <0>;
 
 			port {
 				vd_input: endpoint {
@@ -1842,8 +1845,9 @@
 			};
 		};
 
-		dsi_output: dsi-output {
+		dsi_output: dsi-output@0 {
 			compatible = "eswin,dsi-encoder";
+			numa-node-id = <0>;
 			status = "disabled";
 		};
 
@@ -1856,6 +1860,8 @@
 			clock-names = "pclk";
 			resets = <&d0_reset VO_PHYRST_CTRL SW_VO_MIPI_PRSTN>;
 			reset-names ="phyrstn";
+			numa-node-id = <0>;
+
 			/*
 			phys = <&dphy>;
 			phy-names = "dphy";

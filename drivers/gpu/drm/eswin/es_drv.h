@@ -43,7 +43,9 @@ struct es_drm_private {
 
 #ifdef CONFIG_ESWIN_MMU
 	dc_mmu *mmu;
+	bool mmu_constructed;
 #endif
+	unsigned int die_id;
 
 	unsigned int pitch_alignment;
 };
