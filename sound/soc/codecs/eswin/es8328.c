@@ -111,6 +111,11 @@ struct es8328_priv {
 	struct snd_soc_component *component;
 	struct gpio_desc *front_jack_gpio;
 	struct gpio_desc *back_jack_gpio;
+
+	struct task_struct *thread_vol;
+	struct mutex vol_mutex;
+	bool vol_thread_flag;
+	bool vol_set_flag;
 };
 
 /*
@@ -296,6 +301,86 @@ int esw_codec_reg_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+int esw_codec_LR1vol_info(struct snd_kcontrol *kcontrol,
+					    struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = ES8328_OUT1VOL_MAX;
+	return 0;
+}
+
+int esw_codec_LR1vol_get(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	u32 reg;
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+
+	regmap_read(component->regmap, ES8328_LOUT1VOL, &reg);
+	ucontrol->value.integer.value[0] = reg;
+	regmap_read(component->regmap, ES8328_ROUT1VOL, &reg);
+	ucontrol->value.integer.value[1] = reg;
+
+	return 0;
+}
+
+int esw_codec_LR1vol_put(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
+
+	mutex_lock(&es8328->vol_mutex);
+	if (es8328->vol_set_flag) {
+		snd_soc_component_write(component, ES8328_LOUT1VOL, ucontrol->value.integer.value[0]);
+		snd_soc_component_write(component, ES8328_ROUT1VOL, ucontrol->value.integer.value[1]);
+	}
+	mutex_unlock(&es8328->vol_mutex);
+
+	return 0;
+}
+
+int esw_codec_LR2vol_info(struct snd_kcontrol *kcontrol,
+					    struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = ES8328_OUT1VOL_MAX;
+	return 0;
+}
+
+int esw_codec_LR2vol_get(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	u32 reg;
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+
+	regmap_read(component->regmap, ES8328_LOUT2VOL, &reg);
+	ucontrol->value.integer.value[0] = reg;
+	regmap_read(component->regmap, ES8328_ROUT2VOL, &reg);
+	ucontrol->value.integer.value[1] = reg;
+
+	return 0;
+}
+
+int esw_codec_LR2vol_put(struct snd_kcontrol *kcontrol,
+					   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
+
+	mutex_lock(&es8328->vol_mutex);
+	if (es8328->vol_set_flag) {
+		snd_soc_component_write(component, ES8328_LOUT2VOL, ucontrol->value.integer.value[0]);
+		snd_soc_component_write(component, ES8328_ROUT2VOL, ucontrol->value.integer.value[1]);
+	}
+	mutex_unlock(&es8328->vol_mutex);
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new es8328_snd_controls[] = {
 	SOC_DOUBLE_R_TLV("Capture Digital Volume",
 		ES8328_ADCCONTROL8, ES8328_ADCCONTROL9,
@@ -320,13 +405,24 @@ static const struct snd_kcontrol_new es8328_snd_controls[] = {
 			ES8328_LDACVOL, ES8328_RDACVOL,
 			0, ES8328_LDACVOL_MAX, 1, dac_adc_tlv),
 
-	SOC_DOUBLE_R_TLV("Output 1 Playback Volume",
-			ES8328_LOUT1VOL, ES8328_ROUT1VOL,
-			0, ES8328_OUT1VOL_MAX, 0, play_tlv),
-
-	SOC_DOUBLE_R_TLV("Output 2 Playback Volume",
-			ES8328_LOUT2VOL, ES8328_ROUT2VOL,
-			0, ES8328_OUT2VOL_MAX, 0, play_tlv),
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Output 1 Playback Volume",
+		.index = 0,
+		.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = esw_codec_LR1vol_info,
+		.get = esw_codec_LR1vol_get,
+		.put = esw_codec_LR1vol_put,
+	},
+	{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Output 2 Playback Volume",
+		.index = 0,
+		.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = esw_codec_LR2vol_info,
+		.get = esw_codec_LR2vol_get,
+		.put = esw_codec_LR2vol_put,
+	},
 
 	SOC_DOUBLE_TLV("Mic PGA Volume", ES8328_ADCCONTROL1,
 			4, 0, 8, 0, mic_tlv),
@@ -789,6 +885,12 @@ static int es8328_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	snd_soc_component_write(component, ES8328_LDACVOL, 0);
 	snd_soc_component_write(component, ES8328_RDACVOL, 0);
 
+	/* min volume */
+ 	snd_soc_component_write(component, ES8328_LOUT1VOL, 0);
+	snd_soc_component_write(component, ES8328_ROUT1VOL, 0);
+	snd_soc_component_write(component, ES8328_LOUT2VOL, 0);
+	snd_soc_component_write(component, ES8328_ROUT2VOL, 0);
+
 	/* Set MIC PGA Volume */
 	snd_soc_component_write(component, ES8328_ADCCONTROL1, 0x88);
 
@@ -980,6 +1082,40 @@ const struct regmap_config es8328_regmap_config = {
 };
 EXPORT_SYMBOL_GPL(es8328_regmap_config);
 
+static int thread_set_volume(void *data)
+{
+	struct snd_soc_component *comp = (struct snd_soc_component *)data;
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(comp);
+
+	ssleep(5);
+
+	mutex_lock(&es8328->vol_mutex);
+	es8328->vol_set_flag = true;
+ 	snd_soc_component_write(comp, ES8328_LOUT1VOL, 0x1e);
+	snd_soc_component_write(comp, ES8328_ROUT1VOL, 0x1e);
+	snd_soc_component_write(comp, ES8328_LOUT2VOL, 0x1e);
+	snd_soc_component_write(comp, ES8328_ROUT2VOL, 0x1e);
+	mutex_unlock(&es8328->vol_mutex);
+
+	return 0;
+}
+
+static int es8328_open(struct snd_soc_component *component,
+						 struct snd_pcm_substream *substream)
+{
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
+	if (!es8328->vol_thread_flag) {
+		es8328->vol_thread_flag = true;
+
+		es8328->thread_vol = kthread_run(thread_set_volume, component, "set_volume_thread");
+		if (IS_ERR(es8328->thread_vol)) {
+			dev_err(component->dev, "es8328: failed to create thread for set dafault volume\n");
+		}
+	}
+
+	return 0;
+}
+
 static const struct snd_soc_component_driver es8328_component_driver = {
 	.probe			= es8328_component_probe,
 	.remove			= es8328_remove,
@@ -996,6 +1132,7 @@ static const struct snd_soc_component_driver es8328_component_driver = {
 	.idle_bias_on		= 1,
 	.use_pmdown_time	= 1,
 	.endianness		= 1,
+	.open			= es8328_open,
 };
 
 static irqreturn_t es8328_jack_irq(int irq, void *data)
@@ -1085,6 +1222,10 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 		ret = devm_snd_soc_register_component(dev,
 					&es8328_component_driver, &es8328_dai[2], 1);
 	}
+
+	mutex_init(&es8328->vol_mutex);
+	es8328->vol_thread_flag = false;
+	es8328->vol_set_flag = false;
 
 	return ret;
 }
