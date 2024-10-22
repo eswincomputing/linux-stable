@@ -1,9 +1,24 @@
-// Copyright © 2023 ESWIN. All rights reserved.
-//
-// Beijing ESWIN Computing Technology Co., Ltd and its affiliated companies ("ESWIN") retain
-// all intellectual property and proprietary rights in and to this software. Except as expressly
-// authorized by ESWIN, no part of the software may be released, copied, distributed, reproduced,
-// modified, adapted, translated, or created derivative work of, in whole or in part.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN PCIe root complex driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Lu XiangFeng <luxiangfeng@eswincomputing.com>
+ */
 
 #ifndef __DRP_REGS_H__
 #define __DRP_REGS_H__
@@ -60,74 +75,82 @@ typedef enum {
 #define DRP_WR_D_OP_STATUS 0x4
 
 #define DRP_WR_D_CTRL 0x8
+
 /**
- * @brief N2方向的步进值，n2_stride=N1*N0*E3*E2*E1*M2*M1*F0*M0，用于PE写DRP地址计算.
- *
+ * @brief The step value in the N2 direction, n2_stride = N1 * N0 * E3 * E2 * E1 * M2 * M1 * F0 * M0,
+ *        is used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_N2_STRIDE 0x10
+
 /**
- * @brief 任务0，G2方向的步进值，g2_stride=N2*N1*E3*E2*E1*M2*M1*F0*M0*GF*GMF，用于PE写DRP地址计算。配置减1
- *
+ * @brief For Task 0, the step value in the G2 direction, g2_stride = N2 * N1 * E3 * E2 * E1 * M2 * M1 * F0 * M0 * GF * GMF,
+ *        is used for calculating the DRP address written by the PE. Configuration decrement by 1.
  */
 #define DRP_WR_D_G2_STRIDE 0x14
+
 /**
- * @brief E3方向的步进值，e3_stride=E2*E1*M2*M1*F0*M0，用于PE写DRP地址计算
- *
+ * @brief The step value in the E3 direction, e3_stride = E2 * E1 * M2 * M1 * F0 * M0,
+ *        is used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_E3_STRIDE 0x18
+
 /**
- * @brief M2方向的步进值，m2_stride=M1*F0*M0，用于PE写DRP地址计算
- *
+ * @brief The step value in the M2 direction, m2_stride = M1 * F0 * M0,
+ *        is used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_M2_STRIDE 0x1C
+
 /**
- * @brief M方向的步进值，m_stride=F0*M0，用于PE写DRP地址计算
- *
+ * @brief The step value in the M direction, m_stride = F0 * M0,
+ *        is used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_M_STRIDE 0x20
+
 /**
- * @brief G3阈值，用于PE写DRP地址计算
- *
+ * @brief G3 threshold, used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_G3_THRESHOLD 0x24
+
 /**
- * @brief N3阈值，用于PE写DRP地址计算
- *
+ * @brief N3 threshold, used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_N3_THRESHOLD 0x28
+
 /**
- * @brief M3阈值，用于PE写DRP地址计算
- *
+ * @brief M3 threshold, used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_M3_THRESHOLD 0x2C
+
 /**
- * @brief E4阈值，用于PE写DRP地址计算
- *
+ * @brief E4 threshold, used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_E4_THRESHOLD 0x30
+
 /**
- * @brief F3阈值，用于PE写DRP地址计算
- *
+ * @brief F3 threshold, used for calculating the DRP address written by the PE.
  */
 #define DRP_WR_D_F3_THRESHOLD 0x34
+
 /**
- * @brief 写入lsram/ddr的基地址低32bit
- *
+ * @brief The lower 32 bits of the base address for writing to LSRAM/DDR.
  */
 #define DRP_WR_D_BA_L 0x38
+
 /**
- * @brief 写入lsram/ddr的基地址高32bit
- *
+ * @brief The high 32 bits of the base address for writing to LSRAM/DDR.
  */
 #define DRP_WR_D_BA_H 0x3C
+
 /**
- * @brief 参与task计算的PE数量，用于last_pkt统计，当收到的last_pkt脉冲数等于pe_num则认为所有PE均完成当前ofmap cube的计算
- *
+ * @brief The number of PE participating in the task computation, used for last_pkt statistics.
+ *        When the number of received last_pkt pulses equals pe_num,
+ *        it indicates that all PE have completed the computation of the current ofmap cube.
  */
 #define DRP_WR_D_PE_NUM 0x80
+
 /**
- * @brief task一个glb level loop输出的ofmap的大小，用与glb level loop的基地址计算
- *
+ * @brief The size of the ofmap output by one GLB level loop,
+ *        used in the calculation of the base address for the GLB level loop.
  */
 #define DRP_WR_D_SIZE_GLB 0x94
 

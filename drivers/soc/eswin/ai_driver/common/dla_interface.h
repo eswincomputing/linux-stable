@@ -1,9 +1,25 @@
-// Copyright © 2023 ESWIN. All rights reserved.
-//
-// Beijing ESWIN Computing Technology Co., Ltd and its affiliated companies ("ESWIN") retain
-// all intellectual property and proprietary rights in and to this software. Except as expressly
-// authorized by ESWIN, no part of the software may be released, copied, distributed, reproduced,
-// modified, adapted, translated, or created derivative work of, in whole or in part.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN PCIe root complex driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Lu XiangFeng <luxiangfeng@eswincomputing.com>
+ */
+
 #ifndef _DLA_INTERFACE_H_
 #define _DLA_INTERFACE_H_
 
@@ -289,32 +305,36 @@ struct post_drp_op_desc {
 
     // represent the write out data stride for SRAM level ofmap
     /*
-     * SRAM level ofmap的 G 方向的步进值，若数据类型为int8，则 g_stride_sram = N*E*M*F
-     * 否则  g_stride_sram = 2*N*E*M*F， 用于DRP写数据到LSRAM的地址计算
+     * The step value in the G direction at the SRAM level for OFMAP: if the data type is int8,
+     * then g_stride_sram = N * E * M * F; otherwise, g_stride_sram = 2 * N * E * M * F,
+     * used for calculating the address when writing data to LSRAM via DRP.
      */
     uint32_t g_stride_lsram;
 
     /*
-     * SRAM level ofmap的 N 方向的步进值，若数据类型为int8，则 n_stride_sram = E*M*F
-     * 否则  n_stride_sram = 2*E*M*F， 用于DRP写数据到LSRAM的地址计算
+     * The step value in the N direction at the SRAM level for OFMAP: if the data type is int8,
+     * then n_stride_sram = E * M * F; otherwise, n_stride_sram = 2 * E * M * F,
+     * used for calculating the address when writing data to LSRAM via DRP.
      */
     uint32_t n_stride_lsram;
 
     /*
-     * SRAM level ofmap的 H 方向的步进值，若数据类型为int8，则 h_stride = F*C0*C''*C'''
-     * 否则  h_stride = 2*F*C0*C''*C'''， 用于DRP写数据到LSRAM的地址计算
+     * The step value in the H direction at the SRAM level for OFMAP: if the data type is int8, 
+     * then h_stride = F * C0 * C'' * C'''; otherwise, h_stride = 2 * F * C0 * C'' * C''',
+     * used for calculating the address when writing data to LSRAM via DRP.
      */
     uint32_t h_stride;
 
     /*
-     * SRAM level ofmap的 C' 方向的步进值，若数据类型为int8，则 c_stride = E*F*C0*C''*C'''
-     * 否则  c_stride = 2*E*F*C0*C''*C'''， 用于DRP写数据到LSRAM的地址计算
+     * The step value in the C' direction at the SRAM level for OFMAP: if the data type is int8, 
+     * then c_stride = E * F * C0 * C'' * C'''; otherwise, c_stride = 2 * E * F * C0 * C'' * C''',
+     * used for calculating the address when writing data to LSRAM via DRP.
      */
     uint32_t c_stride;
 
     /*
-     * 用于 C 方向在 W 方向扩展的地址计算， 若数据类型为int8，则 w_ext_stride = C''*C0
-     * 否则 h_ext_stride = 2*C''*C0
+     * The address calculation for extension in the W direction based on the C direction: if the data type is int8,
+     * then w_ext_stride = C'' * C0; otherwise, w_ext_stride = 2 * C'' * C0.
      */
     uint32_t w_stride;
 
@@ -325,9 +345,9 @@ struct post_drp_op_desc {
     uint32_t f;  /* the whole layer F */
     uint32_t c0; /* the next layer input c0 */
 
-    // DRP 输出 reshape 数据存放的基地址高32bit
+    // The high 32 bits of the base address for storing the reshap data output by DRP.
     uint32_t base_addr_ofmap_h;
-    // DRP 输出 reshape 数据存放的基地址低32bit
+    // The low 32 bits of the base address for storing the reshap data output by DRP
     uint32_t base_addr_ofmap_l;
 
     // 0 - int8; 1 - int16/fp16
@@ -336,12 +356,12 @@ struct post_drp_op_desc {
     // 1 : int8 -> int16; otherwise, 0
     uint32_t surface_double;
 
-    // For PDP, PDP的split num相同;
+    // For PDP, The split num of PDP is the same.;
     // For SDP, split_num = F3, F is the ofm's W
     uint32_t split_num;
-    uint16_t f_lst; /* F 切分的最后一个分段宽度 */
-    uint16_t f_mid; /* F 切分的中间分段宽度 */
-    uint16_t f_fst; /* F 切分的第一个分段宽度 */
+    uint16_t f_lst; /* The width of the last segment when F is split. */
+    uint16_t f_mid; /* The width of the intermediate segment when F is split. */
+    uint16_t f_fst; /* The width of the first segment when F is split. */
     uint16_t Reserved;
 
     uint16_t e4_all; /* original E */
