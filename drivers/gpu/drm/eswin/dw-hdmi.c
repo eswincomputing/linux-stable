@@ -311,7 +311,9 @@ static void repo_hpd_event(struct work_struct *p_work)
 	mutex_unlock(&hdmi->mutex);
 
 	if (hdmi->bridge.dev) {
-		drm_helper_hpd_irq_event(hdmi->bridge.dev);
+		if (drm_helper_hpd_irq_event(hdmi->bridge.dev)) {
+			dev_info(hdmi->dev, "hpd event report status:%d\n", hdmi->last_connector_result);
+		}
 	}
 
 	msleep(150);
@@ -632,6 +634,7 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 		}
 		if (ret < 0) {
 			dev_info(hdmi->dev, "i2c transfer fail\n");
+			udelay(200 * 1000);
 			break;
 		}
 	}
@@ -2747,6 +2750,8 @@ static enum drm_connector_status dw_hdmi_detect(struct dw_hdmi *hdmi)
 
 	result = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
 	hdmi->last_connector_result = result;
+
+	dev_dbg(hdmi->dev, "detect connector status:%d\n", result);
 
 	return result;
 }
