@@ -45,6 +45,7 @@
 #include "dsp_firmware.h"
 #include "dsp_ioctl.h"
 #include "dsp_main.h"
+#include "dsp_pool.h"
 
 #define DRIVER_NAME "eswin-dsp"
 
@@ -114,7 +115,7 @@ struct es_dsp_hw {
 	struct regmap *con_map;
 	struct clk *aclk;
 	struct es_dsp_subsys *subsys;
-	struct dma_pool *flat_dma_pool;
+	struct dsp_pool *flat_dma_pool;
 
 	dma_addr_t pts_iova;
 	u32 pts_iova_size;
@@ -1072,14 +1073,15 @@ void dsp_free_flat_mem(struct es_dsp *dsp, u32 size, void *cpu,
 		       dma_addr_t dma_addr)
 {
 	struct es_dsp_hw *hw = dsp->hw_arg;
-	dma_pool_free(hw->flat_dma_pool, cpu, dma_addr);
+	//dma_pool_free(hw->flat_dma_pool, cpu, dma_addr);
+	dsp_pool_free(hw->flat_dma_pool, cpu, dma_addr);
 }
 
 void *dsp_alloc_flat_mem(struct es_dsp *dsp, u32 dma_len, dma_addr_t *dma_addr)
 {
 	struct es_dsp_hw *hw = dsp->hw_arg;
 	void *flat = NULL;
-	flat = dma_pool_alloc(hw->flat_dma_pool, GFP_KERNEL, dma_addr);
+	flat = dsp_pool_alloc(hw->flat_dma_pool, GFP_KERNEL, dma_addr);
 	return flat;
 }
 
@@ -1124,18 +1126,19 @@ int es_dsp_get_subsys(struct platform_device *pdev, struct es_dsp *dsp)
 }
 
 
-
 int es_dsp_map_resource(struct es_dsp *dsp)
 {
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 	int ret;
 	unsigned long base;
 
-	hw->flat_dma_pool = dma_pool_create("dsp_flat_dma", dsp->dev,
-					    sizeof(struct es_dsp_flat1_desc) +
+	hw->flat_dma_pool = dsp_pool_create(dsp->dev, sizeof(struct es_dsp_flat1_desc) +
 						    sizeof(es_dsp_buffer) *
-							    BUFFER_CNT_MAXSIZE,
-					    64, 0);
+							    BUFFER_CNT_MAXSIZE, 0x200000, 64, 0);//dma_pool_create("dsp_flat_dma", dsp->dev,
+	//				    sizeof(struct es_dsp_flat1_desc) +
+	//					    sizeof(es_dsp_buffer) *
+	//						    BUFFER_CNT_MAXSIZE,
+	//				    64, 0);
 	if (!hw->flat_dma_pool) {
 		dsp_err("cat not create flat dma pool.\n");
 		ret = -ENOMEM;
@@ -1196,7 +1199,7 @@ int es_dsp_unmap_resource(struct es_dsp *dsp)
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 
 	if (hw->flat_dma_pool != NULL) {
-		dma_pool_destroy(hw->flat_dma_pool);
+		dsp_pool_destroy(hw->flat_dma_pool);
 		hw->flat_dma_pool = NULL;
 	}
 

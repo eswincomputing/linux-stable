@@ -43,10 +43,11 @@ eic7700_dsp-y += dsp_platform_sim.o
 
 else
 ccflags-y +=-I
-eic7700_dsp-y += dsp_platform.o dsp_sram.o dsp_firmware.o \
+eic7700_dsp-y += dsp_platform.o dsp_sram.o dsp_firmware.o dsp_pool.o \
 				mloader/dsp_load_operator.o \
 				mloader/xt_mld_loader.o \
 				mloader/xt_mld_relocate.o
+
 
 endif
 
