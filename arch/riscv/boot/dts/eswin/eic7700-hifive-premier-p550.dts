@@ -164,6 +164,7 @@
 	//eswin,NPU-qos-owner;
 	//eswin,SPISLV_TBU3-qos-owner;
 
+#if 0
 	stat,0 = "TracePort:ddr0_p1_req",
 		 "InitFlow:mcput_snoc_mp/I/0";
 
@@ -176,6 +177,15 @@
 		 "Status:Req", "AddrSize:0x28";
 
 	stat,3 = "TracePort:ddr1_p2_req";
+#else
+	stat,0 = "TracePort:ddr0_p1_req";
+
+	stat,1 = "TracePort:ddr0_p2_req";
+
+	stat,2 = "TracePort:ddr1_p1_req";
+
+	stat,3 = "TracePort:ddr1_p2_req";
+#endif
 
 	latency,0 = "TracePort:sysnoc_trans_probe_0", "AddrSize:0x0";
 	latency,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x28","Opcode:RdWr";
