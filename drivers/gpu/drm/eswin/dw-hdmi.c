@@ -590,7 +590,7 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 		 */
 		return -EOPNOTSUPP;
 
-	dev_dbg(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
+	dev_vdbg(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
 
 	for (i = 0; i < num; i++) {
 		if (msgs[i].len == 0) {
@@ -618,8 +618,9 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 	i2c->is_segment = false;
 
 	for (i = 0; i < num; i++) {
-		dev_dbg(hdmi->dev, "xfer: num: %d/%d, len: %d, flags: %#x\n",
+		dev_vdbg(hdmi->dev, "xfer: num: %d/%d, len: %d, flags: %#x\n",
 			i + 1, num, msgs[i].len, msgs[i].flags);
+		udelay(100);
 		if (msgs[i].addr == DDC_SEGMENT_ADDR && msgs[i].len == 1) {
 			i2c->is_segment = true;
 			hdmi_writeb(hdmi, DDC_SEGMENT_ADDR, HDMI_I2CM_SEGADDR);
