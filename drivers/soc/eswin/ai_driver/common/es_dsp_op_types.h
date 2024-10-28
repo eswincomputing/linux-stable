@@ -28,7 +28,7 @@
 #define CACHE_LINE_SIZE 64
 #define KERNEL_NAME_MAXLEN 128
 #define KERNEL_LIB_NAME_MAXLEN 128
-#define BUFFER_CNT_MAXSIZE 32
+#define BUFFER_CNT_MAXSIZE 64
 
 // tensor shape info in dsp ping pong tiling
 typedef struct {

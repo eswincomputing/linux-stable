@@ -83,7 +83,7 @@ typedef enum DSP_PRI_E {
     ES_DSP_PRI_BUTT
 } ES_DSP_PRI_E;
 
-#define BUFFER_CNT_MAXSIZE 32
+#define BUFFER_CNT_MAXSIZE 64
 
 typedef struct DEVICE_BUFFER_GROUP_S {
     ES_DEV_BUF_S *buffers;

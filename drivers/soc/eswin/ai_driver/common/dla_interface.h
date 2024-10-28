@@ -644,7 +644,7 @@ struct dla_rubik_op_desc {
 
 #define KERNEL_NAME_MAXLEN 128
 #define KERNEL_LIB_NAME_MAXLEN 128
-#define BUFFER_CNT_MAXSIZE 32
+#define BUFFER_CNT_MAXSIZE 64
 
 struct dsp_op_desc {
     /* *
