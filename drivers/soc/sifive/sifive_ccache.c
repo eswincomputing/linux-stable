@@ -130,8 +130,8 @@ static void ccache_flush64_range(phys_addr_t paddr, size_t size)
 	for (line = paddr; line < paddr + size;
 	line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
 		writeq(line, ccache_base + SIFIVE_CCACHE_FLUSH64);
-		mb();
 	}
+	mb();
 }
 
 static const struct riscv_nonstd_cache_ops ccache_cmo_ops __initdata = {
