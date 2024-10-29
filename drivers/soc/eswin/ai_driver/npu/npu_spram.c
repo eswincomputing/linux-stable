@@ -27,6 +27,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include "npu_spram.h"
+#include "npu_base_regs.h"
 
 // At least one way must be reserved for cache
 #define MAX_CACHE_SIZE (2 * 0x100000)  //2MB
