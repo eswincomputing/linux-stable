@@ -1349,7 +1349,7 @@
 				device-uart = <0x70910000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
-				firmware-name = "eic7702_dsp_fw";
+				firmware-name = "eic7700_dsp_fw";
 				process-id = <0>;
 				iommus = <&smmu1 WIN2030_SID_DSP_0>;
 				tbus = <WIN2030_TBUID_DSP0>;
@@ -1378,7 +1378,7 @@
 				device-uart = <0x70910000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
-				firmware-name = "eic7702_dsp_fw";
+				firmware-name = "eic7700_dsp_fw";
 				process-id = <1>;
 				iommus = <&smmu1 WIN2030_SID_DSP_1>;
 				tbus = <WIN2030_TBUID_DSP1>;
@@ -1407,7 +1407,7 @@
 				device-uart = <0x70910000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
-				firmware-name = "eic7702_dsp_fw";
+				firmware-name = "eic7700_dsp_fw";
 				process-id = <2>;
 				iommus = <&smmu1 WIN2030_SID_DSP_2>;
 				tbus = <WIN2030_TBUID_DSP2>;
@@ -1436,7 +1436,7 @@
 				device-uart = <0x70910000>;
 				device-irq-mode = <1>;
 				host-irq-mode = <1>;
-				firmware-name = "eic7702_dsp_fw";
+				firmware-name = "eic7700_dsp_fw";
 				process-id = <3>;
 				iommus = <&smmu1 WIN2030_SID_DSP_3>;
 				tbus = <WIN2030_TBUID_DSP3>;
