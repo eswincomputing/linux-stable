@@ -51,7 +51,7 @@
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <linux/win2030_noc.h>
 #include <linux/iommu.h>
-#include "es_iommu_rsv.h"
+#include <linux/es_iommu_rsv.h>
 #include "dla_log.h"
 #include "dla_engine.h"
 #include "dla_engine_internal.h"
@@ -258,7 +258,7 @@ int32_t dla_get_sram_address(void *driver_context, void *task_data,
 
 static const struct of_device_id edla_of_match[] = {
 	{
-		.compatible = "eswin,npu0",
+		.compatible = "eswin,npu",
 	},
 	{},
 };
@@ -372,28 +372,28 @@ static int32_t edla_probe(struct platform_device *pdev)
 		err = PTR_ERR(nvdla_dev->base);
 		goto err_mem0;
 	}
-	if (request_mem_region(E31_EMISSION_DTIM_BASE, E31_EMISSION_DTIM_SIZE,
+	if (request_mem_region(E31_EMISSION_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_EMISSION_DTIM_SIZE,
 			       "EMISSION_BASE") == NULL) {
 		dev_err(&pdev->dev, "request_mem_region error\n");
 		err = -EBUSY;
 		goto err_mem0;
 	}
 	nvdla_dev->emission_base = devm_ioremap(
-		&pdev->dev, E31_EMISSION_DTIM_BASE, E31_EMISSION_DTIM_SIZE);
+		&pdev->dev, E31_EMISSION_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_EMISSION_DTIM_SIZE);
 	if (!nvdla_dev->emission_base) {
 		dev_err(&pdev->dev, "ioremap error\n");
 		err = -ENOMEM;
 		goto err_iomap_emission;
 	}
 
-	if (request_mem_region(E31_PROGRAM_DTIM_BASE, E31_PROGRAM_DTIM_SIZE,
+	if (request_mem_region(E31_PROGRAM_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_PROGRAM_DTIM_SIZE,
 			       "PROGRAM_BASE") == NULL) {
 		dev_err(&pdev->dev, "request_mem_region error\n");
 		err = -EBUSY;
 		goto err_iomap_emission;
 	}
 	nvdla_dev->program_base = devm_ioremap(
-		&pdev->dev, E31_PROGRAM_DTIM_BASE, E31_PROGRAM_DTIM_SIZE);
+		&pdev->dev, E31_PROGRAM_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_PROGRAM_DTIM_SIZE);
 	if (!nvdla_dev->program_base) {
 		dev_err(&pdev->dev, "ioremap error\n");
 		err = -ENOMEM;
@@ -401,7 +401,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 	}
 
 	nvdla_dev->uart_mutex_base = devm_ioremap(
-		&pdev->dev, UART_MUTEX_BASE_ADDR, UART_MUTEX_ADDR_SIZE);
+		&pdev->dev, UART_MUTEX_BASE_ADDR + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, UART_MUTEX_ADDR_SIZE);
 	if (!nvdla_dev->uart_mutex_base) {
 		dev_err(&pdev->dev, "ioremap error\n");
 		err = -ENOMEM;
@@ -432,28 +432,14 @@ static int32_t edla_probe(struct platform_device *pdev)
 	}
 	npu_tbu_power(dev, true);
 
-	switch (nvdla_dev->numa_id) {
-	case 0:
-		nvdla_dev->e31_mmio_base = devm_ioremap(dev, NPU_CFG_BASE_ADDR,
+	nvdla_dev->e31_mmio_base = devm_ioremap(dev, NPU_CFG_BASE_ADDR + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET,
 							NPU_CFG_ADDR_RANGE);
-		break;
-	case 1:
-		nvdla_dev->e31_mmio_base =
-			devm_ioremap(dev, NPU_CFG_BASE_ADDR + 0x20000000,
-				     NPU_CFG_ADDR_RANGE);
-		break;
-	default:
-		dla_error(
-			"parameter numaid=%d is not correct, please use 0 or 1.\n",
-			nvdla_dev->numa_id);
-		goto err_iomap_e31;
-	}
 	if (!nvdla_dev->e31_mmio_base) {
 		dla_error("Eswin e31 ioremap fail.\n");
 		goto err_iomap_e31;
 	}
 
-	err = npu_e31_load_fw(pdev, nvdla_dev->e31_mmio_base);
+	err = npu_e31_load_fw(nvdla_dev);
 	if (err) {
 		dev_err(&pdev->dev, "load e31 fw error.\n");
 		goto err_load_firm;
@@ -496,7 +482,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 	nvdla_dev->pause_op_list = vmalloc(MAX_OP_NUM * sizeof(u16));
 	static_nvdla_dev[nvdla_dev->numa_id] = nvdla_dev;
 
-	err = create_npu_dev(0, nvdla_dev);
+	err = create_npu_dev(nvdla_dev->numa_id, nvdla_dev);
 	if (err) {
 		dev_err(&pdev->dev, "failed to register npu device\n");
 		goto err_create_dev;
@@ -523,9 +509,9 @@ err_init_reset:
 	pm_runtime_dont_use_autosuspend(dev);
 	npu_disable_clock(nvdla_dev);
 err_iomap_program:
-	release_mem_region(E31_PROGRAM_DTIM_BASE, E31_PROGRAM_DTIM_SIZE);
+	release_mem_region(E31_PROGRAM_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_PROGRAM_DTIM_SIZE);
 err_iomap_emission:
-	release_mem_region(E31_EMISSION_DTIM_BASE, E31_EMISSION_DTIM_SIZE);
+	release_mem_region(E31_EMISSION_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_EMISSION_DTIM_SIZE);
 err_mem0:
 	npu_put_dt_resources(nvdla_dev);
 	npu_probe_result = err;
@@ -547,7 +533,7 @@ static int32_t __exit edla_remove(struct platform_device *pdev)
 		return -EIO;
 	}
 
-	destory_npu_dev(0);
+	destory_npu_dev(nvdla_dev->numa_id);
 	npu_uninit_mbox(nvdla_dev);
 	npu_dev_reset(nvdla_dev);
 	pm_runtime_disable(&nvdla_dev->pdev->dev);
@@ -562,8 +548,8 @@ static int32_t __exit edla_remove(struct platform_device *pdev)
 	}
 	win_engine_destroy(nvdla_dev);
 	edma_free(nvdla_dev);
-	release_mem_region(E31_EMISSION_DTIM_BASE, E31_EMISSION_DTIM_SIZE);
-	release_mem_region(E31_PROGRAM_DTIM_BASE, E31_PROGRAM_DTIM_SIZE);
+	release_mem_region(E31_EMISSION_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_EMISSION_DTIM_SIZE);
+	release_mem_region(E31_PROGRAM_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_PROGRAM_DTIM_SIZE);
 	npu_spram_release(nvdla_dev);
 
 	npu_tbu_power(&pdev->dev, false);
@@ -671,7 +657,7 @@ int __maybe_unused npu_resume(struct device *dev)
 	npu_tbu_power(dev, true);
 	/* config streamID of NPU_DMA */
 
-	ret = npu_e31_load_fw(ndev->pdev, ndev->e31_mmio_base);
+	ret = npu_e31_load_fw(ndev);
 	if (ret) {
 		dev_err(dev, "load e31 fw error.\n");
 		goto err_load_firm;

@@ -92,6 +92,9 @@ typedef enum type_NPU_MODULE_SEL_ID_E {
 /* NPU PP port base address */
 #define NPU_PP_BASE_ADDR 0x20000000
 
+/*NPU Die Register Offset*/
+#define NPU_DIE_REG_OFFSET 0x20000000
+
 /* NPU sram base address */
 #define NPU_SRAM_BASE_ADDR 0x59000000
 
