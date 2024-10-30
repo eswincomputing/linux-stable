@@ -1087,7 +1087,7 @@ static int thread_set_volume(void *data)
 	struct snd_soc_component *comp = (struct snd_soc_component *)data;
 	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(comp);
 
-	ssleep(5);
+	msleep(500);
 
 	mutex_lock(&es8328->vol_mutex);
 	es8328->vol_set_flag = true;
