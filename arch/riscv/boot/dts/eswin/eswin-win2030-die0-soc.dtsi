@@ -987,7 +987,8 @@
 			core-clk-reg = <0x51828168>;
 			clock-frequency = <208000000>;
 			max-frequency = <208000000>;
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
 			iommus = <&smmu0 WIN2030_SID_SD1>;
 			tbus = <WIN2030_TBUID_SD>;
@@ -1519,6 +1520,8 @@
 				ngpios = <32>;
 				reg = <0>;
 				interrupt-parent = <&plic0>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 				interrupts = <303 304 305 306 307 308 309 310 311 312 313 314 315 316 317 318
 								319 320 321 322 323 324 325 326 327 328 329 330 331 332 333 334>;
 			};

@@ -436,6 +436,17 @@
 	keep-power-in-suspend;
 	no-sd;
 	no-mmc;
+	aw3155:wifi_aw3155@0 {
+		compatible = "aml_w1_sdio";
+		reg = <0x0>;
+		interrupt-parent = <&porta>;
+		interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default", "default";
+		pinctrl-0 = <&pinctrl_gpio15_default>;
+		pinctrl-1 = <&pinctrl_gpio79_default>;
+		irq-gpios = <&porta 15 GPIO_ACTIVE_HIGH>;
+		rst-gpios = <&portc 15 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &d0_gmac0 {
