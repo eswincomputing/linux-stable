@@ -170,44 +170,6 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 #define IMX219_EMBEDDED_LINE_WIDTH 16384
 #define IMX219_NUM_EMBEDDED_LINES 1
 
-
-#define IMX219_AGAIN_TABLE 233
-
-
-static int imx219_again_table[IMX219_AGAIN_TABLE] =
-{
-	0,	3,	7,	10,	14,	17,	21,	24,
-	28, 31, 35, 38, 42, 45, 49, 52,
-	56, 60, 63,	67, 71, 74, 78, 82,
-	86, 89, 93, 97, 101, 104, 108, 112,
-	116, 120, 124, 128, 132, 136, 140, 144,
-	148, 152, 156, 160, 164, 168, 172, 176,
-	180, 185, 189, 193, 197, 201, 206, 210,
-	214, 219, 223, 228, 232, 236, 241, 245,
-	250, 254, 259, 264, 268, 273, 277, 282,
-	287, 292, 296, 301, 306, 311, 316, 321,
-	325, 330, 335, 340, 345, 350, 356, 361,
-	366, 371, 376, 382, 387, 392, 397, 403,
-	408, 414, 419, 425, 430, 436, 441, 447,
-	453, 459, 464, 470, 476, 482, 488, 494,
-	500, 506, 512, 518, 524, 530, 537, 543,
-	549, 556, 562, 569, 575, 582, 589, 595,
-	602, 609, 616, 623, 630, 637, 644, 651,
-	658, 665, 673, 680, 688, 695, 703, 710,
-	718, 726, 734, 742, 750, 758, 766, 774,
-	782, 791, 799, 808, 816, 825, 834, 843,
-	852, 861, 870, 880, 889, 898, 908, 918,
-	928, 937, 947, 958, 968, 978, 989, 1000,
-	1010, 1021, 1032, 1043, 1055, 1066, 1078, 1090,
-	1102, 1114, 1126, 1139, 1151, 1164, 1177, 1191,
-	1204, 1218, 1232, 1246, 1260, 1275, 1290, 1305,
-	1320, 1336, 1352, 1368, 1384, 1401, 1419, 1436,
-	1454, 1472, 1491, 1510, 1530, 1550, 1570, 1591,
-	1612, 1634, 1657, 1680, 1704, 1728, 1754, 1779,
-	1806, 1834, 1862, 1892, 1922, 1954, 1987, 2021,
-	2056
-};
-
 enum pad_types {
 	IMAGE_PAD,
 	METADATA_PAD,
@@ -650,20 +612,6 @@ static int imx219_get_rate_factor(struct imx219 *imx219,
 	return -EINVAL;
 }
 
-static void get_again_in_table(int value, int *again)
-{
-	int i;
-	for (i = 0; i < IMX219_AGAIN_TABLE - 1; i++) {
-		if (value > imx219_again_table[i] && value <= imx219_again_table[i + 1]) {
-			if ((imx219_again_table[i + 1] - value) < (value - imx219_again_table[i])) {
-				*again = i + 1;
-			} else {
-				*again = i;
-			}
-		}
-	}
-}
-
 static int imx219_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx219 *imx219 =
@@ -673,7 +621,6 @@ static int imx219_set_ctrl(struct v4l2_ctrl *ctrl)
 	const struct v4l2_mbus_framefmt *format;
 	struct v4l2_subdev_state *state;
 	int rate_factor;
-	int again = 0;
 
 	if (ctrl->id == V4L2_CID_VBLANK) {
 		int exposure_max, exposure_def;
@@ -710,11 +657,6 @@ static int imx219_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_ANALOGUE_GAIN:
 		cci_write(imx219->regmap, IMX219_REG_ANALOG_GAIN,
 			  ctrl->val, &ret);
-		break;
-	case V4L2_CID_NOTIFY_GAINS:
-		get_again_in_table(ctrl->val, &again);
-		cci_write(imx219->regmap, IMX219_REG_ANALOG_GAIN,
-			  again, &ret);
 		break;
 	case V4L2_CID_EXPOSURE:
 		cci_write(imx219->regmap, IMX219_REG_EXPOSURE,
@@ -1329,10 +1271,6 @@ static int imx219_init_controls(struct imx219 *imx219)
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 12);
 	if (ret)
 		return ret;
-
-	v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops, V4L2_CID_NOTIFY_GAINS,
-			imx219_again_table[0], imx219_again_table[IMX219_AGAIN_TABLE - 1],
-			IMX219_ANA_GAIN_STEP, imx219_again_table[0]);
 
 	/* By default, PIXEL_RATE is read only */
 	pixel_rate = imx219_get_pixel_rate(imx219, NULL);

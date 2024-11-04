@@ -30,7 +30,7 @@
 #include <dt-bindings/power/eswin,eic770x-pmu.h>
 #include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/pwm/pwm.h>
-
+#include <dt-bindings/gpio/gpio.h>
 / {
 	compatible = "eswin,eic7x";
 	thermal-zones {
@@ -112,6 +112,9 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x50900000 0x0 0x10000>;
 			clock-frequency = <LSPCLK_FREQ>;
+			clocks = <&d0_clock EIC7700_CLK_LSP_UART0_PCLK>;
+			clock-names = "apb_pclk";
+			resets = <&d0_reset UART_RST_CTRL SW_UART_RST_N_0>;
 			interrupt-parent = <&plic0>;
 			interrupts = <UART0_INT>;
 			reg-shift = <2>;
@@ -123,6 +126,9 @@
 			compatible = "eswin,dw-apb-uart";
 			reg = <0x0 0x50910000 0x0 0x10000>;
 			clock-frequency = <LSPCLK_FREQ>;
+			clocks = <&d0_clock EIC7700_CLK_LSP_UART1_PCLK>;
+			clock-names = "apb_pclk";
+			resets = <&d0_reset UART_RST_CTRL SW_UART_RST_N_1>;
 			interrupt-parent = <&plic0>;
 			interrupts = <UART1_INT>;
 			reg-shift = <2>;
@@ -134,6 +140,9 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x50920000 0x0 0x10000>;
 			clock-frequency = <LSPCLK_FREQ>;
+			clocks = <&d0_clock EIC7700_CLK_LSP_UART2_PCLK>;
+			clock-names = "apb_pclk";
+			resets = <&d0_reset UART_RST_CTRL SW_UART_RST_N_2>;
 			interrupt-parent = <&plic0>;
 			interrupts = <UART2_INT>;
 			reg-shift = <2>;
@@ -146,6 +155,9 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x50930000 0x0 0x10000>;
 			clock-frequency = <LSPCLK_FREQ>;
+			clocks = <&d0_clock EIC7700_CLK_LSP_UART3_PCLK>;
+			clock-names = "apb_pclk";
+			resets = <&d0_reset UART_RST_CTRL SW_UART_RST_N_3>;
 			interrupt-parent = <&plic0>;
 			interrupts = <UART3_INT>;
 			reg-shift = <2>;
@@ -158,6 +170,9 @@
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x50940000 0x0 0x10000>;
 			clock-frequency = <LSPCLK_FREQ>;
+			clocks = <&d0_clock EIC7700_CLK_LSP_UART4_PCLK>;
+			clock-names = "apb_pclk";
+			resets = <&d0_reset UART_RST_CTRL SW_UART_RST_N_4>;
 			interrupt-parent = <&plic0>;
 			interrupts = <UART4_INT>;
 			reg-shift = <2>;
@@ -189,7 +204,7 @@
 		};
 
 		d0_sys_crg: sys-crg@51828000 {
-			compatible = "syscon", "simple-mfd";
+			compatible = "eswin,eic7700-sys-crg", "syscon", "simple-mfd";
 			reg = <0x000000 0x51828000 0x000000 0x80000>;
 			numa-node-id = <0>;
 			d0_reset: reset-controller {
@@ -277,7 +292,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_PCIE>;
 				reg_base = <0x0>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -289,7 +304,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_DSP1>;
 				reg_base = <0x40>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -301,7 +316,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_VI>;
 				reg_base = <0x80>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -313,7 +328,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_VO>;
 				reg_base = <0xc0>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -324,7 +339,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_CODEC>;
 				reg_base = <0x140>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -336,7 +351,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_DSP2>;
 				reg_base = <0x200>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
@@ -348,13 +363,20 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_DSP3>;
 				reg_base = <0x240>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
 				clamp_delay = <3 3 2 2>;
 				tbus = <WIN2030_TBUID_DSP3>;
 				label = "D0_DSP3";
+			};
+			d0_pmu_npu: win2030-pmu-controller-port@1b4 {
+				compatible = "eswin,win2030-pmu-controller-port";
+				id = <EIC770X_PD_NPU>;
+				reg_base = <0x1b4>; /*The actual start address is 0x1C0*/
+				power_status = <1>;
+				label = "D0_NPU";
 			};
 		};
 
@@ -394,8 +416,6 @@
 
 			d0_ipc_scpu:ipc@0 {
 				compatible = "eswin,win2030-ipc", "simple-bus";
-				#address-cells = <1>;
-				#size-cells = <0>;
 				iommus = <&smmu0 WIN2030_SID_SCPU>, <&smmu0 WIN2030_SID_CRYPT>;
 				tbus = <WIN2030_TBUID_SCPU>;
 				eswin,syscfg = <&d0_sys_con SCPU_SID_REG_OFFSET 0>,
@@ -406,7 +426,6 @@
 				dma-noncoherent;
 				d0_trng@0 {
 					compatible = "eswin,ex77xx-trng";
-					reg = <0>;
 					status = "okay";
 				};
 			};
@@ -436,14 +455,15 @@
 		};
 
 		d0_dmac0: dma-controller-hsp@0x50430000 {
-			compatible = "eswin,eic770x-axi-dma";
+			compatible = "eswin,eic770x-axi-dma-hsp";
 			reg = <0x0 0x50430000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <57>;
 			#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
 			clocks = <&d0_clock EIC7700_CLK_HSP_DMA0_CLK>,
-					 <&d0_clock EIC7700_CLK_HSP_DMA0_CLK_TEST>;
-			clock-names = "core-clk", "cfgr-clk";
+					 <&d0_clock EIC7700_CLK_HSP_CFG_CLK>,
+					 <&d0_clock EIC7700_CLK_HSP_ACLK>;
+			clock-names = "core-clk", "cfgr-clk","axi-clk";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_DMA0_RSTN>,
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_DMA_PRSTN>;
 			reset-names = "arst", "prst";
@@ -473,11 +493,14 @@
 			status = "disabled";
 			clocks = <&d0_clock EIC7700_CLK_HSP_ETH_APP_CLK>,
 					 <&d0_clock EIC7700_CLK_HSP_ETH_CSR_CLK>,
-					 <&d0_clock EIC7700_CLK_HSP_ETH0_CORE_CLK>;
-			clock-names = "app", "stmmaceth","tx";
+					 <&d0_clock EIC7700_CLK_HSP_ETH0_CORE_CLK>,
+					 <&d0_clock EIC7700_CLK_HSP_ACLK>,
+					 <&d0_clock EIC7700_CLK_HSP_CFG_CLK>,
+					 <&d0_clock EIC7700_CLK_HSP_RMII_REF_0>;
+			clock-names = "app", "stmmaceth", "tx", "aclk", "cfg_clk", "rmii_ref";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_ETH0_ARSTN>;
 			reset-names = "ethrst";
-			//iommus = <&smmu0 WIN2030_SID_ETH0>;
+			// iommus = <&smmu0 WIN2030_SID_ETH0>;
 			tbus = <WIN2030_TBUID_ETH>;
 			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1030 0x100 0x108>;
@@ -503,11 +526,14 @@
 			status = "disabled";
 			clocks = <&d0_clock EIC7700_CLK_HSP_ETH_APP_CLK>,
 					 <&d0_clock EIC7700_CLK_HSP_ETH_CSR_CLK>,
-					 <&d0_clock EIC7700_CLK_HSP_ETH1_CORE_CLK>;
-			clock-names = "app", "stmmaceth","tx";
+					 <&d0_clock EIC7700_CLK_HSP_ETH1_CORE_CLK>,
+					 <&d0_clock EIC7700_CLK_HSP_ACLK>,
+					 <&d0_clock EIC7700_CLK_HSP_CFG_CLK>,
+					 <&d0_clock EIC7700_CLK_HSP_RMII_REF_1>;
+			clock-names = "app", "stmmaceth", "tx", "aclk", "cfg_clk", "rmii_ref";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_ETH1_ARSTN>;
 			reset-names = "ethrst";
-			//iommus = <&smmu0 WIN2030_SID_ETH1>;
+			// iommus = <&smmu0 WIN2030_SID_ETH1>;
 			tbus = <WIN2030_TBUID_ETH>;
 			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1034 0x200 0x208>;
@@ -532,7 +558,11 @@
 
 		d0_npu_subsys_bus: npu-subsys-bus@0{
 			compatible = "eswin,eic7700-npu-subsys-bus","simple-bus";
-			dma-ranges = <0x1 0x0 0x0 0xc0000000 0x100 0x0>;
+			/*
+			* 0x80000000~0x8fffffff: reserved for e31 firmware loader
+			* 0x90000000~0x9fffffff: reserved for NPU IPC module
+			*/
+			dma-ranges = <0x0 0xa0000000 0x0 0xc0000000 0x100 0x0>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
@@ -585,19 +615,15 @@
 			clocks = <&d0_clock EIC7700_CLK_NPU_ACLK>,
 				 <&d0_clock EIC7700_CLK_NPU_CFG_CLK>,
 				 <&d0_clock EIC7700_CLK_NPU_LLC_ACLK>,
-				 <&d0_clock EIC7700_CLK_NPU_CLK>,
-				 <&d0_clock EIC7700_MUX_U_NPU_CORE_3MUX1_GFREE>,
-				 <&d0_clock EIC7700_SPLL2_FOUT2>,
-				 <&d0_clock EIC7700_SPLL1_FOUT1>;
-			clock-names = "aclk", "cfg_clk", "llc_clk", "core_clk",
-					"mux_u_npu_core_3mux1_gfree", "fixed_rate_clk_spll2_fout2",
-					"fixed_rate_clk_spll1_fout1";
+				 <&d0_clock EIC7700_CLK_NPU_CLK>;
+			clock-names = "aclk", "cfg_clk", "llc_clk", "core_clk";
 			resets = <&d0_reset NPU_RST_CTRL SW_NPU_AXI_RSTN>,
 				<&d0_reset NPU_RST_CTRL SW_NPU_CFG_RSTN>,
 				<&d0_reset NPU_RST_CTRL SW_NPU_CORE_RSTN>,
 				<&d0_reset NPU_RST_CTRL SW_NPU_LLC_RSTN>;
 			reset-names = "axi", "cfg", "core", "llc";
 			numa-node-id = <0>;
+			tbus = <WIN2030_TBUID_NPU>;
 			spram-region = <&npu0_reserved>;
 		};
 
@@ -679,6 +705,8 @@
 				process-id = <1>;
 				iommus = <&smmu0 WIN2030_SID_DSP_1>;
 				tbus = <WIN2030_TBUID_DSP1>;
+				power-domains = <&d0_pmu EIC770X_PD_DSP1>;
+
 				dma-noncoherent;
 				numa-node-id = <0>;
 				aux-e31-dtim = <0x5a110000>;
@@ -711,6 +739,8 @@
 				process-id = <2>;
 				iommus = <&smmu0 WIN2030_SID_DSP_2>;
 				tbus = <WIN2030_TBUID_DSP2>;
+				power-domains = <&d0_pmu EIC770X_PD_DSP2>;
+
 				dma-noncoherent;
 				numa-node-id = <0>;
 				aux-e31-dtim = <0x5a110000>;
@@ -743,6 +773,7 @@
 				process-id = <3>;
 				iommus = <&smmu0 WIN2030_SID_DSP_3>;
 				tbus = <WIN2030_TBUID_DSP3>;
+				power-domains = <&d0_pmu EIC770X_PD_DSP3>;
 				dma-noncoherent;
 				numa-node-id = <0>;
 				aux-e31-dtim = <0x5a110000>;
@@ -795,6 +826,7 @@
 			interrupt-parent = <&plic0>;
 			interrupts = <49>, <50>;
 			interrupt-names = "core_2d", "core_2d1";
+			power-domains = <&d0_pmu EIC770X_PD_CODEC>;
 			enable-mmu = <1>;
 			contiguous-size = <0xa00000>;
 			recovery = <0>;
@@ -837,6 +869,9 @@
 			interrupt-names = "intrq", "msi", "pme";
 			interrupts = <58>, <59>, <60>;
 			ports-implemented = <0x1>;
+			clocks = <&d0_clock EIC7700_CLK_HSP_ACLK>,
+					<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
+			clock-names = "aclk", "cfg_clk";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_SATA_ARSTN>;
 			reset-names = "apb";
 			#size-cells = <2>;
@@ -896,9 +931,10 @@
 			status = "disabled";
 			numa-node-id = <0>;
 			dma-noncoherent;
+			power-domains = <&d0_pmu EIC770X_PD_PCIE>;
 		};
 
-		ssi0: spi@50810000 {
+		ssi0: spi1@50810000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -915,7 +951,7 @@
 			dma-noncoherent;
 		};
 
-		ssi1: spi@50814000 {
+		ssi1: spi2@50814000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -932,7 +968,7 @@
 			dma-noncoherent;
 		};
 
-		bootspi: spi@51800000 {
+		bootspi: spi0@51800000 {
 			compatible = "eswin,bootspi";
 			reg = <0x0 0x51800000 0x0 0x8000>,
 				<0x0 0x5c000000 0x0 0x8000>;
@@ -958,8 +994,11 @@
 			interrupts = <79>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>;
 			assigned-clock-rates = <200000000>;
-			clocks = <&d0_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>, <&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
-			clock-names = "clk_xin", "clk_ahb";
+			clocks = <&d0_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>,
+					<&d0_clock EIC7700_CLK_HSP_CFG_CLK>,
+					<&d0_clock EIC7700_CLK_HSP_ACLK>,
+					<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
+			clock-names = "clk_xin", "clk_ahb", "aclk", "cfg_clk";
 			clock-output-names = "emmc_cardclock";
 			#clock-cells = <0>;
 
@@ -969,7 +1008,6 @@
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_EMMC_ARSTN>;
 			reset-names = "txrx_rst", "phy_rst", "prstn", "arstn";
 
-			core-clk-reg = <0x51828160>;
 			disable-cqe-dcmd;
 			bus-width = <8>;
 			non-removable;
@@ -998,8 +1036,10 @@
 			clocks =<&d0_clock EIC7700_CLK_HSP_MSHC1_CORE_CLK>,
 				<&d0_clock EIC7700_CLK_HSP_CFG_CLK>,
 				<&d0_clock EIC7700_SPLL2_FOUT3>,
-				<&d0_clock EIC7700_MUX_U_MSHCORE_ROOT_3MUX1_1>;
-			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1";
+				<&d0_clock EIC7700_MUX_U_MSHCORE_ROOT_3MUX1_1>,
+				<&d0_clock EIC7700_CLK_HSP_ACLK>,
+				<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
+			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1", "aclk", "cfg_clk";
 			clock-output-names = "sdio0_cardclock";
 			#clock-cells = <0>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_MSHC1_TXRX_RSTN>,
@@ -1032,8 +1072,10 @@
 			clocks =<&d0_clock EIC7700_CLK_HSP_MSHC2_CORE_CLK>,
 				<&d0_clock EIC7700_CLK_HSP_CFG_CLK>,
 				<&d0_clock EIC7700_SPLL2_FOUT3>,
-				<&d0_clock EIC7700_MUX_U_MSHCORE_ROOT_3MUX1_1>;
-			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1";
+				<&d0_clock EIC7700_MUX_U_MSHCORE_ROOT_3MUX1_1>,
+				<&d0_clock EIC7700_CLK_HSP_ACLK>,
+				<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
+			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1", "aclk", "cfg_clk";
 			clock-output-names = "sdio1_cardclock";
 			#clock-cells = <0>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_MSHC2_TXRX_RSTN>,
@@ -1079,10 +1121,10 @@
 					 <&d0_reset VD_RST_CTRL SW_VD_CFG_RSTN>,
 					 <&d0_reset VD_RST_CTRL SW_VD_AXI_RSTN>;
 			reset-names = "axi", "cfg", "moncfg", "jd_cfg", "jd_axi", "vd_cfg", "vd_axi";
-			eswin,syscfg = <&d0_sys_con 0x0 0x4>;
 			operating-points-v2 = <&vdec_opp_table>;
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <1000>; /*TBD*/
+			power-domains = <&d0_pmu EIC770X_PD_CODEC>;
 			vcmd-core = <0 0x6c>;
 			axife-core = <0x200 0x100>;
 			vdec-core = <0x800 0xc00>;
@@ -1131,10 +1173,10 @@
 					 <&d0_reset VE_RST_CTRL SW_VE_CFG_RSTN>,
 					 <&d0_reset VE_RST_CTRL SW_VE_AXI_RSTN>;
 			reset-names = "axi", "cfg", "moncfg", "je_cfg", "je_axi", "ve_cfg", "ve_axi";
-			eswin,syscfg = <&d0_sys_con 0x0 0x4>;
 			operating-points-v2 = <&venc_opp_table>;
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <1000>; /*TBD*/
+			power-domains = <&d0_pmu EIC770X_PD_CODEC>;
 			vcmd-core = <0 0x6c>;
 			axife-core = <0x2000 0x7d0>;
 			venc-core = <0x1000 0x87c>;
@@ -1183,24 +1225,42 @@
 			dma-noncoherent;
 		};
 
-		/*mailbox between u84 & lpcpu*/
+		/*mailbox-2 between u84 & lpcpu*/
 		d0_mbox1: mbox@50a20000 {
 			compatible = "eswin,win2030-mailbox";
-			reg = <0 ESWIN_MAILBOX_U84_TO_LPCPU_REG_BASE 0 0x10000>,
-				  <0 ESWIN_MAILBOX_LPCPU_TO_U84_REG_BASE 0 0x10000>;
+			reg = <0 ESWIN_MAILBOX_U84_TO_LPCPU_REG_BASE0 0 0x10000>,
+				  <0 ESWIN_MAILBOX_U84_TO_LPCPU_REG_BASE0 0 0x10000>;
 			interrupt-parent = <&plic0>;
-			interrupts = <119>;
+			interrupts = <118>;
 			#mbox-cells = <1>;
-			clocks = <&d0_clock EIC7700_CLK_MAILBOX_2>,
-				<&d0_clock EIC7700_CLK_MAILBOX_3>;
-			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
-			resets = <&d0_reset MBOX_RST_CTRL SW_MBOX_RST_N_2>,
-				<&d0_reset MBOX_RST_CTRL SW_MBOX_RST_N_3>;
-			reset-names = "rst", "rst_device";
+			clocks = <&d0_clock EIC7700_CLK_MAILBOX_2>;
+			clock-names = "pclk_mailbox_host";
+			resets = <&d0_reset MBOX_RST_CTRL SW_MBOX_RST_N_2>;
+			reset-names = "rst";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_LPCPU_IRQ_BIT>;
 			numa-node-id = <0>;
 			dma-noncoherent;
+			wakeup-source;
+		};
+
+		/*mailbox-3 between u84 & lpcpu*/
+		d0_mbox8: mbox@50a30000 {
+			compatible = "eswin,win2030-mailbox";
+			reg = <0 ESWIN_MAILBOX_U84_TO_LPCPU_REG_BASE1 0 0x10000>,
+				  <0 ESWIN_MAILBOX_U84_TO_LPCPU_REG_BASE1 0 0x10000>;
+			interrupt-parent = <&plic0>;
+			interrupts = <119>;
+			#mbox-cells = <1>;
+			clocks = <&d0_clock EIC7700_CLK_MAILBOX_3>;
+			clock-names = "pclk_mailbox_host";
+			resets = <&d0_reset MBOX_RST_CTRL SW_MBOX_RST_N_3>;
+			reset-names = "rst";
+			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
+			irq-bit  = <ESWIN_MAIBOX_LPCPU_IRQ_BIT>;
+			numa-node-id = <0>;
+			dma-noncoherent;
+			wakeup-source;
 		};
 
 		/*mailbox between u84 & npu_0*/
@@ -1327,7 +1387,7 @@
 			compatible = "eswin,win2030-wdt";
 
 			max-timeout-sec = <60>;
-			mboxes = <&d0_mbox1 0>;
+			mboxes = <&d0_mbox8 0>;
 			mbox-names = "u84_lpcpu";
 			numa-node-id = <0>;
 			status = "okay";
@@ -1381,7 +1441,7 @@
 			pwm-minimum-period = <1000>;
 			pwms = <&pwm0 0 100000 0>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_die0_fan_tach_default &pinctrl_die0_pwm0_default>;
+			pinctrl-0 = <&pinctrl_die0_fan_tach_default>;
 			status = "disabled";
 			label = "fan_control";
 			numa-node-id = <0>;
@@ -1400,6 +1460,7 @@
 			interrupts = <105>;
 			interrupt-parent = <&plic0>;
 			numa-node-id = <0>;
+			i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c1: i2c@50960000 {
 			compatible = "snps,designware-i2c";
@@ -1414,6 +1475,7 @@
 			interrupts = <106>;
 			interrupt-parent = <&plic0>;
 			numa-node-id = <0>;
+			i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c2: i2c@50970000 {
 				compatible = "snps,designware-i2c";
@@ -1428,6 +1490,7 @@
 				interrupts = <107>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c3: i2c@50980000 {
 				compatible = "snps,designware-i2c";
@@ -1442,6 +1505,7 @@
 				interrupts = <108>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c4: i2c@50990000 {
 				compatible = "snps,designware-i2c";
@@ -1456,6 +1520,7 @@
 				interrupts = <109>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c5: i2c@509a0000 {
 				compatible = "snps,designware-i2c";
@@ -1470,6 +1535,7 @@
 				interrupts = <110>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c6: i2c@509b0000 {
 				compatible = "snps,designware-i2c";
@@ -1484,6 +1550,7 @@
 				interrupts = <111>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c7: i2c@509c0000 {
 				compatible = "snps,designware-i2c";
@@ -1498,6 +1565,7 @@
 				interrupts = <112>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c8: i2c@509d0000 {
 				compatible = "snps,designware-i2c";
@@ -1512,6 +1580,7 @@
 				interrupts = <113>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_i2c9: i2c@509e0000 {
 				compatible = "snps,designware-i2c";
@@ -1526,6 +1595,7 @@
 				interrupts = <114>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_aon_i2c0: i2c@51830000 {
 				compatible = "snps,designware-i2c";
@@ -1549,6 +1619,7 @@
 				*/
 				dmas = <&d0_aon_dmac 10 41 0xff>, <&d0_aon_dmac 11 42 0xff>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		d0_aon_i2c1: i2c@51838000 {
 				compatible = "snps,designware-i2c";
@@ -1563,6 +1634,7 @@
 				interrupts = <291>;
 				interrupt-parent = <&plic0>;
 				numa-node-id = <0>;
+				i2c-sda-hold-time-ns = <0x40>;
 		};
 		pinctrl: pinctrl@0x51600080 {
 			compatible = "eswin,eic7x-pinctrl";
@@ -1802,13 +1874,15 @@
 			eswin,syscfg = <&d0_sys_con 0x3c0>;
 			interrupt-parent = <&plic0>;
 			interrupts = <292>;
-			clocks = <&d0_clock EIC7700_CLK_CLK_RTC>;
-			clock-names = "rtcclk";
+			clocks = <&d0_clock EIC7700_CLK_CLK_RTC>,
+				    <&d0_clock EIC7700_CLK_CLK_RTC_CFG>;
+			clock-names = "rtcclk", "cfgclk";
 			clock-frequency = <15625>;
 			resets = <&d0_reset RTC_RST_CTRL SW_RTC_RSTN>;
 			reset-names = "rtcrst";
 			status = "disabled";
 			numa-node-id = <0>;
+			wakeup-source;
 		};
 
 		d0_i2s0: i2s0@50200000 {
@@ -1894,6 +1968,7 @@
 
 		video_output: display-subsystem@0 {
 			compatible = "eswin,display-subsystem";
+			power-domains = <&d0_pmu EIC770X_PD_VO>;
 			numa-node-id = <0>;
 			ports = <&dc_out>;
 			dma-noncoherent;
@@ -2010,15 +2085,20 @@
 			phy_reg = <0x0 0x504a0000 0x0 0x10000>;
 			#address-cells = <2>;
 			#size-cells = <2>;
-			clocks =<&d0_clock EIC7700_GATE_HSP_USB0_SUSPEND_CLK>,
-					<&d0_clock EIC7700_CLK_HSP_ACLK>,
+			clocks = <&d0_clock EIC7700_CLK_HSP_ACLK>,
 					<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
-			clock-names = "suspend","aclk", "cfg_clk";
+			clock-names = "aclk", "cfg_clk";
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x800 0x808 0x83c 0x840>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_USB0_VAUX_RSTN>;
 			reset-names = "vaux";
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pinctrl_usb0_pwren_default>;
+			pinctrl-1 = <&pinctrl_gpio42_default>;
+			power-gpios = <&portb 10 GPIO_ACTIVE_LOW>;
 			ranges;
+			wakeup-source;
 			numa-node-id = <0>;
+			fixed-rx-equalization = <2>;
 			status = "disabled";
 			d0_usbdrd_dwc3_0: dwc3@50480000 {
 				compatible = "snps,dwc3";
@@ -2051,15 +2131,20 @@
 			phy_reg = <0x0 0x504b0000 0x0 0x10000>;
 			#address-cells = <2>;
 			#size-cells = <2>;
-			clocks =<&d0_clock EIC7700_GATE_HSP_USB1_SUSPEND_CLK>,
-					<&d0_clock EIC7700_CLK_HSP_ACLK>,
+			clocks = <&d0_clock EIC7700_CLK_HSP_ACLK>,
 					<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
-			clock-names = "suspend","aclk", "cfg_clk";
+			clock-names = "aclk", "cfg_clk";
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x900 0x908 0x93c 0x940>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_USB1_VAUX_RSTN>;
 			reset-names = "vaux";
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&pinctrl_usb1_pwren_default>;
+			pinctrl-1 = <&pinctrl_gpio43_default>;
+			power-gpios = <&portb 11 GPIO_ACTIVE_LOW>;
 			ranges;
+			wakeup-source;
 			numa-node-id = <0>;
+			fixed-rx-equalization = <2>;
 			status = "disabled";
 			d0_usbdrd_dwc3_1: dwc3@50490000 {
 				compatible = "snps,dwc3";
@@ -2138,6 +2223,46 @@
 				numa-node-id = <0>;
 			};
 
+			vvcam_isp_0: vvcam_isp@0 {
+        		compatible = "verisilicon,isp-v4l2";
+        		id = <0>;
+				clocks = <&d0_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DVP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_PHY_CFG>,
+						<&d0_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				clock-names = "isp", "dvp", "phy_cfg", "phy_txclkesc", "shutter0";
+				resets = <&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
+						<&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>;
+				reset-names = "isp0", "dvp";
+				iommus = <&smmu0 WIN2030_SID_ISP0>;
+				tbus = <WIN2030_TBUID_ISP>;
+				eswin,vi_top_csr = <&vi_top_csr 0x1000 0x40>;
+				power-domains = <&d0_pmu EIC770X_PD_VI>;
+				numa-node-id = <0>;
+				dma-noncoherent;
+        	};
+
+			vvcam_isp_1: vvcam_isp@1 {
+				compatible = "verisilicon,isp-v4l2";
+				id = <1>;
+				clocks = <&d0_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DVP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_PHY_CFG>,
+						<&d0_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				clock-names = "isp", "dvp", "phy_cfg", "phy_txclkesc", "shutter0";
+				resets = <&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
+						<&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>;
+				reset-names = "isp1", "dvp";
+				iommus = <&smmu0 WIN2030_SID_ISP1>;
+				tbus = <WIN2030_TBUID_ISP>;
+				eswin,vi_top_csr = <&vi_top_csr 0x1004 0x40>;
+				power-domains = <&d0_pmu EIC770X_PD_VI>;
+				numa-node-id = <0>;
+				dma-noncoherent;
+			};
+
 			isp_0: isp@51000000 {
 				compatible = "esw,win2030-isp";
 				reg = <0x0 0x51000000 0x0 0x10000>;
@@ -2146,9 +2271,6 @@
 				id = <0>;
 				#size-cells = <2>;
 				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
-				iommus = <&smmu0 WIN2030_SID_ISP0>;
-				tbus = <WIN2030_TBUID_ISP>;
-				eswin,vi_top_csr = <&vi_top_csr 0x1000>;
 				numa-node-id = <0>;
 				dma-noncoherent;
 			};
@@ -2161,27 +2283,20 @@
 				id = <1>;
 				#size-cells = <2>;
 				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
-				iommus = <&smmu0 WIN2030_SID_ISP1>;
-				tbus = <WIN2030_TBUID_ISP>;
-				eswin,vi_top_csr = <&vi_top_csr 0x1004>;
 				numa-node-id = <0>;
 				dma-noncoherent;
 			};
 
 			dewarp: dewarp@51020000 {
 				compatible = "eswin,dewarp";
-				clocks = <&d0_clock EIC7700_CLK_VI_ACLK>,
-						<&d0_clock EIC7700_CLK_VI_CFG_CLK>,
-						<&d0_clock EIC7700_CLK_VI_DIG_DW_CLK>,
+				clocks = <&d0_clock EIC7700_CLK_VI_DIG_DW_CLK>,
 						<&d0_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
 						<&d0_clock EIC7700_MUX_U_VI_DW_ROOT_2MUX1>,
 						<&d0_clock EIC7700_SPLL0_FOUT1>,
 						<&d0_clock EIC7700_VPLL_FOUT1>;
-				clock-names = "aclk", "cfg_clk", "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
-				resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-						<&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-						<&d0_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
-				reset-names = "axi", "cfg", "dwe";
+				clock-names = "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
+				resets = <&d0_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
+				reset-names = "dwe";
 
 				operating-points-v2 = <&vi_opp_table>;
 				#cooling-cells = <2>;
@@ -2192,7 +2307,8 @@
 				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 				iommus = <&smmu0 WIN2030_SID_DW>;
 				tbus = <WIN2030_TBUID_DW>;
-				eswin,vi_top_csr = <&vi_top_csr 0x1008>;
+				power-domains = <&d0_pmu EIC770X_PD_VI>;
+				eswin,vi_top_csr = <&vi_top_csr 0x1008 0x40>;
 				reg = <0x0 0x51020000 0x0 0xc00>, <0x0 0x51020c00 0x0 0x120>;
 				numa-node-id = <0>;
 				dma-noncoherent;
@@ -2203,8 +2319,14 @@
 				reg = <0x0 0x51034000 0x0 0x8000>;
 				reg-names = "dvp2axi_regs";
 				interrupt-parent = <&plic0>;
-				eswin,syscrg_csr = <&d0_sys_crg>;
-				eswin,vi_top_csr = <&vi_top_csr 0x100c>;
+				eswin,vi_top_csr = <&vi_top_csr 0x100c 0x40>;
+				clocks = <&d0_clock EIC7700_CLK_VI_DVP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_PHY_CFG>,
+						<&d0_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				clock-names = "dvp", "phy_cfg", "phy_txclkesc", "shutter0";
+				resets = <&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>;
+				reset-names = "dvp";
 				interrupts = <368 369 370 371 372 373 374 375>;
 				interrupt-names = "dvp0_frame_int", "dvp1_frame_int", "dvp2_frame_int",
 									"dvp3_frame_int", "dvp4_frame_int", "dvp5_frame_int",
@@ -2214,6 +2336,8 @@
 				#size-cells = <2>;
 				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 				iommus = <&smmu0 WIN2030_SID_DVP>;
+				tbus = <WIN2030_TBUID_DW>;
+				power-domains = <&d0_pmu EIC770X_PD_VI>;
 				status = "disabled";
 			};
 

@@ -36,4 +36,3 @@ obj-y					+= allwinner/	\
 					   tegra/	\
 					   ti/		\
 					   xilinx/	\
-					   eswin/

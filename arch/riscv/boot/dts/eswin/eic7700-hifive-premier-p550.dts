@@ -29,7 +29,6 @@
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
-//#include "eic7700-dvb-dsi-panel.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -126,13 +125,6 @@
 		regulator-max-microvolt = <1800000>;
 	};
 
-	reg_vcc1v8: vcc1v8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vcc1v8";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
-
 };
 
 &d0_reset {
@@ -140,6 +132,7 @@
 };
 
 &d0_pmu {
+	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
 
@@ -249,6 +242,9 @@
 
 &d0_lpcpu {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio6_default>;
+	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 };
 
 &pcie {
@@ -415,7 +411,7 @@
 };
 
 &isp_1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dewarp {
@@ -514,7 +510,7 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
-	rt_equalization;
+	fixed-rx-equalization = <4>;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -525,7 +521,7 @@
 
 &d0_usbdrd3_1 {
 	status = "okay";
-	rt_equalization;
+	fixed-rx-equalization = <4>;
 };
 
 &d0_usbdrd_dwc3_1 {
@@ -776,6 +772,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	pwm-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &pvt0 {
@@ -809,7 +809,7 @@
 &pinctrl {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio6_default &pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default
+	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default
 			&pinctrl_gpio10_default &pinctrl_gpio17_default &pinctrl_gpio35_default &pinctrl_gpio36_default
 			&pinctrl_gpio37_default &pinctrl_gpio38_default &pinctrl_gpio39_default &pinctrl_gpio40_default
 			&pinctrl_gpio41_default &pinctrl_gpio46_default &pinctrl_gpio52_default
