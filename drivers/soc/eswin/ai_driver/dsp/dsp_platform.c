@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * ESWIN PCIe root complex driver
+ * ESWIN AI driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  * SPDX-License-Identifier: GPL-2.0
@@ -452,7 +452,7 @@ static int dsp_send_msg_by_mbx(struct es_dsp *dsp, void *data)
 
 	tmp_data = (u32)(msg->data >> 32) | BIT(31);
 	writel(tmp_data, dsp->mbox_tx_base + ESWIN_MBOX_WR_DATA1);
-	// 写中断enable bit.
+	// write interrupt enable bit.
 
 	writel(dsp->mbox_irq_bit, dsp->mbox_tx_base + ESWIN_MBOX_INT_CTRL);
 
@@ -497,8 +497,8 @@ int es_dsp_send_irq(struct es_dsp_hw *hw, dsp_request_t *req)
 }
 
 /*
-	获取elf段对应的cpu虚拟地址
-*/
+ *	Obtain the CPU virtual address corresponding to the ELF segment
+ */
 static void *translate_to_cpu_va(struct es_dsp *dsp, Elf32_Phdr *phdr)
 {
 	if ((long)dsp->firmware_addr > (long)dsp->firmware_dev_addr) {
@@ -532,8 +532,8 @@ static phys_addr_t translate_to_cpu_pa(struct es_dsp *dsp, Elf32_Phdr *phdr)
 }
 
 /*
-	将elf段加载到DDR
-*/
+ * Load the ELF segment to DDR.
+ */
 static int load_segment_to_sysmem(struct es_dsp *dsp, Elf32_Phdr *phdr)
 {
 	void *va = translate_to_cpu_va(dsp, phdr);
@@ -543,8 +543,7 @@ static int load_segment_to_sysmem(struct es_dsp *dsp, Elf32_Phdr *phdr)
 }
 
 /*
- * 将elf段加载到DSP local memory
- *
+ * Load the ELF segment to DSP local memory
  */
 static int load_segment_to_iomem(struct es_dsp *dsp, Elf32_Phdr *phdr)
 {

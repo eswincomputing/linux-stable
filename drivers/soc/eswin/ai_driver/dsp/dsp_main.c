@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * ESWIN PCIe root complex driver
+ * ESWIN AI driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  * SPDX-License-Identifier: GPL-2.0
@@ -517,8 +517,9 @@ static void dsp_task_work(struct work_struct *work)
 	spin_unlock_irqrestore(&dsp->complete_lock, flags);
 }
 
-/* 1. 如果任务已经执行过了prepare，那么就给dsp发送一个消息，去执行eval;
- * 2. 如果任务没有执行，那么就发送消息，让dsp core去执行prepare和eval，中间prepare执行后，不用等待。
+/* 1. If the task has already executed prepare, then send a message to DSP to execute eval;
+ * 2. If the task has not been executed, then send a message to let the DSP core execute prepare and eval. 
+ *    After prepare is executed, there is no need to wait.
  */
 
 int start_eval(struct device *dsp_dev, dsp_request_t *req)
@@ -535,11 +536,12 @@ void dsp_set_flat_func(struct es_dsp_flat1_desc *flat, u64 handle)
 	memcpy((void *)&flat->funcs, (void *)&op->funcs, sizeof(op->funcs));
 }
 EXPORT_SYMBOL(dsp_set_flat_func);
-/* 把任务提交到dsp的任务队列上排队;
- * 1. 如果没有任务在运行，那么就运行该任务的prepare，并且告诉dsp core，需要在prepare进行等待，但是prepare不需要发送通知。
- * 2. 如果有任务在运行，那么就是挂接。
- */
 
+/* Submit the task to the DSP's task queue:
+ * 1. If no task is running, then run the prepare of this task and inform the DSP core to wait during prepare, 
+ *    but do not send a notification after prepare.
+ * 2. If a task is running, then put this task on hold.
+ */
 int submit_task(struct device *dsp_dev, dsp_request_t *req)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dsp_dev);
@@ -588,10 +590,9 @@ struct es_dsp *es_proc_get_dsp(int dieid, int dspid)
 /*
  * input: die_id, dspId, subscrib.
  * output: dsp_dev.
- * 注意: 很可能是, npu调用这个接口的时候, 我们的dsp驱动的probe还没有调用.这是可能的.
- * 所以需要返回EPROBE_DEFED.
- * */
-
+ * Note: It is very likely that when the NPU calls this interface, our DSP driver's probe has not yet been called. 
+ * This is possible. Therefore, it is necessary to return EPROBE_DEFER. 
+ */
 static int check_device_node_status(u32 die_id, u32 dspid)
 {
 	int ret;
