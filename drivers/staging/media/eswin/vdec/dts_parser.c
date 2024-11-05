@@ -1,3 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN video decoder driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
 #include <linux/kernel.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
@@ -15,8 +35,8 @@ u8 numa_id_array[4] = {0};
 
 static int vdec_device_node_scan(unsigned char *compatible)
 {
-	struct property *prop;
-	struct device_node *np;
+	struct property *prop = NULL;
+	struct device_node *np = NULL;
 
 	np = of_find_compatible_node(NULL, NULL, compatible);
 	if (!np) {
@@ -67,7 +87,7 @@ int vdec_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 	int jpeg = 0;
 	static int subsys_id = 0;
 	static int core_index = 0;
-	struct fwnode_handle *child;
+	struct fwnode_handle *child = NULL;
 	unsigned int vcmd_addr[2] = {0}, axife_addr[2] = {0}, vdec_addr[2] = {0};
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "vcmd-core", vcmd_addr, 2)) {

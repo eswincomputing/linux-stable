@@ -5,6 +5,24 @@
  * Copyright (C) 2013-2015 Mentor Graphics Inc.
  * Copyright (C) 2011-2013 Freescale Semiconductor, Inc.
  * Copyright (C) 2010, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+ *****************************************************************************
+ * ESWIN hdmi driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -311,7 +329,9 @@ static void repo_hpd_event(struct work_struct *p_work)
 	mutex_unlock(&hdmi->mutex);
 
 	if (hdmi->bridge.dev) {
-		drm_helper_hpd_irq_event(hdmi->bridge.dev);
+		if (drm_helper_hpd_irq_event(hdmi->bridge.dev)) {
+			dev_info(hdmi->dev, "hpd event report status:%d\n", hdmi->last_connector_result);
+		}
 	}
 
 	msleep(150);
@@ -588,7 +608,7 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 		 */
 		return -EOPNOTSUPP;
 
-	dev_dbg(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
+	dev_vdbg(hdmi->dev, "xfer: num: %d, addr: %#x\n", num, addr);
 
 	for (i = 0; i < num; i++) {
 		if (msgs[i].len == 0) {
@@ -616,8 +636,9 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 	i2c->is_segment = false;
 
 	for (i = 0; i < num; i++) {
-		dev_dbg(hdmi->dev, "xfer: num: %d/%d, len: %d, flags: %#x\n",
+		dev_vdbg(hdmi->dev, "xfer: num: %d/%d, len: %d, flags: %#x\n",
 			i + 1, num, msgs[i].len, msgs[i].flags);
+		udelay(100);
 		if (msgs[i].addr == DDC_SEGMENT_ADDR && msgs[i].len == 1) {
 			i2c->is_segment = true;
 			hdmi_writeb(hdmi, DDC_SEGMENT_ADDR, HDMI_I2CM_SEGADDR);
@@ -632,6 +653,7 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 		}
 		if (ret < 0) {
 			dev_info(hdmi->dev, "i2c transfer fail\n");
+			udelay(200 * 1000);
 			break;
 		}
 	}
@@ -2747,6 +2769,8 @@ static enum drm_connector_status dw_hdmi_detect(struct dw_hdmi *hdmi)
 
 	result = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
 	hdmi->last_connector_result = result;
+
+	dev_dbg(hdmi->dev, "detect connector status:%d\n", result);
 
 	return result;
 }

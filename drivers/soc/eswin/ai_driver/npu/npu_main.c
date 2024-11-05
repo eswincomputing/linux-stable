@@ -1,9 +1,24 @@
-// Copyright © 2023 ESWIN. All rights reserved.
-//
-// Beijing ESWIN Computing Technology Co., Ltd and its affiliated companies ("ESWIN") retain
-// all intellectual property and proprietary rights in and to this software. Except as expressly
-// authorized by ESWIN, no part of the software may be released, copied, distributed, reproduced,
-// modified, adapted, translated, or created derivative work of, in whole or in part.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN AI driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Lu XiangFeng <luxiangfeng@eswincomputing.com>
+ */
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -309,6 +324,8 @@ struct nvdla_device *get_nvdla_dev(int i)
 	return static_nvdla_dev[i];
 }
 
+static int32_t  npu_probe_result = 0;
+
 static int32_t edla_probe(struct platform_device *pdev)
 {
 	int32_t err = 0;
@@ -511,6 +528,7 @@ err_iomap_emission:
 	release_mem_region(E31_EMISSION_DTIM_BASE, E31_EMISSION_DTIM_SIZE);
 err_mem0:
 	npu_put_dt_resources(nvdla_dev);
+	npu_probe_result = err;
 	return err;
 }
 
@@ -703,6 +721,11 @@ static int __init npu_modules_init(void)
 	if (err < 0) {
 		dla_error("NPU:platform_register_drivers failed!err=%d\n", err);
 		return err;
+	}
+	if (npu_probe_result < 0) {
+		dla_error("NPU:npu_probe_result failed:%d\n", npu_probe_result);
+		platform_driver_unregister(&edla_driver);
+		return npu_probe_result;
 	}
 	err = npu_platform_init();
 	if (err) {

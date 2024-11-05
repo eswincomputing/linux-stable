@@ -31,7 +31,8 @@ ccflags-y := -I$(src)/
 ccflags-y += -I$(srctree)/drivers/soc/eswin
 ccflags-y += -I$(srctree)/drivers/memory/eswin/es_dev_buf/include/linux
 ccflags-y += -I$(srctree)/drivers/memory/eswin/es_iommu_rsv/include/linux
-ccflags-y += -I$(srctree)/$(src)/../include
+ccflags-y += -I$(srctree)/$(src)/../common
+ccflags-y += -I$(srctree)/$(src)/../common/devices
 
 obj-$(CONFIG_ESWIN_DSP) += eic7700_dsp.o
 
@@ -42,10 +43,11 @@ eic7700_dsp-y += dsp_platform_sim.o
 
 else
 ccflags-y +=-I
-eic7700_dsp-y += dsp_platform.o dsp_sram.o dsp_firmware.o \
+eic7700_dsp-y += dsp_platform.o dsp_sram.o dsp_firmware.o dsp_pool.o \
 				mloader/dsp_load_operator.o \
 				mloader/xt_mld_loader.o \
 				mloader/xt_mld_relocate.o
+
 
 endif
 

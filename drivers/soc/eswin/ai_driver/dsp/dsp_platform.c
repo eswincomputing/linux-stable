@@ -1,9 +1,24 @@
-// Copyright © 2023 ESWIN. All rights reserved.
-//
-// Beijing ESWIN Computing Technology Co., Ltd and its affiliated companies ("ESWIN") retain
-// all intellectual property and proprietary rights in and to this software. Except as expressly
-// authorized by ESWIN, no part of the software may be released, copied, distributed, reproduced,
-// modified, adapted, translated, or created derivative work of, in whole or in part.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN AI driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Lu XiangFeng <luxiangfeng@eswincomputing.com>
+ */
 
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -30,6 +45,7 @@
 #include "dsp_firmware.h"
 #include "dsp_ioctl.h"
 #include "dsp_main.h"
+#include "dsp_pool.h"
 
 #define DRIVER_NAME "eswin-dsp"
 
@@ -99,7 +115,7 @@ struct es_dsp_hw {
 	struct regmap *con_map;
 	struct clk *aclk;
 	struct es_dsp_subsys *subsys;
-	struct dma_pool *flat_dma_pool;
+	struct dsp_pool *flat_dma_pool;
 
 	dma_addr_t pts_iova;
 	u32 pts_iova_size;
@@ -248,14 +264,25 @@ int es_dsp_clk_disable(struct es_dsp *dsp)
 {
 	int ret;
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
+	bool enabled;
+	u32 val;
+
 	ret = es_dsp_core_clk_disable(dsp);
 	if (ret) {
 		dsp_debug("%s, %d, dsp core clk disable err, ret=%d.\n",
 			  __func__, __LINE__, ret);
 		return ret;
 	}
+	enabled = __clk_is_enabled(hw->subsys->aclk);
+	regmap_read(hw->map, REG_OFFSET_USR_CONF0, &val);
+	dsp_debug("%s, %d, enabled=%d, val=0x%x.\n", __func__, __LINE__,
+		  enabled, val);
 
-	//clk_disable_unprepare(hw->aclk);
+	if ((enabled == true && val == 0)) {
+		dsp_debug("%s, %d, disable aclk.\n", __func__, __LINE__);
+		clk_disable_unprepare(hw->subsys->aclk);
+	}
+	clk_disable_unprepare(hw->subsys->cfg_clk);
 	dsp_debug("%s, %d, done.\n", __func__, __LINE__);
 	return ret;
 }
@@ -263,16 +290,27 @@ int es_dsp_clk_enable(struct es_dsp *dsp)
 {
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 	int ret;
-	if (!__clk_is_enabled(hw->aclk)) {
-		ret = clk_prepare_enable(hw->aclk);
+	bool enabled;
+
+	ret = clk_prepare_enable(hw->subsys->cfg_clk);
+	if (ret) {
+		dev_err(dsp->dev, "failed to enable cfg clk, ret=%d.\n", ret);
+		return ret;
+	}
+	enabled = __clk_is_enabled(hw->subsys->aclk);
+	if (!enabled) {
+		ret = clk_prepare_enable(hw->subsys->aclk);
 		if (ret) {
 			dev_err(dsp->dev, "failed to enable aclk: %d\n", ret);
 			return ret;
 		}
 	}
+
 	ret = es_dsp_core_clk_enable(dsp);
 	if (ret) {
-		clk_disable_unprepare(hw->aclk);
+		if (!enabled) {
+			clk_disable_unprepare(hw->subsys->aclk);
+		}
 		return ret;
 	}
 
@@ -346,6 +384,28 @@ void es_dsp_release(struct es_dsp_hw *hw)
 	return;
 }
 
+int wait_for_current_tsk_done(struct es_dsp *dsp)
+{
+	const int sleep_retries = 5;
+	const int wake_retries = 20;
+	int i, j;
+
+	for (i = 0; i < sleep_retries; i++) {
+		for (j = 0; j < wake_retries; j++) {
+			if (dsp->current_task == NULL) {
+				break;
+			}
+			usleep_range(100, 5000);
+		}
+
+		if (j < wake_retries) {
+			return 0;
+		}
+	}
+	dsp_err("%s, %d, Timeout for wait current task done.\n", __func__, __LINE__);
+	return -ETIMEDOUT;
+}
+
 static int check_dsp_fw_state(struct es_dsp *dsp)
 {
 	struct dsp_fw_state_t *dsp_state = (struct dsp_fw_state_t *)dsp->dsp_fw_state_base;
@@ -392,7 +452,7 @@ static int dsp_send_msg_by_mbx(struct es_dsp *dsp, void *data)
 
 	tmp_data = (u32)(msg->data >> 32) | BIT(31);
 	writel(tmp_data, dsp->mbox_tx_base + ESWIN_MBOX_WR_DATA1);
-	// 写中断enable bit.
+	// write interrupt enable bit.
 
 	writel(dsp->mbox_irq_bit, dsp->mbox_tx_base + ESWIN_MBOX_INT_CTRL);
 
@@ -437,8 +497,8 @@ int es_dsp_send_irq(struct es_dsp_hw *hw, dsp_request_t *req)
 }
 
 /*
-	获取elf段对应的cpu虚拟地址
-*/
+ *	Obtain the CPU virtual address corresponding to the ELF segment
+ */
 static void *translate_to_cpu_va(struct es_dsp *dsp, Elf32_Phdr *phdr)
 {
 	if ((long)dsp->firmware_addr > (long)dsp->firmware_dev_addr) {
@@ -472,8 +532,8 @@ static phys_addr_t translate_to_cpu_pa(struct es_dsp *dsp, Elf32_Phdr *phdr)
 }
 
 /*
-	将elf段加载到DDR
-*/
+ * Load the ELF segment to DDR.
+ */
 static int load_segment_to_sysmem(struct es_dsp *dsp, Elf32_Phdr *phdr)
 {
 	void *va = translate_to_cpu_va(dsp, phdr);
@@ -483,8 +543,7 @@ static int load_segment_to_sysmem(struct es_dsp *dsp, Elf32_Phdr *phdr)
 }
 
 /*
- * 将elf段加载到DSP local memory
- *
+ * Load the ELF segment to DSP local memory
  */
 static int load_segment_to_iomem(struct es_dsp *dsp, Elf32_Phdr *phdr)
 {
@@ -1013,14 +1072,15 @@ void dsp_free_flat_mem(struct es_dsp *dsp, u32 size, void *cpu,
 		       dma_addr_t dma_addr)
 {
 	struct es_dsp_hw *hw = dsp->hw_arg;
-	dma_pool_free(hw->flat_dma_pool, cpu, dma_addr);
+	//dma_pool_free(hw->flat_dma_pool, cpu, dma_addr);
+	dsp_pool_free(hw->flat_dma_pool, cpu, dma_addr);
 }
 
 void *dsp_alloc_flat_mem(struct es_dsp *dsp, u32 dma_len, dma_addr_t *dma_addr)
 {
 	struct es_dsp_hw *hw = dsp->hw_arg;
 	void *flat = NULL;
-	flat = dma_pool_alloc(hw->flat_dma_pool, GFP_KERNEL, dma_addr);
+	flat = dsp_pool_alloc(hw->flat_dma_pool, GFP_KERNEL, dma_addr);
 	return flat;
 }
 
@@ -1065,18 +1125,19 @@ int es_dsp_get_subsys(struct platform_device *pdev, struct es_dsp *dsp)
 }
 
 
-
 int es_dsp_map_resource(struct es_dsp *dsp)
 {
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 	int ret;
 	unsigned long base;
 
-	hw->flat_dma_pool = dma_pool_create("dsp_flat_dma", dsp->dev,
-					    sizeof(struct es_dsp_flat1_desc) +
+	hw->flat_dma_pool = dsp_pool_create(dsp->dev, sizeof(struct es_dsp_flat1_desc) +
 						    sizeof(es_dsp_buffer) *
-							    BUFFER_CNT_MAXSIZE,
-					    64, 0);
+							    BUFFER_CNT_MAXSIZE, 0x200000, 64, 0);//dma_pool_create("dsp_flat_dma", dsp->dev,
+	//				    sizeof(struct es_dsp_flat1_desc) +
+	//					    sizeof(es_dsp_buffer) *
+	//						    BUFFER_CNT_MAXSIZE,
+	//				    64, 0);
 	if (!hw->flat_dma_pool) {
 		dsp_err("cat not create flat dma pool.\n");
 		ret = -ENOMEM;
@@ -1137,7 +1198,7 @@ int es_dsp_unmap_resource(struct es_dsp *dsp)
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 
 	if (hw->flat_dma_pool != NULL) {
-		dma_pool_destroy(hw->flat_dma_pool);
+		dsp_pool_destroy(hw->flat_dma_pool);
 		hw->flat_dma_pool = NULL;
 	}
 
@@ -1231,6 +1292,7 @@ void dsp_disable_irq(struct es_dsp *dsp)
 	if (dsp->mbox_irq) {
 		disable_irq(dsp->mbox_irq);
 	}
+	synchronize_irq(dsp->mbox_irq);
 }
 
 int dsp_enable_irq(struct es_dsp *dsp)

@@ -1,6 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Eswin Holdings Co., Ltd.
+ * ESWIN drm driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
  */
 
 #include <linux/component.h>
@@ -1147,7 +1163,76 @@ static void vd_connector_destroy(struct drm_connector *connector)
 static enum drm_connector_status
 vd_connector_detect(struct drm_connector *connector, bool force)
 {
-	return connector_status_connected;
+	struct es_virtual_display *vd;
+	enum drm_connector_status status = connector_status_unknown;
+
+	vd = to_virtual_display_with_connector(connector);
+
+	if (vd->enable) {
+		status = connector_status_connected;
+	} else {
+		status = connector_status_disconnected;
+	}
+	return status;
+}
+
+static ssize_t virtual_enable_read(struct file *file, char __user *buf,
+				   size_t count, loff_t *ppos)
+{
+	struct es_virtual_display *vd = file->private_data;
+	char kbuf[16];
+	int len;
+
+	len = snprintf(kbuf, sizeof(kbuf), "%u\n", vd->enable);
+
+	return simple_read_from_buffer(buf, count, ppos, kbuf, len);
+}
+
+static ssize_t virtual_enable_write(struct file *file, const char __user *buf,
+				    size_t count, loff_t *ppos)
+{
+	struct es_virtual_display *vd = file->private_data;
+	char kbuf[16];
+	unsigned long val;
+
+	if (count >= sizeof(kbuf))
+		return -EINVAL;
+
+	if (copy_from_user(kbuf, buf, count))
+		return -EFAULT;
+
+	kbuf[count] = '\0';
+
+	if (kstrtoul(kbuf, 10, &val))
+		return -EINVAL;
+
+	vd->enable = val ? 1 : 0;
+
+	return count;
+}
+
+static const struct file_operations virtual_enable_debugfs_fops = {
+	.owner = THIS_MODULE,
+	.read = virtual_enable_read,
+	.write = virtual_enable_write,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
+static void vd_connector_debugfs_init(struct drm_connector *connector,
+				      struct dentry *root)
+{
+	struct es_virtual_display *vd;
+
+	vd = to_virtual_display_with_connector(connector);
+
+	if (!connector->debugfs_entry) {
+		DRM_WARN("The connector debugsf_entry invalid");
+	} else {
+		debugfs_create_file("enable", 0444, connector->debugfs_entry,
+				    vd, &virtual_enable_debugfs_fops);
+	}
+	DRM_INFO("Creat debugfs file for Vitual dev:%s", connector->name);
 }
 
 static const struct drm_connector_funcs vd_connector_funcs = {
@@ -1157,8 +1242,8 @@ static const struct drm_connector_funcs vd_connector_funcs = {
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.reset = drm_atomic_helper_connector_reset,
+	.debugfs_init = vd_connector_debugfs_init,
 };
-
 static int vd_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm_dev = data;
@@ -1193,8 +1278,8 @@ static int vd_bind(struct device *dev, struct device *master, void *data)
 	connector->interlace_allowed = false;
 	connector->doublescan_allowed = false;
 	connector->dpms = DRM_MODE_DPMS_OFF;
-	connector->polled =
-		DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
+	connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+			    DRM_CONNECTOR_POLL_DISCONNECT;
 	ret = drm_connector_register(connector);
 	if (ret)
 		goto connector_reg_err;

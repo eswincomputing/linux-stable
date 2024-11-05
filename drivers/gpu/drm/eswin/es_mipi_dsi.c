@@ -1,6 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Eswin Holdings Co., Ltd.
+ * ESWIN drm driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
  */
 
 #include <linux/clk.h>
@@ -80,6 +96,8 @@
 #define DSI_TO_CNT_CFG 0x78
 #define HSTX_TO_CNT(p) (((p) & 0xffff) << 16)
 #define LPRX_TO_CNT(p) ((p) & 0xffff)
+
+static bool panel_driver_registed = false;
 
 struct hstt {
 	unsigned int maxfreq;
@@ -647,7 +665,10 @@ static const struct component_ops es_mipi_dsi_ops = {
 
 static int es_mipi_dsi_probe(struct platform_device *pdev)
 {
-	mipi_dsi_driver_register(&es_panel_driver);
+	if(panel_driver_registed == false) {
+		mipi_dsi_driver_register(&es_panel_driver);
+		panel_driver_registed = true;
+	}
 
 	return component_add(&pdev->dev, &es_mipi_dsi_ops);
 }
@@ -655,7 +676,10 @@ static int es_mipi_dsi_probe(struct platform_device *pdev)
 static int es_mipi_dsi_remove(struct platform_device *pdev)
 {
 	DRM_INFO("mipi dsi remove\n");
-	mipi_dsi_driver_unregister(&es_panel_driver);
+	if(panel_driver_registed == true) {
+		panel_driver_registed = false;
+		mipi_dsi_driver_unregister(&es_panel_driver);
+	}
 	component_del(&pdev->dev, &es_mipi_dsi_ops);
 
 	return 0;

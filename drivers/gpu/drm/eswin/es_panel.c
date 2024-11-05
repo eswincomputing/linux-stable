@@ -1,3 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN drm driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
+ */
+
 #include "es_panel.h"
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
@@ -834,7 +855,6 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 	int ret;
 	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
 	int val;
-
 	// for print
 	pr_dev = dev;
 	dev_info(pr_dev, "[%s] Enter\n", __func__);
@@ -886,6 +906,7 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 			PTR_ERR(ctx->gpio_reset));
 		return PTR_ERR(ctx->gpio_reset);
 	}
+
 	msleep(50);
 
 	gpiod_set_value(ctx->gpio_reset, 1);
@@ -904,11 +925,12 @@ int es_panel_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		drm_panel_remove(&ctx->panel);
 
-	es_panel_chrdev_create(ctx);
+	// es_panel_chrdev_create(ctx);
 	INIT_LIST_HEAD(&ctx->init_cmd_list);
 	ctx->init_cmd_writted = 0;
 	memset(&ctx->enable_cmd_buf, 0, sizeof(user_cmd_buffer_t));
 	memset(&ctx->disable_cmd_buf, 0, sizeof(user_cmd_buffer_t));
+	dev_info(pr_dev, "[%s] Leave\n", __func__);
 	return ret;
 }
 
@@ -923,7 +945,7 @@ void es_panel_remove(struct mipi_dsi_device *dsi)
 	devm_gpiod_put(ctx->dev, ctx->gpio_backlight0);
 	devm_gpiod_put(ctx->dev, ctx->gpio_reset);
 
-	es_panel_chrdev_destroy(ctx);
+	// es_panel_chrdev_destroy(ctx);
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
 

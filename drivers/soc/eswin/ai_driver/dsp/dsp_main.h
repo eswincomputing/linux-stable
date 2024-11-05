@@ -1,9 +1,24 @@
-// Copyright © 2023 ESWIN. All rights reserved.
-//
-// Beijing ESWIN Computing Technology Co., Ltd and its affiliated companies ("ESWIN") retain
-// all intellectual property and proprietary rights in and to this software. Except as expressly
-// authorized by ESWIN, no part of the software may be released, copied, distributed, reproduced,
-// modified, adapted, translated, or created derivative work of, in whole or in part.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN AI driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Lu XiangFeng <luxiangfeng@eswincomputing.com>
+ */
 
 #ifndef __DSP_MAIN_H__
 #define __DSP_MAIN_H__
@@ -85,6 +100,7 @@ struct dsp_user_req_async {
 	/* async_ll, cbarg, callback and dsp_file Can Only use for Lowlevel interface*/
 	struct list_head async_ll;
 	struct dsp_file *dsp_file;
+	bool need_notify;
 	u64 cbarg;
 	u64 callback;
 };
@@ -214,4 +230,6 @@ void dsp_op_release(struct kref *kref);
 
 int es_dsp_exec_cmd_timeout(void);
 struct es_dsp *es_proc_get_dsp(int dieid, int dspid);
+void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req);
+void dsp_schedule_task(struct es_dsp *dsp);
 #endif

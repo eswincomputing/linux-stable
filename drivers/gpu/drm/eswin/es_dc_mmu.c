@@ -1,6 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Eswin Holdings Co., Ltd.
+ * ESWIN drm driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
  */
 
 #include <linux/device.h>
@@ -17,8 +33,6 @@
 #include <asm/delay.h>
 
 #include "es_dc_mmu.h"
-
-static bool mmu_construct = false;
 
 int _allocate_memory(u32 bytes, void **memory)
 {
@@ -298,9 +312,6 @@ int dc_mmu_construct(struct device *dev, dc_mmu_pt *mmu)
 	u32 size = 0;
 	int ret = 0;
 
-	if (mmu_construct)
-		return 0;
-
 	mem = kzalloc(sizeof(dc_mmu), GFP_KERNEL);
 	if (!mem)
 		return -ENOMEM;
@@ -351,7 +362,6 @@ int dc_mmu_construct(struct device *dev, dc_mmu_pt *mmu)
 	memset(mmu_t->safe_page_logical, 0, size);
 
 	*mmu = mmu_t;
-	mmu_construct = true;
 
 	return 0;
 }

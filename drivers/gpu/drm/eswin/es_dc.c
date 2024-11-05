@@ -1,6 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 Eswin Holdings Co., Ltd.
+ * ESWIN drm driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
  */
 
 #include <linux/component.h>
@@ -636,26 +652,27 @@ static void update_overlay_plane(struct es_dc *dc, struct es_plane *plane)
 	dc_hw_set_blend(&dc->hw, &blend);
 }
 
-static void update_cursor_size(struct drm_plane_state *state, struct dc_hw_cursor *cursor)
+static void update_cursor_size(struct drm_plane_state *state,
+			       struct dc_hw_cursor *cursor)
 {
 	u8 size_type;
 
 	switch (state->crtc_w) {
-		case 32:
-			size_type = CURSOR_SIZE_32X32;
-			break;
-		case 64:
-			size_type = CURSOR_SIZE_64X64;
-			break;
-		case 128:
-			size_type = CURSOR_SIZE_128X128;
-			break;
-		case 256:
-			size_type = CURSOR_SIZE_256X256;
-			break;
-		default:
-			size_type = CURSOR_SIZE_32X32;
-			break;
+	case 32:
+		size_type = CURSOR_SIZE_32X32;
+		break;
+	case 64:
+		size_type = CURSOR_SIZE_64X64;
+		break;
+	case 128:
+		size_type = CURSOR_SIZE_128X128;
+		break;
+	case 256:
+		size_type = CURSOR_SIZE_256X256;
+		break;
+	default:
+		size_type = CURSOR_SIZE_32X32;
+		break;
 	}
 
 	cursor->size = size_type;
@@ -873,12 +890,14 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 	}
 
 #ifdef CONFIG_ESWIN_MMU
-	ret = dc_mmu_construct(priv->dma_dev, &priv->mmu);
-	if (ret) {
-		dev_err(dev, "failed to construct DC MMU\n");
-		goto err_clean_dc;
+	if (priv->mmu_constructed == false) {
+		ret = dc_mmu_construct(priv->dma_dev, &priv->mmu);
+		if (ret) {
+			dev_err(dev, "failed to construct DC MMU\n");
+			goto err_clean_dc;
+		}
+		priv->mmu_constructed = true;
 	}
-
 	ret = dc_hw_mmu_init(&dc->hw, priv->mmu);
 	if (ret) {
 		dev_err(dev, "failed to init DC MMU\n");
@@ -950,8 +969,8 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 	return 0;
 
 err_cleanup_planes:
-	list_for_each_entry_safe (drm_plane, tmp,
-				  &drm_dev->mode_config.plane_list, head)
+	list_for_each_entry_safe(drm_plane, tmp,
+				 &drm_dev->mode_config.plane_list, head)
 		if (drm_plane->possible_crtcs == drm_crtc_mask(&crtc->base))
 			es_plane_destory(drm_plane);
 
@@ -981,7 +1000,7 @@ static void vo_qos_cfg(void)
 {
 	void __iomem *qos;
 
-	#define VO_QOS_CSR	0x50281050UL
+#define VO_QOS_CSR 0x50281050UL
 	qos = ioremap(VO_QOS_CSR, 8);
 	if (!qos) {
 		printk("qos ioremap fail---------------\n");

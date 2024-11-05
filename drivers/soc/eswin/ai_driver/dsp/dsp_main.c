@@ -1,9 +1,24 @@
-// Copyright © 2023 ESWIN. All rights reserved.
-//
-// Beijing ESWIN Computing Technology Co., Ltd and its affiliated companies ("ESWIN") retain
-// all intellectual property and proprietary rights in and to this software. Except as expressly
-// authorized by ESWIN, no part of the software may be released, copied, distributed, reproduced,
-// modified, adapted, translated, or created derivative work of, in whole or in part.
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN AI driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Lu XiangFeng <luxiangfeng@eswincomputing.com>
+ */
 
 #include <linux/version.h>
 #include <linux/atomic.h>
@@ -56,7 +71,7 @@
 #define DSP_SUBSYS_HILOAD_CLK 1040000000
 #define DSP_SUBSYS_LOWLOAD_CLK 5200000
 
-#define ES_DSP_DEFAULT_TIMEOUT (100* 6)
+#define ES_DSP_DEFAULT_TIMEOUT (100 * 6)
 
 #ifdef DEBUG
 #pragma GCC optimize("O0")
@@ -105,7 +120,7 @@ int es_dsp_exec_cmd_timeout(void)
 	return fw_timeout;
 }
 
-static void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req)
+void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req)
 {
 	struct prio_array *array = &dsp->array;
 	unsigned long flags;
@@ -175,7 +190,7 @@ static void __dsp_send_task(struct es_dsp *dsp)
 	es_dsp_send_irq(dsp->hw_arg, (void *)req);
 }
 
-static void dsp_schedule_task(struct es_dsp *dsp)
+void dsp_schedule_task(struct es_dsp *dsp)
 {
 	unsigned long flags;
 	spin_lock_irqsave(&dsp->send_lock, flags);
@@ -245,6 +260,11 @@ static void dsp_process_expire_work(struct work_struct *work)
 		dsp_fw_state->exccause, dsp_fw_state->ps, dsp_fw_state->pc,
 		dsp_fw_state->dsp_task_state, dsp_fw_state->npu_task_state,
 		dsp_fw_state->func_state);
+
+	if (dsp->stats->last_op_name) {
+		dsp_err("%s, %d, op name = %s.\n", __func__, __LINE__,
+			dsp->stats->last_op_name);
+	}
 	ret = es_dsp_reboot_core(dsp->hw_arg);
 	if (ret < 0) {
 		dsp_err("reboot dsp core failed.\n");
@@ -324,7 +344,6 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 		}
 	}
 
-	dsp->current_task = NULL;
 	spin_unlock_irqrestore(&dsp->send_lock, flags);
 	BUG_ON(timer_pending(&dsp->task_timer));
 
@@ -333,12 +352,14 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 
 	req->d2h_msg = *msg;
 	dsp_complete_work(dsp, req);
+	dsp->current_task = NULL;
 
 	dsp_debug("%s, current task req = 0x%px.\n", __func__, req);
 	dsp_info("op name:%s take time:%lld\n", dsp->stats->last_op_name,
 		 dsp->stats->last_task_time);
-
-	dsp_schedule_task(dsp);
+	if (dsp->off == false) {
+		dsp_schedule_task(dsp);
+	}
 	return IRQ_HANDLED;
 }
 EXPORT_SYMBOL(dsp_irq_handler);
@@ -496,8 +517,9 @@ static void dsp_task_work(struct work_struct *work)
 	spin_unlock_irqrestore(&dsp->complete_lock, flags);
 }
 
-/* 1. 如果任务已经执行过了prepare，那么就给dsp发送一个消息，去执行eval;
- * 2. 如果任务没有执行，那么就发送消息，让dsp core去执行prepare和eval，中间prepare执行后，不用等待。
+/* 1. If the task has already executed prepare, then send a message to DSP to execute eval;
+ * 2. If the task has not been executed, then send a message to let the DSP core execute prepare and eval. 
+ *    After prepare is executed, there is no need to wait.
  */
 
 int start_eval(struct device *dsp_dev, dsp_request_t *req)
@@ -514,11 +536,12 @@ void dsp_set_flat_func(struct es_dsp_flat1_desc *flat, u64 handle)
 	memcpy((void *)&flat->funcs, (void *)&op->funcs, sizeof(op->funcs));
 }
 EXPORT_SYMBOL(dsp_set_flat_func);
-/* 把任务提交到dsp的任务队列上排队;
- * 1. 如果没有任务在运行，那么就运行该任务的prepare，并且告诉dsp core，需要在prepare进行等待，但是prepare不需要发送通知。
- * 2. 如果有任务在运行，那么就是挂接。
- */
 
+/* Submit the task to the DSP's task queue:
+ * 1. If no task is running, then run the prepare of this task and inform the DSP core to wait during prepare, 
+ *    but do not send a notification after prepare.
+ * 2. If a task is running, then put this task on hold.
+ */
 int submit_task(struct device *dsp_dev, dsp_request_t *req)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dsp_dev);
@@ -567,10 +590,9 @@ struct es_dsp *es_proc_get_dsp(int dieid, int dspid)
 /*
  * input: die_id, dspId, subscrib.
  * output: dsp_dev.
- * 注意: 很可能是, npu调用这个接口的时候, 我们的dsp驱动的probe还没有调用.这是可能的.
- * 所以需要返回EPROBE_DEFED.
- * */
-
+ * Note: It is very likely that when the NPU calls this interface, our DSP driver's probe has not yet been called. 
+ * This is possible. Therefore, it is necessary to return EPROBE_DEFER. 
+ */
 static int check_device_node_status(u32 die_id, u32 dspid)
 {
 	int ret;
@@ -712,18 +734,31 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	if (ret < 0) {
 		return ret;
 	}
+	dsp->off = true;
+
+	if (dsp->current_task != NULL) {
+		ret = wait_for_current_tsk_done(dsp);
+		if (ret) {
+			dsp_err("%s, %d, cannot wait for current task done, ret = %d.\n", __func__, __LINE__, ret);
+			dsp->off = false;
+			return ret;
+		}
+	}
+
+	flush_work(&dsp->task_work);
+
+	dsp_disable_irq(dsp);
 	es_dsp_hw_uninit(dsp);
 
 	dsp_release_firmware(dsp);
-	dsp_disable_irq(dsp);
 	dsp_halt(dsp);
 
 	pm_runtime_mark_last_busy(dsp->dev);
 	pm_runtime_put_noidle(dsp->dev);
 	win2030_tbu_power(dsp->dev, false);
-	es_dsp_core_clk_disable(dsp);
+	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
-	dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
+		dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
 		  __LINE__, dsp->process_id);
 	return 0;
 }
@@ -732,8 +767,6 @@ int __maybe_unused dsp_resume(struct device *dev)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	int ret;
-	if (dsp->off)
-		goto out;
 
 	dsp_debug("%s, dsp core%d generic resuming..\n\n", __func__,
 		  dsp->process_id);
@@ -743,7 +776,7 @@ int __maybe_unused dsp_resume(struct device *dev)
 		dsp_err("dsp resume mbox clock err.\n");
 		return ret;
 	}
-	ret = es_dsp_core_clk_enable(dsp);
+	ret = es_dsp_clk_enable(dsp);
 	if (ret < 0) {
 		dev_err(dsp->dev, "couldn't enable DSP\n");
 		goto out;
@@ -770,6 +803,8 @@ int __maybe_unused dsp_resume(struct device *dev)
 	pm_runtime_put_autosuspend(dsp->dev);
 	dsp_debug("dsp_core%d Generic resume ok, dsp->off=%d.\n",
 		  dsp->process_id, dsp->off);
+	dsp->off = false;
+	dsp_schedule_task(dsp);
 	return 0;
 err_firm:
 	es_dsp_hw_uninit(dsp);
@@ -787,8 +822,9 @@ int __maybe_unused dsp_runtime_suspend(struct device *dev)
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	dsp_debug("%s, dsp core%d runtime suspend.\n", __func__,
 		  dsp->process_id);
+
 	win2030_tbu_power(dev, false);
-	es_dsp_core_clk_disable(dsp);
+	es_dsp_clk_disable(dsp);
 	return 0;
 }
 EXPORT_SYMBOL(dsp_runtime_suspend);
@@ -804,7 +840,7 @@ int __maybe_unused dsp_runtime_resume(struct device *dev)
 	dsp_debug("%s, dsp core%d runtime resumng.....\n\n", __func__,
 		  dsp->process_id);
 
-	ret = es_dsp_core_clk_enable(dsp);
+	ret = es_dsp_clk_enable(dsp);
 	if (ret < 0) {
 		dev_err(dsp->dev, "couldn't enable DSP\n");
 		goto out;
@@ -928,6 +964,8 @@ static void dsp_init_prio_array(struct es_dsp *dsp)
 	}
 	set_bit(DSP_MAX_PRIO, array->bitmap);
 }
+
+static int32_t  dsp_probe_result = 0;
 
 static int es_dsp_hw_probe(struct platform_device *pdev)
 {
@@ -1073,6 +1111,7 @@ err_clk_init:
 	es_dsp_put_subsys(dsp);
 	dsp_free_hw(dsp);
 	dev_err(&pdev->dev, "%s: ret = %d\n", __func__, ret);
+	dsp_probe_result = ret;
 	return ret;
 }
 
@@ -1091,6 +1130,8 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	if (NULL != dsp->miscdev.this_device) {
 		misc_deregister(&dsp->miscdev);
 	}
+
+	cancel_work_sync(&dsp->task_work);
 	es_dsp_hw_uninit(dsp);
 
 	pm_runtime_disable(dsp->dev);
@@ -1133,6 +1174,12 @@ static int __init es_dsp_module_init(void)
 	if (ret) {
 		dsp_err("cannot register platform drv\n");
 		return ret;
+	}
+
+	if (dsp_probe_result < 0) {
+		dsp_err("es dsp_probe_result error:%d\n", dsp_probe_result);
+		platform_driver_unregister(&es_dsp_hw_driver);
+		return dsp_probe_result;
 	}
 
 	ret = es_dsp_platform_init();

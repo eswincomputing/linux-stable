@@ -8,7 +8,8 @@ ccflags-y += -I$(srctree)/drivers/soc/eswin
 ccflags-y += -I$(srctree)/drivers/memory/eswin/codacache/
 ccflags-y += -I$(srctree)/$(src)/include
 ccflags-y += -I$(srctree)/$(src)/../dsp
-ccflags-y += -I$(srctree)/$(src)/../include
+ccflags-y += -I$(srctree)/$(src)/../common
+ccflags-y += -I$(srctree)/$(src)/../common/devices
 ccflags-y += -I$(srctree)/drivers/memory/eswin/es_iommu_rsv/include/linux
 ccflags-y += -I$(srctree)/drivers/memory/eswin/es_dev_buf/include/linux
 

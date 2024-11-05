@@ -26,7 +26,7 @@
 #define WIN2030_NOC_ERROR_REGISTERS_MAX 8
 #define WIN2030_NOC_REG_ADDR(_reg)	((void __iomem *) (reg->base + reg->offset))
 #define MAX_ITERATION		(1 << 28)	/* Arbitrary value */
-#define DURATION		20
+#define DURATION		30
 #define WIN2030_NOC_TRACE_PORT_MAX	3
 #define WIN2030_NOC_BIN_CNT	4
 #define SIZE_BIG_BUF	4096

@@ -173,7 +173,8 @@ static int em_create_perf_table(struct device *dev, struct em_perf_domain *pd,
 
 		table[i].cost = cost;
 
-		if (table[i].cost >= prev_cost) {
+		//workaround for IPA thermal: modify >= to >
+		if (table[i].cost > prev_cost) {
 			table[i].flags = EM_PERF_STATE_INEFFICIENT;
 			dev_dbg(dev, "EM: OPP:%lu is inefficient\n",
 				table[i].frequency);

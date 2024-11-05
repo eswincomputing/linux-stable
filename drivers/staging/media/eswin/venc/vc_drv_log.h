@@ -32,7 +32,7 @@
 #endif
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_INFO)
-#define LOG_INFO(fmt, args...) do { pr_info("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_INFO(fmt, args...) do { pr_info("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_INFO(fmt, args...)
 #endif
