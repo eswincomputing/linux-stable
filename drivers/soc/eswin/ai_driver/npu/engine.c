@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/iommu.h>
-#include "es_iommu_rsv.h"
+#include <linux/es_iommu_rsv.h>
 #include <dla_err.h>
 #include <dla_interface.h>
 #include "dla_engine.h"
@@ -484,6 +484,7 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 {
 	struct win_engine *engine;
 	int ret;
+	int numa_id = nvdla_dev->numa_id;
 
 #if (NPU_DEV_SIM != NPU_MCU_HOST)
 	u32 i;
@@ -493,7 +494,7 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 		dla_error("%s %d engine inited\n", __func__, __LINE__);
 		return -1;
 	}
-	engine = kzalloc(sizeof(struct win_engine), GFP_KERNEL);
+	engine = devm_kzalloc(&nvdla_dev->pdev->dev, sizeof(struct win_engine), GFP_KERNEL);
 	if (engine == NULL) {
 		dla_error("%s %d nomem\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -540,11 +541,11 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 	timer_setup(&engine->timer[1], npu_frame_timeout_tok, 0);
 
 	engine->is_event_source_done[0] =
-		(u8 *)kzalloc((COMPLETE_EVENT_ID / 8) * NUM_TIKTOK, GFP_KERNEL);
+		(u8 *)devm_kzalloc(&nvdla_dev->pdev->dev, (COMPLETE_EVENT_ID / 8) * NUM_TIKTOK, GFP_KERNEL);
 	engine->is_event_source_done[1] =
 		engine->is_event_source_done[0] + (COMPLETE_EVENT_ID / 8);
 	if (engine->is_event_source_done[0] == NULL) {
-		kfree(engine);
+		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
 	}
 
@@ -552,16 +553,16 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 	if (ret) {
 		dla_error("%s, %d, get dsp device err, ret=%d.\n", __func__,
 			  __LINE__, ret);
-		kfree(engine->is_event_source_done[0]);
-		kfree(engine);
+		devm_kfree(&nvdla_dev->pdev->dev, engine->is_event_source_done[0]);
+		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
 	}
 #if NPU_PERF_STATS > 1
 	engine->perf_data_buf =
-		kzalloc(sizeof(npu_e31_perf_t) * MAX_OP_NUM, GFP_KERNEL);
+		devm_kzalloc(&nvdla_dev->pdev->dev, sizeof(npu_e31_perf_t) * MAX_OP_NUM, GFP_KERNEL);
 	if (engine->perf_data_buf == NULL) {
-		kfree(engine->is_event_source_done[0]);
-		kfree(engine);
+		devm_kfree(&nvdla_dev->pdev->dev, engine->is_event_source_done[0]);
+		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
 	}
 #endif
@@ -569,23 +570,23 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 #if (NPU_DEV_SIM == NPU_REAL_ENV)
 	if (ret) {
 		destroy_workqueue(engine->dump_op_work_queue);
-		kfree(engine);
+		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
 	}
 	for (i = 0; i < NUM_MAJOR_CORES; i++) {
 		engine->major_shm[i] =
-			ioremap(E31_MAJOR_DTIM_BASE(i), E31_MAJOR_DTIM_SIZE);
+			devm_ioremap(&nvdla_dev->pdev->dev, E31_MAJOR_DTIM_BASE(i) + numa_id * NPU_DIE_REG_OFFSET, E31_MAJOR_DTIM_SIZE);
 		if (engine->major_shm[i] == NULL) {
 			ret = -EIO;
 			goto err_ioremap;
 		}
-		engine->major_mem[i] = kzalloc(E31_MAJOR_DTIM_SIZE, GFP_KERNEL);
+		engine->major_mem[i] = devm_kzalloc(&nvdla_dev->pdev->dev, E31_MAJOR_DTIM_SIZE, GFP_KERNEL);
 		if (engine->major_mem[i] == NULL) {
 			ret = -ENOMEM;
 			goto err_ioremap;
 		}
 	}
-	engine->aux_mem = kzalloc(E31_PROGRAM_DTIM_SIZE * 2, GFP_KERNEL);
+	engine->aux_mem = devm_kzalloc(&nvdla_dev->pdev->dev, E31_PROGRAM_DTIM_SIZE * 2, GFP_KERNEL);
 	if (!engine->aux_mem) {
 		ret = -ENOMEM;
 		goto err_aux_mem;
@@ -600,7 +601,7 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 #if (NPU_DEV_SIM == NPU_MCU_ALONE)
 		destroy_workqueue(engine->work_queue);
 #endif
-		kfree(engine);
+		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
 	}
 #endif
@@ -611,16 +612,16 @@ err_aux_mem:
 err_ioremap:
 	for (i = 0; i < NUM_MAJOR_CORES; i++) {
 		if (engine->major_shm[i] != NULL) {
-			iounmap(engine->major_shm[i]);
+			devm_iounmap(&nvdla_dev->pdev->dev, engine->major_shm[i]);
 			engine->major_shm[i] = NULL;
 		}
 		if (engine->major_mem[i] != NULL) {
-			kfree(engine->major_mem[i]);
+			devm_kfree(&nvdla_dev->pdev->dev, engine->major_mem[i]);
 			engine->major_mem[i] = NULL;
 		}
 	}
 	if (engine->aux_mem) {
-		kfree(engine->aux_mem);
+		devm_kfree(&nvdla_dev->pdev->dev, engine->aux_mem);
 		engine->master_mem = NULL;
 		engine->aux_mem = NULL;
 	}
@@ -629,7 +630,7 @@ err_ioremap:
 		engine->host_node = NULL;
 	}
 	destroy_workqueue(engine->dump_op_work_queue);
-	kfree(engine);
+	devm_kfree(&nvdla_dev->pdev->dev, engine);
 	return ret;
 #endif
 }
@@ -651,11 +652,11 @@ void win_engine_destroy(struct nvdla_device *nvdla_dev)
 		destroy_workqueue(engine->dump_op_work_queue);
 		for (i = 0; i < NUM_MAJOR_CORES; i++) {
 			if (engine->major_shm[i] != NULL) {
-				iounmap(engine->major_shm[i]);
+				devm_iounmap(&nvdla_dev->pdev->dev, engine->major_shm[i]);
 				engine->major_shm[i] = NULL;
 			}
 			if (engine->major_mem[i] != NULL) {
-				kfree(engine->major_mem[i]);
+				devm_kfree(&nvdla_dev->pdev->dev, engine->major_mem[i]);
 				engine->major_mem[i] = NULL;
 			}
 		}
@@ -664,14 +665,14 @@ void win_engine_destroy(struct nvdla_device *nvdla_dev)
 		npu_uninit_ipc(nvdla_dev);
 
 		if (engine->is_event_source_done[0] != NULL) {
-			kfree(engine->is_event_source_done[0]);
+			devm_kfree(&nvdla_dev->pdev->dev, engine->is_event_source_done[0]);
 			engine->is_event_source_done[0] = NULL;
 		}
 		if (engine->perf_data_buf != NULL) {
-			kfree(engine->perf_data_buf);
+			devm_kfree(&nvdla_dev->pdev->dev, engine->perf_data_buf);
 			engine->perf_data_buf = NULL;
 		}
-		kfree(engine);
+		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		engine = NULL;
 	}
 	return;

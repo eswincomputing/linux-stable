@@ -153,8 +153,8 @@
 	distance-map {
 		compatible = "numa-distance-map-v1";
 		distance-matrix = <0 0 10>,
-				<0 1 15>,
-				<1 0 15>,
+				<0 1 100>,
+				<1 0 100>,
 				<1 1 10>;
 	};
 

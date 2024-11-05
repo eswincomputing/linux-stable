@@ -942,7 +942,7 @@ void edma_free(struct nvdla_device *nvdla_dev)
 	if (edma == NULL) {
 		return;
 	}
-	kfree(edma);
+	devm_kfree(&nvdla_dev->pdev->dev, edma);
 	nvdla_dev->edma = NULL;
 	return;
 }
@@ -955,7 +955,7 @@ int edma_init(struct nvdla_device *nvdla_dev)
 		dla_info("%s %d edma already exist\n", __func__, __LINE__);
 		return -1;
 	}
-	edma = kzalloc(sizeof(struct edma_context), GFP_KERNEL);
+	edma = devm_kzalloc(&nvdla_dev->pdev->dev, sizeof(struct edma_context), GFP_KERNEL);
 	if (edma == NULL) {
 		dla_info("%s %d edma can't alloc memory\n", __func__, __LINE__);
 		return -1;

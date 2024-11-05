@@ -67,8 +67,9 @@ static struct dsp_user *dsp_op_add_user(struct dsp_file *dsp_file,
 {
 	struct dsp_user *user;
 	int ret;
+	struct es_dsp *dsp = op->dsp;
 
-	user = kmalloc(sizeof(struct dsp_user), GFP_KERNEL);
+	user = kzalloc(sizeof(struct dsp_user), GFP_KERNEL);
 	if (!user) {
 		dsp_err("alloc dsp user mem failed.\n");
 		return NULL;
@@ -479,7 +480,7 @@ static struct dsp_user_req_async *dsp_set_task_info(struct dsp_file *dsp_file,
 	buffer_count = task->task.bufferCntCfg + task->task.bufferCntInput +
 		       task->task.bufferCntOutput;
 
-	user_req = kmalloc(sizeof(struct dsp_user_req_async) +
+	user_req = kzalloc(sizeof(struct dsp_user_req_async) +
 				   sizeof(struct dsp_dma_buf *) * buffer_count,
 			   GFP_KERNEL);
 	if (!user_req) {
@@ -1172,7 +1173,7 @@ static void dsp_file_release(struct khandle *handle)
 	}
 
 	dsp = dsp_file->dsp;
-	devm_kfree(dsp->dev, dsp_file);
+	kfree(dsp_file);
 	es_dsp_pm_put_sync(dsp);
 	dsp_debug("release dsp_file done.\n");
 }
@@ -1195,7 +1196,7 @@ static int dsp_open(struct inode *inode, struct file *flip)
 			__LINE__, ret);
 		return ret;
 	}
-	dsp_file = devm_kzalloc(dsp->dev, sizeof(*dsp_file), GFP_KERNEL);
+	dsp_file = kzalloc(sizeof(*dsp_file), GFP_KERNEL);
 	if (!dsp_file) {
 		es_dsp_pm_put_sync(dsp);
 		return -ENOMEM;
@@ -1205,7 +1206,7 @@ static int dsp_open(struct inode *inode, struct file *flip)
 				 DSP_FILE_HANDLE_MAGIC, NULL);
 	if (ret != 0) {
 		dsp_err("%s, init kernel handle error.\n", __func__);
-		devm_kfree(dsp->dev, dsp_file);
+		kfree(dsp_file);
 		es_dsp_pm_put_sync(dsp->dev);
 		return ret;
 	}
