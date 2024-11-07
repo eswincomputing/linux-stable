@@ -37,11 +37,6 @@
 #include "sdhci-eswin.h"
 
 #define ESWIN_SDHCI_SD_CQE_BASE_ADDR 0x180
-#define ESWIN_SDHCI_SD0_INT_STATUS 0x608
-#define ESWIN_SDHCI_SD0_PWR_CTRL 0x60c
-#define ESWIN_SDHCI_SD1_INT_STATUS 0x708
-#define ESWIN_SDHCI_SD1_PWR_CTRL 0x70c
-
 #define TUNING_RANGE_THRESHOLD   40
 
 static inline void *sdhci_sdio_priv(struct eswin_sdhci_data *sdio)
@@ -327,7 +322,7 @@ static const struct sdhci_ops eswin_sdhci_sdio_cqe_ops = {
 	.set_power = sdhci_set_power_and_bus_voltage,
 	.irq = eswin_sdhci_sdio_cqhci_irq,
 	.platform_execute_tuning = eswin_sdhci_sdio_executing_tuning,
-
+	.dump_vendor_regs = eswin_sdhci_dump_vendor_regs,
 };
 
 static const struct sdhci_pltfm_data eswin_sdhci_sdio_cqe_pdata = {
@@ -823,9 +818,7 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct eswin_sdhci_data *eswin_sdhci_sdio;
-	struct regmap *regmap;
 	const struct eswin_sdhci_of_data *data;
-	unsigned int sdio_id = 0;
 	unsigned int val = 0;
 
 	data = of_device_get_match_data(dev);
@@ -838,24 +831,6 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 	eswin_sdhci_sdio = sdhci_pltfm_priv(pltfm_host);
 	eswin_sdhci_sdio->host = host;
 	eswin_sdhci_sdio->has_cqe = false;
-
-	ret = of_property_read_u32(dev->of_node, "core-clk-reg", &val);
-	if (ret) {
-		dev_err(dev, "get core clk reg failed.\n");
-		goto err_pltfm_free;
-	}
-
-	eswin_sdhci_sdio->core_clk_reg = ioremap(val, 0x4);
-	if (!eswin_sdhci_sdio->core_clk_reg) {
-		dev_err(dev, "ioremap core clk reg failed.\n");
-		goto err_pltfm_free;
-	}
-
-	ret = of_property_read_u32(dev->of_node, "sdio-id", &sdio_id);
-	if (ret) {
-		dev_err(dev, "get sdio-id failed.\n");
-		goto err_pltfm_free;
-	}
 
 	sdhci_get_of_property(pdev);
 
@@ -924,23 +899,53 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 		goto clk_disable_all;
 	}
 
-	regmap = syscon_regmap_lookup_by_phandle(dev->of_node,
-						 "eswin,hsp_sp_csr");
-	if (IS_ERR(regmap)) {
-		dev_err(dev, "No hsp_sp_csr phandle specified\n");
-		ret = -EFAULT;
+	eswin_sdhci_sdio->crg_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscrg_csr");
+	if (IS_ERR(eswin_sdhci_sdio->crg_regmap)){
+		dev_dbg(&pdev->dev, "No syscrg_csr phandle specified\n");
 		goto clk_disable_all;
 	}
 
-	if (sdio_id == 0) {
-		regmap_write(regmap, ESWIN_SDHCI_SD0_INT_STATUS,
-			     MSHC_INT_CLK_STABLE);
-		regmap_write(regmap, ESWIN_SDHCI_SD0_PWR_CTRL, MSHC_HOST_VAL_STABLE);
-	} else {
-		regmap_write(regmap, ESWIN_SDHCI_SD1_INT_STATUS,
-			     MSHC_INT_CLK_STABLE);
-		regmap_write(regmap, ESWIN_SDHCI_SD1_PWR_CTRL, MSHC_HOST_VAL_STABLE);
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscrg_csr", 1,
+                                    &eswin_sdhci_sdio->crg_core_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "can't get crg_core_clk (%d)\n", ret);
+		goto clk_disable_all;
 	}
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscrg_csr", 2,
+                                    &eswin_sdhci_sdio->crg_aclk_ctrl);
+	if (ret) {
+		dev_err(&pdev->dev, "can't get crg_aclk_ctrl (%d)\n", ret);
+		goto clk_disable_all;
+	}
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscrg_csr", 3,
+                                    &eswin_sdhci_sdio->crg_cfg_ctrl);
+	if (ret) {
+		dev_err(&pdev->dev, "can't get crg_cfg_ctrl (%d)\n", ret);
+		goto clk_disable_all;
+	}
+
+	eswin_sdhci_sdio->hsp_regmap = syscon_regmap_lookup_by_phandle(dev->of_node,
+						 "eswin,hsp_sp_csr");
+	if (IS_ERR(eswin_sdhci_sdio->hsp_regmap)) {
+		dev_dbg(dev, "No hsp_sp_csr phandle specified\n");
+		goto clk_disable_all;
+	}
+
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,hsp_sp_csr", 2,
+                                    &eswin_sdhci_sdio->hsp_int_status);
+	if (ret) {
+		dev_err(&pdev->dev, "can't get hsp_int_status (%d)\n", ret);
+		goto clk_disable_all;
+	}
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,hsp_sp_csr", 3,
+                                    &eswin_sdhci_sdio->hsp_pwr_ctrl);
+	if (ret) {
+		dev_err(&pdev->dev, "can't get hsp_pwr_ctrl (%d)\n", ret);
+		goto clk_disable_all;
+	}
+
+	regmap_write(eswin_sdhci_sdio->hsp_regmap, eswin_sdhci_sdio->hsp_int_status, MSHC_INT_CLK_STABLE);
+	regmap_write(eswin_sdhci_sdio->hsp_regmap, eswin_sdhci_sdio->hsp_pwr_ctrl, MSHC_HOST_VAL_STABLE);
 
 	ret = eswin_sdhci_sdio_sid_cfg(dev);
 	if (ret < 0) {
@@ -994,9 +999,6 @@ clk_disable_all:
 clk_dis_ahb:
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
 err_pltfm_free:
-	if (eswin_sdhci_sdio->core_clk_reg)
-		iounmap(eswin_sdhci_sdio->core_clk_reg);
-
 	sdhci_pltfm_free(pdev);
 	return ret;
 }
@@ -1009,7 +1011,6 @@ static int eswin_sdhci_sdio_remove(struct platform_device *pdev)
 	struct eswin_sdhci_data *eswin_sdhci_sdio =
 		sdhci_pltfm_priv(pltfm_host);
 	struct clk *clk_ahb = eswin_sdhci_sdio->clk_ahb;
-	void __iomem *core_clk_reg = eswin_sdhci_sdio->core_clk_reg;
 
 	pm_runtime_get_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
@@ -1040,7 +1041,6 @@ static int eswin_sdhci_sdio_remove(struct platform_device *pdev)
 
 	eswin_sdhci_sdio_unregister_sdclk(&pdev->dev);
 	clk_disable_unprepare(clk_ahb);
-	iounmap(core_clk_reg);
 
 	return 0;
 }

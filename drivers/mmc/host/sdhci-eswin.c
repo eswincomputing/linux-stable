@@ -21,6 +21,7 @@
  */
 #include <linux/delay.h>
 #include <linux/reset.h>
+#include <linux/regmap.h>
 #include "sdhci-eswin.h"
 
 static void eswin_mshc_coreclk_config(struct sdhci_host *host, uint16_t divisor,
@@ -34,9 +35,9 @@ static void eswin_mshc_coreclk_config(struct sdhci_host *host, uint16_t divisor,
 	pltfm_host = sdhci_priv(host);
 	eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
 
-	val = readl(eswin_sdhci->core_clk_reg);
+	regmap_read(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, &val);
 	val &= ~MSHC_CORE_CLK_ENABLE;
-	writel(val, eswin_sdhci->core_clk_reg);
+	regmap_write(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, val);
 	while (delay--)
 		;
 	val &= ~(MSHC_CORE_CLK_FREQ_BIT_MASK << MSHC_CORE_CLK_FREQ_BIT_SHIFT);
@@ -44,11 +45,11 @@ static void eswin_mshc_coreclk_config(struct sdhci_host *host, uint16_t divisor,
 	       << MSHC_CORE_CLK_FREQ_BIT_SHIFT;
 	val &= ~(MSHC_CORE_CLK_SEL_BIT);
 	val |= flag_sel;
-	writel(val, eswin_sdhci->core_clk_reg);
+	regmap_write(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, val);
 
 	udelay(100);
 	val |= MSHC_CORE_CLK_ENABLE;
-	writel(val, eswin_sdhci->core_clk_reg);
+	regmap_write(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, val);
 	mdelay(1);
 }
 
@@ -61,9 +62,9 @@ static void eswin_mshc_coreclk_disable(struct sdhci_host *host)
 	pltfm_host = sdhci_priv(host);
 	eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
 
-	val = readl(eswin_sdhci->core_clk_reg);
+	regmap_read(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, &val);
 	val &= ~MSHC_CORE_CLK_ENABLE;
-	writel(val, eswin_sdhci->core_clk_reg);
+	regmap_write(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, val);
 }
 
 void eswin_sdhci_disable_card_clk(struct sdhci_host *host)
@@ -301,3 +302,58 @@ int eswin_sdhci_reset_init(struct device *dev,
 
 	return ret;
 }
+
+#define DRIVER_NAME "sdhci_esw"
+#define SDHCI_ESW_DUMP(f, x...) \
+	pr_err("%s: " DRIVER_NAME ": " f, mmc_hostname(host->mmc), ## x)
+
+void eswin_sdhci_dump_vendor_regs(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct eswin_sdhci_data *eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+	u32 val = 0, val1 = 0;
+
+	SDHCI_ESW_DUMP("----------- VENDOR REGISTER DUMP -----------\n");
+
+	ret = regmap_read(eswin_sdhci->crg_regmap, eswin_sdhci->crg_core_clk, &val);
+	if (ret) {
+		pr_err("%s: read crg_core_clk failed, ret:%d\n",
+					mmc_hostname(host->mmc), ret);
+		return;
+	}
+
+	SDHCI_ESW_DUMP("CORE CLK: 0x%08x | IRQ FLAG:  0x%016lx\n",
+		val, arch_local_save_flags());
+
+	ret = regmap_read(eswin_sdhci->crg_regmap, eswin_sdhci->crg_aclk_ctrl, &val);
+	if (ret) {
+		pr_err("%s: read crg_aclk_ctrl failed, ret:%d\n",
+					mmc_hostname(host->mmc), ret);
+		return;
+	}
+	ret = regmap_read(eswin_sdhci->crg_regmap, eswin_sdhci->crg_cfg_ctrl, &val1);
+	if (ret) {
+		pr_err("%s: read crg_cfg_ctrl failed, ret:%d\n",
+					mmc_hostname(host->mmc), ret);
+		return;
+	}
+	SDHCI_ESW_DUMP("HSP ACLK: 0x%08x | HSP CFG:  0x%08x\n", val, val1);
+
+	ret = regmap_read(eswin_sdhci->hsp_regmap, eswin_sdhci->hsp_int_status, &val);
+	if (ret) {
+		pr_err("%s: read hsp_int_status failed, ret:%d\n",
+					mmc_hostname(host->mmc), ret);
+		return;
+	}
+	ret = regmap_read(eswin_sdhci->hsp_regmap, eswin_sdhci->hsp_pwr_ctrl, &val1);
+	if (ret) {
+		pr_err("%s: read hsp_pwr_ctrl failed, ret:%d\n",
+					mmc_hostname(host->mmc), ret);
+		return;
+	}
+	SDHCI_ESW_DUMP("HSP STA: 0x%08x | PWR CTRL:  0x%08x\n", val, val1);
+
+	return;
+}
+

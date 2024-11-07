@@ -1548,6 +1548,43 @@
 			};
 		};
 
+		d1_sdhci_emmc: mmc@70450000 {
+			compatible = "eswin,emmc-sdhci-5.1";
+			reg = <0x0 0x70450000 0x0 0x10000>;
+			interrupt-parent = <&plic1>;
+			interrupts = <79>;
+			assigned-clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>;
+			assigned-clock-rates = <200000000>;
+			clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>, <&d1_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clock-names = "clk_xin", "clk_ahb";
+			clock-output-names = "d1_emmc_cardclock";
+			#clock-cells = <0>;
+
+			resets = <&d1_reset HSPDMA_RST_CTRL SW_MSHC0_TXRX_RSTN>,
+				<&d1_reset HSPDMA_RST_CTRL SW_MSHC0_PHY_RSTN>,
+				<&d1_reset HSPDMA_RST_CTRL SW_HSP_EMMC_PRSTN>,
+				<&d1_reset HSPDMA_RST_CTRL SW_HSP_EMMC_ARSTN>;
+			reset-names = "txrx_rst", "phy_rst", "prstn", "arstn";
+
+			disable-cqe-dcmd;
+			bus-width = <8>;
+			non-removable;
+			/* mmc-ddr-1_8v; */
+			mmc-hs400-1_8v;
+			max-frequency = <200000000>;
+			/* sdhci-caps-mask =  <0x0 0x3200000>; */
+			/* smmu */
+			#size-cells = <2>;
+			iommus = <&smmu1 WIN2030_SID_EMMC0>;
+			tbus = <WIN2030_TBUID_EMMC>;
+			dma-ranges = <0x0 0x00000000 0x0 0xc0000000 0x1 0x0>;
+			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1038 0x508 0x50c>;
+			eswin,syscrg_csr = <&d1_sys_crg 0x160 0x148 0x14c>;
+			status = "disabled";
+			numa-node-id = <1>;
+			dma-noncoherent;
+		};
+
 		d1_sdio0: mmc@0x70460000{
 			compatible = "eswin,sdhci-sdio";
 			reg = <0x0 0x70460000 0x0 0x10000>;
@@ -1568,11 +1605,13 @@
 
 			clock-frequency = <208000000>;
 			max-frequency = <208000000>;
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
 			iommus = <&smmu1 WIN2030_SID_SD0>;
 			tbus = <WIN2030_TBUID_SD>;
-			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x103c>;
+			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x103c 0x608 0x60c>;
+			eswin,syscrg_csr = <&d1_sys_crg 0x164 0x148 0x14c>;
 			bus-width = <4>;
 			sdio-id = <0>;
 			numa-node-id = <1>;
@@ -1600,11 +1639,13 @@
 
 			clock-frequency = <208000000>;
 			max-frequency = <208000000>;
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
 			iommus = <&smmu1 WIN2030_SID_SD1>;
 			tbus = <WIN2030_TBUID_SD>;
-			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1040>;
+			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1040 0x708 0x70c>;
+			eswin,syscrg_csr = <&d1_sys_crg 0x168 0x148 0x14c>;
 			bus-width = <4>;
 			sdio-id = <1>;
 			numa-node-id = <1>;
@@ -1898,42 +1939,6 @@
                         recovery = <0>;
 			dma-noncoherent;
                 };
-
-		d1_sdhci_emmc: mmc@70450000 {
-			compatible = "eswin,emmc-sdhci-5.1";
-			reg = <0x0 0x70450000 0x0 0x10000>;
-			interrupt-parent = <&plic1>;
-			interrupts = <79>;
-			assigned-clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>;
-			assigned-clock-rates = <200000000>;
-			clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>, <&d1_clock WIN2030_CLK_HSP_CFG_CLK>;
-			clock-names = "clk_xin", "clk_ahb";
-			clock-output-names = "d1_emmc_cardclock";
-			#clock-cells = <0>;
-
-			resets = <&d1_reset HSPDMA_RST_CTRL SW_MSHC0_TXRX_RSTN>,
-				<&d1_reset HSPDMA_RST_CTRL SW_MSHC0_PHY_RSTN>,
-				<&d1_reset HSPDMA_RST_CTRL SW_HSP_EMMC_PRSTN>,
-				<&d1_reset HSPDMA_RST_CTRL SW_HSP_EMMC_ARSTN>;
-			reset-names = "txrx_rst", "phy_rst", "emmc_prstn", "emmc_arstn";
-
-			disable-cqe-dcmd;
-			bus-width = <8>;
-			non-removable;
-			/* mmc-ddr-1_8v; */
-			mmc-hs400-1_8v;
-			max-frequency = <200000000>;
-			/* sdhci-caps-mask =  <0x0 0x3200000>; */
-			/* smmu */
-			#size-cells = <2>;
-			iommus = <&smmu1 WIN2030_SID_EMMC0>;
-			tbus = <WIN2030_TBUID_EMMC>;
-			dma-ranges = <0x0 0x00000000 0x0 0xc0000000 0x1 0x0>;
-			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x1038>;
-			status = "disabled";
-			numa-node-id = <1>;
-			dma-noncoherent;
-		};
 
 		d1_graphcard: graphcard {
 			compatible = "audio-graph-card";
