@@ -1501,7 +1501,7 @@
 			clocks = <&d1_clock WIN2030_CLK_HSP_ETH_APP_CLK>,
 					 <&d1_clock WIN2030_CLK_HSP_ETH_CSR_CLK>,
 					 <&d1_clock WIN2030_CLK_HSP_ETH0_CORE_CLK>;
-			clock-names = "app", "csr","tx";
+			clock-names = "app", "stmmaceth","tx";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_ETH0_ARSTN>;
 			reset-names = "ethrst";
 			// iommus = <&smmu1 WIN2030_SID_ETH0>;
@@ -1531,7 +1531,7 @@
 			clocks = <&d1_clock WIN2030_CLK_HSP_ETH_APP_CLK>,
 					 <&d1_clock WIN2030_CLK_HSP_ETH_CSR_CLK>,
 					 <&d1_clock WIN2030_CLK_HSP_ETH1_CORE_CLK>;
-			clock-names = "app", "csr","tx";
+			clock-names = "app", "stmmaceth","tx";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_ETH1_ARSTN>;
 			reset-names = "ethrst";
 			// iommus = <&smmu1 WIN2030_SID_ETH1>;

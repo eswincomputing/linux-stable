@@ -61,7 +61,6 @@ struct dwc_qos_priv {
 	struct regmap *hsp_regmap;
 	struct reset_control *rst;
 	struct clk *clk_app;
-	struct clk *clk_csr;
 	struct clk *clk_tx;
 	struct regmap *rgmii_sel;
 	struct gpio_desc *phy_reset;
@@ -290,12 +289,6 @@ static int dwc_clks_config(void *priv, bool enabled)
 			return ret;
 		}
 
-		ret = clk_prepare_enable(dwc_priv->clk_csr);
-		if (ret< 0) {
-			dev_err(dwc_priv->dev, "failed to enable csr clk: %d\n", ret);
-			return ret;
-		}
-
 		ret = clk_prepare_enable(dwc_priv->clk_tx);
 		if (ret < 0) {
 			dev_err(dwc_priv->dev, "failed to enable tx clock: %d\n", ret);
@@ -316,7 +309,6 @@ static int dwc_clks_config(void *priv, bool enabled)
 		}
 
 		clk_disable_unprepare(dwc_priv->clk_tx);
-		clk_disable_unprepare(dwc_priv->clk_csr);
 		clk_disable_unprepare(dwc_priv->clk_app);
 	}
 
@@ -443,12 +435,6 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	if (IS_ERR(dwc_priv->clk_app)) {
 		dev_err(&pdev->dev, "app clock not found.\n");
 		return PTR_ERR(dwc_priv->clk_app);
-	}
-
-	dwc_priv->clk_csr = devm_clk_get(&pdev->dev, "csr");
-	if (IS_ERR(dwc_priv->clk_csr)) {
-		dev_err(&pdev->dev, "csr clock not found.\n");
-		return PTR_ERR(dwc_priv->clk_csr);
 	}
 
 	dwc_priv->clk_tx = devm_clk_get(&pdev->dev, "tx");
