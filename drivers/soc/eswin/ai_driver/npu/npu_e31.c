@@ -36,7 +36,7 @@
 #include <linux/clk.h>
 #include <linux/reset.h>
 #include <linux/iommu.h>
-#include "es_iommu_rsv.h"
+#include <linux/es_iommu_rsv.h>
 #include <asm/io.h>
 #include "dla_log.h"
 #include "hetero_host.h"
@@ -110,7 +110,7 @@ static void npu_check_mcu_active(struct nvdla_device *nvdla_dev)
 
 #define NPU_E31_FW_RSV_IOVA 0x80000000
 
-int npu_e31_load_fw(struct platform_device *pdev, void __iomem *e31_mmio_base)
+int npu_e31_load_fw(struct nvdla_device *nvdla_dev)
 {
 	int retval = 0;
 	int err = 0;
@@ -122,7 +122,9 @@ int npu_e31_load_fw(struct platform_device *pdev, void __iomem *e31_mmio_base)
 	u32 offset;
 	u32 boot_dma_addr;
 	u32 streamid_cfg;
-	struct nvdla_device *nvdla_dev = dev_get_drvdata(&pdev->dev);
+
+	void __iomem *e31_mmio_base = nvdla_dev->e31_mmio_base;
+	struct platform_device *pdev = nvdla_dev->pdev;
 
 	/* config streamid of npu-e31 */
 	streamid_cfg = readl(e31_mmio_base + NPU_CTRL_OFFSET +
@@ -132,7 +134,7 @@ int npu_e31_load_fw(struct platform_device *pdev, void __iomem *e31_mmio_base)
 	       e31_mmio_base + NPU_CTRL_OFFSET + E31_STREAMID_CFG_OFFSET);
 	npu_e31_sid_cfg(e31_mmio_base, WIN2030_SID_NPU_DMA);
 
-	err = request_firmware(&e31_fw, "eic7700_e31_fw", &pdev->dev);
+	err = request_firmware(&e31_fw, nvdla_dev->e31_fw_name, &pdev->dev);
 	if (err < 0) {
 		dla_error("Eswin e31 request fw error.\n");
 		return -EINVAL;

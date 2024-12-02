@@ -83,47 +83,25 @@
 #define MAX_HL_DEVICES 16
 #define TROOT_GRIFFIN
 
+static hl_device hl_devices[2][MAX_HL_DEVICES];
+
 static bool randomize_mem = false;
 module_param(randomize_mem, bool, 0);
 MODULE_PARM_DESC(noverify, "Wipe memory allocations on startup (for debug)");
 
-static struct dw_hdcp2 *g_dw_hdcp2;
-
-static void dw_hdcp2_stop(void)
+static void dw_hdcp2_stop(struct dw_hdcp2 *hdcp2)
 {
-	printk("func: %s; line: %d\n", __func__, __LINE__);
-	g_dw_hdcp2->hot_plug = 0;
-	dw_hdmi_hdcp2_start(0);
+	dev_info(hdcp2->dev, "%s\n", __func__);
+	hdcp2->hot_plug = 0;
+	dw_hdmi_hdcp2_start(0, hdcp2->numa_id);
 }
 
-static void dw_hdcp2_start(void)
+static void dw_hdcp2_start(struct dw_hdcp2 *hdcp2)
 {
-	printk("func: %s; line: %d\n", __func__, __LINE__);
-	dw_hdmi_hdcp2_start(1);
-	g_dw_hdcp2->hot_plug = 1;
+	dev_info(hdcp2->dev, "%s\n", __func__);
+	dw_hdmi_hdcp2_start(1, hdcp2->numa_id);
+	hdcp2->hot_plug = 1;
 }
-
-//
-// HL Device
-//
-typedef struct {
-	int allocated, initialized;
-	int code_loaded;
-
-	int code_is_phys_mem;
-	dma_addr_t code_base;
-	uint32_t code_size;
-	uint8_t *code;
-	int data_is_phys_mem;
-	dma_addr_t data_base;
-	uint32_t data_size;
-	uint8_t *data;
-
-	struct resource *hpi_resource;
-	uint8_t __iomem *hpi;
-} hl_device;
-
-static hl_device hl_devices[MAX_HL_DEVICES];
 
 /* HL_DRV_IOC_MEMINFO implementation */
 static long get_meminfo(hl_device *hl_dev, void __user *arg)
@@ -302,7 +280,7 @@ static long hpi_write(hl_device *hl_dev, void __user *arg)
 	return 0;
 }
 
-static hl_device *alloc_hl_dev_slot(const struct hl_drv_ioc_meminfo *info)
+static hl_device *alloc_hl_dev_slot(const struct hl_drv_ioc_meminfo *info, int numa_id)
 {
 	int i;
 
@@ -312,7 +290,7 @@ static hl_device *alloc_hl_dev_slot(const struct hl_drv_ioc_meminfo *info)
 
 	/* Check if we have a matching device (same HPI base) */
 	for (i = 0; i < MAX_HL_DEVICES; i++) {
-		hl_device *slot = &hl_devices[i];
+		hl_device *slot = &hl_devices[numa_id][i];
 		if (slot->allocated &&
 		    (info->hpi_base == slot->hpi_resource->start))
 			return slot;
@@ -320,7 +298,7 @@ static hl_device *alloc_hl_dev_slot(const struct hl_drv_ioc_meminfo *info)
 
 	/* Find unused slot */
 	for (i = 0; i < MAX_HL_DEVICES; i++) {
-		hl_device *slot = &hl_devices[i];
+		hl_device *slot = &hl_devices[numa_id][i];
 		if (!slot->allocated) {
 			slot->allocated = 1;
 			return slot;
@@ -330,28 +308,59 @@ static hl_device *alloc_hl_dev_slot(const struct hl_drv_ioc_meminfo *info)
 	return 0;
 }
 
-static void free_dma_areas(hl_device *hl_dev)
+static void free_dma_areas(struct dw_hdcp2 *hdcp2)
 {
+	hl_device *hl_dev =  hdcp2->hld;
+
 	if (hl_dev == 0) {
 		return;
 	}
 
-	if (!hl_dev->code_is_phys_mem && hl_dev->code) {
-		dma_free_coherent(0, hl_dev->code_size, hl_dev->code,
-				  hl_dev->code_base);
-		hl_dev->code = 0;
-	}
+	if (!hdcp2->numa_id) {
+		if (!hl_dev->code_is_phys_mem && hl_dev->code) {
+			dma_free_coherent(0, hl_dev->code_size, hl_dev->code,
+					hl_dev->code_base);
+			hl_dev->code = 0;
+		}
 
-	if (!hl_dev->data_is_phys_mem && hl_dev->data) {
-		dma_free_coherent(0, hl_dev->data_size, hl_dev->data,
-				  hl_dev->data_base);
-		hl_dev->data = 0;
+		if (!hl_dev->data_is_phys_mem && hl_dev->data) {
+			dma_free_coherent(0, hl_dev->data_size, hl_dev->data,
+					hl_dev->data_base);
+			hl_dev->data = 0;
+		}
+	} else {
+		if (!hl_dev->code_is_phys_mem && hl_dev->code) {
+			dev_mem_vunmap(&hdcp2->code_buffer, hl_dev->code);
+
+			if (hdcp2->code_attach) {
+				dev_mem_detach(hdcp2->code_attach, DMA_BIDIRECTIONAL);
+			}
+
+			if (hdcp2->code_buffer.buf) {
+				dev_mem_free(hdcp2->code_buffer.buf);
+			}
+		}
+
+		if (!hl_dev->data_is_phys_mem && hl_dev->data) {
+			dev_mem_vunmap(&hdcp2->data_buffer, hl_dev->data);
+
+			if (hdcp2->data_attach) {
+				dev_mem_detach(hdcp2->data_attach, DMA_BIDIRECTIONAL);
+			}
+
+			if (hdcp2->data_buffer.buf) {
+				dev_mem_free(hdcp2->data_buffer.buf);
+			}
+		}
 	}
 }
 
-static int alloc_dma_areas(hl_device *hl_dev,
-			   const struct hl_drv_ioc_meminfo *info)
+static int alloc_dma_areas(struct dw_hdcp2 *hdcp2, const struct hl_drv_ioc_meminfo *info)
 {
+	int ret;
+	hl_device *hl_dev = hdcp2->hld;
+	struct device *dev = hdcp2->dev;
+
 	if ((hl_dev == 0) || (info == 0)) {
 		return -EFAULT;
 	}
@@ -365,11 +374,34 @@ static int alloc_dma_areas(hl_device *hl_dev,
 		hl_dev->code_base = info->code_base;
 		hl_dev->code = phys_to_virt(hl_dev->code_base);
 	} else {
-		hl_dev->code =
-			dma_alloc_coherent(g_dw_hdcp2->dev, hl_dev->code_size,
-					   &hl_dev->code_base, GFP_KERNEL);
-		if (!hl_dev->code) {
-			return -ENOMEM;
+		if (!hdcp2->numa_id) {
+			hl_dev->code = dma_alloc_coherent(dev, hl_dev->code_size,
+											  &hl_dev->code_base, GFP_KERNEL);
+			if (!hl_dev->code) {
+				return -ENOMEM;
+			}
+			dev_info(dev,"code dma addr:0x%llx, size:0x%x\n", hl_dev->code_base, hl_dev->code_size);
+		} else {
+			ret = dev_mem_alloc(hl_dev->code_size, ES_MEM_ALLOC_SPRAM_DIE1,
+								&hdcp2->code_buffer.buf);
+			if (ret < 0) {
+				dev_err(dev, "dev_mem_alloc code buf failed!\n");
+				return -ENOMEM;
+			}
+
+			hl_dev->code_base = dev_mem_attach(hdcp2->code_buffer.buf, dev,
+											   DMA_BIDIRECTIONAL, &hdcp2->code_attach);
+			if (hl_dev->code_base == 0) {
+				dev_err(dev, "dev_mem_attach code buf failed!\n");
+				goto release_code_buf;
+			}
+
+			hl_dev->code = dev_mem_vmap(&hdcp2->code_buffer);
+			if (!hl_dev->code) {
+				dev_err(dev, "dev_mem_vmap code buf failed!\n");
+				goto release_code_attach;
+			}
+			dev_info(dev, "code spram addr:0x%llx, size:0x%x\n", hl_dev->code_base, hl_dev->code_size);
 		}
 	}
 
@@ -381,38 +413,75 @@ static int alloc_dma_areas(hl_device *hl_dev,
 		hl_dev->data_base = info->data_base;
 		hl_dev->data = phys_to_virt(hl_dev->data_base);
 	} else {
-		hl_dev->data =
-			dma_alloc_coherent(g_dw_hdcp2->dev, hl_dev->data_size,
-					   &hl_dev->data_base, GFP_KERNEL);
-		if (!hl_dev->data) {
-			free_dma_areas(hl_dev);
-			return -ENOMEM;
+		if (!hdcp2->numa_id) {
+			hl_dev->data = dma_alloc_coherent(dev, hl_dev->data_size,
+											  &hl_dev->data_base, GFP_KERNEL);
+			if (!hl_dev->data) {
+				free_dma_areas(hdcp2);
+				return -ENOMEM;
+			}
+			dev_info(dev,"data dma addr:0x%llx, size:0x%x\n", hl_dev->code_base, hl_dev->data_size);
+		} else {
+			ret = dev_mem_alloc(hl_dev->data_size, ES_MEM_ALLOC_SPRAM_DIE1,
+								&hdcp2->data_buffer.buf);
+			if (ret < 0) {
+				dev_err(dev, "dev_mem_alloc data buf failed!\n");
+				goto release_code_vmap;
+			}
+
+			hl_dev->data_base = dev_mem_attach(hdcp2->data_buffer.buf, dev,
+											   DMA_BIDIRECTIONAL, &hdcp2->data_attach);
+			if (hl_dev->data_base == 0) {
+				dev_err(dev, "dev_mem_attach data buf failed!\n");
+				goto release_data_buf;
+			}
+
+			hl_dev->data = dev_mem_vmap(&hdcp2->data_buffer);
+			if (!hl_dev->data) {
+				dev_err(dev, "dev_mem_vmap data buf failed!\n");
+				goto release_data_attach;
+			}
+			dev_info(dev, "data spram addr:0x%llx, size:0x%x\n", hl_dev->data_base, hl_dev->data_size);
 		}
 	}
 
 	return 0;
+
+release_data_attach:
+	dev_mem_detach(hdcp2->data_attach, DMA_BIDIRECTIONAL);
+release_data_buf:
+	dev_mem_free(hdcp2->data_buffer.buf);
+release_code_vmap:
+	dev_mem_vunmap(&hdcp2->code_buffer, hl_dev->code);
+release_code_attach:
+	dev_mem_detach(hdcp2->code_attach, DMA_BIDIRECTIONAL);
+release_code_buf:
+	dev_mem_free(hdcp2->code_buffer.buf);
+
+	return -ENOMEM;
 }
 
 /* HL_DRV_IOC_INIT implementation */
-static long init(struct file *f, void __user *arg)
+static long hld_init(struct dw_hdcp2 *hdcp2, void __user *arg)
 {
 	struct resource *hpi_mem;
 	struct hl_drv_ioc_meminfo info;
-	hl_device *hl_dev;
 	int rc;
 
-	if ((f == 0) || (arg == 0)) {
+	if ((arg == 0)) {
+		dev_err(hdcp2->dev, "param error!\n");
 		return -EFAULT;
 	}
 
 	if (copy_from_user(&info, arg, sizeof info) != 0)
 		return -EFAULT;
-	hl_dev = alloc_hl_dev_slot(&info);
-	if (!hl_dev)
+
+	hdcp2->hld = alloc_hl_dev_slot(&info, hdcp2->numa_id);
+	if (!hdcp2->hld)
 		return -EMFILE;
 
-	if (!hl_dev->initialized) {
-		rc = alloc_dma_areas(hl_dev, &info);
+	if (!hdcp2->hld->initialized) {
+		rc = alloc_dma_areas(hdcp2, &info);
 		if (rc < 0)
 			goto err_free;
 
@@ -422,26 +491,25 @@ static long init(struct file *f, void __user *arg)
 			goto err_free;
 		}
 
-		hl_dev->hpi = ioremap(hpi_mem->start, resource_size(hpi_mem));
-		if (!hl_dev->hpi) {
+		hdcp2->hld->hpi = ioremap(hpi_mem->start, resource_size(hpi_mem));
+		if (!hdcp2->hld->hpi) {
 			rc = -ENOMEM;
 			goto err_release_region;
 		}
-		hl_dev->hpi_resource = hpi_mem;
-		hl_dev->initialized = 1;
+		hdcp2->hld->hpi_resource = hpi_mem;
+		hdcp2->hld->initialized = 1;
 	}
 
-	f->private_data = hl_dev;
 	return 0;
 
 err_release_region:
 	release_resource(hpi_mem);
 err_free:
-	free_dma_areas(hl_dev);
-	hl_dev->initialized = 0;
-	hl_dev->allocated = 0;
-	hl_dev->hpi_resource = 0;
-	hl_dev->hpi = 0;
+	free_dma_areas(hdcp2);
+	hdcp2->hld->initialized = 0;
+	hdcp2->hld->allocated = 0;
+	hdcp2->hld->hpi_resource = 0;
+	hdcp2->hld->hpi = 0;
 
 	return rc;
 }
@@ -465,8 +533,6 @@ static void free_hl_dev_slot(hl_device *slot)
 			release_mem_region(slot->hpi_resource->start, 128);
 			slot->hpi_resource = 0;
 		}
-
-		free_dma_areas(slot);
 	}
 
 	slot->initialized = 0;
@@ -475,69 +541,69 @@ static void free_hl_dev_slot(hl_device *slot)
 
 static long hld_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 {
-	hl_device *hl_dev;
+	struct miscdevice *misc_hld = f->private_data;
+	struct dw_hdcp2 *hdcp2 = dev_get_drvdata(misc_hld->parent);
 	void __user *data;
 
 	if (f == 0) {
 		return -EFAULT;
 	}
 
-	hl_dev = f->private_data;
 	data = (void __user *)arg;
 
 	if (cmd == HL_DRV_IOC_INIT) {
-		return init(f, data);
-	} else if (!hl_dev) {
+		return hld_init(hdcp2, data);
+	} else if (!hdcp2->hld) {
 		return -EAGAIN;
 	}
 
 	switch (cmd) {
 	case HL_DRV_IOC_INIT:
-		return init(f, data);
+		return hld_init(hdcp2, data);
 	case HL_DRV_IOC_MEMINFO:
-		return get_meminfo(hl_dev, data);
+		return get_meminfo(hdcp2->hld, data);
 	case HL_DRV_IOC_READ_HPI:
-		return hpi_read(hl_dev, data);
+		return hpi_read(hdcp2->hld, data);
 	case HL_DRV_IOC_WRITE_HPI:
-		return hpi_write(hl_dev, data);
+		return hpi_write(hdcp2->hld, data);
 	case HL_DRV_IOC_LOAD_CODE:
-		return load_code(hl_dev, data);
+		return load_code(hdcp2->hld, data);
 	case HL_DRV_IOC_WRITE_DATA:
-		return write_data(hl_dev, data);
+		return write_data(hdcp2->hld, data);
 	case HL_DRV_IOC_READ_DATA:
-		return read_data(hl_dev, data);
+		return read_data(hdcp2->hld, data);
 	case HL_DRV_IOC_MEMSET_DATA:
-		return set_data(hl_dev, data);
+		return set_data(hdcp2->hld, data);
 
 	case DW_DRV_IOC_CONNECT_STATUS:
-		return g_dw_hdcp2->hot_plug;
+		return hdcp2->hot_plug;
 	case DW_DRV_IOC_CONNECT_SET:
-		printk("set hdcp2 reset one\n");
-		g_dw_hdcp2->wait_hdcp2_reset = 1;
-		dw_hdmi_hdcp2_start(1);
+		dev_info(hdcp2->dev, "set hdcp2 reset one\n");
+		hdcp2->wait_hdcp2_reset = 1;
+		dw_hdmi_hdcp2_start(1, hdcp2->numa_id);
 		return 0;
 	case DW_DRV_IOC_DISCONNECT_SET:
-		if (g_dw_hdcp2->wait_hdcp2_reset == 1) {
+		if (hdcp2->wait_hdcp2_reset == 1) {
 			printk("set hdcp2 reset zero\n");
-			g_dw_hdcp2->wait_hdcp2_reset = 0;
-			dw_hdmi_hdcp2_start(0);
+			hdcp2->wait_hdcp2_reset = 0;
+			dw_hdmi_hdcp2_start(0, hdcp2->numa_id);
 		}
-		if (g_dw_hdcp2->auth_sucess == 1) {
-			g_dw_hdcp2->auth_sucess = 0;
+		if (hdcp2->auth_sucess == 1) {
+			hdcp2->auth_sucess = 0;
 		}
 		return 0;
 	case DW_DRV_IOC_AUTH_SUCCESS:
-		g_dw_hdcp2->auth_sucess = 1;
+		hdcp2->auth_sucess = 1;
 		return 0;
 	case DW_DRV_IOC_AUTH_FAIL:
-		g_dw_hdcp2->auth_sucess = 0;
+		hdcp2->auth_sucess = 0;
 		return 0;
 	case DW_DRV_IOC_NO_CAPACITY:
 		printk("set hdcp2 reset zero 3005\n");
-		g_dw_hdcp2->hot_plug = 0;
-		g_dw_hdcp2->wait_hdcp2_reset = 0;
-		dw_hdmi_hdcp2_start(0);
-		dw_hdmi_hdcp2_start(2);
+		hdcp2->hot_plug = 0;
+		hdcp2->wait_hdcp2_reset = 0;
+		dw_hdmi_hdcp2_start(0, hdcp2->numa_id);
+		dw_hdmi_hdcp2_start(2, hdcp2->numa_id);
 		return 0;
 	}
 
@@ -552,66 +618,66 @@ static const struct file_operations hld_file_operations = {
 	.owner = THIS_MODULE,
 };
 
-static struct miscdevice hld_device = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "hl_dev",
-	.fops = &hld_file_operations,
-};
+static int rigister_hld_device(struct dw_hdcp2 *hdcp2)
+{
+	int i;
+	int numa_id = hdcp2->numa_id;
+	char name[20];
 
-static int hld_init(void)
+	for (i = 0; i < MAX_HL_DEVICES; i++) {
+		hl_devices[numa_id][i].allocated = 0;
+		hl_devices[numa_id][i].initialized = 0;
+		hl_devices[numa_id][i].code_loaded = 0;
+		hl_devices[numa_id][i].code = 0;
+		hl_devices[numa_id][i].data = 0;
+		hl_devices[numa_id][i].hpi_resource = 0;
+		hl_devices[numa_id][i].hpi = 0;
+	}
+
+	sprintf(name, "hl_dev%d", numa_id);
+	hdcp2->mics_hld.minor = MISC_DYNAMIC_MINOR;
+	hdcp2->mics_hld.name = name;
+	hdcp2->mics_hld.fops = &hld_file_operations;
+	hdcp2->mics_hld.parent = hdcp2->dev;
+
+	dev_info(hdcp2->dev, "%s numa id:%d\n", __func__, numa_id);
+
+	if (misc_register(&hdcp2->mics_hld)) {
+		dev_err(hdcp2->dev, "Could not add character driver\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void hld_exit(struct dw_hdcp2 *hdcp2)
 {
 	int i;
 
-	printk("%s...\n", __func__);
 	for (i = 0; i < MAX_HL_DEVICES; i++) {
-		hl_devices[i].allocated = 0;
-		hl_devices[i].initialized = 0;
-		hl_devices[i].code_loaded = 0;
-		hl_devices[i].code = 0;
-		hl_devices[i].data = 0;
-		hl_devices[i].hpi_resource = 0;
-		hl_devices[i].hpi = 0;
+		free_hl_dev_slot(&hl_devices[hdcp2->numa_id][i]);
 	}
-	return misc_register(&hld_device);
+
+	free_dma_areas(hdcp2);
+
+	misc_deregister(&hdcp2->mics_hld);
 }
 
-static void hld_exit(void)
+static int dw_hdmi2_hdcp2_clk_enable(struct dw_hdcp2 *hdcp2)
 {
-	int i;
-
-	for (i = 0; i < MAX_HL_DEVICES; i++) {
-		free_hl_dev_slot(&hl_devices[i]);
-	}
-
-	misc_deregister(&hld_device);
-}
-
-static int dw_hdmi2_hdcp2_clk_enable(struct device *dev)
-{
-	struct clk *pclk;
-	//struct clk *aclk;
-	struct clk *hdcp2_clk_hdmi;
-
-	pclk = devm_clk_get(dev, "pclk_hdcp2");
-	if (IS_ERR(pclk)) {
-		pr_err("Unable to get hdcp2 pclk\n");
+	hdcp2->aclk = devm_clk_get(hdcp2->dev, "aclk");
+	if (IS_ERR(hdcp2->aclk)) {
+		dev_err(hdcp2->dev, "Unable to get hdcp2 aclk\n");
 		return -1;
 	}
-	clk_prepare_enable(pclk);
-#if 0
-    aclk = devm_clk_get(dev, "aclk_hdcp2");
-    if (IS_ERR(aclk)) {
-        pr_err("Unable to get hdcp2 aclk\n");
-        return -1;
-    }
-    clk_prepare_enable(aclk);
-#endif
-	hdcp2_clk_hdmi = devm_clk_get(dev, "hdcp2_clk_hdmi");
-	if (IS_ERR(hdcp2_clk_hdmi)) {
-		pr_err("Unable to get hdcp2_clk_hdmi\n");
+	clk_prepare_enable(hdcp2->aclk);
+
+	hdcp2->iesmclk = devm_clk_get(hdcp2->dev, "iesmclk");
+	if (IS_ERR(hdcp2->iesmclk)) {
+		dev_err(hdcp2->dev, "Unable to get hdcp2_clk_hdmi\n");
 		return -1;
 	}
-	clk_prepare_enable(hdcp2_clk_hdmi);
+	clk_prepare_enable(hdcp2->iesmclk);
 
 	return 0;
 }
@@ -619,7 +685,10 @@ static int dw_hdmi2_hdcp2_clk_enable(struct device *dev)
 static ssize_t hdcp2_show_enable(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", g_dw_hdcp2->enable);
+	struct miscdevice *mdev= dev_get_drvdata(dev);
+	struct dw_hdcp2 *hdcp2 = dev_get_drvdata(mdev->parent);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", hdcp2->enable);
 }
 
 static ssize_t hdcp2_store_enable(struct device *dev,
@@ -627,17 +696,20 @@ static ssize_t hdcp2_store_enable(struct device *dev,
 				  const char *buf, size_t size)
 {
 	int enable;
+	struct miscdevice *mdev= dev_get_drvdata(dev);
+	struct dw_hdcp2 *hdcp2 = dev_get_drvdata(mdev->parent);
+
 	if (kstrtoint(buf, 0, &enable))
 		return size;
 
-	if (g_dw_hdcp2->enable != enable) {
-		g_dw_hdcp2->enable = enable;
+	if (hdcp2->enable != enable) {
+		hdcp2->enable = enable;
 		if (enable) {
-			dw_hdmi_hdcp2_start(3);
+			dw_hdmi_hdcp2_start(3, hdcp2->numa_id);
 		} else {
-			if (g_dw_hdcp2->hot_plug) {
-				g_dw_hdcp2->stop();
-				dw_hdmi_hdcp2_start(2);
+			if (hdcp2->hot_plug) {
+				hdcp2->stop(hdcp2);
+				dw_hdmi_hdcp2_start(2, hdcp2->numa_id);
 			}
 		}
 	}
@@ -647,12 +719,15 @@ static ssize_t hdcp2_store_enable(struct device *dev,
 static ssize_t hdcp2_show_status(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	if (g_dw_hdcp2->enable != 1) {
+	struct miscdevice *mdev= dev_get_drvdata(dev);
+	struct dw_hdcp2 *hdcp2 = dev_get_drvdata(mdev->parent);
+
+	if (hdcp2->enable != 1) {
 		return snprintf(buf, PAGE_SIZE, "%s\n", "no enable hdcp2");
-	} else if (!g_dw_hdcp2->hot_plug) {
+	} else if (!hdcp2->hot_plug) {
 		return snprintf(buf, PAGE_SIZE, "%s\n", "hdcp2 no auth");
 	} else {
-		if (g_dw_hdcp2->auth_sucess)
+		if (hdcp2->auth_sucess)
 			return snprintf(buf, PAGE_SIZE, "%s\n",
 					"hdcp2 auth sucess");
 		else
@@ -664,32 +739,33 @@ static ssize_t hdcp2_show_status(struct device *dev,
 static DEVICE_ATTR(enable, 0644, hdcp2_show_enable, hdcp2_store_enable);
 static DEVICE_ATTR(status, 0444, hdcp2_show_status, NULL);
 
-static int create_device_node(void)
+static int create_device_node(struct dw_hdcp2 *hdcp2)
 {
 	int ret;
+	char name[20];
 
-	if (!g_dw_hdcp2)
-		return -1;
-	g_dw_hdcp2->mdev.minor = MISC_DYNAMIC_MINOR;
-	g_dw_hdcp2->mdev.name = "hdcp2_node";
-	g_dw_hdcp2->mdev.mode = 0666;
-	if (misc_register(&(g_dw_hdcp2->mdev))) {
-		pr_err("HDCP2: Could not add character driver\n");
+	sprintf(name, "hdcp2-%d-node", hdcp2->numa_id);
+	hdcp2->mdev.minor = MISC_DYNAMIC_MINOR;
+	hdcp2->mdev.name = name;
+	hdcp2->mdev.mode = 0666;
+	hdcp2->mdev.parent = hdcp2->dev;
+	if (misc_register(&(hdcp2->mdev))) {
+		dev_err(hdcp2->dev, "HDCP2: Could not add character driver\n");
 		return -1;
 	}
 
-	ret = device_create_file(g_dw_hdcp2->mdev.this_device,
+	ret = device_create_file(hdcp2->mdev.this_device,
 				 &dev_attr_enable);
 	if (ret) {
-		pr_err("HDCP: Could not add sys file enable\n");
+		dev_err(hdcp2->dev, "HDCP: Could not add sys file enable\n");
 		ret = -EINVAL;
 		goto error0;
 	}
 
-	ret = device_create_file(g_dw_hdcp2->mdev.this_device,
+	ret = device_create_file(hdcp2->mdev.this_device,
 				 &dev_attr_status);
 	if (ret) {
-		pr_err("HDCP: Could not add sys file status\n");
+		dev_err(hdcp2->dev, "HDCP: Could not add sys file status\n");
 		ret = -EINVAL;
 		goto error1;
 	}
@@ -697,87 +773,110 @@ static int create_device_node(void)
 	return 0;
 
 error1:
-	device_remove_file(g_dw_hdcp2->mdev.this_device, &dev_attr_enable);
+	device_remove_file(hdcp2->mdev.this_device, &dev_attr_enable);
 error0:
-	misc_deregister(&g_dw_hdcp2->mdev);
+	misc_deregister(&hdcp2->mdev);
 	return ret;
 }
 
-static void end_device_node(void)
+static void end_device_node(struct dw_hdcp2 *hdcp2)
 {
-	if (g_dw_hdcp2)
-		misc_deregister(&(g_dw_hdcp2->mdev));
+	device_remove_file(hdcp2->mdev.this_device, &dev_attr_enable);
+	device_remove_file(hdcp2->mdev.this_device, &dev_attr_status);
+	misc_deregister(&(hdcp2->mdev));
 }
 
 static int eswin_hdmi_hdcp2_probe(struct platform_device *pdev)
 {
-	struct device *hdcp2_dev = &pdev->dev;
+	struct dw_hdcp2 *hdcp2;
+	struct device *dev = &pdev->dev;
+	int numa_id;
 
-	printk("%s...\n", __func__);
-	g_dw_hdcp2 = kmalloc(sizeof(*g_dw_hdcp2), GFP_KERNEL);
-	if (!g_dw_hdcp2) {
-		printk("malloc g_dw_hdcp2 error\n");
+	hdcp2 = devm_kzalloc(dev, sizeof(*hdcp2), GFP_KERNEL);
+	if (!hdcp2)
 		return -ENOMEM;
+
+	platform_set_drvdata(pdev, hdcp2);
+	if(of_property_read_u32(dev->of_node, "numa-node-id", &numa_id)) {
+		numa_id = 0;
 	}
-	memset(g_dw_hdcp2, 0, sizeof(*g_dw_hdcp2));
+	dev_info(dev, "%s numa_id:%d\n", __func__, numa_id);
+	hdcp2->numa_id = numa_id;
 
-	g_dw_hdcp2->dev = hdcp2_dev;
-	g_dw_hdcp2->stop = dw_hdcp2_stop;
-	g_dw_hdcp2->start = dw_hdcp2_start;
-	hld_init();
-	dw_hdmi2_hdcp2_clk_enable(hdcp2_dev);
-	dma_set_mask_and_coherent(hdcp2_dev, DMA_BIT_MASK(32));
-	dw_hdmi_hdcp2_init(g_dw_hdcp2);
-	dw_hdmi_hdcp2_start(3);
+	hdcp2->dev = dev;
+	hdcp2->stop = dw_hdcp2_stop;
+	hdcp2->start = dw_hdcp2_start;
+	rigister_hld_device(hdcp2);
+	dw_hdmi2_hdcp2_clk_enable(hdcp2);
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	dw_hdmi_hdcp2_init(hdcp2);
+	dw_hdmi_hdcp2_start(3, numa_id);
 
-	create_device_node();
+	create_device_node(hdcp2);
 	return 0;
 }
 
 static int eswin_hdmi_hdcp2_remove(struct platform_device *pdev)
 {
-	printk("%s...\n", __func__);
-	dw_hdmi_hdcp2_remove();
-	end_device_node();
-	hld_exit();
-	kfree(g_dw_hdcp2);
-	g_dw_hdcp2 = NULL;
+	struct dw_hdcp2 *hdcp2 = platform_get_drvdata(pdev);
+	dev_info(hdcp2->dev, "%s numa id:%d\n", __func__, hdcp2->numa_id);
+	dw_hdmi_hdcp2_remove(hdcp2);
+	end_device_node(hdcp2);
+	hld_exit(hdcp2);
+
+	clk_disable_unprepare(hdcp2->aclk);
+	clk_disable_unprepare(hdcp2->iesmclk);
 
 	return 0;
 }
 
-static void eswin_hdmi_hdcp2_shutdown(struct platform_device *pdev)
+static int __maybe_unused dw_hdcp2_suspend(struct device *dev)
 {
-	printk("%s...\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
+	struct dw_hdcp2 *hdcp2 = dev_get_drvdata(dev);
+
+	clk_disable(hdcp2->aclk);
+	clk_disable(hdcp2->iesmclk);
+
+	return 0;
 }
 
-#if defined(CONFIG_OF)
+static int __maybe_unused dw_hdcp2_resume(struct device *dev)
+{
+	dev_dbg(dev, "%s\n", __func__);
+	struct dw_hdcp2 *hdcp2 = dev_get_drvdata(dev);
+
+	clk_enable(hdcp2->aclk);
+	clk_enable(hdcp2->iesmclk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dw_hdcp2_pm = {
+	.resume = dw_hdcp2_resume,
+	.suspend = dw_hdcp2_suspend,
+};
+
 static const struct of_device_id dw_hdmi_hdcp2_dt_ids[] = {
 	{
 		.compatible = "eswin,dw-hdmi-hdcp2",
 	},
-	{}
 };
-
 MODULE_DEVICE_TABLE(of, dw_hdmi_hdcp2_dt_ids);
-#endif
 
 struct platform_driver dw_hdmi_hdcp2_driver = {
-        .probe = eswin_hdmi_hdcp2_probe,
-        .remove = eswin_hdmi_hdcp2_remove,
-        .shutdown = eswin_hdmi_hdcp2_shutdown,
-        .driver = {
+	.probe = eswin_hdmi_hdcp2_probe,
+	.remove = eswin_hdmi_hdcp2_remove,
+	.driver = {
         .name = "dw-hdmi-hdcp2",
         .owner = THIS_MODULE,
-#if defined(CONFIG_OF)
+		.pm = &dw_hdcp2_pm,
         .of_match_table = of_match_ptr(dw_hdmi_hdcp2_dt_ids),
-#endif
     },
 };
 
 static int __init hdmi_hdcp2_init(void)
 {
-	printk("%s...\n", __func__);
 	return platform_driver_register(&dw_hdmi_hdcp2_driver);
 }
 

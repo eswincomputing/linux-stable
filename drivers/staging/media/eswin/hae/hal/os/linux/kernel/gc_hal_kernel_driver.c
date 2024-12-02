@@ -314,6 +314,8 @@ _SyncModuleParam(gcsMODULE_PARAMETERS *ModuleParam)
     irqLineVG = p->irqVG;
     registerMemBaseVG = (ulong)p->registerVGBase;
     registerMemSizeVG = (ulong)p->registerVGSize;
+    registerMemBase2D = p->register2DBases[0];
+    registerMemSize2D = p->register2DSizes[0];
 
     for (i = 0; i < gcvCORE_COUNT; i++)
         chipIDs[i] = p->chipIDs[i];
@@ -1178,9 +1180,9 @@ gceSTATUS viv_device_node_create(uint32_t dev_index)
 
     if (dev_index > 0) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
-        device_create(gpu_class, NULL, MKDEV(major, dev_index), NULL, "galcore%d", dev_index);
+        device_create(gpu_class, NULL, MKDEV(major, dev_index), NULL, DEVICE_NAME "%d", dev_index);
 #else
-        device_create(gpu_class, NULL, MKDEV(major, dev_index), "galcore%d", dev_index);
+        device_create(gpu_class, NULL, MKDEV(major, dev_index), DEVICE_NAME "%d", dev_index);
 #endif
     } else { /* Compatible with old style. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
@@ -1346,9 +1348,7 @@ static int __devinit viv_dev_probe(struct platform_device *pdev)
     }
 
     /* Gather module parameters. */
-    if (activeDeviceCount == 0) {
-        _InitModuleParam(&platform->params);
-    }
+    _InitModuleParam(&platform->params);
 
     platform->params.devices[activeDeviceCount] = &pdev->dev;
 
@@ -1396,6 +1396,7 @@ static int __devinit viv_dev_probe(struct platform_device *pdev)
         activeDeviceCount++;
         if(gcvSTATUS_MORE_DATA == platform->ops->adjustParam(platform, &platform->params)){
             gcmkPRINT("hae loaded first device, waiting for another...");
+            _SyncModuleParam(&platform->params);
             return 0;
         }
     }

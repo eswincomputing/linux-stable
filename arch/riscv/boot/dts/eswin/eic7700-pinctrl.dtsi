@@ -25,7 +25,7 @@
 	#size-cells = <2>;
     soc {
         pinctrl: pinctrl@0x51600080 {
-			compatible = "eswin,eic7700-pinctrl", "syscon";
+			compatible = "eswin,eic7x-pinctrl", "syscon";
 			reg = <0x0 0x51600080 0x0 0x1FFF80>;
 			status = "disabled";
             //func0
@@ -39,12 +39,6 @@
 				mux {
 					groups = "sdio1_group";
 					function = "sdio1_func";
-				};
-			};
-            pinctrl_por_sel_default: por_sel-default{
-				mux {
-					groups = "por_sel_group";
-					function = "por_sel_func";
 				};
 			};
             pinctrl_jtag0_default: jtag0-default{
@@ -275,10 +269,10 @@
 					function = "s_mode_func";
 				};
 			};
-            pinctrl_pinmux_ddr_refclk_sel_default: pinmux_ddr_refclk_sel-default{
+            pinctrl_ddr_refclk_sel_default: ddr_refclk_sel-default{
 				mux {
-					groups = "pinmux_ddr_refclk_sel_group";
-					function = "pinmux_ddr_refclk_sel_func";
+					groups = "ddr_refclk_sel_group";
+					function = "ddr_refclk_sel_func";
 				};
 			};
             pinctrl_boot_sel_default: boot_sel-default{

@@ -955,7 +955,7 @@ static int __maybe_unused dw_hdmi_eswin_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops dw_hdmi_eswin_pm = { SET_SYSTEM_SLEEP_PM_OPS(
+static const struct dev_pm_ops dw_hdmi_eswin_pm = {	SET_SYSTEM_SLEEP_PM_OPS(
 	dw_hdmi_eswin_suspend, dw_hdmi_eswin_resume) };
 
 struct platform_driver dw_hdmi_eswin_pltfm_driver = {

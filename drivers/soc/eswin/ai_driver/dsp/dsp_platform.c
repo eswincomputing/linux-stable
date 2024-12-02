@@ -38,7 +38,7 @@
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
-#include "es_iommu_rsv.h"
+#include <linux/es_iommu_rsv.h>
 #include "eswin-dsp-subsys.h"
 
 #include "dsp_platform.h"
@@ -711,7 +711,7 @@ static inline int init_hw_uart(struct es_dsp_hw *hw)
 
 	ret = iommu_map_rsv_iova_with_phys(
 		dsp->dev, (dma_addr_t)DSP_DEVICE_UART_MUTEX_IOVA,
-		DSP_DEVICE_UART_MUTEX_IOVA_SIZE, UART_MUTEX_BASE_ADDR,
+		DSP_DEVICE_UART_MUTEX_IOVA_SIZE, UART_MUTEX_BASE_ADDR + dsp->numa_id * DIE_BASE_INTERVAL,
 		IOMMU_MMIO);
 	if (ret != 0) {
 		dev_err(dsp->dev, "uart mutex iommu map error\n");
@@ -1158,7 +1158,7 @@ int es_dsp_map_resource(struct es_dsp *dsp)
 	}
 
 	hw->uart_mutex_base =
-		ioremap(UART_MUTEX_BASE_ADDR, DSP_DEVICE_UART_MUTEX_IOVA_SIZE);
+		devm_ioremap(dsp->dev, UART_MUTEX_BASE_ADDR + dsp->numa_id * DIE_BASE_INTERVAL, DSP_DEVICE_UART_MUTEX_IOVA_SIZE);
 	if (!hw->uart_mutex_base) {
 		dev_err(&hw->pdev->dev, "ioremap error\n");
 		ret = -ENOMEM;
@@ -1212,7 +1212,7 @@ int es_dsp_unmap_resource(struct es_dsp *dsp)
 	}
 	if (hw->uart_mutex_base != NULL) {
 
-		iounmap(hw->uart_mutex_base);
+		devm_iounmap(dsp->dev, hw->uart_mutex_base);
 		hw->uart_mutex_base = NULL;
 	}
 	return 0;
@@ -1260,9 +1260,9 @@ int es_dsp_hw_init(struct es_dsp *dsp)
 
 	hw->pts_iova = DSP_PTS_IOVA;
 	hw->pts_iova_size = DSP_PTS_IOVA_SIZE;
-	hw->pts_phys_base = 0x51840000;
+	hw->pts_phys_base = 0x51840000 + dsp->numa_id * DIE_BASE_INTERVAL;
 	ret = iommu_map_rsv_iova_with_phys(dsp->dev, (dma_addr_t)DSP_PTS_IOVA,
-					   DSP_PTS_IOVA_SIZE, 0x51840000,
+					   DSP_PTS_IOVA_SIZE, hw->pts_phys_base,
 					   IOMMU_MMIO);
 	if (ret != 0) {
 		dev_err(dsp->dev, "iommu map dsp pts phy error.\n");

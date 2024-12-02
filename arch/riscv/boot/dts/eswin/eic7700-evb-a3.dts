@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7700 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "eic7700-evb-a2.dts"
+
+/ {
+	model = "ESWIN EIC7700 EVB A3";
+};
+
+&d0_clock {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio95_default>;
+	cpu-voltage-gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
+};
+
+&d0_cpu_opp_table {
+	opp-1500000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+	opp-1600000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+	opp-1700000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+	opp-1800000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+};

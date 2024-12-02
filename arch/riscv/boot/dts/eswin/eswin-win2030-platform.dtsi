@@ -31,7 +31,7 @@ BIT1  BIT0
 #define MEMMODE_FLAT
 #define AVAILABLE_DIE 0
 
-#define CHIPLET_AND_DIE		((CHIPLET_NUM << 1) | AVAILABLE_DIE)
+//#define CHIPLET_AND_DIE		((CHIPLET_NUM << 1) | AVAILABLE_DIE)
 
 /* VI related Macros */
 #define MIPI_CSI2_IMX290_ENBALE

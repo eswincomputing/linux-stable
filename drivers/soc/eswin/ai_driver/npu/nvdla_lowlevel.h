@@ -45,7 +45,8 @@ int npu_dev_reset(struct nvdla_device *nvdla_dev);
 int npu_init_reset(struct nvdla_device *nvdla_dev);
 void npu_dma_sid_cfg(void __iomem *npu_subsys_base, u32 sid);
 
-int npu_e31_load_fw(struct platform_device *, void __iomem *e31_mmio_base);
+int npu_e31_load_fw(struct nvdla_device *ndev);
+
 int npu_pm_get(struct nvdla_device *ndev);
 int npu_pm_put(struct nvdla_device *ndev);
 

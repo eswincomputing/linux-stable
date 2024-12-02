@@ -39,7 +39,7 @@
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
-	model = "ESWIN EIC7700";
+	model = "ESWIN EIC7700 EVB A2";
 	compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000",
 		     "sifive,fu740", "eswin,eic7700";
 
@@ -734,8 +734,18 @@
 };
 
 &d0_i2c2 {
-	/* mipi dsi */
-	status = "disabled";
+	/* touch screen*/
+	status = "ok";
+	gt911:touchscreen@14 {
+		compatible = "goodix,gt911";
+		reg = <0x14>;
+		interrupt-parent = <&porta>;
+		interrupts = <10 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio10_default>;
+		irq-gpios = <&porta 10 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &d0_i2c3 {

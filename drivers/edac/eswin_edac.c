@@ -1337,13 +1337,13 @@ static int mc_probe(struct platform_device *pdev)
 			goto free_edac_mc;
 	}
 
-	rc = edac_mc_add_mc(mci);
-	if (rc)
-	{
-		edac_printk(KERN_ERR, EDAC_MC,
-					"Failed to register with EDAC core\n");
-		goto free_edac_mc;
-	}
+	// rc = edac_mc_add_mc(mci);
+	// if (rc)
+	// {
+	// 	edac_printk(KERN_ERR, EDAC_MC,
+	// 				"Failed to register with EDAC core\n");
+	// 	goto free_edac_mc;
+	// }
 
 #ifdef CONFIG_EDAC_DEBUG
 	if (priv->p_data->quirks & DDR_ECC_DATA_POISON_SUPPORT)
@@ -1366,7 +1366,7 @@ static int mc_probe(struct platform_device *pdev)
 	 */
 	if (!(priv->p_data->quirks & DDR_ECC_INTR_SUPPORT))
 		writel(0x0, baseaddr + ECC_CTRL_OFST);
-
+	edac_printk(KERN_INFO, EDAC_MC, "%s init succ\n",pdev->name);
 	return rc;
 
 free_edac_mc:

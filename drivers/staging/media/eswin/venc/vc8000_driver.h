@@ -297,6 +297,7 @@ struct exchange_parameter {
 	u16 priority; //input,normal=0, high/live=1
 	u16 cmdbuf_id; //output ,it is unique in driver.
 	u16 core_id; //just used for polling.
+	u16 numa_id; //bind the task to the specified numa_id
 };
 
 typedef struct CoreWaitOut {

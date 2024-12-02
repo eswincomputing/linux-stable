@@ -85,13 +85,25 @@ typedef enum type_NPU_MODULE_SEL_ID_E {
 } NPU_MODULE_SEL_ID_E;
 
 /* NPU system port base address */
+#if defined(DIE1) && DIE1
+#define NPU_SYS_BASE_ADDR 0x71C00000
+#else
 #define NPU_SYS_BASE_ADDR 0x51C00000
+#endif
 /* NPU configuration base address */
 #define NPU_CFG_BASE_ADDR 0x51828000
 
 /* NPU PP port base address */
 #define NPU_PP_BASE_ADDR 0x20000000
 
+/*NPU Die Register Offset*/
+#define NPU_DIE_REG_OFFSET 0x20000000
+
+#if defined(DIE1) && DIE1
+#define NPU_SRAM_BASE_ADDR 0x79000000
+#define SYS_CON_BASE_ADDR 0x71810000
+#define PMC_BASE_ADDR 0x71800000
+#else
 /* NPU sram base address */
 #define NPU_SRAM_BASE_ADDR 0x59000000
 
@@ -100,6 +112,7 @@ typedef enum type_NPU_MODULE_SEL_ID_E {
 
 /* Power domain management control base address */
 #define PMC_BASE_ADDR 0x51800000
+#endif
 
 #define PMC_REG_MAX 0x9000
 
@@ -307,9 +320,10 @@ typedef enum type_NPU_MODULE_SEL_ID_E {
  * @brief Assert the register access address is legal.
  *
  */
-#define ASSERT_REG_ADDR(addr)                                                                                   \
-    ASSERT(((addr)-NPU_HW_MODULE_BASE_ADDR) < NPU_HW_MODULE_SIZE || ((addr)-SYS_CON_BASE_ADDR) < CON_REG_MAX || \
-           ((addr)-PMC_BASE_ADDR) < PMC_REG_MAX || ((addr)-ESWIN_MAILBOX_NPU_0_TO_U84_REG_BASE) < MBOX_NPU_MAX_SIZE)
+#define ASSERT_REG_ADDR(addr)                                                                                       \
+    ASSERT(((addr) - NPU_HW_MODULE_BASE_ADDR) < NPU_HW_MODULE_SIZE || ((addr) - SYS_CON_BASE_ADDR) < CON_REG_MAX || \
+           ((addr) - PMC_BASE_ADDR) < PMC_REG_MAX ||                                                                \
+           ((addr) - ESWIN_MAILBOX_NPU_0_TO_U84_REG_BASE) < MBOX_NPU_MAX_SIZE)
 
 /**
  * @brief The ssid of write and read operation.

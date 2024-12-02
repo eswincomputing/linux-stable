@@ -1,11 +1,22 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
  * ESWIN MMZ VB driver. MMZ VB stands for Media Memory Zone Video Buffer.
  *
- * Copyright 2024 Beijing ESWIN Computing Technology Co., Ltd.
- *   Authors:
- *    LinMin<linmin@eswincomputing.com>
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Min Lin <linmin@eswincomputing.com>
  */
 
 #include <linux/dma-buf.h>
@@ -2076,7 +2087,7 @@ static int vb_blk_to_pool(struct esVB_BLOCK_TO_POOL_CMD_S *blkToPoolCmd)
 	int ret = 0;
 	struct dma_buf *dmabuf;
 	struct mmz_vb_buffer *buffer;
-	struct esw_export_buffer_info *splittedBuffer;
+	struct eswin_split_buffer *splittedBuffer;
 	struct dma_buf *blkDmabuf;
 	bool isSplittedBlk;
 
@@ -2119,7 +2130,7 @@ static int vb_get_blk_offset(struct esVB_GET_BLOCKOFFSET_CMD_S *getBlkOffsetCmd)
 	int ret = 0;
 	struct dma_buf *dmabuf;
 	struct mmz_vb_buffer *buffer;
-	struct esw_export_buffer_info *splittedBuffer;
+	struct eswin_split_buffer *splittedBuffer;
 	struct dma_buf *blkDmabuf;
 	__u64 blkSize, offsetInPool;
 

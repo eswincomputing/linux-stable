@@ -23,6 +23,7 @@
 #define DW_HDMI_HDCP_H
 
 #include <linux/miscdevice.h>
+#include "dsp_dma_buf.h"
 
 #define DW_HDCP_DRIVER_NAME "dw-hdmi-hdcp"
 #define HDCP_PRIVATE_KEY_SIZE 280
@@ -34,16 +35,44 @@ struct hdcp_keys {
 	u8 sha1[HDCP_KEY_SHA_SIZE];
 };
 
+typedef struct {
+	int allocated, initialized;
+	int code_loaded;
+
+	int code_is_phys_mem;
+	dma_addr_t code_base;
+	uint32_t code_size;
+	uint8_t *code;
+	int data_is_phys_mem;
+	dma_addr_t data_base;
+	uint32_t data_size;
+	uint8_t *data;
+
+	struct resource *hpi_resource;
+	uint8_t __iomem *hpi;
+	struct device *dev;
+} hl_device;
+
 struct dw_hdcp2 {
+	int numa_id;
 	int enable;
-	void (*start)(void);
-	void (*stop)(void);
+	void (*start)(struct dw_hdcp2* hdcp2);
+	void (*stop)(struct dw_hdcp2* hdcp2);
 
 	struct device *dev;
 	int wait_hdcp2_reset;
 	int hot_plug;
 	struct miscdevice mdev;
 	int auth_sucess;
+	hl_device *hld;
+	struct miscdevice mics_hld;
+	struct clk *aclk;
+	struct clk *iesmclk;
+
+	struct dev_buffer_desc code_buffer;
+	struct dev_buffer_desc data_buffer;
+	struct dma_buf_attachment *code_attach;
+	struct dma_buf_attachment *data_attach;
 };
 
 struct dw_hdcp {
@@ -56,6 +85,7 @@ struct dw_hdcp {
 	int hdcp2_enable;
 	int status;
 	u32 reg_io_width;
+	int numa_id;
 
 	struct dw_hdcp2 *hdcp2;
 	struct miscdevice mdev;
@@ -73,6 +103,6 @@ struct dw_hdcp {
 
 extern u8 tv_hdmi_hdcp2_support(struct dw_hdmi *hdmi);
 extern void dw_hdmi_hdcp2_init(struct dw_hdcp2 *hdcp2);
-extern void dw_hdmi_hdcp2_remove(void);
-extern void dw_hdmi_hdcp2_start(int enable);
+extern void dw_hdmi_hdcp2_remove(struct dw_hdcp2 *hdcp2);
+extern void dw_hdmi_hdcp2_start(int enable, int numa_id);
 #endif

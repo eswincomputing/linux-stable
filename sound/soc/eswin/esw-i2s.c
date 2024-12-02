@@ -59,7 +59,8 @@
 #define MAX_SAMPLE_RATE_SUPPORT (192000UL)
 #define MAX_SAMPLE_RATE_CLK (MAX_SAMPLE_RATE_SUPPORT * 32 * 2) // 32 bits, 2channels
 
-#define VO_TOP_CSR             0x50280000UL
+#define DIE0_VO_TOP_CSR        0x50280000UL
+#define DIE1_VO_TOP_CSR        0x70280000UL
 #define VO_I2S0_DIV_NUM        0x2000
 #define VO_I2S1_DIV_NUM        0x2004
 #define VO_I2S2_DIV_NUM        0x2008
@@ -73,7 +74,11 @@
 			SNDRV_PCM_RATE_8000)
 #define ESW_I2S_FORMATS (SNDRV_PCM_FMTBIT_S32_LE)
 
-#define I2S0_IO_ADDR 0x51600124
+#define DIE0_I2S0_IO_ADDR 0x51600124
+#define DIE1_I2S0_IO_ADDR 0x71600124
+
+#define DIE0_DAI_DRIVER_OFFSET 0
+#define DIE1_DAI_DRIVER_OFFSET 4
 
 #define HDMI_DAI_NAME "i2s0-hdmi"
 
@@ -105,6 +110,67 @@ static const u32 bus_widths[COMP_MAX_DATA_WIDTH] = {
 	DMA_SLAVE_BUSWIDTH_4_BYTES,
 	DMA_SLAVE_BUSWIDTH_UNDEFINED
 };
+
+int i2s_get_nid(struct device *dev)
+{
+	int nid = dev_to_node(dev);
+
+	if (nid == NUMA_NO_NODE) {
+	#ifdef CONFIG_NUMA
+		dev_err(dev, "%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
+		return NUMA_NO_NODE;
+	#else
+		dev_info(dev, "nid:NUMA_NO_NODE, single DIE\n");
+		nid = 0;
+	#endif
+	} else {
+		dev_info(dev, "nid:%d\n", nid);
+	}
+	return nid;
+}
+
+static int set_mclk(struct device *dev, struct clk **i2s_clk)
+{
+	const char *clk_id = "mclk";
+	struct clk *clk = NULL;
+	int ret;
+
+	clk = devm_clk_get(dev, clk_id);
+	if (IS_ERR(clk)) {
+		dev_err(dev, "Failed to get clock: %ld\n", PTR_ERR(clk));
+		return PTR_ERR(clk);
+	}
+
+	ret = clk_prepare_enable(clk);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable clock: %d\n", ret);
+		return ret;
+	}
+
+	/* only set once */
+	if (of_node_name_prefix(dev->of_node, "i2s0")) {
+		ret = clk_set_rate(clk, MAX_SAMPLE_RATE_CLK);
+		if (ret) {
+			dev_err(dev, "Can't set I2S clock rate: %d\n", ret);
+			clk_disable_unprepare(clk);
+			return ret;
+		}
+	}
+
+	*i2s_clk = clk;
+	return 0;
+}
+
+
+unsigned long get_vo_top_csr(int nid)
+{
+	return (nid == 1) ? DIE1_VO_TOP_CSR : DIE0_VO_TOP_CSR;
+}
+
+unsigned long get_i2s0_io_addr(int nid)
+{
+	return (nid == 1) ? DIE1_I2S0_IO_ADDR : DIE0_I2S0_IO_ADDR;
+}
 
 static inline u32 i2s_read_reg(void *io_base, int reg)
 {
@@ -532,10 +598,11 @@ static const struct snd_soc_dai_ops i2s_dai_ops = {
 static int i2s_runtime_suspend(struct device *dev)
 {
 	struct i2s_dev *i2s_drvdata = dev_get_drvdata(dev);
+	struct clk *clk = i2s_drvdata->clk;
 
 	dev_dbg(i2s_drvdata->dev, "%s\n", __func__);
 
-	clk_disable(g_mclk);
+	clk_disable(clk);
 
 	return 0;
 }
@@ -543,9 +610,10 @@ static int i2s_runtime_suspend(struct device *dev)
 static int i2s_runtime_resume(struct device *dev)
 {
 	struct i2s_dev *i2s_drvdata = dev_get_drvdata(dev);
+	struct clk *clk = i2s_drvdata->clk;
 
 	dev_dbg(i2s_drvdata->dev, "%s\n", __func__);
-	clk_enable(g_mclk);
+	clk_enable(clk);
 
 	return 0;
 }
@@ -553,11 +621,12 @@ static int i2s_runtime_resume(struct device *dev)
 static int i2s_suspend(struct snd_soc_component *component)
 {
 	struct i2s_dev *i2s_drvdata = snd_soc_component_get_drvdata(component);
+	struct clk *clk = i2s_drvdata->clk;
 
 	dev_dbg(i2s_drvdata->dev, "%s\n", __func__);
 	if(!pm_runtime_suspended(i2s_drvdata->dev)) {
 		dev_dbg(i2s_drvdata->dev, "disable clk\n");
-		clk_disable(g_mclk);
+		clk_disable(clk);
 	}
 
 	return 0;
@@ -567,12 +636,13 @@ static int i2s_resume(struct snd_soc_component *component)
 {
 	struct i2s_dev *i2s_drvdata = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dai *dai = NULL;
+	struct clk *clk = i2s_drvdata->clk;
 	int stream;
 
 	dev_dbg(i2s_drvdata->dev, "%s\n", __func__);
 	if(!pm_runtime_suspended(i2s_drvdata->dev)) {
 		dev_dbg(i2s_drvdata->dev, "enable clk\n");
-		clk_enable(g_mclk);
+		clk_enable(clk);
 		for_each_component_dais(component, dai) {
 			for_each_pcm_streams(stream)
 				if (snd_soc_dai_stream_active(dai, stream))
@@ -644,7 +714,7 @@ static const struct snd_soc_component_driver i2s_component = {
 	.resume       = i2s_resume,
 };
 
-static struct snd_soc_dai_driver i2s_dai[4] = {
+static struct snd_soc_dai_driver i2s_dai[8] = {
 	{
 		.name = HDMI_DAI_NAME,
 		.id = 0,
@@ -714,14 +784,93 @@ static struct snd_soc_dai_driver i2s_dai[4] = {
 			.formats = ESW_I2S_FORMATS,
 		},
 	},
+	{
+		.name = "d1-i2s0-hdmi",
+		.id = 0,
+		.ops = &i2s_dai_ops,
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+	},
+	{
+		.name = "d1-i2s0",
+		.id = 1,
+		.ops = &i2s_dai_ops,
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+	},
+	{
+		.name = "d1-i2s1",
+		.id = 0,
+		.ops = &i2s_dai_ops,
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+	},
+	{
+		.name = "d1-i2s2",
+		.id = 0,
+		.ops = &i2s_dai_ops,
+		.playback = {
+			.stream_name = "Playback",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+		.capture = {
+			.stream_name = "Capture",
+			.channels_min = MIN_CHANNEL_NUM,
+			.channels_max = MAX_CHANNEL_NUM,
+			.rates = ESW_I2S_RATES,
+			.formats = ESW_I2S_FORMATS,
+		},
+	},
 };
 
 static int i2s_probe(struct platform_device *pdev)
 {
 	struct i2s_dev *i2s_drvdata;
 	struct resource *res;
-	int ret;
-	const char *clk_id;
+	int ret = 0;
+	int nid = 0;
+	unsigned long vo_top_csr;
+	unsigned long i2s0_io_addr;
+	int dai_offset = 0;
 	struct snd_dmaengine_pcm_config *config;
 	void __iomem *i2s0_io_base;
 	int reg_val;
@@ -747,20 +896,22 @@ static int i2s_probe(struct platform_device *pdev)
 	}
 	i2s_drvdata->dev = &pdev->dev;
 
-	if (of_node_name_prefix(pdev->dev.of_node, "i2s0")) {
-		clk_id = "mclk";
-		g_mclk = devm_clk_get(&pdev->dev, clk_id);
-		if (IS_ERR(g_mclk))
-			return PTR_ERR(g_mclk);
-		ret = clk_prepare_enable(g_mclk);
-		if (ret < 0)
-			return ret;
-		i2s_drvdata->clk = g_mclk;
-		ret = clk_set_rate(g_mclk, MAX_SAMPLE_RATE_CLK);
-		if (ret) {
-			dev_err(i2s_drvdata->dev, "Can't set I2S clock rate: %d\n", ret);
-		}
+	nid = i2s_get_nid(&pdev->dev);
+	if (nid == 0) {
+		dai_offset = DIE0_DAI_DRIVER_OFFSET;
+	} else if (nid == 1) {
+		dai_offset = DIE1_DAI_DRIVER_OFFSET;
+	} else {
+		dev_err(&pdev->dev, "%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
+		return -EFAULT;
+	}
 
+	ret = set_mclk(&pdev->dev, &i2s_drvdata->clk);
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (of_node_name_prefix(pdev->dev.of_node, "i2s0")) {
 		ret = i2s_reset(pdev, i2s_drvdata);
 		if (ret != 0) {
 			dev_err(&pdev->dev, "i2s_reset failed\n");
@@ -768,7 +919,8 @@ static int i2s_probe(struct platform_device *pdev)
 		}
 
 		if (!of_property_read_bool(pdev->dev.of_node, "io_reuse_enable")) {
-			i2s0_io_base = devm_ioremap(&pdev->dev, I2S0_IO_ADDR, 12);
+			i2s0_io_addr = get_i2s0_io_addr(nid);
+			i2s0_io_base = devm_ioremap(&pdev->dev, i2s0_io_addr, 12);
 			if (!i2s0_io_base) {
 				dev_err(i2s_drvdata->dev, "failed to remap i2s0 io ctl\n");
 				return -ENOMEM;
@@ -796,33 +948,31 @@ static int i2s_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, i2s_drvdata);
 
+	vo_top_csr = get_vo_top_csr(nid);
 	if (of_node_name_prefix(pdev->dev.of_node, "i2s0")) {
-		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, VO_TOP_CSR + VO_I2S0_DIV_NUM, 4);
+		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, vo_top_csr + VO_I2S0_DIV_NUM, 4);
 		if (!i2s_drvdata->i2s_div_base) {
 			dev_err(&pdev->dev, "failed to remap i2s0 div config\n");
 			ret = -ENOMEM;
 			goto err_probe;
 		}
-		ret = devm_snd_soc_register_component(&pdev->dev, &i2s_component,
-					&i2s_dai[0], 2);
+		ret = devm_snd_soc_register_component(&pdev->dev, &i2s_component, &i2s_dai[dai_offset], 2);
 	} else if (of_node_name_prefix(pdev->dev.of_node, "i2s1")) {
-		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, VO_TOP_CSR + VO_I2S1_DIV_NUM, 4);
+		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, vo_top_csr + VO_I2S1_DIV_NUM, 4);
 		if (!i2s_drvdata->i2s_div_base) {
 			dev_err(&pdev->dev, "failed to remap i2s1 div config\n");
 			ret = -ENOMEM;
 			goto err_probe;
 		}
-		ret = devm_snd_soc_register_component(&pdev->dev, &i2s_component,
-					&i2s_dai[2], 1);
+		ret = devm_snd_soc_register_component(&pdev->dev, &i2s_component, &i2s_dai[2 + dai_offset], 1);
 	} else {
-		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, VO_TOP_CSR + VO_I2S2_DIV_NUM, 4);
+		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, vo_top_csr + VO_I2S2_DIV_NUM, 4);
 		if (!i2s_drvdata->i2s_div_base) {
 			dev_err(&pdev->dev, "failed to remap i2s2 div config\n");
 			ret = -ENOMEM;
 			goto err_probe;
 		}
-		ret = devm_snd_soc_register_component(&pdev->dev, &i2s_component,
-					&i2s_dai[3], 1);
+		ret = devm_snd_soc_register_component(&pdev->dev, &i2s_component, &i2s_dai[3 + dai_offset], 1);
 	}
 	if (ret != 0) {
 		dev_err(&pdev->dev, "not able to register dai\n");

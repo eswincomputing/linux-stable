@@ -163,7 +163,13 @@ struct gpu_power_domain {
 
 static struct _gpu_reset {
     struct reset_control *rsts[gcdDEVICE_COUNT][gcvRST_COUNT];
-}gpu_reset;
+} gpu_reset;
+
+static struct _gpu_device {
+    struct device *devs[gcdDEVICE_COUNT];
+} gpu_device = {
+    .devs = { gcvNULL, gcvNULL },
+};
 
 static struct _gcsPLATFORM default_platform = {
     .name = __FILE__,
@@ -288,7 +294,7 @@ static int gpu_add_power_domains(struct platform_device *pdev, gcsMODULE_PARAMET
     int ret = 0;
 
     memset(&gpd, 0, sizeof(struct gpu_power_domain));
-    num_domains = params->devCount;
+    num_domains = (gpu_device.devs[0] != gcvNULL) + (gpu_device.devs[1] != gcvNULL);
     gpd.num_domains = num_domains;
 
     /* If the num of domains is less than 2, the domain will be attached automatically */
@@ -300,13 +306,13 @@ static int gpu_add_power_domains(struct platform_device *pdev, gcsMODULE_PARAMET
 
     for (i = 0; i < num_domains; i++) {
         if (gpd.power_dev) {
-            gpd.power_dev[i] = dev_pm_domain_attach_by_id(dev, i);
+            gpd.power_dev[i] = dev_pm_domain_attach_by_id(gpu_device.devs[i], i);
             if (IS_ERR(gpd.power_dev[i]))
                 goto error;
         }
 
         for (j = 0; j < nc_of_clks; j++) {
-            gpd.clks[i][j] = devm_clk_get(dev, clk_names[j]);
+            gpd.clks[i][j] = devm_clk_get(gpu_device.devs[i], clk_names[j]);
             if (IS_ERR(gpd.clks[i][j])) {
                 ret = PTR_ERR(gpd.clks[i][j]);
                 dev_err(dev, "failed to get die-%d:%s clock: %d\n", i, clk_names[j], ret);
@@ -330,14 +336,19 @@ error:
 
 static int g2d_device_node_scan(unsigned char *compatible) {
     struct device_node *np;
+    const char *str;
+    int ret = -1;
 
     np = of_find_compatible_node(NULL, NULL, compatible);
     if (!np) {
-        return -1;
+        return ret;
+    }
+    if (!of_property_read_string(np, "status", &str) && !strcmp(str, "okay")) {
+        ret = 0;
     }
     of_node_put(np);
 
-    return 0;
+    return ret;
 }
 
 static int g2d_reset(struct device *dev, int dieIndex, int enable) {
@@ -399,6 +410,7 @@ static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *para
     const gctUINT32 *value;
     const char *str;
     int dieIndex = 0;
+    int peerDieIndex;
 
     gcmSTATIC_ASSERT(gcvCORE_COUNT == gcmCOUNTOF(core_names),
                      "core_names array does not match core types");
@@ -410,6 +422,7 @@ static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *para
     } else if (!strcmp("eswin,galcore_d1", str)) {
         dieIndex = 1;
     }
+    peerDieIndex = (dieIndex + 1) % 2;
 
     /* parse the irqs config */
     for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
@@ -540,10 +553,17 @@ static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *para
 
     params->devCount++;
 
-    if (params->devCount == 1) {
+    params->devices[dieIndex] = gpu_device.devs[dieIndex] = &pdev->dev;
+    params->platformIDs[dieIndex] = dieIndex;
+    if(params->dev2DCoreCounts[dieIndex] && params->dev2DCoreCounts[peerDieIndex]){
+        /*all device probe done, it need restore remembered peer device pointer*/
+        params->devices[peerDieIndex] = gpu_device.devs[peerDieIndex];
+    }
+
+    if (params->devCount == 1 && params->dev2DCoreCounts[peerDieIndex] == 0) {
         unsigned char compatible[32] = { 0 };
-        sprintf(compatible, "eswin,galcore_d%d", (dieIndex + 1) % 2);
-        if(!g2d_device_node_scan(compatible)){
+        sprintf(compatible, "eswin,galcore_d%d", peerDieIndex);
+        if (!g2d_device_node_scan(compatible)) {
             return 1;
         }
     }

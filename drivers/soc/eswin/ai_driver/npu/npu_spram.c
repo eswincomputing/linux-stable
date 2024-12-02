@@ -27,6 +27,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include "npu_spram.h"
+#include "npu_base_regs.h"
 
 // At least one way must be reserved for cache
 #define MAX_CACHE_SIZE (2 * 0x100000)  //2MB
@@ -157,7 +158,7 @@ static int npu_llc_interleave_enable(struct nvdla_device *nvdla_dev)
 	void *base_addr;
 	struct device *dev = &nvdla_dev->pdev->dev;
 
-	base_addr = ioremap(0x51810000, 0x500);
+	base_addr = ioremap(0x51810000 + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, 0x500);
 	if (!base_addr) {
 		dev_err(dev, "ioremap error\n");
 		return -1;
@@ -207,7 +208,7 @@ int npu_spram_init(struct nvdla_device *nvdla_dev)
 	}
 
 	spram_start =
-		ioremap(nvdla_dev->spram_base_addr, resource_size(&res_spram));
+		devm_ioremap(&nvdla_dev->pdev->dev, nvdla_dev->spram_base_addr, resource_size(&res_spram));
 	if (IS_ERR(spram_start)) {
 		dev_err(dev, "npu spram ioremap error\n");
 		return -ENODEV;

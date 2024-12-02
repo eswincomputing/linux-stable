@@ -440,10 +440,11 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 	uint64_t offset = 0;
 	uint32_t op_num;
 	uint32_t index;
+	int16_t buffer_cnt_input;
 	int32_t ret;
 	int op_type = 0;
 	int src_type = 0;
-	int i = 0, j = 0, k = 0;
+	int i = 0, j = 0, k = 0, m = 0;
 	char *src_dump_buf = NULL;
 	uint32_t dump_buf_len = 0;
 	struct dla_data_cube *src_data;
@@ -462,7 +463,6 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 	}
 
 	op_num = executor->network->num_operations;
-
 	if (npu_dump_op_num_start >= op_num) {
 		dla_error("error:npu_dump_op_num_start(%d) >= op_num(%d)!\n",
 			  npu_dump_op_num_start, op_num);
@@ -475,6 +475,8 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 		op_type = executor->task->common_desc[i].op_type;
 		if (index != op_index)
 			continue;
+		buffer_cnt_input = 1;
+
 		switch (op_type) {
 		case DLA_OP_EDMA:
 			src_data = &executor->task->surface_desc[index]
@@ -543,20 +545,7 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 		case DLA_KMD_OP_DSP_1:
 		case DLA_KMD_OP_DSP_2:
 		case DLA_KMD_OP_DSP_3:
-			src_data = &executor->task->surface_desc[index]
-					    .dsp_surface.src_data[0];
-			src_addr_index = executor->task->surface_desc[index]
-						 .dsp_surface.src_data[0]
-						 .address;
-			src_data_size = executor->task->surface_desc[index]
-						.dsp_surface.src_data[0]
-						.size;
-			offset = executor->task->surface_desc[index]
-					 .dsp_surface.src_data[0]
-					 .offset;
-			src_type = executor->task->surface_desc[index]
-					   .dsp_surface.src_data[0]
-					   .type;
+			buffer_cnt_input = executor->task->op_desc[index].dsp_op.buffer_cnt_input;
 			break;
 		default:
 			continue;
@@ -583,116 +572,130 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 				       &executor->task->common_desc[i], "y");
 		}
 
-		dla_debug(
-			"src data dump %d:index:%d op_type:%d src_type:%d src_addr_index: %d size:0x%llx offset:0x%llx\n",
-			__LINE__, index, op_type, src_type, src_addr_index,
-			src_data_size, offset);
+		/* dump */
+		for (m = 0; m < buffer_cnt_input; m++) {
+			/* multi input for DSP */
+			if ((op_type >= DLA_KMD_OP_DSP_0) && (op_type <= DLA_KMD_OP_DSP_3)) {
+				src_dump_buf = NULL;
+				src_data = &executor->task->surface_desc[index].dsp_surface.src_data[m];
+				src_addr_index = executor->task->surface_desc[index].dsp_surface.src_data[m].address;
+				src_data_size = executor->task->surface_desc[index].dsp_surface.src_data[m].size;
+				offset = executor->task->surface_desc[index].dsp_surface.src_data[m].offset;
+				src_type = executor->task->surface_desc[index].dsp_surface.src_data[m].type;
+			}
+			dla_debug(
+				"src data dump %d:index:%d op_type:%d src_type:%d src_addr_index: %d size:0x%llx offset:0x%llx\n",
+				__LINE__, index, op_type, src_type, src_addr_index,
+				src_data_size, offset);
 
-		if ((-1 == src_addr_index) || (src_type == DLA_MEM_HW)) {
-			strcpy(md5_dump[index].src_md5, "on-fly");
-			continue;
-		}
-		if ((index == 0) && (op_type == 0) && (src_type == 0) &&
-		    (src_addr_index == 0)) {
-			continue;
-		}
+			/* MD5 */
+			if ((-1 == src_addr_index) || (src_type == DLA_MEM_HW)) {
+				strcpy(md5_dump[index].src_md5, "on-fly");
+				continue;
+			}
 
-		dump_buf_len = src_data_size;
+			if ((index == 0) && (op_type == 0) && (src_type == 0) &&
+				(src_addr_index == 0)) {
+				continue;
+			}
 
-		seg_adrr[1] = src_data_size / 2;
-		seg_adrr[2] = src_data_size - seg_data_len;
+			dump_buf_len = src_data_size;
+			seg_adrr[1] = src_data_size / 2;
+			seg_adrr[2] = src_data_size - seg_data_len;
 
-		read_input_address(executor, src_data, &input_address,
-				   &input_is_io_tensor);
-		dla_debug("input_address:0x%llx, input_is_io_tensor:%d\n",
-			  input_address, input_is_io_tensor);
+			read_input_address(executor, src_data, &input_address,
+					&input_is_io_tensor);
+			dla_debug("input_address:0x%llx, input_is_io_tensor:%d\n",
+				input_address, input_is_io_tensor);
 
-		if (src_type == DLA_MEM_MC) {
-			if (input_is_io_tensor == invalid_tensor_idx) {
-				ret = dla_data_get_vaddr(
-					&model->mem_handles, src_addr_index,
-					(void **)&src_dump_buf);
-				if (ret < 0) {
-					dla_error(
-						"err:get index(%d) vaddr failed!\n",
-						src_addr_index);
-					return;
+			/* src_dump_buf */
+			if (src_type == DLA_MEM_MC) {
+				if (input_is_io_tensor == invalid_tensor_idx) {
+					ret = dla_data_get_vaddr(
+						&model->mem_handles, src_addr_index,
+						(void **)&src_dump_buf);
+					if (ret < 0) {
+						dla_error(
+							"err:get index(%d) vaddr failed!\n",
+							src_addr_index);
+						return;
+					}
+
+					src_dump_buf += offset;
+				} else {
+					input_address = f->io_tensors_addr_list
+								[input_is_io_tensor] +
+							offset;
+					if (f->input_bobj[input_is_io_tensor] != NULL)
+						src_dump_buf = dla_dmabuf_vmap(
+							f->input_bobj
+								[input_is_io_tensor]);
 				}
 
-				src_dump_buf += offset;
+				if (src_dump_buf == NULL) {
+					dla_error(
+						"%d, error:src_dump_buf == NULL!index=%d\n",
+						__LINE__, index);
+					continue;
+				}
+			} else if (src_type == DLA_MEM_CV) {
+				int addr_offset =
+					input_address -
+					((struct nvdla_device
+						*)(executor->driver_context))
+						->spram_base_addr;
+
+				struct dla_buffer_object *spram_bobj =
+					((struct nvdla_device
+						*)(executor->driver_context))
+						->spram_bobj;
+
+				if (spram_bobj != NULL) {
+					src_dump_buf = dla_dmabuf_vmap(spram_bobj);
+					src_dump_buf += addr_offset;
+				}
+
+				if (src_dump_buf == NULL) {
+					dla_error(
+						"%d, error:src_dump_buf == NULL!index=%d\n",
+						__LINE__, index);
+					continue;
+				}
 			} else {
-				input_address = f->io_tensors_addr_list
-							[input_is_io_tensor] +
-						offset;
-				if (f->input_bobj[input_is_io_tensor] != NULL)
-					src_dump_buf = dla_dmabuf_vmap(
-						f->input_bobj
-							[input_is_io_tensor]);
-			}
-
-			if (src_dump_buf == NULL) {
-				dla_error(
-					"%d, error:src_dump_buf == NULL!index=%d\n",
-					__LINE__, index);
 				continue;
 			}
 
-		} else if (src_type == DLA_MEM_CV) {
-			int addr_offset =
-				input_address -
-				((struct nvdla_device
-					  *)(executor->driver_context))
-					->spram_base_addr;
-
-			struct dla_buffer_object *spram_bobj =
-				((struct nvdla_device
-					  *)(executor->driver_context))
-					->spram_bobj;
-
-			if (spram_bobj != NULL) {
-				src_dump_buf = dla_dmabuf_vmap(spram_bobj);
-				src_dump_buf += addr_offset;
-			}
-
-			if (src_dump_buf == NULL) {
-				dla_error(
-					"%d, error:src_dump_buf == NULL!index=%d\n",
-					__LINE__, index);
-				continue;
-			}
-
-		} else {
-			continue;
-		}
-
-		memset(p_buf, 0, P_BUF_LEN);
-		for (k = 0; k < 3; k++) {
-			for (j = 0; j < seg_data_len; j++) {
-				if (j % DATA_CNT_ONE_LINE == 0) {
-					if (j != 0) {
-						dla_debug("%s\n", p_buf);
-						memset(p_buf, 0, P_BUF_LEN);
+			/* src_dump_buf */
+			memset(p_buf, 0, P_BUF_LEN);
+			for (k = 0; k < 3; k++) {
+				for (j = 0; j < seg_data_len; j++) {
+					if (j % DATA_CNT_ONE_LINE == 0) {
+						if (j != 0) {
+							dla_debug("%s\n", p_buf);
+							memset(p_buf, 0, P_BUF_LEN);
+						}
+						snprintf(p_buf + strlen(p_buf),
+							P_BUF_LEN - strlen(p_buf),
+							"%05x: ", seg_adrr[k] + j);
 					}
 					snprintf(p_buf + strlen(p_buf),
-						 P_BUF_LEN - strlen(p_buf),
-						 "%05x: ", seg_adrr[k] + j);
+						P_BUF_LEN - strlen(p_buf), "%02x",
+						src_dump_buf[seg_data_len * k + j]);
 				}
-				snprintf(p_buf + strlen(p_buf),
-					 P_BUF_LEN - strlen(p_buf), "%02x",
-					 src_dump_buf[seg_data_len * k + j]);
+				dla_debug("%s\n", p_buf);
+				memset(p_buf, 0, P_BUF_LEN);
 			}
-			dla_debug("%s\n", p_buf);
-			memset(p_buf, 0, P_BUF_LEN);
+
+			/* dump2file */
+			sprintf(f_name, "%s/%d_%d_%d_%s_%d_%d_in.bin", dump_info->path,
+				dump_info->process_id, dump_info->model_id,
+				f->frame_idx, pcer2str(op_type), index, m);
+			dump2file(f_name, src_dump_buf, src_data_size);
+
+			/* MD5 */
+			calc_md5(md5, src_dump_buf, src_data_size);
+			memcpy(md5_dump[index].src_md5, md5, MD5_LENGTH);
 		}
-
-		sprintf(f_name, "%s/%d_%d_%d_%s_%d_0_in.bin", dump_info->path,
-			dump_info->process_id, dump_info->model_id,
-			f->frame_idx, pcer2str(op_type), index);
-
-		dump2file(f_name, src_dump_buf, src_data_size);
-
-		calc_md5(md5, src_dump_buf, src_data_size);
-		memcpy(md5_dump[index].src_md5, md5, MD5_LENGTH);
 	}
 
 	return;
@@ -706,10 +709,11 @@ void dla_dump_dst_data(struct win_executor *executor, struct host_frame_desc *f,
 	uint64_t offset = 0;
 	uint32_t op_num;
 	uint32_t index;
+	int16_t buffer_cnt_output;
 	int32_t ret;
 	int op_type = 0;
 	int dst_type = 0;
-	int i = 0, j = 0, k = 0;
+	int i = 0, j = 0, k = 0, m = 0;
 	char *dst_dump_buf = NULL;
 	uint32_t dump_buf_len = 0;
 	struct dla_data_cube *dst_data;
@@ -729,7 +733,6 @@ void dla_dump_dst_data(struct win_executor *executor, struct host_frame_desc *f,
 	}
 
 	op_num = executor->network->num_operations;
-
 	if (npu_dump_op_num_start >= op_num) {
 		dla_error("error:npu_dump_op_num_start(%d) >= op_num(%d)!\n",
 			  npu_dump_op_num_start, op_num);
@@ -742,6 +745,8 @@ void dla_dump_dst_data(struct win_executor *executor, struct host_frame_desc *f,
 		op_type = executor->task->common_desc[i].op_type;
 		if (index != op_index)
 			continue;
+		buffer_cnt_output = 1;
+
 		switch (op_type) {
 		case DLA_OP_EDMA:
 			dst_data = &executor->task->surface_desc[index]
@@ -810,145 +815,146 @@ void dla_dump_dst_data(struct win_executor *executor, struct host_frame_desc *f,
 		case DLA_KMD_OP_DSP_1:
 		case DLA_KMD_OP_DSP_2:
 		case DLA_KMD_OP_DSP_3:
-			dst_data = &executor->task->surface_desc[index]
-					    .dsp_surface.dst_data[0];
-			dst_addr_index = executor->task->surface_desc[index]
-						 .dsp_surface.dst_data[0]
-						 .address;
-			dst_data_size = executor->task->surface_desc[index]
-						.dsp_surface.dst_data[0]
-						.size;
-			offset = executor->task->surface_desc[index]
-					 .dsp_surface.dst_data[0]
-					 .offset;
-			dst_type = executor->task->surface_desc[index]
-					   .dsp_surface.dst_data[0]
-					   .type;
+			buffer_cnt_output = executor->task->op_desc[index].dsp_op.buffer_cnt_output;
 			break;
 		default:
 			continue;
 		}
 
-		dla_debug(
-			"dst data dump %d:index:%d op_type:%d dst_type:%d dst_addr_index: %d size:0x%llx offset:0x%llx\n",
-			__LINE__, index, op_type, dst_type, dst_addr_index,
-			dst_data_size, offset);
-		sprintf(md5_f_name, "%s/%d_%d_%d_md5.txt", dump_info->path,
-			dump_info->process_id, dump_info->model_id,
-			f->frame_idx);
-		if (-1 == dst_addr_index) {
-			if (dst_type == DLA_MEM_HW) {
-				strcpy(md5_dump[index].dst_md5, "on-fly");
-				md5_dump[index].calced_flag = 1;
-				dumpMD5(md5_f_name, executor, index);
+		/* dump */
+		for (m = 0; m < buffer_cnt_output; m++) {
+			/* multi output for DSP */
+			if ((op_type >= DLA_KMD_OP_DSP_0) && (op_type <= DLA_KMD_OP_DSP_3)) {
+				dst_dump_buf = NULL;
+				dst_data = &executor->task->surface_desc[index].dsp_surface.dst_data[m];
+				dst_addr_index = executor->task->surface_desc[index].dsp_surface.dst_data[m].address;
+				dst_data_size = executor->task->surface_desc[index].dsp_surface.dst_data[m].size;
+				offset = executor->task->surface_desc[index].dsp_surface.dst_data[m].offset;
+				dst_type = executor->task->surface_desc[index].dsp_surface.dst_data[m].type;
 			}
-			continue;
-		}
+			dla_debug(
+				"dst data dump %d:index:%d op_type:%d dst_type:%d dst_addr_index: %d size:0x%llx offset:0x%llx\n",
+				__LINE__, index, op_type, dst_type, dst_addr_index,
+				dst_data_size, offset);
 
-		if ((index == 0) && (op_type == 0) && (dst_type == 0) &&
-		    (dst_addr_index == 0)) {
-			continue;
-		}
+			/* MD5 */
+			sprintf(md5_f_name, "%s/%d_%d_%d_md5.txt", dump_info->path,
+				dump_info->process_id, dump_info->model_id,
+				f->frame_idx);
+			if (-1 == dst_addr_index) {
+				if (dst_type == DLA_MEM_HW) {
+					strcpy(md5_dump[index].dst_md5, "on-fly");
+					md5_dump[index].calced_flag = 1;
+					dumpMD5(md5_f_name, executor, index);
+				}
+				continue;
+			}
 
-		dump_buf_len = dst_data_size;
+			if ((index == 0) && (op_type == 0) && (dst_type == 0) &&
+				(dst_addr_index == 0)) {
+				continue;
+			}
 
-		seg_adrr[1] = dst_data_size / 2;
-		seg_adrr[2] = dst_data_size - seg_data_len;
+			dump_buf_len = dst_data_size;
+			seg_adrr[1] = dst_data_size / 2;
+			seg_adrr[2] = dst_data_size - seg_data_len;
 
-		read_input_address(executor, dst_data, &output_address,
-				   &output_is_io_tensor);
-		dla_debug("output_address:0x%llx, output_is_io_tensor:%d\n",
-			  output_address, output_is_io_tensor);
+			read_input_address(executor, dst_data, &output_address,
+					&output_is_io_tensor);
+			dla_debug("output_address:0x%llx, output_is_io_tensor:%d\n",
+				output_address, output_is_io_tensor);
 
-		if (dst_type == DLA_MEM_MC) {
-			if (output_is_io_tensor == invalid_tensor_idx) {
-				ret = dla_data_get_vaddr(
-					&model->mem_handles, dst_addr_index,
-					(void **)&dst_dump_buf);
-				if (ret < 0) {
-					dla_error(
-						"err:get index(%d) vaddr failed!\n",
-						dst_addr_index);
-					return;
+			/* dst_dump_buf */
+			if (dst_type == DLA_MEM_MC) {
+				if (output_is_io_tensor == invalid_tensor_idx) {
+					ret = dla_data_get_vaddr(
+						&model->mem_handles, dst_addr_index,
+						(void **)&dst_dump_buf);
+					if (ret < 0) {
+						dla_error(
+							"err:get index(%d) vaddr failed!\n",
+							dst_addr_index);
+						return;
+					}
+
+					dst_dump_buf += offset;
+				} else {
+					output_address = f->io_tensors_addr_list
+								[output_is_io_tensor] +
+							offset;
+					if (f->output_bobj[output_is_io_tensor] != NULL)
+						dst_dump_buf = dla_dmabuf_vmap(
+							f->output_bobj
+								[output_is_io_tensor]);
+					dst_dump_buf += offset;
 				}
 
-				dst_dump_buf += offset;
+				if (dst_dump_buf == NULL) {
+					dla_error(
+						"%d, error:dst_dump_buf == NULL!index=%d\n",
+						__LINE__, index);
+					continue;
+				}
+			} else if (dst_type == DLA_MEM_CV) {
+				int addr_offset =
+					output_address -
+					((struct nvdla_device
+						*)(executor->driver_context))
+						->spram_base_addr;
+
+				struct dla_buffer_object *spram_bobj =
+					((struct nvdla_device
+						*)(executor->driver_context))
+						->spram_bobj;
+
+				if (spram_bobj != NULL) {
+					dst_dump_buf = dla_dmabuf_vmap(spram_bobj);
+					dst_dump_buf += addr_offset;
+				}
+
+				if (dst_dump_buf == NULL) {
+					dla_error(
+						"%d, error:dst_dump_buf == NULL!index=%d\n",
+						__LINE__, index);
+					continue;
+				}
 			} else {
-				output_address = f->io_tensors_addr_list
-							 [output_is_io_tensor] +
-						 offset;
-				if (f->output_bobj[output_is_io_tensor] != NULL)
-					dst_dump_buf = dla_dmabuf_vmap(
-						f->output_bobj
-							[output_is_io_tensor]);
-				dst_dump_buf += offset;
-			}
-
-			if (dst_dump_buf == NULL) {
-				dla_error(
-					"%d, error:dst_dump_buf == NULL!index=%d\n",
-					__LINE__, index);
 				continue;
 			}
 
-		} else if (dst_type == DLA_MEM_CV) {
-			int addr_offset =
-				output_address -
-				((struct nvdla_device
-					  *)(executor->driver_context))
-					->spram_base_addr;
-
-			struct dla_buffer_object *spram_bobj =
-				((struct nvdla_device
-					  *)(executor->driver_context))
-					->spram_bobj;
-
-			if (spram_bobj != NULL) {
-				dst_dump_buf = dla_dmabuf_vmap(spram_bobj);
-				dst_dump_buf += addr_offset;
-			}
-
-			if (dst_dump_buf == NULL) {
-				dla_error(
-					"%d, error:dst_dump_buf == NULL!index=%d\n",
-					__LINE__, index);
-				continue;
-			}
-
-		} else {
-			continue;
-		}
-
-		memset(p_buf, 0, P_BUF_LEN);
-		for (k = 0; k < 3; k++) {
-			for (j = 0; j < seg_data_len; j++) {
-				if (j % DATA_CNT_ONE_LINE == 0) {
-					if (j != 0) {
-						dla_debug("%s\n", p_buf);
-						memset(p_buf, 0, P_BUF_LEN);
+			/* dst_dump_buf */
+			memset(p_buf, 0, P_BUF_LEN);
+			for (k = 0; k < 3; k++) {
+				for (j = 0; j < seg_data_len; j++) {
+					if (j % DATA_CNT_ONE_LINE == 0) {
+						if (j != 0) {
+							dla_debug("%s\n", p_buf);
+							memset(p_buf, 0, P_BUF_LEN);
+						}
+						snprintf(p_buf + strlen(p_buf),
+							P_BUF_LEN - strlen(p_buf),
+							"%05x: ", seg_adrr[k] + j);
 					}
 					snprintf(p_buf + strlen(p_buf),
-						 P_BUF_LEN - strlen(p_buf),
-						 "%05x: ", seg_adrr[k] + j);
+						P_BUF_LEN - strlen(p_buf), "%02x",
+						dst_dump_buf[seg_data_len * k + j]);
 				}
-				snprintf(p_buf + strlen(p_buf),
-					 P_BUF_LEN - strlen(p_buf), "%02x",
-					 dst_dump_buf[seg_data_len * k + j]);
+				dla_debug("%s\n", p_buf);
+				memset(p_buf, 0, P_BUF_LEN);
 			}
-			dla_debug("%s\n", p_buf);
-			memset(p_buf, 0, P_BUF_LEN);
+
+			/* dump2file */
+			sprintf(f_name, "%s/%d_%d_%d_%s_%d_%d_out.bin", dump_info->path,
+				dump_info->process_id, dump_info->model_id,
+				f->frame_idx, pcer2str(op_type), index, m);
+			dump2file(f_name, dst_dump_buf, dst_data_size);
+
+			/* MD5 */
+			calc_md5(md5, dst_dump_buf, dst_data_size);
+			memcpy(md5_dump[index].dst_md5, md5, MD5_LENGTH);
+			md5_dump[index].calced_flag = 1;
+			dumpMD5(md5_f_name, executor, index);
 		}
-
-		sprintf(f_name, "%s/%d_%d_%d_%s_%d_0_out.bin", dump_info->path,
-			dump_info->process_id, dump_info->model_id,
-			f->frame_idx, pcer2str(op_type), index);
-
-		dump2file(f_name, dst_dump_buf, dst_data_size);
-
-		calc_md5(md5, dst_dump_buf, dst_data_size);
-		memcpy(md5_dump[index].dst_md5, md5, MD5_LENGTH);
-		md5_dump[index].calced_flag = 1;
-		dumpMD5(md5_f_name, executor, index);
 	}
 
 	return;

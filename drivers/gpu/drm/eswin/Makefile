@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
+ccflags-y += -I$(srctree)/drivers/memory/eswin/es_dev_buf/include/linux
+
 es_drm-objs := es_dc_hw.o \
 		es_dc.o \
 		es_crtc.o \

@@ -1,3 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Header File of ESWIN DMABUF heap helper APIs
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Min Lin <linmin@eswincomputing.com>
+ */
+
 #ifndef _DMABUF_HEAP_IMPORT_H_
 #define _DMABUF_HEAP_IMPORT_H_
 
@@ -7,6 +28,7 @@
 #include <linux/types.h>
 #include <linux/scatterlist.h>
 #include <linux/eswin_rsvmem_common.h>
+#include <linux/es_iommu_rsv.h>
 
 #define SYSTEM_DEV_NODE "system"
 #define CMA_DEV_NODE_RES "reserved"
@@ -42,15 +64,24 @@ struct heap_mem {
 	void *vaddr;
 
 	enum dma_data_direction dir;
+	dma_addr_t iova;
+	size_t size;
 };
 
-struct esw_export_buffer_info {
-	char name[64];
-	int fd_flags;
+struct eswin_split_buffer {
+	struct list_head attachments;
+	struct mutex lock;
+	unsigned long len;
+	struct sg_table sg_table; // for Re-formatted splitted sgt
+	struct sg_table orig_sg_table; // for originally splitted sgt
+	struct page **pages;
+	int vmap_cnt;
+	void *vaddr;
+	unsigned long fd_flags; // for vmap to determin the cache or non-cached mapping
 
-	int dbuf_fd;
-	struct dma_buf *dmabuf;
-
+	char name[64]; // export name
+	int dbuf_fd; // parent dmabuf fd
+	struct dma_buf *dmabuf; // parent dmabuf
 	struct esw_slice_buffer {
 		__u64 offset;
 		size_t len;
@@ -96,5 +127,9 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj);
 struct heap_mem *common_dmabuf_heap_import_from_kernel(struct heap_root *root, char *name, size_t len, unsigned int fd_flags);
 
 int esw_common_dmabuf_split_export(int dbuf_fd, unsigned int offset, size_t len, int fd_flags, char *name);
+
+struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd, dma_addr_t iova, size_t size);
+void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj);
+void common_dmabuf_heap_rsv_iova_uninit(struct heap_root *root);
 
 #endif

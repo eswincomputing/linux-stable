@@ -18,11 +18,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#if (!(CHIPLET_AND_DIE & 0x2))
 #include "eswin-win2030-arch.dtsi"
-#else
-#include "eswin-win2030-arch-d2d.dtsi"
-#endif
+
 
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <dt-bindings/mailbox/eswin-mailbox.h>
@@ -136,10 +133,10 @@
 					trip = <&target>;
 					contribution = <1024>;
 					cooling-device =
-						<&L17 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&L22 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&L27 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&L32 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+						<&cpu_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map1 {
 					trip = <&target>;
@@ -485,7 +482,7 @@
 			clock-names = "app", "stmmaceth","tx";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_ETH0_ARSTN>;
 			reset-names = "ethrst";
-			// iommus = <&smmu0 WIN2030_SID_ETH0>;
+			iommus = <&smmu0 WIN2030_SID_ETH0>;
 			tbus = <WIN2030_TBUID_ETH>;
 			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1030 0x100 0x108>;
@@ -515,7 +512,7 @@
 			clock-names = "app", "stmmaceth","tx";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_ETH1_ARSTN>;
 			reset-names = "ethrst";
-			// iommus = <&smmu0 WIN2030_SID_ETH1>;
+			iommus = <&smmu0 WIN2030_SID_ETH1>;
 			tbus = <WIN2030_TBUID_ETH>;
 			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1034 0x200 0x208>;
@@ -537,7 +534,7 @@
 		};
 
 		d0_npu: eswin-npu@51c00000 {
-			compatible = "eswin,npu0";
+			compatible = "eswin,npu";
 			reg = <0x0 0x51c00000 0x0 0x400000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <387 16>;
@@ -559,6 +556,7 @@
 			reset-names = "e31_core";
 
 			numa-node-id = <0>;
+			firmware-name = "eic7700_die0_e31_fw";
 			dma-noncoherent;
 
 			#cooling-cells = <2>;
@@ -753,6 +751,7 @@
 			contiguous-size = <0xa00000>;
 			recovery = <0>;
 			dma-noncoherent;
+			numa-node-id = <0>;
 		};
 
 		gpu0: gpu@51400000 {
@@ -914,6 +913,7 @@
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_EMMC_ARSTN>;
 			reset-names = "txrx_rst", "phy_rst", "prstn", "arstn";
 
+			core-clk-reg = <0x51828160>;
 			disable-cqe-dcmd;
 			bus-width = <8>;
 			non-removable;
@@ -1333,7 +1333,7 @@
 			pwm-minimum-period = <1000>;
 			pwms = <&pwm0 0 100000>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_fan_tach_default>;
+			pinctrl-0 = <&pinctrl_die0_fan_tach_default>;
 			status = "disabled";
 			label = "fan_control";
 		};
@@ -1504,9 +1504,21 @@
 				interrupt-parent = <&plic0>;
 		};
 		pinctrl: pinctrl@0x51600080 {
-			compatible = "eswin,eic7700-pinctrl";
+			compatible = "eswin,eic7x-pinctrl";
 			reg = <0x0 0x51600080 0x0 0x1FFF80>;
 			status = "disabled";
+			pinctrl_die0_pwm0_default: pwm0-default{
+				mux {
+					groups = "pwm0_group";
+					function = "pwm0_func";
+				};
+			};
+            pinctrl_die0_fan_tach_default: fan_tach-default{
+				mux {
+					groups = "fan_tach_group";
+					function = "fan_tach_func";
+				};
+			};
 		};
 
 		gpio0: gpio@51600000 {
@@ -1563,7 +1575,7 @@
 			resets = <&d0_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
 			reset-names = "rst";
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_pwm0_default>;
+			pinctrl-0 = <&pinctrl_die0_pwm0_default>;
 			status = "disabled";
 		};
 
@@ -1935,6 +1947,7 @@
 					 <&d0_reset VO_PHYRST_CTRL SW_HDMI_PHYCTRL_RSTN>,
 					 <&d0_reset VO_PHYRST_CTRL SW_VO_HDMI_RSTN>;
 			reset-names = "prstn", "phyrstn", "rstn";
+			numa-node-id = <0>;
 
 			ports {
 				#address-cells = <1>;
@@ -1953,18 +1966,21 @@
 				reg = <0x0 0x50290000 0x0 0x10000>;
 				interrupt-parent = <&plic0>;
 				interrupts = <275>;
-				clocks = <&d0_clock WIN2030_CLK_VO_CFG_CLK>,
+				clocks = <&d0_clock WIN2030_CLK_VO_ACLK>,
 					    <&d0_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
-				clock-names ="pclk_hdcp2", "hdcp2_clk_hdmi";
+				clock-names ="aclk", "iesmclk";
 				dma-noncoherent;
+				numa-node-id = <0>;
 		};
 
 		d0_usbdrd3_0: usb0@50480000 {
 			compatible = "eswin,win2030-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			clocks =<&d0_clock WIN2030_GATE_HSP_USB0_SUSPEND_CLK>;
-			clock-names = "suspend";
+			clocks =<&d0_clock WIN2030_GATE_HSP_USB0_SUSPEND_CLK>,
+					<&d0_clock WIN2030_CLK_HSP_ACLK>,
+					<&d0_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clock-names = "suspend","aclk", "cfg_clk";
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x800 0x808 0x83c 0x840>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_USB0_VAUX_RSTN>;
 			reset-names = "vaux";
@@ -2000,8 +2016,10 @@
 			compatible = "eswin,win2030-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			clocks =<&d0_clock WIN2030_GATE_HSP_USB1_SUSPEND_CLK>;
-			clock-names = "suspend";
+			clocks =<&d0_clock WIN2030_GATE_HSP_USB1_SUSPEND_CLK>,
+					<&d0_clock WIN2030_CLK_HSP_ACLK>,
+					<&d0_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clock-names = "suspend","aclk", "cfg_clk";
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x900 0x908 0x93c 0x940>;
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_USB1_VAUX_RSTN>;
 			reset-names = "vaux";
@@ -2294,23 +2312,35 @@
 			dma-noncoherent;
 		};
 
-		ddr0: ddr-controller@0 {
+		ddr0: ddr-controller@52300000 {
 			compatible = "eswin,ddrc-1.20a";
 			interrupt-parent = <&plic0>;
 			interrupts = <10>;
 			interrupt-names = "ddr-ecc";
 			reg = <0x0 0x52300000 0x0 0x40000>;
 			ctrl-id = <0>;
+			numa-node-id = <0>;
 			status = "disabled";
 		};
 
-		ddr1: ddr-controller@1 {
+		ddr1: ddr-controller@52380000 {
 			compatible = "eswin,ddrc-1.20a";
 			interrupt-parent = <&plic0>;
 			interrupts = <299>;
 			interrupt-names = "ddr-ecc";
 			reg = <0x0 0x52380000 0x0 0x40000>;
 			ctrl-id = <1>;
+			numa-node-id = <0>;
+			status = "disabled";
+		};
+
+		d2d: d2d-unit@52100000 {
+			compatible = "eswin,eic7x-d2d";
+			interrupt-parent = <&plic0>;
+			interrupts = <287>, <288>;
+			reg = <0x0 0x52100000 0x0 0x50000>;
+			reg-names = "control";
+			numa-node-id = <0>;
 			status = "disabled";
 		};
 };

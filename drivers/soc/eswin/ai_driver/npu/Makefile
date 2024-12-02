@@ -10,7 +10,6 @@ ccflags-y += -I$(srctree)/$(src)/include
 ccflags-y += -I$(srctree)/$(src)/../dsp
 ccflags-y += -I$(srctree)/$(src)/../common
 ccflags-y += -I$(srctree)/$(src)/../common/devices
-ccflags-y += -I$(srctree)/drivers/memory/eswin/es_iommu_rsv/include/linux
 ccflags-y += -I$(srctree)/drivers/memory/eswin/es_dev_buf/include/linux
 
 ccflags-y += -DNPU_DEV_SIM=$(NPU_DEV_SIM)

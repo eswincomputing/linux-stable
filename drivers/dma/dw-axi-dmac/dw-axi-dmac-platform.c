@@ -6,6 +6,25 @@
  *
  * Author: Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>
  */
+/*****************************************************************************
+ * ESWIN dma driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin Driver team
+ */
 
 #include <linux/bitops.h>
 #include <linux/delay.h>
@@ -126,37 +145,49 @@ static inline void axi_chan_config_write(struct axi_dma_chan *chan,
 static inline void axi_dma_disable(struct axi_dma_chip *chip)
 {
 	u32 val;
+	unsigned long flags;
 
+	spin_lock_irqsave(&chip->lock, flags);
 	val = axi_dma_ioread32(chip, DMAC_CFG);
 	val &= ~DMAC_EN_MASK;
 	axi_dma_iowrite32(chip, DMAC_CFG, val);
+	spin_unlock_irqrestore(&chip->lock, flags);
 }
 
 static inline void axi_dma_enable(struct axi_dma_chip *chip)
 {
 	u32 val;
+	unsigned long flags;
 
+	spin_lock_irqsave(&chip->lock, flags);
 	val = axi_dma_ioread32(chip, DMAC_CFG);
 	val |= DMAC_EN_MASK;
 	axi_dma_iowrite32(chip, DMAC_CFG, val);
+	spin_unlock_irqrestore(&chip->lock, flags);
 }
 
 static inline void axi_dma_irq_disable(struct axi_dma_chip *chip)
 {
 	u32 val;
+	unsigned long flags;
 
+	spin_lock_irqsave(&chip->lock, flags);
 	val = axi_dma_ioread32(chip, DMAC_CFG);
 	val &= ~INT_EN_MASK;
 	axi_dma_iowrite32(chip, DMAC_CFG, val);
+	spin_unlock_irqrestore(&chip->lock, flags);
 }
 
 static inline void axi_dma_irq_enable(struct axi_dma_chip *chip)
 {
 	u32 val;
+	unsigned long flags;
 
+	spin_lock_irqsave(&chip->lock, flags);
 	val = axi_dma_ioread32(chip, DMAC_CFG);
 	val |= INT_EN_MASK;
 	axi_dma_iowrite32(chip, DMAC_CFG, val);
+	spin_unlock_irqrestore(&chip->lock, flags);
 }
 
 static inline void axi_chan_irq_disable(struct axi_dma_chan *chan, u32 irq_mask)
@@ -1456,6 +1487,93 @@ static int parse_device_properties(struct axi_dma_chip *chip)
 	return 0;
 }
 
+static int dw_axi_dma_ctrl_show(struct seq_file *s, void *v)
+{
+	struct axi_dma_chip *chip = s->private;
+	u32 i = 0, j = 0, val = 0;
+	u32 chan_num;
+
+	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-aon")) {
+		chan_num = 16;
+	} else {
+		chan_num = 11;
+	}
+
+	seq_puts(s, "\n-------------------dma common reg------------------------");
+
+	for (i = 0; i < 15; i++) {
+		if (i * 8 == 0x38)
+			continue;
+
+		val = axi_dma_ioread32(chip, i * 8);
+		seq_printf(s, "\n>>>dma reg 0x%02x:0x%02x", i*8, val);
+	}
+	seq_puts(s, "\n-------------------------------------------------------\n");
+
+	seq_puts(s, "\n--------------------dma chan reg-------------------------");
+	for (i = 0; i < chan_num; i++) {
+		seq_printf(s, "\n>>>dma chan[%d]reg:", i);
+		for (j=0; j<19; j++) {
+			if (j * 8 == 0x48)
+				continue;
+			val = axi_chan_ioread32(&chip->dw->chan[i], j*8);
+			seq_printf(s, " %02x:%02x", j*8, val);
+		}
+	}
+	seq_puts(s, "\n------------------------------------------------------\n");
+	return 0;
+}
+
+static int dw_axi_dma_ctrl_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dw_axi_dma_ctrl_show, inode->i_private);
+}
+
+static ssize_t dw_axi_dma_ctrl_write(struct file *file, const char __user *buf,
+				  size_t count, loff_t *ppos)
+{
+	struct axi_dma_chip *chip = ((struct seq_file *)file->private_data)->private;
+	u32 reg, val;
+	char kbuf[25];
+
+	if (copy_from_user(kbuf, buf, count))
+		return -EFAULT;
+	if (sscanf(kbuf, "%x%x", &reg, &val) == -1)
+		return -EFAULT;
+	if ((reg < 0) || (reg > 0x78)) {
+		dev_err(chip->dev, "it is no a dma register\n");
+		return count;
+	}
+	dev_info(chip->dev, "write dma common reg=0x%x, val=0x%x\n", reg, val);
+	axi_dma_iowrite32(chip, reg, val);
+	return count;
+}
+
+static const struct file_operations dw_axi_dma_status_fops = {
+	.owner = THIS_MODULE,
+	.open = dw_axi_dma_ctrl_open,
+	.read = seq_read,
+	.write = dw_axi_dma_ctrl_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+void dw_axi_dma_register_debugfs(struct axi_dma_chip *chip)
+{
+	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-aon")) {
+		chip->debugfs_dir = debugfs_create_dir("dw-axi-aon-dma", NULL);
+	} else {
+		chip->debugfs_dir = debugfs_create_dir("dw-axi-hsp-dma", NULL);
+	}
+	if (IS_ERR(chip->debugfs_dir)) {
+		dev_err(chip->dev, "failed to create debugfs dir!\n");
+		return;
+	}
+
+	debugfs_create_file("ctrl", 0400, chip->debugfs_dir, chip,
+			    &dw_axi_dma_status_fops);
+}
+
 static int dw_probe(struct platform_device *pdev)
 {
 	struct axi_dma_chip *chip;
@@ -1489,6 +1607,8 @@ static int dw_probe(struct platform_device *pdev)
 	chip->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(chip->regs))
 		return PTR_ERR(chip->regs);
+
+	spin_lock_init(&chip->lock);
 
 	flags = (uintptr_t)of_device_get_match_data(&pdev->dev);
 	if (flags & AXI_DMA_FLAG_HAS_APB_REGS) {
@@ -1633,6 +1753,8 @@ static int dw_probe(struct platform_device *pdev)
 	dev_info(chip->dev, "DesignWare AXI DMA Controller, %d channels\n",
 		 dw->hdata->nr_channels);
 
+	dw_axi_dma_register_debugfs(chip);
+
 	return 0;
 
 err_pm_disable:
@@ -1676,6 +1798,8 @@ static int dw_remove(struct platform_device *pdev)
 		/* TBU power down before reset */
 		win2030_tbu_power(chip->dev, false);
 	}
+
+	debugfs_remove_recursive(chip->debugfs_dir);
 
 	return 0;
 }

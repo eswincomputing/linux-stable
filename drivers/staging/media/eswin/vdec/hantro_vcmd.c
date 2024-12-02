@@ -1153,7 +1153,7 @@ static int wait_abort_rdy(struct hantrovcmd_dev *dev)
 	return dev->working_state == WORKING_STATE_IDLE;
 }
 
-static int select_vcmd(bi_list_node *new_cmdbuf_node)
+static int select_vcmd(bi_list_node *new_cmdbuf_node, u16 nid)
 {
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
 	bi_list_node *curr_cmdbuf_node = NULL;
@@ -1170,6 +1170,17 @@ static int select_vcmd(bi_list_node *new_cmdbuf_node)
 	u32 cmdbuf_id = 0;
 
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+	if (nid < vcmd_type_core_num[cmdbuf_obj->module_type]) {
+		dev = vcmd_manager[cmdbuf_obj->module_type][nid];
+		list = &dev->list_manager;
+
+		spin_lock_irqsave(dev->spinlock, flags);
+		bi_list_insert_node_tail(list, new_cmdbuf_node);
+		spin_unlock_irqrestore(dev->spinlock, flags);
+		cmdbuf_obj->core_id = dev->core_id;
+		return 0;
+	}
+
 	//there is an empty vcmd to be used
 	while (1) {
 		dev = vcmd_manager[cmdbuf_obj->module_type][vcmd_position[cmdbuf_obj->module_type]];
@@ -1814,7 +1825,7 @@ static long link_and_run_cmdbuf(struct file *filp,
 		    &vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]))
 		return -ERESTARTSYS;
 
-	return_value = select_vcmd(new_cmdbuf_node);
+	return_value = select_vcmd(new_cmdbuf_node, input_para->nid);
 	if (return_value)
 		return return_value;
 
@@ -3280,9 +3291,9 @@ static int vcmd_init(void)
 		vcmd_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 
 		/* command buffer */
-		vcmd_buf_mem_pool.virtual_address = (u32 *)dma_alloc_coherent(&platformdev->dev,
+		vcmd_buf_mem_pool.virtual_address = (u32 *)dma_alloc_attrs(&platformdev->dev,
 			vcmd_buf_mem_pool.size, &dma_handle,
-			GFP_KERNEL | __GFP_DMA32);
+			GFP_KERNEL, DMA_ATTR_FORCE_CONTIGUOUS);
 		vcmd_buf_mem_pool.bus_address = (unsigned long long)dma_handle;
 		vcmd_buf_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_buf_mem_pool.virtual_address));
 
@@ -3290,7 +3301,8 @@ static int vcmd_init(void)
 			dma_handle_d1 = dma_map_page(&platformdev_d1->dev,
 					vmalloc_to_page(vcmd_buf_mem_pool.virtual_address), 0, vcmd_buf_mem_pool.size, DMA_BIDIRECTIONAL);
 			if (dma_handle != dma_handle_d1) {
-				LOG_ERR("vdec_vcmd: dma address of vcmd buf not the same between d0 and d1\n");
+				LOG_ERR("vdec_vcmd: dma address of vcmd buf not the same between d0 and d1, 0x%llx, 0x%llx, %d\n",
+					dma_handle, dma_handle_d1, __LINE__);
 				return -1;
 			}
 		}
@@ -3316,10 +3328,11 @@ static int vcmd_init(void)
 		/* status buffer */
 		vcmd_status_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 		vcmd_status_buf_mem_pool.virtual_address =
-			(u32 *)dma_alloc_coherent(&platformdev->dev,
+			(u32 *)dma_alloc_attrs(&platformdev->dev,
 						  vcmd_status_buf_mem_pool.size,
 						  &dma_handle,
-						  GFP_KERNEL | __GFP_DMA32);
+						  GFP_KERNEL,
+						  DMA_ATTR_FORCE_CONTIGUOUS);
 		vcmd_status_buf_mem_pool.bus_address = (unsigned long long)dma_handle;
 		vcmd_status_buf_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_status_buf_mem_pool.virtual_address));
 
@@ -3327,7 +3340,8 @@ static int vcmd_init(void)
 			dma_handle_d1 = dma_map_page(&platformdev_d1->dev,
 					vmalloc_to_page(vcmd_status_buf_mem_pool.virtual_address), 0, vcmd_status_buf_mem_pool.size, DMA_BIDIRECTIONAL);
 			if (dma_handle != dma_handle_d1) {
-				LOG_ERR("vdec_vcmd: dma address of status buf not the same between d0 and d1\n");
+				LOG_ERR("vdec_vcmd: dma address of status buf not the same between d0 and d1, 0x%llx, 0x%llx, %d\n",
+					dma_handle, dma_handle_d1, __LINE__);
 				return -1;
 			}
 		}
@@ -3355,10 +3369,11 @@ static int vcmd_init(void)
 		/* register buffer */
 		vcmd_registers_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 		vcmd_registers_mem_pool.virtual_address =
-			(u32 *)dma_alloc_coherent(&platformdev->dev,
+			(u32 *)dma_alloc_attrs(&platformdev->dev,
 						  vcmd_registers_mem_pool.size,
 						  &dma_handle,
-						  GFP_KERNEL | __GFP_DMA32);
+						  GFP_KERNEL,
+						  DMA_ATTR_FORCE_CONTIGUOUS);
 		vcmd_registers_mem_pool.bus_address = (unsigned long long)dma_handle;
 		vcmd_registers_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_registers_mem_pool.virtual_address));
 
@@ -3366,7 +3381,8 @@ static int vcmd_init(void)
 			dma_handle_d1 = dma_map_page(&platformdev_d1->dev,
 					vmalloc_to_page(vcmd_registers_mem_pool.virtual_address), 0, vcmd_registers_mem_pool.size, DMA_BIDIRECTIONAL);
 			if (dma_handle != dma_handle_d1) {
-				LOG_ERR("vdec_vcmd: dma address of registers buf not the same between d0 and d1\n");
+				LOG_ERR("vdec_vcmd: dma address of registers buf not the same between d0 and d1, 0x%llx, 0x%llx, %d\n",
+					dma_handle, dma_handle_d1, __LINE__);
 				return -1;
 			}
 		}
@@ -4273,13 +4289,15 @@ err:
 	return result;
 }
 
-void hantrovcmd_cleanup(void)
+void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup)
 {
 	int i = 0;
 	u32 result;
+	u32 core_id = (platformdev_d1 == pdev) ? 2 : 0;
 
 	for (i = 0; i < total_vcmd_core_num; i++) {
-		if (!hantrovcmd_data[i].hwregs)
+		if (!hantrovcmd_data[i].hwregs || (hantrovcmd_data[i].core_id != core_id &&
+			hantrovcmd_data[i].core_id != (core_id) + 1))
 			continue;
 		//disable interrupt at first
 		vcmd_write_reg((const void *)hantrovcmd_data[i].hwregs,
@@ -4301,10 +4319,12 @@ void hantrovcmd_cleanup(void)
 		release_cmdbuf_node_cleanup(&hantrovcmd_data[i].list_manager);
 	}
 
-	release_process_node_cleanup(&global_process_manager);
-
-	vcmd_release_IO();
-	vfree(hantrovcmd_data);
+	if (cleanup) {
+		vcmd_release_IO();
+		release_process_node_cleanup(&global_process_manager);
+		vfree(hantrovcmd_data);
+		hantrovcmd_data = NULL;
+	}
 
 	//release_vcmd_non_cachable_memory();
 	if (pcie) {
@@ -4320,26 +4340,29 @@ void hantrovcmd_cleanup(void)
 		release_mem_region(vcmd_registers_mem_pool.bus_address,
 				   vcmd_registers_mem_pool.size);
 	} else {
-		if (vcmd_buf_mem_pool.virtual_address)
-			dma_free_coherent(
-				&platformdev->dev, vcmd_buf_mem_pool.size,
-				vcmd_buf_mem_pool.virtual_address,
-				(dma_addr_t)vcmd_buf_mem_pool.bus_address);
-		if (vcmd_status_buf_mem_pool.virtual_address)
-			dma_free_coherent(
-				&platformdev->dev,
-				vcmd_status_buf_mem_pool.size,
-				vcmd_status_buf_mem_pool.virtual_address,
-				(dma_addr_t)
-					vcmd_status_buf_mem_pool.bus_address);
-		if (vcmd_registers_mem_pool.virtual_address)
-			dma_free_coherent(
-				&platformdev->dev, vcmd_registers_mem_pool.size,
-				vcmd_registers_mem_pool.virtual_address,
-				(dma_addr_t)
-					vcmd_registers_mem_pool.bus_address);
+		if (pdev == platformdev) {
+			if (vcmd_buf_mem_pool.virtual_address)
+				dma_free_attrs(
+					&platformdev->dev, vcmd_buf_mem_pool.size,
+					vcmd_buf_mem_pool.virtual_address,
+					(dma_addr_t)vcmd_buf_mem_pool.bus_address,
+					0);
+			if (vcmd_status_buf_mem_pool.virtual_address)
+				dma_free_attrs(
+					&platformdev->dev,
+					vcmd_status_buf_mem_pool.size,
+					vcmd_status_buf_mem_pool.virtual_address,
+					(dma_addr_t)vcmd_status_buf_mem_pool.bus_address,
+					0);
+			if (vcmd_registers_mem_pool.virtual_address)
+				dma_free_attrs(
+					&platformdev->dev, vcmd_registers_mem_pool.size,
+					vcmd_registers_mem_pool.virtual_address,
+					(dma_addr_t)vcmd_registers_mem_pool.bus_address,
+					0);
+		}
 
-		if (platformdev_d1) {
+		if (pdev == platformdev_d1) {
 			dma_unmap_page(&platformdev_d1->dev,
 					(dma_addr_t)vcmd_buf_mem_pool.bus_address, vcmd_buf_mem_pool.size, DMA_BIDIRECTIONAL);
 			dma_unmap_page(&platformdev_d1->dev,
@@ -4348,7 +4371,7 @@ void hantrovcmd_cleanup(void)
 					(dma_addr_t)vcmd_registers_mem_pool.bus_address, vcmd_registers_mem_pool.size, DMA_BIDIRECTIONAL);
 		}
 	}
-	LOG_INFO("module removed\n");
+	LOG_INFO("vcmd module removed %s\n", (pdev == platformdev_d1) ? "dev1" : "dev0");
 	return;
 }
 

@@ -3,7 +3,6 @@
  * ESWIN Fan Control CORE driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +16,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * Author: Han Min <hanmin@eswincomputing.com>
+ * Authors: Han Min <hanmin@eswincomputing.com>
  */
+
 
 #include <linux/bits.h>
 #include <linux/clk.h>
@@ -509,9 +509,21 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	/* Then fill it with the reference config */
 	pwm_get_args(ctl->pwm, &pwm_args);
 
-	state.period = pwm_args.period;
-	state.duty_cycle = state.period/2;
-	dev_err(&pdev->dev, "state.period: %d state.duty_cycle: %d\n",
+	if (0 == ctl->pwm_inverted)
+	{
+		state.period = pwm_args.period;
+		state.duty_cycle = state.period * 99 / 100; /* default set max speed */
+	}
+	else
+	{
+		state.period = pwm_args.period;
+		state.duty_cycle = state.period / 100; /* default set max speed */
+		if(0 == state.duty_cycle)
+		{
+			state.duty_cycle = 1;
+		}
+	}
+	dev_err(&pdev->dev, "state.period: %lld state.duty_cycle: %lld\n",
 			state.period,state.duty_cycle);
 	ret = pwm_apply_state(ctl->pwm, &state);
 	if (ret) {

@@ -53,6 +53,25 @@
  *
  *****************************************************************************
  */
+/*
+ * ESWIN cipher serivce driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Xiaojun Zou <zouxiaojun@eswincomputing.com>
+ */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -130,7 +149,10 @@
 #define MAX_CMDBUF_INT_NUMBER             1
 #define INT_MIN_SUM_OF_IMAGE_SIZE         (4096 * 2160 * 1 * MAX_CMDBUF_INT_NUMBER)
 #define MAX_PROCESS_CORE_NUMBER           (4 * 8)
-#define PROCESS_MAX_SUM_OF_IMAGE_SIZE     (4096 * 2160 * MAX_SAME_MODULE_TYPE_CORE_NUMBER * MAX_PROCESS_CORE_NUMBER)
+#define PROCESS_MAX_VIDO_SIZE             (4096 * 2160 * MAX_SAME_MODULE_TYPE_CORE_NUMBER * MAX_PROCESS_CORE_NUMBER)
+#define PROCESS_MAX_JPEG_SIZE             (2147483648U) //32K*32K*2
+#define PROCESS_MAX_SUM_OF_IMAGE_SIZE                         \
+                    (PROCESS_MAX_VIDO_SIZE > PROCESS_MAX_JPEG_SIZE ? PROCESS_MAX_VIDO_SIZE : PROCESS_MAX_JPEG_SIZE)
 
 /** the wait time for the vcmd task list(in milliseconds):
  * 200x frame encoding time + 1000ms
@@ -247,6 +269,7 @@ struct hantrovcmd_dev {
  * Ioctl definitions
  */
 #define VCMD_HW_ID                  0x4342
+
 
 
 static struct noncache_mem vcmd_buf_mem_pool;
@@ -1025,7 +1048,7 @@ static int wait_abort_rdy(struct hantrovcmd_dev *dev)
 	return dev->working_state == WORKING_STATE_IDLE;
 }
 
-static int select_vcmd(bi_list_node *new_cmdbuf_node)
+static int select_vcmd(bi_list_node *new_cmdbuf_node, u16 numa_id)
 {
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
 	bi_list_node *curr_cmdbuf_node = NULL;
@@ -1041,6 +1064,19 @@ static int select_vcmd(bi_list_node *new_cmdbuf_node)
 	u32 cmdbuf_id = 0;
 
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+
+	/** bind the task to the specified core_id if necessary*/
+	if (numa_id < vcmd_type_core_num[cmdbuf_obj->module_type]) {
+		dev = vcmd_manager[cmdbuf_obj->module_type][numa_id];
+		list = &dev->list_manager;
+		spin_lock_irqsave(dev->spinlock, flags);
+		bi_list_insert_node_tail(list, new_cmdbuf_node);
+		spin_unlock_irqrestore(dev->spinlock, flags);
+
+		cmdbuf_obj->core_id = dev->core_id;
+		return 0;
+	}
+
 	//there is an empty vcmd to be used
 	while (1) {
 		dev = vcmd_manager[cmdbuf_obj->module_type][vcmd_position[cmdbuf_obj->module_type]];
@@ -1623,7 +1659,7 @@ static long link_and_run_cmdbuf(struct file *filp,
 		return -ERESTARTSYS;
 	}
 
-	return_value = select_vcmd(new_cmdbuf_node);
+	return_value = select_vcmd(new_cmdbuf_node, input_para->numa_id);
 	if (return_value) {
 		LOG_ERR("vcmd: error return from select_vcmd\n");
 		return return_value;
@@ -2069,49 +2105,38 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		if (copy_from_user(&dbcfg, (void __user *)arg, sizeof(struct dmabuf_cfg)) != 0)
 			return -EFAULT;
 
-		LOG_DBG("import dmabuf_fd = %d\n", dbcfg.dmabuf_fd);
-
 		/* map the pha to dma addr(iova)*/
 		hmem = common_dmabuf_heap_import_from_user(&fp_priv->root, dbcfg.dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("dmabuf-heap import from userspace failed\n");
 			return -ENOMEM;
 		}
-
-		if (venc_pdev_d1) {
-			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
-			if(IS_ERR(hmem_d1)) {
-				common_dmabuf_heap_release(hmem);
-				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
-				return -ENOMEM;
-			}
-		}
-
+		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
 		/* get the size of the dmabuf allocated by dmabuf_heap */
 		buf_size = common_dmabuf_heap_get_size(hmem);
-		LOG_DBG("dmabuf info: CPU VA:0x%lx, PA:0x%lx, DMA addr(iova):0x%lx, size=0x%lx\n",
-				(unsigned long)hmem->vaddr, (unsigned long)sg_phys(hmem->sgt->sgl), (unsigned long)sg_dma_address(hmem->sgt->sgl), (unsigned long)buf_size);
+		LOG_DBG("fd = %d, dmabuf info: CPU VA:0x%lx, PA:0x%lx, DMA addr(iova):0x%lx, size=0x%lx\n"
+				, dbcfg.dmabuf_fd
+				, (unsigned long)hmem->vaddr
+				, (unsigned long)sg_phys(hmem->sgt->sgl)
+				, (unsigned long)sg_dma_address(hmem->sgt->sgl)
+				, (unsigned long)buf_size);
 
-		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
 		if (venc_pdev_d1) {
-			unsigned long iova_d1;
-
-			iova_d1 = (unsigned long)sg_dma_address(hmem_d1->sgt->sgl);
-			if (dbcfg.iova != iova_d1) {
+			hmem_d1 = common_dmabuf_heap_rsv_iova_map(&fp_priv->root_d1, dbcfg.dmabuf_fd, dbcfg.iova, buf_size);
+			if ((IS_ERR(hmem_d1))) {
+				LOG_ERR("dmabuf-heap rsv iova map failed for d1\n");
 				common_dmabuf_heap_release(hmem);
-				common_dmabuf_heap_release(hmem_d1);
-				LOG_ERR("VENC_VCMD: IOVA addrs of d0 and d1 are not the same\n");
-				return -EFAULT;
+				return err;
 			}
 		}
-
 
 		retval = copy_to_user((u32 __user *)arg, &dbcfg,
 				sizeof(struct dmabuf_cfg));
 		if (retval) {
-			common_dmabuf_heap_release(hmem);
 			if (venc_pdev_d1)
-				common_dmabuf_heap_release(hmem_d1);
+				common_dmabuf_heap_rsv_iova_unmap(hmem_d1);
+
+			common_dmabuf_heap_release(hmem);
 			LOG_DBG("copy_to_user failed, returned %li\n", retval);
 			return -EFAULT;
 		}
@@ -2119,6 +2144,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		return 0;
 	}
 	case HANTRO_IOCH_DMA_HEAP_PUT_IOVA: {
+		struct dmabuf_cfg dbcfg;
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
@@ -2126,14 +2152,13 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		if (copy_from_user(&dmabuf_fd, (void __user *)arg, sizeof(int)) != 0)
 			return -EFAULT;
 
-		LOG_DBG("release dmabuf_fd = %d\n", dmabuf_fd);
-
 		/* find the heap_mem */
 		hmem = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root, dmabuf_fd);
 		if(IS_ERR(hmem)) {
 			LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d\n", dmabuf_fd);
 			return -ENOMEM;
 		}
+		LOG_DBG("release dmabuf_fd = %d, iova 0x%llx\n", dmabuf_fd, sg_dma_address(hmem->sgt->sgl));
 
 		if (venc_pdev_d1) {
 			hmem_d1 = common_dmabuf_lookup_heapobj_by_fd(&fp_priv->root_d1, dmabuf_fd);
@@ -2141,7 +2166,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
 			}
-			common_dmabuf_heap_release(hmem_d1);
+			common_dmabuf_heap_rsv_iova_unmap(hmem_d1);
 		}
 
 		common_dmabuf_heap_release(hmem);
@@ -2818,22 +2843,24 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 		}
 	}
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
+		common_dmabuf_heap_rsv_iova_uninit(&fp_priv->root_d1);
 	}
+
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 #endif
 	kfree(fp_priv);
 	return 0;
 
 error:
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (venc_pdev_d1) {
-		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
+		common_dmabuf_heap_rsv_iova_uninit(&fp_priv->root_d1);
 	}
-	kfree(fp_priv);
+
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 #endif
+	kfree(fp_priv);
 
 	return -ERESTARTSYS;
 }
@@ -3579,12 +3606,14 @@ int vcmd_mem_init(void)
 	dma_addr_t dma_handle = 0;
 	dma_addr_t dma_handle_d1 = 0;
 
+
 	vcmd_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
 
 	/* command buffer */
-	vcmd_buf_mem_pool.virtualAddress = (u32 *)dma_alloc_coherent(&venc_pdev->dev,
+	vcmd_buf_mem_pool.virtualAddress = (u32 *)dma_alloc_attrs(&venc_pdev->dev,
 			vcmd_buf_mem_pool.size, &dma_handle,
-			GFP_KERNEL | __GFP_DMA32);
+			GFP_KERNEL, DMA_ATTR_FORCE_CONTIGUOUS);
+
 	vcmd_buf_mem_pool.busAddress = (unsigned long long)dma_handle;
 	vcmd_buf_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_buf_mem_pool.virtualAddress));
 
@@ -3606,11 +3635,10 @@ int vcmd_mem_init(void)
 
 	/* status buffer */
 	vcmd_status_buf_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
-	vcmd_status_buf_mem_pool.virtualAddress =
-		(u32 *)dma_alloc_coherent(&venc_pdev->dev,
-				vcmd_status_buf_mem_pool.size,
-				&dma_handle,
-				GFP_KERNEL | __GFP_DMA32);
+	vcmd_status_buf_mem_pool.virtualAddress = (u32 *)dma_alloc_attrs(&venc_pdev->dev,
+			vcmd_status_buf_mem_pool.size, &dma_handle,
+			GFP_KERNEL, DMA_ATTR_FORCE_CONTIGUOUS);
+
 	vcmd_status_buf_mem_pool.busAddress = (unsigned long long)dma_handle;
 	vcmd_status_buf_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_status_buf_mem_pool.virtualAddress));
 
@@ -3632,11 +3660,10 @@ int vcmd_mem_init(void)
 
 	/* register buffer */
 	vcmd_registers_mem_pool.size = CMDBUF_POOL_TOTAL_SIZE;
-	vcmd_registers_mem_pool.virtualAddress =
-		(u32 *)dma_alloc_coherent(&venc_pdev->dev,
-				vcmd_registers_mem_pool.size,
-				&dma_handle,
-				GFP_KERNEL | __GFP_DMA32);
+	vcmd_registers_mem_pool.virtualAddress = (u32 *)dma_alloc_attrs(&venc_pdev->dev,
+			vcmd_registers_mem_pool.size, &dma_handle,
+			GFP_KERNEL, DMA_ATTR_FORCE_CONTIGUOUS);
+
 	vcmd_registers_mem_pool.busAddress = (unsigned long long)dma_handle;
 	vcmd_registers_mem_pool.phy_address = pfn_to_phys(vmalloc_to_pfn(vcmd_registers_mem_pool.virtualAddress));
 
@@ -3662,20 +3689,23 @@ int vcmd_mem_init(void)
 void vcmd_mem_cleanup(void)
 {
 	if (vcmd_buf_mem_pool.virtualAddress)
-		dma_free_coherent(
+		dma_free_attrs(
 				&venc_pdev->dev, vcmd_buf_mem_pool.size,
 				vcmd_buf_mem_pool.virtualAddress,
-				(dma_addr_t)vcmd_buf_mem_pool.busAddress);
+				(dma_addr_t)vcmd_buf_mem_pool.busAddress,
+				0);
 	if (vcmd_status_buf_mem_pool.virtualAddress)
-		dma_free_coherent(
+		dma_free_attrs(
 				&venc_pdev->dev, vcmd_status_buf_mem_pool.size,
 				vcmd_status_buf_mem_pool.virtualAddress,
-				(dma_addr_t)vcmd_status_buf_mem_pool.busAddress);
+				(dma_addr_t)vcmd_status_buf_mem_pool.busAddress,
+				0);
 	if (vcmd_registers_mem_pool.virtualAddress)
-		dma_free_coherent(
+		dma_free_attrs(
 				&venc_pdev->dev, vcmd_registers_mem_pool.size,
 				vcmd_registers_mem_pool.virtualAddress,
-				(dma_addr_t)vcmd_registers_mem_pool.busAddress);
+				(dma_addr_t)vcmd_registers_mem_pool.busAddress,
+				0);
 
 	if (venc_pdev_d1) {
 		dma_unmap_page(&venc_pdev_d1->dev,

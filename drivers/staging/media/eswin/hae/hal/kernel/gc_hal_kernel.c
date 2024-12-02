@@ -732,6 +732,13 @@ gckKERNEL_Construct(gckOS Os, gceCORE Core,
 
             if (kernel->sharedPageTable) {
                 gcmkONERROR(gckDEVICE_GetMMU(Device, kernel->hardware->type, &kernel->mmu));
+                if(!kernel->mmu && Device->id == 1) {
+                    /* let the die1 share die0 mmu table */
+                    gckGALDEVICE gal_device = (gckGALDEVICE)Context;
+                    gckDEVICE die0_device = gal_device->devices[0];
+                    gcmkONERROR(gckDEVICE_GetMMU(die0_device, kernel->hardware->type, &kernel->mmu));
+                    gcmkONERROR(gckDEVICE_SetMMU(Device, kernel->hardware->type, kernel->mmu));
+                }
 
                 if (!kernel->mmu) {
                     gcmkONERROR(gckMMU_Construct(kernel, gcdMMU_SIZE, &kernel->mmu));

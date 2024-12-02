@@ -444,6 +444,7 @@ static void messagebox_send(u16 channel_id, msg_payload_t payload)
     reg_write((size_t)(mbox_base + MBOX_NPU_WR_DATA1_OFFSET), MBOX_WRITE_FIFO_BIT);
 }
 
+#ifndef __KERNEL__
 /**
  *  @brief Send a mailbox message payload to DSP. This function should be used
  *  by E31.
@@ -488,6 +489,7 @@ static void messagebox_send_dsp(u32 op_type, u64 payload)
     // clear lock bit
     reg_write(mbox_base + MBOX_NPU_WR_LOCK, 0);
 }
+#endif
 
 /**
  * @brief Receives data from a mailbox message.

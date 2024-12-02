@@ -1131,7 +1131,7 @@
 	status = "disabled";
 };
 
-&pcie_die1 {
+&d0_pcie {
 	status = "disabled";
 };
 
@@ -1246,7 +1246,7 @@
 	status = "disabled";
 };
 
-&die1_rtc {
+&d1_rtc {
 	status = "disabled";
 };
 

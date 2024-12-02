@@ -923,11 +923,11 @@ static int __init tcu_proc_init(void)
 {
 	char proc_name[64];
 
-	sprintf(proc_name, "%s_info", "tcu");
-	pr_debug("%s, proc_name:%s\n", __func__, proc_name);
-	if (NULL == proc_create_single_data(proc_name, 0, NULL, tcu_proc_show, NULL)) {
-		return -1;
-	}
+	// sprintf(proc_name, "%s_info", "tcu");
+	// pr_debug("%s, proc_name:%s\n", __func__, proc_name);
+	// if (NULL == proc_create_single_data(proc_name, 0, NULL, tcu_proc_show, NULL)) {
+	// 	return -1;
+	// }
 
 	return 0;
 }

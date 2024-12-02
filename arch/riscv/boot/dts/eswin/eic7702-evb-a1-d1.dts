@@ -623,11 +623,10 @@
 };
 
 &d0_i2c1 {
-	/* mpq8785 */
 	status = "okay";
-	mpq8785@10 {
-		compatible = "mps,mpq8785";
-		reg = <0x10>;
+	es5430@f {
+		compatible = "einno,es5340";
+		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
 		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
 		label = "npu_vdd";

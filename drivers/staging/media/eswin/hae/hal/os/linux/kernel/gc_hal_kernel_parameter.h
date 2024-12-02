@@ -248,7 +248,7 @@ static uint devCoreCounts[gcdDEVICE_COUNT] = {gcdCORE_3D_COUNT, 0};
 module_param_array(devCoreCounts, uint, NULL, 0644);
 MODULE_PARM_DESC(devCoreCounts, "Array of core count of each hardware device");
 
-static uint dev2DCoreCounts[gcdDEVICE_COUNT] = {gcdCORE_2D_COUNT, 0};
+static uint dev2DCoreCounts[gcdDEVICE_COUNT] = {0, 0};
 module_param_array(dev2DCoreCounts, uint, NULL, 0644);
 MODULE_PARM_DESC(dev2DCoreCounts, "Array of core 2D count of each hardware device");
 

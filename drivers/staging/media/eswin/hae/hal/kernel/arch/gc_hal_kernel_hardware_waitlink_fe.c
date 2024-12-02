@@ -1130,7 +1130,7 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
             gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                                0x00004, &idle));
             if (idle != 0x7FFFFFFF) {
-                gcmkONERROR(gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvFALSE, gcdGPU_2D_TIMEOUT));
+                gcmkONERROR(gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvTRUE, gcdGPU_2D_TIMEOUT));
             }
         } while (idle != 0x7FFFFFFF);
     }
@@ -1168,7 +1168,6 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
     gcmkONERROR(gckOS_MemoryBarrier(Hardware->os, gcvNULL));
 
     if (Hardware->type == gcvHARDWARE_2D) {
-        gcmkONERROR(gckOS_Signal(Hardware->os, Hardware->feIdleSignal, gcvFALSE));
         gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
                                           0x00658, control));
     } else {

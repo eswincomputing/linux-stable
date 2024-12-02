@@ -1151,7 +1151,7 @@ int create_npu_dev(int node_id, struct nvdla_device *nvdla_dev)
 	int ret = 0;
 	char *name;
 
-	npu_cdev[node_id].name = kzalloc(16, GFP_KERNEL);
+	npu_cdev[node_id].name = devm_kzalloc(&nvdla_dev->pdev->dev, 16, GFP_KERNEL);
 	if (!npu_cdev[node_id].name) {
 		dla_error("alloc memory for %d node err.\n", node_id);
 		return -ENOMEM;
@@ -1173,7 +1173,7 @@ int create_npu_dev(int node_id, struct nvdla_device *nvdla_dev)
 
 	if (ret < 0) {
 		dla_error("alloc_chrdev_region failed for npu%d\n", node_id);
-		kfree(name);
+		devm_kfree(&nvdla_dev->pdev->dev, name);
 		npu_cdev[node_id].name = NULL;
 		return ret;
 	}
@@ -1208,7 +1208,7 @@ device_err:
 	class_destroy(npu_cdev[node_id].class);
 class_err:
 	unregister_chrdev_region(npu_cdev[node_id].devid, 1);
-	kfree(name);
+	devm_kfree(&nvdla_dev->pdev->dev, name);
 	npu_cdev[node_id].name = NULL;
 
 	return -1;
@@ -1221,7 +1221,7 @@ void destory_npu_dev(int node_id)
 	device_destroy(npu_cdev[node_id].class, npu_cdev[node_id].devid);
 	class_destroy(npu_cdev[node_id].class);
 	if (npu_cdev[node_id].name) {
-		kfree(npu_cdev[node_id].name);
+		devm_kfree(&npu_cdev[node_id].nvdla_dev->pdev->dev, npu_cdev[node_id].name);
 		npu_cdev[node_id].name = NULL;
 	}
 	dla_debug("destory_npu_dev!\n");

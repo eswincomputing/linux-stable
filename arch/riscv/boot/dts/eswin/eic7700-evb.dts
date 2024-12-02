@@ -38,7 +38,7 @@
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
-	model = "ESWIN EIC7700";
+	model = "ESWIN EIC7700 EVB A1";
 	compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000",
 		     "sifive,fu740", "eswin,eic7700";
 
@@ -889,3 +889,4 @@
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
+

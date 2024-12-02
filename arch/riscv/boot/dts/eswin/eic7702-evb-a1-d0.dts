@@ -609,11 +609,10 @@
 };
 
 &d0_i2c1 {
-	/* mpq8785 */
 	status = "okay";
-	mpq8785@10 {
-		compatible = "mps,mpq8785";
-		reg = <0x10>;
+	es5430@f {
+		compatible = "einno,es5340";
+		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
 		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
 		label = "npu_vdd";
@@ -693,36 +692,35 @@
 };
 
 &d0_aon_i2c0 {
-	/* ina226x4 & tmp102aidrlr */
+	/* ina226x3 */
 	status = "okay";
 	i2c-sda-hold-time-ns = <0x40>;
-	ina226@45 {
+	ina226@40 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
 		label = "cpu_vdd";
-		reg = <0x45>;
-		shunt-resistor = <1000>;
-	};
-	ina226@44 {
-		compatible = "ti,ina226";
-		#io-channel-cells = <1>;
-		label = "soc_vdd";
-		reg = <0x44>;
+		reg = <0x40>;
 		shunt-resistor = <1000>;
 	};
 	ina226@41 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "lpddr_vdd";
+		label = "d0_lpddr_vdd";
 		reg = <0x41>;
 		shunt-resistor = <1000>;
 	};
-	ina226@48 {
+	ina226@44 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "dc_vdd";
-		reg = <0x48>;
+		label = "d0_soc_vdd";
+		reg = <0x44>;
 		shunt-resistor = <1000>;
+	};
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "d0_board_tmp";
+		#thermal-sensor-cells = <1>;
 	};
 };
 
@@ -812,4 +810,3 @@
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
-

@@ -132,7 +132,7 @@ enum {
 	HDMI_A_KSVMEMCTRL_KSV_SHA1_STATUS = 0x08,
 };
 
-static struct dw_hdcp *g_hdcp;
+static struct dw_hdcp *g_hdcp[2];
 static int trytimes = 0;
 
 static void hdcp_modb(struct dw_hdcp *hdcp, u8 data, u8 mask, unsigned int reg)
@@ -413,55 +413,55 @@ static int dw_hdmi_hdcp1x_stop(struct dw_hdcp *hdcp)
 
 void dw_hdmi_hdcp2_init(struct dw_hdcp2 *hdcp2)
 {
-	if (g_hdcp)
-		g_hdcp->hdcp2 = hdcp2;
+	if (g_hdcp[hdcp2->numa_id])
+		g_hdcp[hdcp2->numa_id]->hdcp2 = hdcp2;
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_hdcp2_init);
 
-void dw_hdmi_hdcp2_remove(void)
+void dw_hdmi_hdcp2_remove(struct dw_hdcp2 *hdcp2)
 {
-	printk("func: %s; line: %d\n", __func__, __LINE__);
-	if (g_hdcp->hdcp2)
-		g_hdcp->hdcp2->stop();
-	g_hdcp->hdcp2 = NULL;
+	dev_info(hdcp2->dev, "%s numa id:%d\n", __func__, hdcp2->numa_id);
+	if (g_hdcp[hdcp2->numa_id]->hdcp2)
+		g_hdcp[hdcp2->numa_id]->hdcp2->stop(hdcp2);
+	g_hdcp[hdcp2->numa_id]->hdcp2 = NULL;
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_hdcp2_remove);
 
-void dw_hdmi_hdcp2_start(int enable)
+void dw_hdmi_hdcp2_start(int enable, int numa_id)
 {
 	int val;
 
-	if (!(g_hdcp->hdcp2))
+	if (!(g_hdcp[numa_id]->hdcp2))
 		return;
 
-	dev_dbg(g_hdcp->dev, "%s enable = %d\n", __func__, enable);
+	dev_dbg(g_hdcp[numa_id]->dev, "%s enable = %d\n", __func__, enable);
 	if (enable == 0) {
-		hdcp_modb(g_hdcp,
+		hdcp_modb(g_hdcp[numa_id],
 			  HDMI_HDCP2_OVR_ENABLE | HDMI_HDCP2_FORCE_DISABLE,
 			  HDMI_HDCP2_OVR_EN_MASK | HDMI_HDCP2_FORCE_MASK,
 			  HDMI_HDCP2REG_CTRL);
-		hdcp_modb(g_hdcp, HDMI_MC_CLKDIS_HDCPCLK_DISABLE,
+		hdcp_modb(g_hdcp[numa_id], HDMI_MC_CLKDIS_HDCPCLK_DISABLE,
 			  HDMI_MC_CLKDIS_HDCPCLK_MASK, HDMI_MC_CLKDIS);
 	} else if (enable == 1) {
-		hdcp_modb(g_hdcp, HDMI_MC_CLKDIS_HDCPCLK_ENABLE,
+		hdcp_modb(g_hdcp[numa_id], HDMI_MC_CLKDIS_HDCPCLK_ENABLE,
 			  HDMI_MC_CLKDIS_HDCPCLK_MASK, HDMI_MC_CLKDIS);
-		hdcp_modb(g_hdcp,
+		hdcp_modb(g_hdcp[numa_id],
 			  HDMI_HDCP2_OVR_ENABLE | HDMI_HDCP2_FORCE_ENABLE,
 			  HDMI_HDCP2_OVR_EN_MASK | HDMI_HDCP2_FORCE_MASK,
 			  HDMI_HDCP2REG_CTRL);
-		hdcp_modb(g_hdcp, HDMI_FC_INVIDCONF_HDCP_KEEPOUT_ACTIVE,
+		hdcp_modb(g_hdcp[numa_id], HDMI_FC_INVIDCONF_HDCP_KEEPOUT_ACTIVE,
 			  HDMI_FC_INVIDCONF_HDCP_KEEPOUT_MASK,
 			  HDMI_FC_INVIDCONF);
 	} else if (enable == 2) {
-		val = g_hdcp->read(g_hdcp->hdmi, HDMI_PHY_STAT0);
+		val = g_hdcp[numa_id]->read(g_hdcp[numa_id]->hdmi, HDMI_PHY_STAT0);
 		if (val & HDMI_PHY_HPD)
-			dw_hdmi_hdcp1x_start(g_hdcp);
+			dw_hdmi_hdcp1x_start(g_hdcp[numa_id]);
 	} else if (enable == 3) {
-		if (g_hdcp->hdcp2 && g_hdcp->hdcp2->enable &&
-		    (tv_hdmi_hdcp2_support(g_hdcp->hdmi) == 1)) {
-			if (g_hdcp->status != DW_HDCP_DISABLED)
-				dw_hdmi_hdcp1x_stop(g_hdcp);
-			g_hdcp->hdcp2->start();
+		if (g_hdcp[numa_id]->hdcp2 && g_hdcp[numa_id]->hdcp2->enable &&
+		    (tv_hdmi_hdcp2_support(g_hdcp[numa_id]->hdmi) == 1)) {
+			if (g_hdcp[numa_id]->status != DW_HDCP_DISABLED)
+				dw_hdmi_hdcp1x_stop(g_hdcp[numa_id]);
+			g_hdcp[numa_id]->hdcp2->start(g_hdcp[numa_id]->hdcp2);
 		}
 	}
 }
@@ -536,7 +536,8 @@ static ssize_t hdcp_enable_read(struct device *device,
 				struct device_attribute *attr, char *buf)
 {
 	bool enable = 0;
-	struct dw_hdcp *hdcp = g_hdcp;
+	struct miscdevice *mdev= dev_get_drvdata(device);
+	struct dw_hdcp *hdcp = mdev->parent->platform_data;
 
 	if (hdcp)
 		enable = hdcp->enable;
@@ -549,7 +550,8 @@ static ssize_t hdcp_enable_write(struct device *device,
 				 size_t count)
 {
 	bool enable;
-	struct dw_hdcp *hdcp = g_hdcp;
+	struct miscdevice *mdev= dev_get_drvdata(device);
+	struct dw_hdcp *hdcp = mdev->parent->platform_data;
 	int ret;
 
 	if (!hdcp)
@@ -589,7 +591,8 @@ static ssize_t hdcp_trytimes_read(struct device *device,
 				  struct device_attribute *attr, char *buf)
 {
 	int trytimes = 0;
-	struct dw_hdcp *hdcp = g_hdcp;
+	struct miscdevice *mdev= dev_get_drvdata(device);
+	struct dw_hdcp *hdcp = mdev->parent->platform_data;
 
 	if (hdcp)
 		trytimes = hdcp->retry_times;
@@ -602,7 +605,8 @@ static ssize_t hdcp_trytimes_write(struct device *device,
 				   const char *buf, size_t count)
 {
 	int trytimes;
-	struct dw_hdcp *hdcp = g_hdcp;
+	struct miscdevice *mdev= dev_get_drvdata(device);
+	struct dw_hdcp *hdcp = mdev->parent->platform_data;
 
 	if (!hdcp)
 		return -EINVAL;
@@ -624,7 +628,8 @@ static ssize_t hdcp_status_read(struct device *device,
 				struct device_attribute *attr, char *buf)
 {
 	int status = DW_HDCP_DISABLED;
-	struct dw_hdcp *hdcp = g_hdcp;
+	struct miscdevice *mdev= dev_get_drvdata(device);
+	struct dw_hdcp *hdcp = mdev->parent->platform_data;
 
 	if (hdcp)
 		status = hdcp->status;
@@ -648,11 +653,14 @@ static int dw_hdmi_hdcp_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct dw_hdcp *hdcp = pdev->dev.platform_data;
 
-	dev_info(&pdev->dev, "%s...\n", __func__);
-	g_hdcp = hdcp;
+	dev_info(&pdev->dev, "%s numa id:%d\n", __func__, hdcp->numa_id);
+	g_hdcp[hdcp->numa_id] = hdcp;
+	char name[15];
+	sprintf(name, "hdmi_%d_hdcp1x", hdcp->numa_id);
 	hdcp->mdev.minor = MISC_DYNAMIC_MINOR;
-	hdcp->mdev.name = "hdmi_hdcp1x";
+	hdcp->mdev.name = name;
 	hdcp->mdev.mode = 0666;
+	hdcp->mdev.parent = &pdev->dev;
 
 	if (misc_register(&hdcp->mdev)) {
 		dev_err(&pdev->dev, "HDCP: Could not add character driver\n");
@@ -686,10 +694,6 @@ static int dw_hdmi_hdcp_probe(struct platform_device *pdev)
 	hdcp->hdcp_start = dw_hdmi_hdcp_start;
 	hdcp->hdcp_stop = dw_hdmi_hdcp_stop;
 	hdcp->hdcp_isr = dw_hdmi_hdcp_isr;
-
-#ifdef CONFIG_DW_HDMI_HDCP1X_ENABLED
-	hdcp_enable_write(NULL, NULL, "1", 1);
-#endif
 
 	dev_dbg(hdcp->dev, "%s success\n", __func__);
 	return 0;

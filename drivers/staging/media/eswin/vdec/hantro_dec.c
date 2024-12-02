@@ -325,6 +325,7 @@ static struct apbfilter_cfg apbfilter_cfg[MAX_SUBSYS_NUM][HW_CORE_MAX];
 
 static struct axife_cfg axife_cfg[MAX_SUBSYS_NUM];
 static int elements = 2;
+static int gdev_count = 0;
 
 #ifdef CLK_CFG
 struct clk *clk_cfg;
@@ -2385,7 +2386,6 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 	case HANTRODEC_IOC_DMA_HEAP_GET_IOVA: {
 		struct dmabuf_cfg dbcfg;
 		size_t buf_size = 0;
-		void *cpu_vaddr = NULL;
 		struct heap_mem *hmem, *hmem_d1;
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
 
@@ -2401,52 +2401,30 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 			LOG_ERR("dmabuf-heap alloc from userspace failed\n");
 			return -ENOMEM;
 		}
+		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
+
+		/* get the size of the dmabuf allocated by dmabuf_heap */
+		buf_size = common_dmabuf_heap_get_size(hmem);
 		//LOG_INFO("import dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dbcfg.dmabuf_fd, hmem, filp,
 		//	platformdev_d1);
 
 		if (platformdev_d1) {
-			hmem_d1 = common_dmabuf_heap_import_from_user(&fp_priv->root_d1, dbcfg.dmabuf_fd);
+			hmem_d1 = common_dmabuf_heap_rsv_iova_map(&fp_priv->root_d1, dbcfg.dmabuf_fd, dbcfg.iova, buf_size);
 			if(IS_ERR(hmem_d1)) {
+				LOG_ERR("dmabuf-heap rsv iova map failed for d1\n");
 				common_dmabuf_heap_release(hmem);
-				LOG_ERR("dmabuf-heap alloc from userspace failed for d1\n");
 				return -ENOMEM;
 			}
 		}
 
-		/* map the pha to cpu vaddr*/
-		cpu_vaddr = common_dmabuf_heap_map_vaddr(hmem);
-		if (cpu_vaddr == NULL) {
-			LOG_ERR("map to cpu_vaddr failed\n");
-			common_dmabuf_heap_release(hmem);
-			if (platformdev_d1)
-				common_dmabuf_heap_release(hmem_d1);
-
-			return -ENOMEM;
-		}
-
-		/* get the size of the dmabuf allocated by dmabuf_heap */
-		buf_size = common_dmabuf_heap_get_size(hmem);
 		LOG_TRACE("dmabuf info: CPU VA:0x%lx, PA:0x%lx, DMA addr(iova):0x%lx, size=0x%lx\n",
 				(unsigned long)hmem->vaddr, (unsigned long)sg_phys(hmem->sgt->sgl), (unsigned long)sg_dma_address(hmem->sgt->sgl), (unsigned long)buf_size);
 
-		dbcfg.iova = (unsigned long)sg_dma_address(hmem->sgt->sgl);
-		if (platformdev_d1) {
-			unsigned long iova_d1;
-
-			iova_d1 = (unsigned long)sg_dma_address(hmem_d1->sgt->sgl);
-			if (dbcfg.iova != iova_d1) {
-				common_dmabuf_heap_release(hmem);
-				common_dmabuf_heap_release(hmem_d1);
-				LOG_ERR("IOVA addrs of d0 and d1 are not the same\n");
-				return -EFAULT;
-			}
-		}
-
 		tmp = copy_to_user((u32 __user *)arg, &dbcfg, sizeof(struct dmabuf_cfg));
 		if (tmp) {
-			common_dmabuf_heap_release(hmem);
 			if (platformdev_d1)
-				common_dmabuf_heap_release(hmem_d1);
+				common_dmabuf_heap_rsv_iova_unmap(hmem_d1);
+			common_dmabuf_heap_release(hmem);
 			LOG_ERR("%s %d: copy_from_user failed, returned %li\n", __func__, __LINE__, tmp);
 			return -EFAULT;
 		}
@@ -2454,6 +2432,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		return 0;
 	}
 	case HANTRODEC_IOC_DMA_HEAP_PUT_IOVA: {
+		struct dmabuf_cfg dbcfg;
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
@@ -2476,7 +2455,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 				LOG_ERR("cannot find dmabuf-heap for dmabuf_fd %d on d1\n", dmabuf_fd);
 				return -EFAULT;
 			}
-			common_dmabuf_heap_release(hmem_d1);
+			common_dmabuf_heap_rsv_iova_unmap(hmem_d1);
 		}
 		//LOG_INFO("release dmabuf_fd = %d, hmem=%px, filp=%px, platformdev_d1=%px\n", dmabuf_fd, hmem, filp,
 		//	platformdev_d1);
@@ -2650,6 +2629,12 @@ static int hantrodec_release(struct inode *inode,
 	int n;
 	hantrodec_t *dev = &hantrodec_data;
 	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+#ifdef SUPPORT_DMA_HEAP
+	struct heap_mem *h, *tmp;
+	dma_addr_t iova;
+	size_t buf_size = 0;
+	struct heap_root *root = &fp_priv->root;
+#endif
 
 	LOG_DBG("closing ...\n");
 
@@ -2678,10 +2663,10 @@ static int hantrodec_release(struct inode *inode,
 
 end:
 #ifdef SUPPORT_DMA_HEAP
-	common_dmabuf_heap_import_uninit(&fp_priv->root);
 	if (platformdev_d1) {
-		common_dmabuf_heap_import_uninit(&fp_priv->root_d1);
+		common_dmabuf_heap_rsv_iova_uninit(&fp_priv->root_d1);
 	}
+	common_dmabuf_heap_import_uninit(&fp_priv->root);
 #endif
 	for (u32 core_id = 0; core_id < DEC_CORE_NUM; core_id ++) {
 		/** clear the tasks for pm*/
@@ -2833,12 +2818,12 @@ static int hantrodec_init(void)
 
 		if (platformdev_d1) {
 			of_dma_configure(&platformdev_d1->dev, platformdev_d1->dev.of_node, true);
-			if (dma_set_mask_and_coherent(&platformdev_d1->dev, DMA_BIT_MASK(48))) {
-				LOG_ERR("48bit dma dev: No suitable DMA available\n");
+			if (dma_set_mask_and_coherent(&platformdev_d1->dev, DMA_BIT_MASK(41))) {
+				LOG_ERR("41bit dma dev: No suitable DMA available\n");
 			}
 
-			if (dma_set_coherent_mask(&platformdev_d1->dev, DMA_BIT_MASK(48))) {
-				LOG_ERR("48bit dma dev: No suitable DMA available\n");
+			if (dma_set_coherent_mask(&platformdev_d1->dev, DMA_BIT_MASK(41))) {
+				LOG_ERR("41bit dma dev: No suitable DMA available\n");
 			}
 		}
 	}
@@ -3061,12 +3046,13 @@ err:
  * Description     : clean up
  * Return type     : int
  */
-static void hantrodec_cleanup(void)
+static void hantrodec_cleanup(struct platform_device *pdev)
 {
 	hantrodec_t *dev = &hantrodec_data;
 	int i, n = 0;
 	volatile u8 *mmu_hwregs[MAX_SUBSYS_NUM][2];
 	int has_mmu = 0;
+	int cleanup = (gdev_count > 0) ? 0 : 1;
 
 	for (i = 0; i < MAX_SUBSYS_NUM; i++) {
 		mmu_hwregs[i][0] = dev->hwregs[i][HW_MMU];
@@ -3084,7 +3070,7 @@ static void hantrodec_cleanup(void)
 		MMUCleanup(mmu_hwregs);
 
 	if (vcmd) {
-		hantrovcmd_cleanup();
+		hantrovcmd_cleanup(pdev, cleanup);
 	} else {
 		/* reset hardware */
 		ResetAsic(dev);
@@ -3094,6 +3080,9 @@ static void hantrodec_cleanup(void)
 			if (dev->irq[n] != -1)
 				free_irq(dev->irq[n], (void *)dev);
 		}
+	}
+	if (!cleanup) {
+		return;
 	}
 	ReleaseIO();
 
@@ -3960,7 +3949,6 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 {
 	int numa_id;
 	int ret, vdec_dev_num = 0;
-	static int pdev_count = 0;
 	vdec_clk_rst_t *vcrt = devm_kzalloc(&pdev->dev, sizeof(vdec_clk_rst_t), GFP_KERNEL);
 	if (!vcrt) {
 		LOG_ERR("malloc drvdata failed\n");
@@ -4033,8 +4021,8 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 	}
 #endif
 
-	pdev_count++;
-	if (vdec_dev_num > pdev_count) {
+	gdev_count++;
+	if (vdec_dev_num > gdev_count) {
 		LOG_INFO("The first core loaded, waiting for another...");
 		return 0;
 	}
@@ -4074,7 +4062,9 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 	vdec_clk_rst_t *vcrt;
 
 	pm_runtime_disable(&pdev->dev);
-	hantrodec_cleanup();
+
+	gdev_count--;
+	hantrodec_cleanup(pdev);
 #ifdef SUPPORT_DMA_HEAP
 	ret = win2030_tbu_power(&pdev->dev, false);
 	if (ret) {

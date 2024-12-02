@@ -42,7 +42,7 @@
 #include <linux/version.h>
 #include <asm/cacheflush.h>
 #include <linux/iommu.h>
-#include "es_iommu_rsv.h"
+#include <linux/es_iommu_rsv.h>
 #include "dla_interface.h"
 // TODO(yuzaiqiang) The header files dla_interface.h and llc_spram.h both define the same
 // macro CACHE_LINE_SIZE, resulting in a riscv compilation error.
@@ -148,16 +148,16 @@ void npu_free_dma_addr(struct win_executor *executor, int i)
 			  executor->dma_addr[i]);
 }
 
-static void npu_e31_hw_lock_reset(void)
+static void npu_e31_hw_lock_reset(struct nvdla_device *ndev)
 {
 #define MUTEX_BASE_ADDR 0x51820000
 #define MUTEX_UNIT_SIZE 4
 
 	uint32_t ret_token_id = 0;
-	unsigned long hw_lock_addr = MUTEX_BASE_ADDR + 1 * MUTEX_UNIT_SIZE;
+	unsigned long hw_lock_addr = ndev->numa_id * NPU_DIE_REG_OFFSET + MUTEX_BASE_ADDR + 1 * MUTEX_UNIT_SIZE;
 	void *hw_lock_virt_addr = NULL;
 
-	hw_lock_virt_addr = ioremap(hw_lock_addr, 8);
+	hw_lock_virt_addr = devm_ioremap(&ndev->pdev->dev, hw_lock_addr, 8);
 
 	ret_token_id = readl(hw_lock_virt_addr);
 
@@ -165,19 +165,19 @@ static void npu_e31_hw_lock_reset(void)
 		writel(0, hw_lock_virt_addr);
 	}
 
-	iounmap(hw_lock_virt_addr);
+	devm_iounmap(&ndev->pdev->dev, hw_lock_virt_addr);
 
 	return;
 }
 
 /*/sys/devices/platform/soc/51c00000.nvdla-controller/reg*/
 
-int npu_clk_reset_print(struct platform_device *pdev)
+int npu_clk_reset_print(struct platform_device *pdev, int numa_id)
 {
 	void *reset_base_addr;
 	uint32_t reg_val1, reg_val2, reg_val3, reg_val5;
 
-	reset_base_addr = ioremap(NPU_CFG_BASE_ADDR, 0x500);
+	reset_base_addr = devm_ioremap(&pdev->dev, NPU_CFG_BASE_ADDR + numa_id * NPU_DIE_REG_OFFSET, 0x500);
 	if (IS_ERR(reset_base_addr)) {
 		dev_err(&pdev->dev, "reset base addr ioremap error\n");
 		return -ENODEV;
@@ -198,7 +198,7 @@ int npu_clk_reset_print(struct platform_device *pdev)
 		"[0x178]=0x%08x [0x17c]=0x%08x [0x180]=0x%08x [0x418]=0x%08x\n",
 		reg_val1, reg_val2, reg_val3, reg_val5);
 
-	iounmap(reset_base_addr);
+	devm_iounmap(&pdev->dev, reset_base_addr);
 
 	return 0;
 }
@@ -212,7 +212,7 @@ static int npu_e31_dev_reset(struct nvdla_device *nvdla_dev)
 	WARN_ON(0 != ret);
 
 	/*reset e31 uart hw mutext*/
-	npu_e31_hw_lock_reset();
+	npu_e31_hw_lock_reset(nvdla_dev);
 	return 0;
 }
 
@@ -225,7 +225,7 @@ int npu_dev_reset(struct nvdla_device *nvdla_dev)
 
 	msleep(10);
 	/*reset npu core*/
-	ret = npu_core_rst(0, false);
+	ret = npu_core_rst(nvdla_dev->numa_id, false);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d.\n",
 			ret);
@@ -233,7 +233,7 @@ int npu_dev_reset(struct nvdla_device *nvdla_dev)
 	}
 
 	/*reset npu cfg*/
-	ret = npu_cfg_rst(0, false);
+	ret = npu_cfg_rst(nvdla_dev->numa_id, false);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d.\n",
 			ret);
@@ -241,14 +241,14 @@ int npu_dev_reset(struct nvdla_device *nvdla_dev)
 	}
 	msleep(10);
 
-	ret = npu_cfg_rst(0, true);
+	ret = npu_cfg_rst(nvdla_dev->numa_id, true);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_cfg_rst fail,error: %d\n",
 			ret);
 		return ret;
 	}
 
-	ret = npu_core_rst(0, true);
+	ret = npu_core_rst(nvdla_dev->numa_id, true);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d\n",
 			ret);
@@ -265,7 +265,7 @@ int npu_init_reset(struct nvdla_device *nvdla_dev)
 	struct platform_device *pdev = nvdla_dev->pdev;
 
 	npu_dev_reset(nvdla_dev);
-	npu_clk_reset_print(pdev);
+	npu_clk_reset_print(pdev, nvdla_dev->numa_id);
 
 	return 0;
 }
@@ -383,7 +383,7 @@ static ssize_t store_reg_val(struct device *d, struct device_attribute *attr,
 	return count;
 }
 
-int npu_clk_reset_print(struct platform_device *pdev);
+int npu_clk_reset_print(struct platform_device *pdev, int numa_id);
 
 int dla_noc_sideband_query(void)
 {
@@ -418,12 +418,11 @@ int dla_noc_sideband_query(void)
 
 static int npu_restart_init(struct nvdla_device *nvdla_dev)
 {
-	struct platform_device *pdev = nvdla_dev->pdev;
 	int ret;
 
 	npu_dma_sid_cfg(nvdla_dev->base, WIN2030_SID_NPU_DMA);
 	npu_hw_init(nvdla_dev);
-	ret = npu_e31_load_fw(pdev, nvdla_dev->e31_mmio_base);
+	ret = npu_e31_load_fw(nvdla_dev);
 
 	return ret;
 }
@@ -555,7 +554,7 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 	}
 
 exit:
-	npu_clk_reset_print(nvdla_dev->pdev);
+	npu_clk_reset_print(nvdla_dev->pdev, nvdla_dev->numa_id);
 	mutex_unlock(&engine->reset_mutex);
 	return count;
 }
@@ -634,6 +633,7 @@ int npu_spram_get(struct nvdla_device *nvdla_dev)
 	struct dla_buffer_object *spram_bobj = NULL;
 	uint32_t drv_spram_size;
 	int err = 0;
+	int numa_id = nvdla_dev->numa_id;
 
 	err = llc_user_register(&nvdla_dev->pdev->dev);
 	if (err) {
@@ -665,7 +665,7 @@ int npu_spram_get(struct nvdla_device *nvdla_dev)
 	dla_info("spram_size=0x%x\n", nvdla_dev->spram_size);
 
 	spram_bobj = dla_alloc_dmabuf(nvdla_dev->spram_size,
-				      ES_MEM_ALLOC_SPRAM_DIE0);
+				      numa_id ? ES_MEM_ALLOC_SPRAM_DIE1 : ES_MEM_ALLOC_SPRAM_DIE0);
 	if (spram_bobj < 0) {
 		dla_error(
 			"spram_dma_fd dev_mem_alloc failed!,spram_size=0x%x\n",
@@ -793,7 +793,7 @@ int npu_put_dt_resources(struct nvdla_device *ndev)
 {
 	struct platform_device *mbox_pdev = ndev->mbox_pdev;
 
-	free_irq(ndev->mbox_irq, ndev);
+	devm_free_irq(&mbox_pdev->dev, ndev->mbox_irq, ndev);
 
 	clk_put(ndev->mbox_pclk);
 	clk_put(ndev->mbox_pclk_device);
@@ -826,13 +826,20 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 		dev_err(&pdev->dev, "failed to get core_clk: %d\n", ret);
 		return ret;
 	}
-	nvdla_dev->rstc_e31_core = devm_reset_control_get_optional_exclusive(
+	//nvdla_dev->rstc_e31_core = devm_reset_control_get_optional_exclusive(
+	nvdla_dev->rstc_e31_core = devm_reset_control_get_optional(
 		&pdev->dev, "e31_core");
 	if (IS_ERR_OR_NULL(nvdla_dev->rstc_e31_core)) {
 		dev_err(&nvdla_dev->pdev->dev,
 			"Failed to e31_core reset handle\n");
 		return -EFAULT;
 	}
+
+	if (device_property_read_string(&pdev->dev, "firmware-name", &nvdla_dev->e31_fw_name)) {
+		dev_err(&nvdla_dev->pdev->dev, "Failed to get e31 firmware name\n");
+		return -EFAULT;
+	}
+
 	mbox_node = of_parse_phandle(pdev->dev.of_node, "npu_mbox", 0);
 	if (mbox_node == NULL) {
 		dev_err(&pdev->dev, "npu node have not mailbox node, err.\n");
@@ -895,14 +902,15 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 			"failed to get device mailbox clock: %d\n", ret);
 		return ret;
 	}
-	nvdla_dev->mbox_rst = devm_reset_control_get_optional_exclusive(
+
+	nvdla_dev->mbox_rst = devm_reset_control_get_optional(
 		&mbox_pdev->dev, "rst");
 	if (IS_ERR(nvdla_dev->mbox_rst)) {
 		ret = -ENODEV;
 		dev_err(&mbox_pdev->dev, "failed to get rst controller.\n");
 		return ret;
 	}
-	nvdla_dev->mbox_rst_device = devm_reset_control_get_optional_exclusive(
+	nvdla_dev->mbox_rst_device = devm_reset_control_get_optional(
 		&mbox_pdev->dev, "rst_device");
 	if (IS_ERR(nvdla_dev->mbox_rst_device)) {
 		ret = PTR_ERR(nvdla_dev->mbox_rst_device);

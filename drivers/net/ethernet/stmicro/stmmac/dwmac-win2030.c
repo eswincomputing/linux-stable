@@ -205,7 +205,7 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	case SPEED_1000:
 		rate = 125000000;
 
-		if (dwc_priv->dev_id == 0) {
+		if ((dwc_priv->dev_id & 0x1) == 0) {
 			regmap_write(dwc_priv->hsp_regmap, 0x118, 0x800c8023);
 			regmap_write(dwc_priv->hsp_regmap, 0x11c, 0x0c0c0c0c);
 			regmap_write(dwc_priv->hsp_regmap, 0x114, 0x23232323);
@@ -226,7 +226,7 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	case SPEED_100:
 		rate = 25000000;
 
-		if (dwc_priv->dev_id == 0) {
+		if ((dwc_priv->dev_id & 0x1) == 0) {
 			regmap_write(dwc_priv->hsp_regmap, 0x118, 0x803f8050);
 			regmap_write(dwc_priv->hsp_regmap, 0x11c, 0x3f3f3f3f);
 			regmap_write(dwc_priv->hsp_regmap, 0x114, 0x50505050);
@@ -247,7 +247,7 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	case SPEED_10:
 		rate = 2500000;
 
-		if (dwc_priv->dev_id == 0) {
+		if ((dwc_priv->dev_id & 0x1) == 0) {
 			regmap_write(dwc_priv->hsp_regmap, 0x118, 0x0);
 			regmap_write(dwc_priv->hsp_regmap, 0x11c, 0x0);
 			regmap_write(dwc_priv->hsp_regmap, 0x114, 0x0);
@@ -468,6 +468,7 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	plat_dat->bsp_priv = dwc_priv;
 	plat_dat->phy_addr = PHY_ADDR;
 	plat_dat->clks_config = dwc_clks_config;
+	plat_dat->bus_id = dwc_priv->dev_id;
 
 	return 0;
 }
