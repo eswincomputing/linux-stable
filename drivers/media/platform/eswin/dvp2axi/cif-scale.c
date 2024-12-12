@@ -139,8 +139,8 @@ static int rkcif_scale_set_fmt(struct rkcif_scale_vdev *scale_vdev,
 	int bpl, size, bpp;
 	int scale_times = 0;
 	u32 scale_ratio = 0;
-	u32 width = 640;
-	u32 height = 480;
+	u32 width = 3280;
+	u32 height = 2464;
 	int ret = 0;
 
 	if (!cif_dev->terminal_sensor.sd)

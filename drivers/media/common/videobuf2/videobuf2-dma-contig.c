@@ -210,7 +210,7 @@ static int vb2_dc_alloc_coherent(struct vb2_dc_buf *buf)
 static int vb2_dc_alloc_non_coherent(struct vb2_dc_buf *buf)
 {
 	struct vb2_queue *q = buf->vb->vb2_queue;
-
+	printk("yulin_1216 %s %s %d \n", __FILE__, __func__, __LINE__);
 	buf->dma_sgt = dma_alloc_noncontiguous(buf->dev,
 					       buf->size,
 					       buf->dma_dir,
@@ -234,7 +234,8 @@ static void *vb2_dc_alloc(struct vb2_buffer *vb,
 {
 	struct vb2_dc_buf *buf;
 	int ret;
-
+printk("yulin %s %s %d \n", __FILE__, __func__, __LINE__);
+// dump_stack();
 	if (WARN_ON(!dev))
 		return ERR_PTR(-EINVAL);
 

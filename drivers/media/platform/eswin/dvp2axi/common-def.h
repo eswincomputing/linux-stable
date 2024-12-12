@@ -1,0 +1,110 @@
+#ifndef __COMMON_DEF_HEADER__
+#define __COMMON_DEF_HEADER__
+
+#define ENABLE_DEBUG_MSG
+
+#ifdef ENABLE_DEBUG_MSG
+#define DPRINTK(args...)		printk(KERN_INFO args);
+#else
+#define DPRINTK(args...)
+#endif
+
+// CSI Interrupt
+#define INTERRUPT_THRESHOLD_LEVEL 0  // allow all interrupts to be handled
+#define INTERRUPT_ISP_PRIORITY 1
+
+#define SENSOR_OUT_2LANES
+#define SENSOR_OUT_10BIT
+// #define SENSOR_HDR_DOL2    // L:0, S:1
+// #define SENSOR_HDR_DOL3    // L:0, S:1, VS:2
+// #define SENSOR_HDR_STAGGER2 //HCG:0 LCG:1 or L:0 S:1
+// #define SENSOR_HDR_STAGGER3 //L:0 S:1 VS:2
+// #define SENSOR_HDR_HCG_VS  // HCG:0, VS:2
+// #define SENSOR_HDR_CDCG_VS // L:0 16bit, VS:2 12bit
+
+// Stagger2 240P crop from 1080P
+// #define SENSOR_OUT_H 320
+// #define SENSOR_OUT_V 240
+
+// Stagger2 480P crop from 1080P
+#define SENSOR_OUT_H 3280
+#define SENSOR_OUT_V 2464
+
+// #define SENSOR_OUT_H 1600
+// #define SENSOR_OUT_V 1080
+#define SENSOR_OUT_H_PAD 0
+
+// #define DVP2AXI_DVP0_ENABLE
+// #define DVP2AXI_DVP1_ENABLE
+// #define DVP2AXI_DVP2_ENABLE
+// #define DVP2AXI_DVP3_ENABLE
+// #define DVP2AXI_DVP4_ENABLE
+// #define DVP2AXI_DVP5_ENABLE
+#define DVP2AXI_MAX_CHANNEL 6
+
+// i2c master id and controller id used
+#define CSI_CONTROLLER_ID0 0
+#define CSI_CONTROLLER_ID1 1
+#define CSI_CONTROLLER_ID2 2
+#define CSI_CONTROLLER_ID3 3
+#define CSI_CONTROLLER_ID4 4
+#define CSI_CONTROLLER_ID5 5
+
+#define I2C_MASTER_ID0 0
+#define I2C_MASTER_ID1 1
+
+// #define SENSOR_OS08A10
+// #define SENSOR_OV2718
+//  #define SENSOR_OV5647
+// #define SENSOR_OV4689
+#define SENSOR_IMX219
+
+/* OS08A10 at i2c1 and controller-dvp 1 */
+#define DVP2AXI_DVP0_ENABLE
+#if 0
+#define DVP2AXI_DVP1_ENABLE
+#define DVP2AXI_DVP2_ENABLE
+#define DVP2AXI_DVP3_ENABLE
+#define DVP2AXI_DVP4_ENABLE
+#define DVP2AXI_DVP5_ENABLE
+#endif
+#define CSI_CONTROLLER_ID CSI_CONTROLLER_ID0
+#define I2C_MASTER_ID I2C_MASTER_ID0
+
+/*
+#define CSI0_BASE_ADDR 0x51090000
+#define PHY0_BASE_ADDR 0x51140000
+#define PHY0_CFG_BASE_ADDR 0x51158000
+*/
+
+/*
+#define CSI0_BASE_ADDR 0x51070000
+#define PHY0_BASE_ADDR 0x51100000
+#define PHY0_CFG_BASE_ADDR 0x51118000
+*/
+
+/*
+#define CSI0_BASE_ADDR 0x51050000
+#define PHY0_BASE_ADDR 0x510c0000
+#define PHY0_CFG_BASE_ADDR 0x510d8000
+*/
+
+// ch0
+#define CSI0_BASE_ADDR 0x51050000
+#define PHY0_BASE_ADDR 0x510c0000
+#define PHY0_CFG_BASE_ADDR 0x510d8000
+
+// ch1
+//  #define CSI0_BASE_ADDR 0x51060000
+//  #define PHY0_BASE_ADDR 0x510e0000
+//  #define PHY0_CFG_BASE_ADDR 0x510f8000
+
+// 4
+//  #define CSI0_BASE_ADDR 0x51090000
+//  #define PHY0_BASE_ADDR 0x51140000
+//  #define PHY0_CFG_BASE_ADDR 0x51158000
+
+#define CONFIG_SYS_I2C_BASE 0x50980000  // i2c-3
+// #define CONFIG_SYS_I2C_BASE 0x509a0000 //i2c-5
+#define CONFIG_SYS_I2C_BASE1 0x50990000
+#endif

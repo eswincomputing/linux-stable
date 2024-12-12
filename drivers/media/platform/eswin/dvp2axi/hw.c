@@ -34,21 +34,17 @@
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/regmap.h>
-// #include <media/videobuf2-cma-sg.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-dma-sg.h>
 #include <media/v4l2-fwnode.h>
 #include <linux/iommu.h>
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
-#include "common.h"
-
 #include <linux/bitfield.h>
 #include <linux/eswin-win2030-sid-cfg.h>
-
-/* eic770x */
-#include <media/eswin/common-def.h>
+#include "../eswin_vi.h"
 #include "dvp2axi.h"
+#include "hw.h"
 
 #define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
 #define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
@@ -119,7 +115,7 @@ int es_dvp2axi_enable_sys_clk(struct es_dvp2axi_hw *dvp2axi_hw)
 			goto err;
 	}
 
-	write_dvp2axi_reg_and(dvp2axi_hw->base_addr, DVP2AXI_CSI_INTEN, 0x0);
+	// write_dvp2axi_reg_and(dvp2axi_hw->base_addr, DVP2AXI_CSI_INTEN, 0x0);
 	return 0;
 
 err:
@@ -131,15 +127,7 @@ err:
 
 void es_dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *dvp2axi_hw, bool is_rst_iommu)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dvp2axi_hw->dvp2axi_rst); i++)
-		if (dvp2axi_hw->dvp2axi_rst[i])
-			reset_control_assert(dvp2axi_hw->dvp2axi_rst[i]);
-	udelay(5);
-	for (i = 0; i < ARRAY_SIZE(dvp2axi_hw->dvp2axi_rst); i++)
-		if (dvp2axi_hw->dvp2axi_rst[i])
-			reset_control_deassert(dvp2axi_hw->dvp2axi_rst[i]);
+	return ;
 }
 
 static int dvp2axi_smmu_sid_cfg(struct device *dev)
@@ -153,7 +141,7 @@ static int dvp2axi_smmu_sid_cfg(struct device *dev)
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
 	if (fwspec == NULL) {
-		pr_info("Device is not behind SMMU, using default streamID(0)\n");
+		dev_info(dev, "Device is not behind SMMU, using default streamID(0)\n");
 		return 0;
 	}
 
@@ -200,6 +188,7 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	struct es_dvp2axi_hw *dvp2axi_hw;
 	struct resource *res;
 	int ret, irq;
+	u32 reg_val;
 #ifdef CONFIG_NUMA
 	u32 numa_id = 0;
 #endif
@@ -211,11 +200,47 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, dvp2axi_hw);
 	dvp2axi_hw->dev = dev;
 
+	dvp2axi_hw->vi_topcsr_regmap = syscon_regmap_lookup_by_phandle(dvp2axi_hw->dev->of_node, "eswin,vi_top_csr");
+    if (IS_ERR(dvp2axi_hw->vi_topcsr_regmap)) {
+        pr_err("No vi_top_csr phandle specified, regmap=%ld\n", PTR_ERR(dvp2axi_hw->vi_topcsr_regmap));
+		return PTR_ERR(dvp2axi_hw->vi_topcsr_regmap);
+    }
+
+	ret = of_property_read_u32_index(dvp2axi_hw->dev->of_node, "eswin,vi_top_csr", 2, &dvp2axi_hw->vi_topcsr_reg);
+	if (ret) {
+		pr_err("Failed to get dvp2axi vi top clk reg offset, ret=%d\n", ret);
+		return ret;
+	}
+
+	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
+	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
+	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
+
+	dvp2axi_hw->num_clks = devm_clk_bulk_get_all(dvp2axi_hw->dev, &dvp2axi_hw->clks_bulk);
+
+	if (dvp2axi_hw->num_clks < 0)
+		return dev_err_probe(dvp2axi_hw->dev, -ENODEV,
+				     "Failed to get dvp2axi clocks\n");
+
+	ret = clk_bulk_prepare_enable(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
+	if (ret)
+		return dev_err_probe(dvp2axi_hw->dev, ret,
+				     "Failed to enable dvp2axi clocks\n");
+
+	dvp2axi_hw->rstc = devm_reset_control_array_get_shared(&pdev->dev);
+	if (IS_ERR_OR_NULL(dvp2axi_hw->rstc)) {
+		dev_err_probe(dev, PTR_ERR(dvp2axi_hw->rstc), "unable to get dvp2axi rst_cfg\n");
+	}
+
+	reset_control_deassert(dvp2axi_hw->rstc);
+
 	ret = dvp2axi_smmu_sid_cfg(dev);
 	if (ret) {
 		dev_err(dev, "SMMU SID config failed: %d\n", ret);
 		return ret;
 	}
+
+	win2030_tbu_power(dev, true);
 
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM,
@@ -266,19 +291,16 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	// dvp2axi_hw->is_dma_sg_ops = true;
 	dvp2axi_hw->is_dma_sg_ops = false;
 	dvp2axi_hw->is_dma_contig = true;
+	dvp2axi_hw->mem_ops = &vb2_dma_contig_memops;
 	mutex_init(&dvp2axi_hw->dev_lock);
 	mutex_init(&dvp2axi_hw->dev_multi_chn_lock);
 
-	spin_lock_init(&dvp2axi_hw->group_lock);
-	spin_lock_init(&dvp2axi_hw->intr_spinlock);
 	atomic_set(&dvp2axi_hw->power_cnt, 0);
 
 	tasklet_init(&dvp2axi_hw->dvp2axi_err_tasklet, es_dvp2axi_tasklet_err_handle,
 		(unsigned long)dvp2axi_hw);
 
 	tasklet_enable(&dvp2axi_hw->dvp2axi_err_tasklet);
-
-	pm_runtime_enable(&pdev->dev);
 
 #ifdef CONFIG_NUMA
 	ret = of_property_read_u32(dev->of_node, "numa-node-id", &numa_id);
@@ -297,7 +319,16 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 #else
 	platform_driver_register(&es_dvp2axi_plat_drv);
 #endif
-	pr_info("%s success! \n", __func__);
+
+	pm_runtime_set_autosuspend_delay(dev, 1000);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
+	dev_info(dev, "probe success! \n");
 	return 0;
 }
 
@@ -305,6 +336,7 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = platform_get_drvdata(pdev);
 
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	mutex_destroy(&dvp2axi_hw->dev_lock);
@@ -321,7 +353,6 @@ static void es_dvp2axi_hw_shutdown(struct platform_device *pdev)
 	if (pm_runtime_get_if_in_use(&pdev->dev) <= 0)
 		return;
 
-	write_dvp2axi_reg(dvp2axi_hw->base_addr, 0, 0);
 	if (dvp2axi_hw->irq > 0)
 		disable_irq(dvp2axi_hw->irq);
 
@@ -332,54 +363,69 @@ static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
 
-	if (atomic_dec_return(&dvp2axi_hw->power_cnt))
-		return 0;
-	es_dvp2axi_disable_sys_clk(dvp2axi_hw);
+	win2030_tbu_power(dev, false);
 
-	return pinctrl_pm_select_sleep_state(dev);
+	reset_control_assert(dvp2axi_hw->rstc);
+
+	clk_bulk_disable_unprepare(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
+
+	return 0;
 }
 
 static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
+	struct device *parent = dev->parent;
+	struct eswin_vi_device* es_vi_dev;
+	u32 reg_val = 0;
 	int ret;
 
-	if (atomic_inc_return(&dvp2axi_hw->power_cnt) > 1)
-		return 0;
-	ret = pinctrl_pm_select_default_state(dev);
-	if (ret < 0)
-		return ret;
-	es_dvp2axi_enable_sys_clk(dvp2axi_hw);
-	es_dvp2axi_hw_soft_reset(dvp2axi_hw, true);
+	ret = clk_bulk_prepare_enable(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
+	if (ret)
+		return dev_err_probe(dvp2axi_hw->dev, ret,
+				     "Failed to enable dvp2axi clocks\n");
+
+	reset_control_deassert(dvp2axi_hw->rstc);
+
+	win2030_tbu_power(dev, true);
+
+	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
+	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
+	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
+
+	es_vi_dev = dev_get_drvdata(parent);
+	if (!es_vi_dev) {
+		return -ENODEV;
+	}
+
+	vitop_intf_cfg(es_vi_dev);
+
+	dvp2axi_smmu_sid_cfg(dev);
+
+	for(int i=0; i < 6; i++)
+		dvp2axi_hw_irq_mask(dvp2axi_hw, i, 1);
 
 	return 0;
 }
 
 static int __maybe_unused es_dvp2axi_sleep_suspend(struct device *dev)
 {
-	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
-
-	if (atomic_read(&dvp2axi_hw->power_cnt) == 0)
+	if (pm_runtime_status_suspended(dev)) {
 		return 0;
+	}
 
-	es_dvp2axi_disable_sys_clk(dvp2axi_hw);
+	es_dvp2axi_runtime_suspend(dev);
 
-	return pinctrl_pm_select_sleep_state(dev);
+	return 0;
 }
 
 static int __maybe_unused es_dvp2axi_sleep_resume(struct device *dev)
 {
-	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
-	int ret;
-
-	if (atomic_read(&dvp2axi_hw->power_cnt) == 0)
+	if (pm_runtime_status_suspended(dev)) {
 		return 0;
+	}
 
-	ret = pinctrl_pm_select_default_state(dev);
-	if (ret < 0)
-		return ret;
-	es_dvp2axi_enable_sys_clk(dvp2axi_hw);
-	es_dvp2axi_hw_soft_reset(dvp2axi_hw, true);
+	es_dvp2axi_runtime_resume(dev);
 
 	return 0;
 }
@@ -394,7 +440,7 @@ static struct platform_driver es_dvp2axi_hw_plat_drv = {
 	.driver = {
 		.name = ES_DVP2AXI_HW_DRIVER_NAME,
 		.of_match_table = of_match_ptr(es_dvp2axi_plat_of_match),
-		.pm = &es_dvp2axi_plat_pm_ops,
+		.pm = pm_sleep_ptr(&es_dvp2axi_plat_pm_ops),
 	},
 	.probe = es_dvp2axi_plat_hw_probe,
 	.remove = es_dvp2axi_plat_remove,

@@ -69,7 +69,7 @@ static gfp_t dma_direct_optimal_gfp_mask(struct device *dev, u64 *phys_limit)
 bool dma_coherent_ok(struct device *dev, phys_addr_t phys, size_t size)
 {
 	dma_addr_t dma_addr = phys_to_dma_direct(dev, phys);
-
+	printk("#### yulin dma_addr + size - 1 = 0x%lx, dev -> coherent_dma_mask = 0x%lx, dev -> bus_dma_limit = 0x%lx", dma_addr + size - 1, dev->coherent_dma_mask, dev->bus_dma_limit);
 	if (dma_addr == DMA_MAPPING_ERROR)
 		return false;
 	return dma_addr + size - 1 <=
@@ -129,9 +129,12 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
 
 	gfp |= dma_direct_optimal_gfp_mask(dev, &phys_limit);
 	page = dma_alloc_contiguous(dev, size, gfp);
+	printk("yulin %s %s %d \n", __FILE__, __func__, __LINE__);
+	printk("#### yulin page = 0x%x \n",page);
 	if (page) {
 		if (!dma_coherent_ok(dev, page_to_phys(page), size) ||
 		    (!allow_highmem && PageHighMem(page))) {
+			printk("yulin %s %s %d \n", __FILE__, __func__, __LINE__);
 			dma_free_contiguous(dev, page, size);
 			page = NULL;
 		}

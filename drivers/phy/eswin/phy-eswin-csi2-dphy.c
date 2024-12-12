@@ -18,6 +18,7 @@
 #include <linux/init.h>
 
 #include "phy-eswin-csi2-dphy-common.h"
+#include "common-def.h"
 
 struct sensor_async_subdev {
 	struct v4l2_async_connection asd;

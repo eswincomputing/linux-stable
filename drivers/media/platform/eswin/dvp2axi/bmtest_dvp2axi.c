@@ -1,0 +1,71 @@
+#include "bmtest_vitop.h"
+#include "bmtest_dvp2axi.h"
+#include "common-def.h"
+
+#define DEBUG_LOG_ENABLE // print control
+#ifdef DEBUG_LOG_ENABLE
+#define DBG_PRINT printf
+#else
+#define DBG_PRINT
+#endif
+
+/*
+const uint64_t dvp2axi_out_addr[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS] = {
+    0x90000000, 0x92000000, 0x94000000, 0x96000000,
+    0x98000000, 0x9a000000, 0x9c000000, 0x9e000000,
+    0xa0000000, 0xa2000000, 0xa4000000, 0xa6000000,
+    0xa8000000, 0xaa000000, 0xac000000, 0xae000000,
+    0xb0000000, 0xb2000000, 0xb4000000, 0xb6000000,
+    0xb8000000, 0xba000000, 0xbc000000, 0xbe000000
+};
+*/
+
+
+const uint64_t dvp2axi_out_addr[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS] = {
+    0x90000000, 0x92000000, 0x94000000, 0x96000000,
+    0x98000000, 0x9a000000, 0x9c000000, 0x9e000000,
+    0x90000000, 0x92000000, 0x94000000, 0x96000000,
+    0x98000000, 0x9a000000, 0x9c000000, 0x9e000000,
+    0x90000000, 0x92000000, 0x94000000, 0x96000000,
+    0x98000000, 0x9a000000, 0x9c000000, 0x9e000000,
+};
+
+
+/*
+const uint64_t dvp2axi_out_addr[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS] = {
+    0x59200000, 0x59200000, 0x59200000, 0x59200000,
+    0x59200000, 0x59200000, 0x59200000, 0x59200000,
+    0x59200000, 0x59200000, 0x59200000, 0x59200000,
+    0x59200000, 0x59200000, 0x59200000, 0x59200000,
+    0x59200000, 0x59200000, 0x59200000, 0x59200000,
+    0x59200000, 0x59200000, 0x59200000, 0x59200000,
+};*/
+
+
+const uint32_t dvp2axi_out_addr_csr[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS] = {
+    VI_DVP2AXI_CTRL9_CSR,  VI_DVP2AXI_CTRL10_CSR, VI_DVP2AXI_CTRL11_CSR, VI_DVP2AXI_CTRL27_CSR,
+    VI_DVP2AXI_CTRL12_CSR, VI_DVP2AXI_CTRL13_CSR, VI_DVP2AXI_CTRL14_CSR, VI_DVP2AXI_CTRL28_CSR,
+    VI_DVP2AXI_CTRL15_CSR, VI_DVP2AXI_CTRL16_CSR, VI_DVP2AXI_CTRL17_CSR, VI_DVP2AXI_CTRL29_CSR,
+    VI_DVP2AXI_CTRL18_CSR, VI_DVP2AXI_CTRL19_CSR, VI_DVP2AXI_CTRL20_CSR, VI_DVP2AXI_CTRL30_CSR,
+    VI_DVP2AXI_CTRL21_CSR, VI_DVP2AXI_CTRL22_CSR, VI_DVP2AXI_CTRL23_CSR, VI_DVP2AXI_CTRL31_CSR,
+    VI_DVP2AXI_CTRL24_CSR, VI_DVP2AXI_CTRL25_CSR, VI_DVP2AXI_CTRL26_CSR, VI_DVP2AXI_CTRL32_CSR,
+};
+
+/* frame index: embedded is not cared */
+static uint32_t dvp2axi_out_dvp_vch_fid[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS];
+
+/* enabled virtual channel, virtual channel status, channel status */
+static uint8_t dvp2axi_out_dvp_vch_enable[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS];
+static uint8_t dvp2axi_out_dvp_vch_done[VI_DVP2AXI_DVP_CHANNELS][VI_DVP2AXI_VIRTUAL_CHANNELS];
+static uint8_t dvp2axi_out_dvp_ch_done[VI_DVP2AXI_DVP_CHANNELS];
+
+/* flush and done mask */
+static uint32_t dvp2axi_out_dvp_ch_flush_mask[VI_DVP2AXI_DVP_CHANNELS];
+static uint32_t dvp2axi_out_dvp_ch_done_mask[VI_DVP2AXI_DVP_CHANNELS];
+
+static uint32_t dvp2axi_int0_done_mask = 0;
+static uint32_t dvp2axi_int0_flush_mask = 0;
+static uint32_t dvp2axi_int1_done_mask = 0;
+static uint32_t dvp2axi_int1_flush_mask = 0;
+static uint32_t dvp2axi_int2_err_global_mask = 0;
+static uint32_t dvp2axi_int2_err_dvp_mask = 0;

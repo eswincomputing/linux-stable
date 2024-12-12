@@ -254,6 +254,7 @@ struct folio *__folio_alloc_node(gfp_t gfp, unsigned int order, int nid)
 static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 						unsigned int order)
 {
+	// printk("#### gfp.h 257 nid = 0x%x ####\n", nid);
 	if (nid == NUMA_NO_NODE)
 		nid = numa_mem_id();
 

@@ -25,8 +25,8 @@
 #define CSI2_NUM_PADS_SINGLE_LINK	2
 #define MAX_CSI2_SENSORS		2
 
-#define RKCIF_DEFAULT_WIDTH	640
-#define RKCIF_DEFAULT_HEIGHT	480
+#define RKCIF_DEFAULT_WIDTH	3280
+#define RKCIF_DEFAULT_HEIGHT	2464
 
 #define CSI_ERRSTR_LEN		(256)
 #define CSI_VCINFO_LEN		(12)
@@ -187,6 +187,32 @@ struct csi2_hw {
 	int			irq1;
 	int			irq2;
 	const char		*dev_name;
+
+	/* eic770x_mipi_csi2_init */
+	u32 num_lanes:4;
+    u32 ppi_width:2;
+	u32 phy_mode:1;
+
+    u32 vc:5;
+    u32 dt:6;	
+	u32 emb:1;
+	u32 frame_det:1;
+
+    u32 ipi_mode:1;
+    u32 ipi_color_com:1;
+    u32 ipi_auto_flush:1;
+    u32 ipi_cut_through:1;
+    u32 ipi_line_event;
+
+    u32 hsa;
+	u32 hbp;
+	u32 hsd;
+	u32 htotal;
+
+    u32 vsa;
+	u32 vbp;
+	u32 vfp;
+	u32 vactive;
 };
 
 u32 rkcif_csi2_get_sof(struct csi2_dev *csi2_dev);

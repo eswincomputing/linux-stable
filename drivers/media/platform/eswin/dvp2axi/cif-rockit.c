@@ -316,6 +316,7 @@ int rkcif_rockit_config_stream(struct rockit_rkcif_cfg *input_rockit_cfg,
 	stream->pixm.width = width;
 	stream->pixm.height = height;
 	stream->pixm.plane_fmt[0].bytesperline = 0;
+	printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	ret = rkcif_set_fmt(stream, &stream->pixm, false);
 	if (ret < 0) {
 		pr_err("stream id %d config failed\n", stream->id);

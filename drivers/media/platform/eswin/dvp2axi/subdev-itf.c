@@ -129,6 +129,7 @@ static int sditf_get_set_fmt(struct v4l2_subdev *sd,
 		sditf_get_hdr_mode(priv);
 		fmt->which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		fmt->pad = 0;
+		printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 		ret = v4l2_subdev_call(cif_dev->terminal_sensor.sd, pad,
 				       get_fmt, NULL, fmt);
 		if (ret) {
@@ -228,8 +229,8 @@ static int sditf_get_set_fmt(struct v4l2_subdev *sd,
 			fmt->which = V4L2_SUBDEV_FORMAT_ACTIVE;
 			fmt->pad = 0;
 			fmt->format.code = MEDIA_BUS_FMT_SBGGR10_1X10;
-			fmt->format.width = 640;
-			fmt->format.height = 480;
+			fmt->format.width = 3280;
+			fmt->format.height = 2464;
 		}
 	}
 

@@ -34,12 +34,7 @@
 #include <media/videobuf2-dma-sg.h>
 
 #include "dev.h"
-#include "common.h"
-
-/* eic770x */
 #include "dvp2axi.h"
-#include <media/eswin/common-def.h>
-
 
 #define CSI2_ERR_FSFE_MASK	(0xff << 8)
 #define CSI2_ERR_COUNT_ALL_MASK	(0xff)
@@ -790,7 +785,7 @@ static int es_dvp2axi_output_fmt_check(struct es_dvp2axi_stream *stream,
 		break;
 	}
 	if (ret)
-		v4l2_dbg(4, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(4, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 			 "input mbus_code 0x%x, can't transform to %c%c%c%c\n",
 			 input_fmt->mbus_code, output_fmt->fourcc & 0xff,
 			 (output_fmt->fourcc >> 8) & 0xff,
@@ -799,26 +794,23 @@ static int es_dvp2axi_output_fmt_check(struct es_dvp2axi_stream *stream,
 	return ret;
 }
 
-static int es_dvp2axi_stop_dma_capture(struct es_dvp2axi_stream *stream);
-
 static struct v4l2_subdev *get_remote_sensor(struct es_dvp2axi_stream *stream,
 					     u16 *index)
 {
 	struct media_pad *local, *remote;
 	struct media_entity *sensor_me;
 	struct v4l2_subdev *sub = NULL;
+	struct v4l2_device *v4l2_dev = stream->dvp2axidev->v4l2_dev;
 
 	local = &stream->vnode.vdev.entity.pads[0];
 	if (!local) {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
-			 "%s: video pad[0] is null\n", __func__);
+		v4l2_err(v4l2_dev, "%s: video pad[0] is null\n", __func__);
 		return NULL;
 	}
 
 	remote = media_pad_remote_pad_first(local);
 	if (!remote) {
-		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev, "%s: remote pad is null\n",
-			 __func__);
+		v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev, "%s: remote pad is null\n", __func__);
 		return NULL;
 	}
 
@@ -826,43 +818,40 @@ static struct v4l2_subdev *get_remote_sensor(struct es_dvp2axi_stream *stream,
 		*index = remote->index;
 
 	sensor_me = remote->entity;
-
 	sub = media_entity_to_v4l2_subdev(sensor_me);
-	pr_debug("get_remote_sensors sd:%s\n", sub->name);
-
 	return sub;
 }
 
-static void get_remote_terminal_sensor(struct es_dvp2axi_stream *stream,
+static void get_remote_sensor_sd(struct es_dvp2axi_stream *stream,
 				       struct v4l2_subdev **sensor_sd)
 {
-	struct media_graph graph;
+	struct media_pad *local = NULL;
+	struct media_pad *remote = NULL;
 	struct media_entity *entity = &stream->vnode.vdev.entity;
-	struct media_device *mdev = entity->graph_obj.mdev;
-	int ret;
 
-	/* Walk the graph to locate sensor nodes. */
-	mutex_lock(&mdev->graph_mutex);
-	ret = media_graph_walk_init(&graph, mdev);
-	if (ret) {
-		mutex_unlock(&mdev->graph_mutex);
-		*sensor_sd = NULL;
-		return;
-	}
+	local = &entity->pads[0];
 
-	media_graph_walk_start(&graph, entity);
-	while ((entity = media_graph_walk_next(&graph))) {
-		if (entity->function == MEDIA_ENT_F_CAM_SENSOR)
+	while (1) {
+		remote = media_pad_remote_pad_first(local);
+		if (!remote) {
+			dev_warn(stream->dvp2axidev->dev, "No remote pad found\n");
 			break;
-	}
-	mutex_unlock(&mdev->graph_mutex);
-	media_graph_walk_cleanup(&graph);
-	if (entity){
+		}
+
+		entity = remote->entity;
+
+		if (entity->function == MEDIA_ENT_F_CAM_SENSOR) {
 			*sensor_sd = media_entity_to_v4l2_subdev(entity);
-			pr_debug("%s %d sd->name :%s\n", __func__, __LINE__, (*sensor_sd)->name);
+			dev_info(stream->dvp2axidev->dev, "Found sensor device: %s\n", (*sensor_sd)->name);
+			break;
+		}
+
+		local = &entity->pads[0];
+		if (!(local->flags & MEDIA_PAD_FL_SINK)) {
+			dev_info(stream->dvp2axidev->dev, "No SINK pad found in entity %s\n", entity->name);
+			break;
+		}
 	}
-	else
-		*sensor_sd = NULL;
 }
 
 static struct es_dvp2axi_sensor_info *sd_to_sensor(struct es_dvp2axi_device *dev,
@@ -874,93 +863,7 @@ static struct es_dvp2axi_sensor_info *sd_to_sensor(struct es_dvp2axi_device *dev
 		if (dev->sensors[i].sd == sd)
 			return &dev->sensors[i];
 
-	if (i == dev->num_sensors) {
-		for (i = 0; i < dev->num_sensors; ++i) {
-			if (dev->sensors[i].mbus.type == V4L2_MBUS_CCP2)
-				return &dev->lvds_subdev.sensor_self;
-		}
-	}
-
 	return NULL;
-}
-
-static unsigned char get_data_type(u32 pixelformat, u8 cmd_mode_en,
-				   u8 dsi_input)
-{
-	switch (pixelformat) {
-	/* csi raw8 */
-	case MEDIA_BUS_FMT_SBGGR8_1X8:
-	case MEDIA_BUS_FMT_SGBRG8_1X8:
-	case MEDIA_BUS_FMT_SGRBG8_1X8:
-	case MEDIA_BUS_FMT_SRGGB8_1X8:
-	case MEDIA_BUS_FMT_Y8_1X8:
-		return 0x2a;
-	/* csi raw10 */
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-	case MEDIA_BUS_FMT_Y10_1X10:
-		return 0x2b;
-	/* csi raw12 */
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-	case MEDIA_BUS_FMT_Y12_1X12:
-		return 0x2c;
-	/* csi uyvy 422 */
-	case MEDIA_BUS_FMT_UYVY8_2X8:
-	case MEDIA_BUS_FMT_VYUY8_2X8:
-	case MEDIA_BUS_FMT_YUYV8_2X8:
-	case MEDIA_BUS_FMT_YVYU8_2X8:
-		return 0x1e;
-	case MEDIA_BUS_FMT_RGB888_1X24:
-	case MEDIA_BUS_FMT_BGR888_1X24:
-	case MEDIA_BUS_FMT_GBR888_1X24:
-		if (dsi_input) {
-			if (cmd_mode_en) /* dsi command mode*/
-				return 0x39;
-			else /* dsi video mode */
-				return 0x3e;
-		} else {
-			return 0x24;
-		}
-	case MEDIA_BUS_FMT_RGB565_1X16:
-		if (dsi_input) {
-			if (cmd_mode_en) /* dsi command mode*/
-				return 0x39;
-			else /* dsi video mode */
-				return 0x0e;
-		} else {
-			return 0x22;
-		}
-	case MEDIA_BUS_FMT_EBD_1X8:
-		return 0x12;
-	case MEDIA_BUS_FMT_SPD_2X8:
-		return 0x2f;
-
-	default:
-		return 0x2b;
-	}
-}
-
-static int get_csi_crop_align(const struct dvp2axi_input_fmt *fmt_in)
-{
-	switch (fmt_in->csi_fmt_val) {
-	case CSI_WRDDR_TYPE_RGB888:
-		return 24;
-	case CSI_WRDDR_TYPE_RGB565:
-		return 16;
-	case CSI_WRDDR_TYPE_RAW10:
-	case CSI_WRDDR_TYPE_RAW12:
-		return 4;
-	case CSI_WRDDR_TYPE_RAW8:
-	case CSI_WRDDR_TYPE_YUV422:
-		return 8;
-	default:
-		return -1;
-	}
 }
 
 const struct dvp2axi_input_fmt *
@@ -1054,7 +957,6 @@ const struct dvp2axi_output_fmt *es_dvp2axi_find_output_fmt(struct es_dvp2axi_st
 	const struct dvp2axi_output_fmt *fmt;
 	u32 i;
 
-	pr_debug("%s pixelfmt =0x%x\n", __func__, pixelfmt);
 	for (i = 0; i < ARRAY_SIZE(out_fmts); i++) {
 		fmt = &out_fmts[i];
 		if (fmt->fourcc == pixelfmt)
@@ -1062,45 +964,6 @@ const struct dvp2axi_output_fmt *es_dvp2axi_find_output_fmt(struct es_dvp2axi_st
 	}
 
 	return NULL;
-}
-
-int es_dvp2axi_get_linetime(struct es_dvp2axi_stream *stream)
-{
-	struct es_dvp2axi_device *dvp2axi_dev = stream->dvp2axidev;
-	struct es_dvp2axi_sensor_info *sensor = &dvp2axi_dev->terminal_sensor;
-	u32 numerator, denominator;
-	u32 def_fps = 0;
-	int line_time = 0;
-	int vblank_def = 0;
-	int vblank_curr = 0;
-
-	numerator = sensor->fi.interval.numerator;
-	denominator = sensor->fi.interval.denominator;
-	if (!numerator || !denominator) {
-		v4l2_err(
-			&dvp2axi_dev->v4l2_dev,
-			"get frame interval fail, numerator %d, denominator %d\n",
-			numerator, denominator);
-		return -EINVAL;
-	}
-	def_fps = denominator / numerator;
-	if (!def_fps) {
-		v4l2_err(&dvp2axi_dev->v4l2_dev,
-			 "get fps fail, numerator %d, denominator %d\n",
-			 numerator, denominator);
-		return -EINVAL;
-	}
-	vblank_def = es_dvp2axi_get_sensor_vblank_def(dvp2axi_dev);
-	vblank_curr = es_dvp2axi_get_sensor_vblank(dvp2axi_dev);
-	if (!vblank_def || !vblank_curr) {
-		v4l2_err(&dvp2axi_dev->v4l2_dev,
-			 "get vblank fail, vblank_def %d, vblank_curr %d\n",
-			 vblank_def, vblank_curr);
-		return -EINVAL;
-	}
-	line_time = div_u64(1000000000, def_fps);
-	line_time = div_u64(line_time, vblank_def + sensor->raw_rect.height);
-	return line_time;
 }
 
 /***************************** stream operations ******************************/
@@ -1119,7 +982,7 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 	u32 first_offset, last_offset, mask;
 	spin_lock_irqsave(&stream->vbq_lock, flags);
 	if (stat == ES_DVP2AXI_YUV_ADDR_STATE_INIT) {
-		if (!stream->curr_buf) {
+        if (!stream->curr_buf) {
 			if (!list_empty(&stream->buf_head)) {
 				stream->curr_buf = list_first_entry(
 					&stream->buf_head, struct es_dvp2axi_buffer,
@@ -1142,8 +1005,8 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 
 			dev_dbg(dvp2axi_dev->dev, "HDR_MODE: %u", dvp2axi_dev->hdr.hdr_mode);
 
- 			hdr_id = DVP2AXI_HalReadReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL36_CSR);
- 			first_offset = VI_DVP2AXI_DVP0_FIRST_ID_OFFSET + stream->id * 2;
+			hdr_id = DVP2AXI_HalReadReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL36_CSR);
+			first_offset = VI_DVP2AXI_DVP0_FIRST_ID_OFFSET + stream->id * 2;
 			last_offset = VI_DVP2AXI_DVP0_LAST_ID_OFFSET + stream->id * 2;
 			mask = ~(0x3 << first_offset) & ~(0x3 << last_offset);
 			val = (0x0 << first_offset) | ((hdr_frames - 1) << last_offset);
@@ -1153,34 +1016,36 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 
 			if (!stream->next_buf && !list_empty(&stream->buf_head)) {
 				stream->next_buf = list_first_entry(&stream->buf_head, 
-                    struct es_dvp2axi_buffer, queue);
+					struct es_dvp2axi_buffer, queue);
 				list_del(&stream->next_buf->queue);
 			}
 
 			u32 addr = (stream->next_buf) ?
-						stream->next_buf->buff_addr[ES_DVP2AXI_PLANE_Y] :
-                		dummy_buf->dma_addr;
+				stream->next_buf->buff_addr[ES_DVP2AXI_PLANE_Y] :
+				dummy_buf->dma_addr;
 
-  			DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL10_CSR + reg_offset, addr);
+			DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev, 
+				VI_DVP2AXI_CTRL10_CSR + reg_offset, addr);
 
 			if (dvp2axi_dev->hdr.hdr_mode == HDR_X3) {
 				if (!stream->last_buf && !list_empty(&stream->buf_head)) {
 					stream->last_buf = list_first_entry(&stream->buf_head, 
-												struct es_dvp2axi_buffer, queue);
+						struct es_dvp2axi_buffer, queue);
 					list_del(&stream->last_buf->queue);
 				}
 
 				addr = (stream->last_buf) ?
-						stream->last_buf->buff_addr[ES_DVP2AXI_PLANE_Y] : 
-						dummy_buf->dma_addr;
+					stream->last_buf->buff_addr[ES_DVP2AXI_PLANE_Y] : 
+					dummy_buf->dma_addr;
 
-				DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL11_CSR + reg_offset, addr);
-            }
+				DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev,
+					VI_DVP2AXI_CTRL11_CSR + reg_offset, addr);
+			}
 
 			dev_dbg(dvp2axi_dev->dev, "HDR MODE CONFIG SUCCESS! Mode=%s",
 				(dvp2axi_dev->hdr.hdr_mode == HDR_X2) ? "X2" : "X3");
 		}
-	} else if (stat == ES_DVP2AXI_YUV_ADDR_STATE_UPDATE) {
+	}  else if (stat == ES_DVP2AXI_YUV_ADDR_STATE_UPDATE) {
 		if (!list_empty(&stream->buf_head)) {
 			if (stream->frame_phase == DVP2AXI_CSI_FRAME0_READY) {
 				stream->curr_buf = list_first_entry(
@@ -1206,6 +1071,7 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 			buffer = NULL;
 		}
 
+
 		if (buffer) {
 			if(stream->frame_phase == DVP2AXI_CSI_FRAME0_READY) {
 				DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL9_CSR+stream->id * 0xc, buffer->buff_addr[ES_DVP2AXI_PLANE_Y]);
@@ -1228,6 +1094,7 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 			}
 			if(dummy_buf->vaddr) {
 				if(stream->frame_phase == DVP2AXI_CSI_FRAME0_READY) {
+					dev_dbg(dvp2axi_dev->dev, "stream%d use dummy buffer\n", stream->id);
 					DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL9_CSR+stream->id * 0xc, dummy_buf->dma_addr);
 				} else if(stream->frame_phase == DVP2AXI_CSI_FRAME1_READY) {
 					DVP2AXI_HalWriteReg(dvp2axi_dev->hw_dev, VI_DVP2AXI_CTRL10_CSR+stream->id * 0xc, dummy_buf->dma_addr);
@@ -1236,7 +1103,6 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 				}
 			}
 			dev_dbg(dvp2axi_dev->dev, "stream%d es_dvp2axi_assign_new_buffer_oneframe: no buffer in queue, use dummy buffer, add 0x%llx\n", stream->id, dummy_buf->dma_addr);
-			dvp2axi_dev->err_state |= (ES_DVP2AXI_ERR_ID0_NOT_BUF << stream->id);
 			dvp2axi_dev->irq_stats.not_active_buf_cnt[stream->id]++;
 		}
 	}
@@ -1244,244 +1110,38 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 	return ret;
 }
 
-static unsigned char get_csi_fmt_val(const struct dvp2axi_input_fmt *dvp2axi_fmt_in,
-				     struct csi_channel_info *csi_info)
-{
-	unsigned char csi_fmt_val = 0;
-
-	if (dvp2axi_fmt_in->mbus_code == MEDIA_BUS_FMT_SPD_2X8 ||
-	    dvp2axi_fmt_in->mbus_code == MEDIA_BUS_FMT_EBD_1X8) {
-		switch (csi_info->data_bit) {
-		case 8:
-			csi_fmt_val = CSI_WRDDR_TYPE_RAW8;
-			break;
-		case 10:
-			csi_fmt_val = CSI_WRDDR_TYPE_RAW10;
-			break;
-		case 12:
-			csi_fmt_val = CSI_WRDDR_TYPE_RAW12;
-			break;
-		default:
-			csi_fmt_val = CSI_WRDDR_TYPE_RAW12;
-			break;
-		}
-	} else if (dvp2axi_fmt_in->csi_fmt_val == CSI_WRDDR_TYPE_RGB888 ||
-		   dvp2axi_fmt_in->csi_fmt_val == CSI_WRDDR_TYPE_RGB565) {
-		csi_fmt_val = CSI_WRDDR_TYPE_RAW8;
-	} else {
-		csi_fmt_val = dvp2axi_fmt_in->csi_fmt_val;
-	}
-	return csi_fmt_val;
-}
-
-static int es_dvp2axi_csi_channel_init(struct es_dvp2axi_stream *stream,
-				  struct csi_channel_info *channel)
-{
-	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	const struct dvp2axi_output_fmt *fmt;
-	u32 fourcc;
-	int vc = dev->channels[stream->id].vc;
-
-	channel->enable = 1;
-	channel->width = stream->pixm.width;
-	channel->height = stream->pixm.height;
-
-	channel->fmt_val = stream->dvp2axi_fmt_out->csi_fmt_val;
-
-	channel->cmd_mode_en = 0; /* default use DSI Video Mode */
-	channel->dsi_input = dev->terminal_sensor.dsi_input_en;
-
-	if (stream->crop_enable) {
-		channel->crop_en = 1;
-
-		if (channel->fmt_val == CSI_WRDDR_TYPE_RGB888)
-			channel->crop_st_x =
-				3 * stream->crop[CROP_SRC_ACT].left;
-		else if (channel->fmt_val == CSI_WRDDR_TYPE_RGB565)
-			channel->crop_st_x =
-				2 * stream->crop[CROP_SRC_ACT].left;
-		else
-			channel->crop_st_x = stream->crop[CROP_SRC_ACT].left;
-
-		channel->crop_st_y = stream->crop[CROP_SRC_ACT].top;
-		channel->width = stream->crop[CROP_SRC_ACT].width;
-		channel->height = stream->crop[CROP_SRC_ACT].height;
-	} else {
-		channel->width = stream->pixm.width;
-		channel->height = stream->pixm.height;
-		channel->crop_en = 0;
-	}
-
-	fmt = es_dvp2axi_find_output_fmt(stream, stream->pixm.pixelformat);
-	if (!fmt) {
-		v4l2_err(&dev->v4l2_dev, "can not find output format: 0x%x",
-			 stream->pixm.pixelformat);
-		return -EINVAL;
-	}
-
-	if (channel->capture_info.mode == ESMODULE_MULTI_DEV_COMBINE_ONE)
-		channel->width /= channel->capture_info.multi_dev.dev_num;
-	/*
-	 * for mipi or lvds, when enable compact, the virtual width of raw10/raw12
-	 * needs aligned with :ALIGN(bits_per_pixel * width / 8, 8), if enable 16bit mode
-	 * needs aligned with :ALIGN(bits_per_pixel * width * 2, 8), to optimize reading and
-	 * writing of ddr, aliged with 256
-	 */
-	if (fmt->fmt_type == DVP2AXI_FMT_TYPE_RAW && stream->is_compact &&
-	    fmt->csi_fmt_val != CSI_WRDDR_TYPE_RGB888 &&
-	    fmt->csi_fmt_val != CSI_WRDDR_TYPE_RGB565) {
-		if (channel->capture_info.mode ==
-		    ESMODULE_MULTI_DEV_COMBINE_ONE) {
-			channel->virtual_width = ALIGN(
-				channel->width * 2 * fmt->raw_bpp / 8, 256);
-			channel->left_virtual_width =
-				channel->width * fmt->raw_bpp / 8;
-		} else {
-			channel->virtual_width =
-				ALIGN(channel->width * fmt->raw_bpp / 8, 256);
-		}
-	} else {
-		if (channel->capture_info.mode ==
-		    ESMODULE_MULTI_DEV_COMBINE_ONE) {
-			channel->virtual_width =
-				ALIGN(channel->width * 2 * fmt->bpp[0] / 8, 8);
-			channel->left_virtual_width =
-				ALIGN(channel->width * fmt->bpp[0] / 8, 8);
-		} else {
-			channel->virtual_width =
-				ALIGN(channel->width * fmt->bpp[0] / 8, 8);
-		}
-	}
-
-	if (channel->fmt_val == CSI_WRDDR_TYPE_RGB888 ||
-	    channel->fmt_val == CSI_WRDDR_TYPE_RGB565)
-		channel->width = channel->width * fmt->bpp[0] / 8;
-	/*
-	 * dvp2axi don't support output yuyv fmt data
-	 * if user request yuyv fmt, the input mode must be RAW8
-	 * and the width is double Because the real input fmt is
-	 * yuyv
-	 */
-	fourcc = stream->dvp2axi_fmt_out->fourcc;
-	if (fourcc == V4L2_PIX_FMT_YUYV || fourcc == V4L2_PIX_FMT_YVYU ||
-	    fourcc == V4L2_PIX_FMT_UYVY || fourcc == V4L2_PIX_FMT_VYUY) {
-		channel->virtual_width *= 2;
-		if (channel->capture_info.mode ==
-		    ESMODULE_MULTI_DEV_COMBINE_ONE)
-			channel->left_virtual_width *= 2;
-	}
-	if (stream->dvp2axi_fmt_in->field == V4L2_FIELD_INTERLACED) {
-		channel->virtual_width *= 2;
-		channel->height /= 2;
-	}
-	if (stream->dvp2axi_fmt_in->mbus_code == MEDIA_BUS_FMT_EBD_1X8 ||
-	    stream->dvp2axi_fmt_in->mbus_code == MEDIA_BUS_FMT_SPD_2X8) {
-		if (dev->channels[stream->id].data_type)
-			channel->data_type =
-				dev->channels[stream->id].data_type;
-		else
-			channel->data_type = get_data_type(
-				stream->dvp2axi_fmt_in->mbus_code,
-				channel->cmd_mode_en, channel->dsi_input);
-	} else {
-		channel->data_type =
-			get_data_type(stream->dvp2axi_fmt_in->mbus_code,
-				      channel->cmd_mode_en, channel->dsi_input);
-	}
-	channel->csi_fmt_val =
-		get_csi_fmt_val(stream->dvp2axi_fmt_in, &dev->channels[stream->id]);
-
-	if (dev->hdr.hdr_mode == NO_HDR || dev->hdr.hdr_mode == HDR_COMPR ||
-	    (dev->hdr.hdr_mode == HDR_X2 && stream->id > 1) ||
-	    (dev->hdr.hdr_mode == HDR_X3 && stream->id > 2))
-		channel->vc = vc < 4 ? vc : channel->id;
-	else
-		channel->vc = channel->id;
-	v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev,
-		 "%s: channel width %d, height %d, virtual_width %d, vc %d\n",
-		 __func__, channel->width, channel->height,
-		 channel->virtual_width, channel->vc);
-	return 0;
-}
-
 static int es_dvp2axi_csi_stream_start(struct es_dvp2axi_stream *stream,
 				  unsigned int mode)
 {
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct es_dvp2axi_sensor_info *active_sensor = dev->active_sensor;
-	enum v4l2_mbus_type mbus_type = active_sensor->mbus.type;
 	struct csi_channel_info *channel;
-	u32 ret = 0;
-	int i;
 
 	if (stream->state < ES_DVP2AXI_STATE_STREAMING) {
 		stream->frame_idx = 0;
-		stream->buf_wake_up_cnt = 0;
 		stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
-		stream->is_in_vblank = false;
-		stream->is_change_toisp = false;
 	}
 
 	channel = &dev->channels[stream->id];
 	channel->id = stream->id;
-	if (mbus_type == V4L2_MBUS_CCP2) {
-		ret = v4l2_subdev_call(dev->terminal_sensor.sd, core, ioctl,
-				       ESMODULE_GET_LVDS_CFG,
-				       &channel->lvds_cfg);
-		if (ret) {
-			v4l2_err(&dev->v4l2_dev,
-				 "Err: get lvds config failed!!\n");
-			return ret;
-		}
-	}
-	es_dvp2axi_csi_channel_init(stream, channel);
-	if (stream->state != ES_DVP2AXI_STATE_STREAMING) {
-		if (mode == ES_DVP2AXI_STREAM_MODE_CAPTURE) {
-			stream->dma_en |= ES_DVP2AXI_DMAEN_BY_VICAP;
-		}  else if (mode == ES_DVP2AXI_STREAM_MODE_ESKIT) {
-			stream->dma_en |= ES_DVP2AXI_DMAEN_BY_ESKIT;
-		}
-	} else {
-		if (mode == ES_DVP2AXI_STREAM_MODE_CAPTURE) {
-			stream->to_en_dma = ES_DVP2AXI_DMAEN_BY_VICAP;
-		} else if (mode == ES_DVP2AXI_STREAM_MODE_ESKIT) {
-			stream->to_en_dma = ES_DVP2AXI_DMAEN_BY_ESKIT;
-		}
-	}
-	if (stream->state != ES_DVP2AXI_STATE_STREAMING) {
-		stream->line_int_cnt = 0;
-		if (stream->is_line_wake_up)
-			stream->is_can_stop = false;
-		else
-			stream->is_can_stop = true;
+
+	if (stream->state != ES_DVP2AXI_STATE_STREAMING)
 		stream->state = ES_DVP2AXI_STATE_STREAMING;
-	}
 
 	return 0;
 }
 
 static void es_dvp2axi_stream_stop(struct es_dvp2axi_stream *stream){}
 
-static bool es_dvp2axi_is_extending_line_for_height(struct es_dvp2axi_device *dev,
-					       struct es_dvp2axi_stream *stream,
-					       const struct dvp2axi_input_fmt *fmt)
-{
-	bool is_extended = false;
-
-	return is_extended;
-}
 
 static int es_dvp2axi_queue_setup(struct vb2_queue *queue, unsigned int *num_buffers,
 			     unsigned int *num_planes, unsigned int sizes[],
 			     struct device *alloc_ctxs[])
 {
 	struct es_dvp2axi_stream *stream = queue->drv_priv;
-	struct es_dvp2axi_extend_info *extend_line = &stream->extend_line;
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	const struct v4l2_pix_format_mplane *pixm = NULL;
 	const struct dvp2axi_output_fmt *dvp2axi_fmt;
 	const struct dvp2axi_input_fmt *in_fmt;
-	bool is_extended = false;
 	u32 i, height;
 
 	pixm = &stream->pixm;
@@ -1495,12 +1155,6 @@ static int es_dvp2axi_queue_setup(struct vb2_queue *queue, unsigned int *num_buf
 	else
 		height = pixm->height;
 
-	is_extended = es_dvp2axi_is_extending_line_for_height(dev, stream, in_fmt);
-	if (is_extended && extend_line->is_extended) {
-		height = extend_line->pixm.height;
-		pixm = &extend_line->pixm;
-	}
-
 	for (i = 0; i < dvp2axi_fmt->mplanes; i++) {
 		const struct v4l2_plane_pix_format *plane_fmt;
 		int h = round_up(height, MEMORY_ALIGN_ROUND_UP_HEIGHT);
@@ -1509,10 +1163,9 @@ static int es_dvp2axi_queue_setup(struct vb2_queue *queue, unsigned int *num_buf
 		sizes[i] = plane_fmt->sizeimage / height * h;
 	}
 	stream->total_buf_num = *num_buffers;
-	v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev,
-		 "%s count %d, size %d, extended(%d, %d)\n",
-		 v4l2_type_names[queue->type], *num_buffers, sizes[0],
-		 is_extended, extend_line->is_extended);
+	v4l2_dbg(1, es_dvp2axi_debug, dev->v4l2_dev,
+		 "%s count %d, size %d, \n",
+		 v4l2_type_names[queue->type], *num_buffers, sizes[0]);
 
 	return 0;
 }
@@ -1530,38 +1183,9 @@ void es_dvp2axi_buf_queue(struct vb2_buffer *vb)
 	struct v4l2_pix_format_mplane *pixm = &stream->pixm;
 	const struct dvp2axi_output_fmt *fmt = stream->dvp2axi_fmt_out;
 	struct es_dvp2axi_hw *hw_dev = stream->dvp2axidev->hw_dev;
-	struct es_dvp2axi_tools_buffer *tools_buf = NULL;
-	struct es_dvp2axi_tools_vdev *tools_vdev = stream->tools_vdev;
 	unsigned long flags;
 	int i;
-	// static int first = 1;
-	bool is_find_tools_buf = false;
 
-	if (tools_vdev) {
-		spin_lock_irqsave(&stream->tools_vdev->vbq_lock, flags);
-		if (!list_empty(&tools_vdev->src_buf_head)) {
-			list_for_each_entry(tools_buf,
-					    &tools_vdev->src_buf_head, list) {
-				if (tools_buf->vb == vbuf) {
-					is_find_tools_buf = true;
-					break;
-				}
-			}
-			if (is_find_tools_buf) {
-				if (tools_buf->use_cnt)
-					tools_buf->use_cnt--;
-				if (tools_buf->use_cnt) {
-					spin_unlock_irqrestore(
-						&stream->tools_vdev->vbq_lock,
-						flags);
-					return;
-				}
-			}
-		}
-		spin_unlock_irqrestore(&stream->tools_vdev->vbq_lock, flags);
-	}
-
-	// uint32_t dvp2axi_out_addr_csr[] = { 0x24, 0x28, 0x2c };
 	memset(dvp2axibuf->buff_addr, 0, sizeof(dvp2axibuf->buff_addr));
 	/* If mplanes > 1, every c-plane has its own m-plane,
 	 * otherwise, multiple c-planes are in the same m-plane
@@ -1579,7 +1203,7 @@ void es_dvp2axi_buf_queue(struct vb2_buffer *vb)
 		}
 		if (es_dvp2axi_debug && addr && !hw_dev->iommu_en) {
 			memset(addr, 255, pixm->plane_fmt[i].sizeimage);
-			v4l2_dbg(3, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+			v4l2_dbg(3, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 				 "Clear buffer, size: 0x%08x\n",
 				 pixm->plane_fmt[i].sizeimage);
 		}
@@ -1606,6 +1230,7 @@ static int es_dvp2axi_create_dummy_buf(struct es_dvp2axi_stream *stream)
 	struct es_dvp2axi_device *tmp_dev = NULL;
 	struct v4l2_subdev_frame_interval_enum fie;
 	struct v4l2_subdev_format fmt;
+	struct v4l2_device *v4l2_dev = stream->dvp2axidev->v4l2_dev;
 	u32 max_size = 0;
 	u32 size = 0;
 	int ret = 0;
@@ -1635,7 +1260,7 @@ static int es_dvp2axi_create_dummy_buf(struct es_dvp2axi_stream *stream)
 						size = (ALIGN(fie.width, 256)) * fie.height *
 						       2;
 					v4l2_dbg(
-						1, es_dvp2axi_debug, &dev->v4l2_dev,
+						1, es_dvp2axi_debug, v4l2_dev,
 						"%s enum fmt, width %d, height %d\n",
 						__func__, fie.width,
 						fie.height);
@@ -1672,12 +1297,12 @@ static int es_dvp2axi_create_dummy_buf(struct es_dvp2axi_stream *stream)
 	dummy_buf->is_need_dbuf = true;
 	ret = es_dvp2axi_alloc_buffer(dev, dummy_buf);
 	if (ret) {
-		v4l2_err(&dev->v4l2_dev,
+		v4l2_err(v4l2_dev,
 			 "Failed to allocate the memory for dummy buffer\n");
 		return -ENOMEM;
 	}
 
-	v4l2_dbg(1, es_dvp2axi_debug,&dev->v4l2_dev, "Allocate dummy buffer, size: 0x%08x\n",
+	v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev, "Allocate dummy buffer, size: 0x%08x\n",
 		  dummy_buf->size);
 	return ret;
 }
@@ -1693,104 +1318,25 @@ static void es_dvp2axi_destroy_dummy_buf(struct es_dvp2axi_stream *stream)
 	dummy_buf->vaddr = NULL;
 }
 
-static void es_dvp2axi_detach_sync_mode(struct es_dvp2axi_device *dvp2axi_dev)
-{
-	int i = 0;
-	struct es_dvp2axi_hw *hw = dvp2axi_dev->hw_dev;
-	struct es_dvp2axi_device *tmp_dev;
-	struct es_dvp2axi_multi_sync_config *sync_config;
-
-	if ((!dvp2axi_dev->sync_cfg.type) ||
-	    (atomic_read(&dvp2axi_dev->pipe.stream_cnt) != 0))
-		return;
-	mutex_lock(&hw->dev_lock);
-	memset(&dvp2axi_dev->sync_cfg, 0, sizeof(dvp2axi_dev->sync_cfg));
-	sync_config = &hw->sync_config[dvp2axi_dev->sync_cfg.group];
-	sync_config->streaming_cnt--;
-	if (dvp2axi_dev->sync_cfg.type == EXTERNAL_MASTER_MODE) {
-		for (i = 0; i < sync_config->ext_master.count; i++) {
-			tmp_dev = sync_config->ext_master.dvp2axi_dev[i];
-			if (tmp_dev == dvp2axi_dev) {
-				sync_config->ext_master.is_streaming[i] = false;
-				break;
-			}
-		}
-	}
-	if (dvp2axi_dev->sync_cfg.type == INTERNAL_MASTER_MODE)
-		sync_config->int_master.is_streaming[0] = false;
-	if (dvp2axi_dev->sync_cfg.type == SLAVE_MODE) {
-		for (i = 0; i < sync_config->slave.count; i++) {
-			tmp_dev = sync_config->slave.dvp2axi_dev[i];
-			if (tmp_dev == dvp2axi_dev) {
-				sync_config->slave.is_streaming[i] = false;
-				break;
-			}
-		}
-	}
-
-	if (!sync_config->streaming_cnt && sync_config->is_attach) {
-		sync_config->is_attach = false;
-		sync_config->mode = ES_DVP2AXI_NOSYNC_MODE;
-		sync_config->dev_cnt = 0;
-	}
-	mutex_unlock(&hw->dev_lock);
-}
-
 void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 			  enum es_dvp2axi_stream_mode mode)
 {
-	struct es_dvp2axi_vdev_node *node = &stream->vnode;
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
+	struct v4l2_device *v4l2_dev = dev->v4l2_dev;
 	struct es_dvp2axi_buffer *buf = NULL;
 	int ret;
 	struct es_dvp2axi_hw *hw_dev = dev->hw_dev;
 	bool can_reset = true;
 	int i;
 	unsigned long flags;
-	u32 vblank = 0;
-	u32 frame_time_ns = 0;
-	u64 cur_time = 0;
-	u64 fs_time = 0;
 
 	mutex_lock(&dev->stream_lock);
 
+	v4l2_info(v4l2_dev,
+		  "stream[%d] start stopping, total mode 0x%x, cur 0x%x\n",
+		  stream->id, stream->cur_stream_mode, mode);
+
 	if (mode == stream->cur_stream_mode) {
-		if (stream->dma_en) {
-			if (!dev->sensor_linetime)
-				dev->sensor_linetime =
-					es_dvp2axi_get_linetime(stream);
-			vblank = es_dvp2axi_get_sensor_vblank(dev);
-			if (vblank) {
-				frame_time_ns =
-					(vblank +
-					 dev->terminal_sensor.raw_rect.height) *
-					dev->sensor_linetime;
-				spin_lock_irqsave(&stream->fps_lock, flags);
-				fs_time = stream->readout.fs_timestamp;
-				spin_unlock_irqrestore(&stream->fps_lock,
-						       flags);
-				cur_time = es_dvp2axi_time_get_ns(dev);
-				if (cur_time > fs_time &&
-				    cur_time - fs_time <
-					    (frame_time_ns - 10000000)) {
-					spin_lock_irqsave(&stream->vbq_lock,
-							  flags);
-					if (stream->dma_en &
-					    ES_DVP2AXI_DMAEN_BY_VICAP)
-						stream->to_stop_dma =
-							ES_DVP2AXI_DMAEN_BY_VICAP;
-					else if (stream->dma_en &
-						 ES_DVP2AXI_DMAEN_BY_ISP)
-						stream->to_stop_dma =
-							ES_DVP2AXI_DMAEN_BY_ISP;
-					stream->is_stop_capture = true;
-					es_dvp2axi_stop_dma_capture(stream);
-					spin_unlock_irqrestore(
-						&stream->vbq_lock, flags);
-				}
-			}
-		}
 		stream->stopping = true;
 		ret = wait_event_timeout(stream->wq_stopped,
 					 stream->state != ES_DVP2AXI_STATE_STREAMING,
@@ -1804,22 +1350,8 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 		if (ret < 0)
 			v4l2_err(v4l2_dev,
 				 "pipeline stream-off failed error:%d\n", ret);
-
-		dev->is_start_hdr = false;
-		stream->is_dvp_yuv_addr_init = false;
-		if (stream->skip_info.skip_en) {
-			stream->skip_info.skip_en = false;
-			stream->skip_info.skip_to_en = true;
-		}
-	} else if (mode == ES_DVP2AXI_STREAM_MODE_CAPTURE &&
-		   stream->dma_en & ES_DVP2AXI_DMAEN_BY_VICAP) {
-		//only stop dma
-		stream->to_stop_dma = ES_DVP2AXI_DMAEN_BY_VICAP;
-		stream->is_wait_dma_stop = true;
-		wait_event_timeout(stream->wq_stopped,
-				   !stream->is_wait_dma_stop,
-				   msecs_to_jiffies(1000));
 	}
+
 	if ((mode & ES_DVP2AXI_STREAM_MODE_CAPTURE) == ES_DVP2AXI_STREAM_MODE_CAPTURE) {
 		/* release buffers */
 		spin_lock_irqsave(&stream->vbq_lock, flags);
@@ -1839,7 +1371,7 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 		stream->last_buf = NULL;
 
 		list_for_each_entry(buf, &stream->buf_head, queue) {
-			v4l2_dbg(3, es_dvp2axi_debug, &dev->v4l2_dev,
+			v4l2_dbg(3, es_dvp2axi_debug, v4l2_dev,
 				 "stream[%d] buf return addr 0x%x\n",
 				 stream->id, buf->buff_addr[0]);
 			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_ERROR);
@@ -1856,32 +1388,13 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 		}
 		stream->total_buf_num = 0;
 		atomic_set(&stream->buf_cnt, 0);
-		stream->dma_en &= ~ES_DVP2AXI_DMAEN_BY_VICAP;
 	}
 
 	if (mode == stream->cur_stream_mode) {
 		ret = dev->pipe.close(&dev->pipe);
-		if (ret < 0)
+		if (ret < 0){
 			v4l2_err(v4l2_dev, "pipeline close failed error:%d\n",
 				 ret);
-		if (dev->hdr.hdr_mode == HDR_X2) {
-			if (dev->stream[ES_DVP2AXI_STREAM_MIPI_ID0].state ==
-				    ES_DVP2AXI_STATE_READY &&
-			    dev->stream[ES_DVP2AXI_STREAM_MIPI_ID1].state ==
-				    ES_DVP2AXI_STATE_READY) {
-				dev->can_be_reset = true;
-			}
-		} else if (dev->hdr.hdr_mode == HDR_X3) {
-			if (dev->stream[ES_DVP2AXI_STREAM_MIPI_ID0].state ==
-				    ES_DVP2AXI_STATE_READY &&
-			    dev->stream[ES_DVP2AXI_STREAM_MIPI_ID1].state ==
-				    ES_DVP2AXI_STATE_READY &&
-			    dev->stream[ES_DVP2AXI_STREAM_MIPI_ID2].state ==
-				    ES_DVP2AXI_STATE_READY) {
-				dev->can_be_reset = true;
-			}
-		} else {
-			dev->can_be_reset = true;
 		}
 		mutex_lock(&hw_dev->dev_lock);
 		for (i = 0; i < hw_dev->dev_num; i++) {
@@ -1892,26 +1405,14 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 			}
 		}
 		mutex_unlock(&hw_dev->dev_lock);
-		if (dev->can_be_reset && dev->chip_id >= CHIP_EIC770X_DVP2AXI) {
-			atomic_set(&dev->streamoff_cnt, 0);
-		}
-		if (dev->can_be_reset && can_reset) {
-			dev->can_be_reset = false;
-			dev->reset_work_cancel = true;
-			dev->early_line = 0;
-			dev->sensor_linetime = 0;
-			dev->wait_line = 0;
-			stream->is_line_wake_up = false;
-		}
 	}
 	if (mode == ES_DVP2AXI_STREAM_MODE_CAPTURE)
 		tasklet_disable(&stream->vb_done_tasklet);
 
 	stream->cur_stream_mode &= ~mode;
 	INIT_LIST_HEAD(&stream->vb_done_list);
-
+	v4l2_info(v4l2_dev, "stream[%d] stopping finished\n", stream->id);
 	mutex_unlock(&dev->stream_lock);
-	es_dvp2axi_detach_sync_mode(dev);
 }
 
 static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
@@ -1993,8 +1494,8 @@ static u32 es_dvp2axi_align_bits_per_pixel(struct es_dvp2axi_stream *stream,
 		case V4L2_PIX_FMT_Y10:
 		case V4L2_PIX_FMT_Y12:
 			bpp = max(fmt->bpp[plane_index],
-			(u8)DVP2AXI_RAW_STORED_BIT_WIDTH_RV1126);
-	  		cal = DVP2AXI_RAW_STORED_BIT_WIDTH_RV1126;
+			(u8)DVP2AXI_RAW_STORED_BIT_WIDTH);
+	  		cal = DVP2AXI_RAW_STORED_BIT_WIDTH;
 			for (i = 1; i < 5; i++) {
 				if (i * cal >= bpp) {
 					bpp = i * cal;
@@ -2003,7 +1504,7 @@ static u32 es_dvp2axi_align_bits_per_pixel(struct es_dvp2axi_stream *stream,
 			}
 			break;
 		default:
-			v4l2_err(&stream->dvp2axidev->v4l2_dev,
+			v4l2_err(stream->dvp2axidev->v4l2_dev,
 				 "fourcc: %d is not supported!\n", fmt->fourcc);
 			break;
 		}
@@ -2072,7 +1573,7 @@ static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 				  const struct v4l2_rect *s_crop)
 {
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
+	struct v4l2_device *v4l2_dev = dev->v4l2_dev;
 	struct v4l2_rect input, *crop;
 
 	if (dev->terminal_sensor.sd) {
@@ -2098,30 +1599,6 @@ static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 	else
 		crop = &stream->crop[CROP_SRC_ACT];
 
-	if (dev->active_sensor &&
-	    (dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
-	     dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_CPHY)) {
-		if (crop->left > 0) {
-			int align_x = get_csi_crop_align(stream->dvp2axi_fmt_in);
-
-			if (align_x > 0 && crop->left % align_x != 0) {
-				v4l2_err(v4l2_dev,
-					 "ERROR: crop left must align %d\n",
-					 align_x);
-				return -EINVAL;
-			}
-		}
-	} else if (dev->active_sensor &&
-		   dev->active_sensor->mbus.type == V4L2_MBUS_CCP2) {
-		if (crop->left % 4 != 0 && crop->width % 4 != 0) {
-			v4l2_err(
-				v4l2_dev,
-				"ERROR: lvds crop left and width must align %d\n",
-				4);
-			return -EINVAL;
-		}
-	}
-
 	return 0;
 }
 
@@ -2129,11 +1606,12 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 {
 	struct es_dvp2axi_sensor_info *sensor, *terminal_sensor;
 	struct v4l2_subdev *sensor_sd;
+	struct v4l2_device* v4l2_dev = stream->dvp2axidev->v4l2_dev;
 	int ret = 0;
 
 	sensor_sd = get_remote_sensor(stream, NULL);
 	if (!sensor_sd) {
-		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev,
 			 "%s: stream[%d] get remote sensor_sd failed!\n",
 			 __func__, stream->id);
 		return -ENODEV;
@@ -2141,7 +1619,7 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 
 	sensor = sd_to_sensor(stream->dvp2axidev, sensor_sd);
 	if (!sensor) {
-		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev,
 			 "%s: stream[%d] get remote sensor failed!\n", __func__,
 			 stream->id);
 		return -ENODEV;
@@ -2149,7 +1627,7 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 	ret = v4l2_subdev_call(sensor->sd, pad, get_mbus_config, 0,
 			       &sensor->mbus);
 	if (ret && ret != -ENOIOCTLCMD) {
-		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev,
 			 "%s: get remote %s mbus failed!\n", __func__,
 			 sensor->sd->name);
 		return ret;
@@ -2158,13 +1636,13 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 	stream->dvp2axidev->active_sensor = sensor;
 
 	terminal_sensor = &stream->dvp2axidev->terminal_sensor;
-	get_remote_terminal_sensor(stream, &terminal_sensor->sd);
+	get_remote_sensor_sd(stream, &terminal_sensor->sd);
 	if (terminal_sensor->sd) {
 		ret = v4l2_subdev_call(terminal_sensor->sd, pad,
 				       get_mbus_config, 0,
 				       &terminal_sensor->mbus);
 		if (ret && ret != -ENOIOCTLCMD) {
-			v4l2_err(&stream->dvp2axidev->v4l2_dev,
+			v4l2_err(v4l2_dev,
 				 "%s: get terminal %s mbus failed!\n", __func__,
 				 terminal_sensor->sd->name);
 			return ret;
@@ -2172,19 +1650,18 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 		ret = v4l2_subdev_call(terminal_sensor->sd, video,
 				       g_frame_interval, &terminal_sensor->fi);
 		if (ret) {
-			v4l2_dbg(1, es_dvp2axi_debug,
-				&stream->dvp2axidev->v4l2_dev,
+			v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev,
 				"%s: get terminal %s g_frame_interval is not implemented!\n",
 				__func__, terminal_sensor->sd->name);
 			// return ret;
 			ret = 0;
-		}
+		} 
 		terminal_sensor->fi.interval.numerator = 1;
 		terminal_sensor->fi.interval.denominator = 30;
 
 		terminal_sensor->dsi_input_en= 1;
 	} else {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
+		v4l2_err(v4l2_dev,
 			 "%s: stream[%d] get remote terminal sensor failed!\n",
 			 __func__, stream->id);
 		return -ENODEV;
@@ -2200,25 +1677,21 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 	return ret;
 }
 
-static void es_dvp2axi_monitor_reset_event(struct es_dvp2axi_device *dev);
-
 int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 			  enum es_dvp2axi_stream_mode mode)
 {
 	struct es_dvp2axi_vdev_node *node = &stream->vnode;
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	struct es_dvp2axi_hw *hw_dev = dev->hw_dev;
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
+	struct v4l2_device *v4l2_dev = dev->v4l2_dev;
 	struct es_dvp2axi_sensor_info *sensor_info = dev->active_sensor;
 	struct es_dvp2axi_sensor_info *terminal_sensor = NULL;
-	struct es_dvp2axi_csi_info csi_info = { 0 };
 	int esmodule_stream_seq = ESMODULE_START_STREAM_DEFAULT;
 	int ret;
-	int i = 0;
 	u32 skip_frame = 0;
 	struct v4l2_subdev_format csi_fmt;
 
-	v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev, "sensor info: %s, mbus type: %d, lanes: %d, width: %d, height: %d, code: 0x%x\n",
+	v4l2_info(v4l2_dev, "sensor info: %s, mbus type: %d, lanes: %d, width: %d, height: %d, code: 0x%x\n",
 		  sensor_info->sd ? sensor_info->sd->name : "NULL",
 		  sensor_info->mbus.type, sensor_info->lanes, stream->pixm.width, stream->pixm.height,
 		  stream->dvp2axi_fmt_in->mbus_code);
@@ -2239,12 +1712,6 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 		v4l2_err(v4l2_dev, "stream in busy state\n");
 		goto destroy_buf;
 	}
-	if (stream->dma_en == 0)
-		stream->fs_cnt_in_single_frame = 0;
-	if (stream->is_line_wake_up)
-		stream->is_line_inten = true;
-	else
-		stream->is_line_inten = false;
 
 	if (!dev->active_sensor) {
 		ret = es_dvp2axi_update_sensor_info(stream);
@@ -2262,12 +1729,6 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 			terminal_sensor->fi.interval =
 				(struct v4l2_fract){ 1, 30 };
 
-		ret = v4l2_subdev_call(terminal_sensor->sd, core, ioctl,
-				       ESMODULE_GET_START_STREAM_SEQ,
-				       &esmodule_stream_seq);
-		if (ret)
-			esmodule_stream_seq = ESMODULE_START_STREAM_DEFAULT;
-
 		es_dvp2axi_sync_crop_info(stream);
 	}
 
@@ -2276,41 +1737,6 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 		goto destroy_buf;
 
 	mutex_lock(&hw_dev->dev_lock);
-	if (atomic_read(&dev->pipe.stream_cnt) == 0 && dev->active_sensor &&
-	    (dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
-	     dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_CPHY ||
-	     dev->active_sensor->mbus.type == V4L2_MBUS_CCP2)) {
-		if (dev->channels[0].capture_info.mode ==
-		    ESMODULE_MULTI_DEV_COMBINE_ONE) {
-			csi_info.csi_num =
-				dev->channels[0].capture_info.multi_dev.dev_num;
-			if (csi_info.csi_num > ES_DVP2AXI_MAX_CSI_NUM) {
-				v4l2_err(v4l2_dev, "csi num %d, max %d\n",
-					 csi_info.csi_num, ES_DVP2AXI_MAX_CSI_NUM);
-				goto out;
-			}
-			for (i = 0; i < csi_info.csi_num; i++) {
-				csi_info.csi_idx[i] =
-					dev->channels[0]
-						.capture_info.multi_dev
-						.dev_idx[i];
-				if (dev->hw_dev->is_eic770xs2)
-					v4l2_info(
-						v4l2_dev,
-						"eic770xs2 combine mode attach to mipi%d\n",
-						csi_info.csi_idx[i]);
-			}
-		} else {
-			csi_info.csi_num = 1;
-			dev->csi_host_idx = dev->csi_host_idx_def;
-			csi_info.csi_idx[0] = dev->csi_host_idx;
-		}
-		ret = v4l2_subdev_call(dev->active_sensor->sd, core, ioctl,
-				       ES_DVP2AXI_CMD_SET_CSI_IDX, &csi_info);
-		if (ret)
-			v4l2_err(&dev->v4l2_dev, "set csi idx %d fail\n",
-				 dev->csi_host_idx);
-	}
 
 	if (((dev->active_sensor &&
 	      dev->active_sensor->mbus.type == V4L2_MBUS_BT656) ||
@@ -2376,9 +1802,7 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 				goto stop_stream;
 		}
 	}
-	dev->reset_work_cancel = false;
 	stream->cur_stream_mode |= mode;
-	es_dvp2axi_monitor_reset_event(dev);
 	goto out;
 
 stop_stream:
@@ -2429,8 +1853,6 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	int ret = 0;
 
 	stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
-	stream->frame_idx = 0;
-
 	switch(stream->id) {
 		case 0:
 			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK ) >> 20;
@@ -2496,35 +1918,29 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, dvp2axi_ctrl33);
 	}
 
-	//flush irq before start stream
-	if(stream->id < 3) {
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, (0x7 << stream->id));
-	} else {
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, (0x7 << (stream->id - 3)));
-	}
-	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR,(0x1 << (stream->id+2)));
+	es_dvp2axi_assign_new_buffer_oneframe(stream , ES_DVP2AXI_YUV_ADDR_STATE_INIT);
+
+	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, (0x1 << (stream->id +2)));
+	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
+	dvp2axi_hw_irq_axi(stream->dvp2axidev->hw_dev, 0);
 
 	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
 	if((csr0 & 0x3f) == 0)
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
-
-	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
-	dvp2axi_hw_irq_axi(stream->dvp2axidev->hw_dev, 0);
-
-	es_dvp2axi_assign_new_buffer_oneframe(stream , ES_DVP2AXI_YUV_ADDR_STATE_INIT);
-
 	csr0 = csr0 | (1 << stream->id);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
 
 	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
 	if(ret < 0) {
-		dev_err(dvp2axi_hw->dev, "es_dvp2axi_do_start_stream failed %d\n", ret);
+		pr_err("es_dvp2axi_do_start_stream failed %d\n", ret);
 		csr0 = csr0 & (~(1 << stream->id));
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
+		goto unlock;
 	}
-	es_dvp2axi_dump_reg(dvp2axi_hw, stream->id);
-	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
 
+	es_dvp2axi_dump_reg(dvp2axi_hw, stream->id);
+unlock:
+	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
 	return ret;
 }
 
@@ -2548,7 +1964,7 @@ static int es_dvp2axi_init_vb2_queue(struct vb2_queue *q,
 	q->drv_priv = stream;
 	q->ops = &es_dvp2axi_vb2_ops;
 	// q->mem_ops = hw_dev->mem_ops;
-	q->mem_ops = &vb2_dma_contig_memops;
+	q->mem_ops = hw_dev->mem_ops ;
 	q->buf_struct_size = sizeof(struct es_dvp2axi_buffer);
 	if (stream->dvp2axidev->is_use_dummybuf)
 		q->min_buffers_needed = 1;
@@ -2571,15 +1987,13 @@ static int es_dvp2axi_init_vb2_queue(struct vb2_queue *q,
 int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		  struct v4l2_pix_format_mplane *pixm, bool try)
 {
-	// struct v4l2_subdev_format subdev_fmt;
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	const struct dvp2axi_output_fmt *fmt;
 	const struct dvp2axi_input_fmt *dvp2axi_fmt_in = NULL;
 	struct v4l2_rect input_rect;
-	unsigned int imagesize = 0, ex_imagesize = 0, planes;
+	unsigned int imagesize = 0, planes;
 	u32 xsubs = 1, ysubs = 1, i;
 	struct esmodule_hdr_cfg hdr_cfg;
-	struct es_dvp2axi_extend_info *extend_line = &stream->extend_line;
 	struct csi_channel_info *channel_info = &dev->channels[stream->id];
 	int ret;
 	struct es_dvp2axi_hw *hw_dev = stream->dvp2axidev->hw_dev;
@@ -2597,8 +2011,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	if (!fmt)
 		fmt = &out_fmts[0];
 
-	// input_rect.width = ES_DVP2AXI_DEFAULT_WIDTH;
-	// input_rect.height = ES_DVP2AXI_DEFAULT_HEIGHT;
 	input_rect.width = pixm->width;
 	input_rect.height = pixm->height;
 	if (dev->terminal_sensor.sd) {
@@ -2610,10 +2022,10 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		pr_debug("terminal subdev does not exist\n");
 		return -EINVAL;
 	}
+
 	ret = es_dvp2axi_output_fmt_check(stream, fmt);
 	if (ret)
 		return -EINVAL;
-
 	pr_debug("%s:%d input_rect.width:%d height:%d \n", __func__, __LINE__, input_rect.width, input_rect.height);
 	fmt_w_h_val = (input_rect.height << 16) | (input_rect.width);
 	// DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR, fmt_w_h_val);
@@ -2659,7 +2071,7 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 
 	for (i = 0; i < planes; i++) {
 		struct v4l2_plane_pix_format *plane_fmt;
-		int width, height, bpl, size, bpp, ex_size;
+		int width, height, bpl, size, bpp;
 
 		if (i == 0) {
 			if (stream->crop_enable) {
@@ -2680,8 +2092,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 				height = pixm->height / ysubs;
 			}
 		}
-
-		extend_line->pixm.height = height + ESMODULE_EXTEND_LINE;
 
 		/* compact mode need bytesperline 4bytes align,
 		 * align 8 to bring into correspondence with virtual width.
@@ -2738,6 +2148,8 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 				}
 			} else {
 				bpl = ALIGN(width * fmt->raw_bpp / 8, 256);
+				date_shift = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
+				DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, date_shift | (1 << (8+stream->id)));
 				if(stream->id == 0 || stream->id == 1) {
 					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((fmt->raw_bpp & 0x1F) << (20 + stream->id * 5)));
 				} else {
@@ -2801,20 +2213,14 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 
 		size = bpl * height;
 		imagesize += size;
-		ex_size = bpl * extend_line->pixm.height;
-		ex_imagesize += ex_size;
 
 		if (fmt->mplanes > i) {
 			/* Set bpl and size for each mplane */
 			plane_fmt = pixm->plane_fmt + i;
 			plane_fmt->bytesperline = bpl;
 			plane_fmt->sizeimage = size;
-
-			plane_fmt = extend_line->pixm.plane_fmt + i;
-			plane_fmt->bytesperline = bpl;
-			plane_fmt->sizeimage = ex_size;
 		}
-		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 			 "C-Plane %i size: %d, Total imagesize: %d\n", i, size,
 			 imagesize);
 	}
@@ -2825,14 +2231,13 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	 */
 	if (fmt->mplanes == 1) {
 		pixm->plane_fmt[0].sizeimage = imagesize;
-		extend_line->pixm.plane_fmt[0].sizeimage = ex_imagesize;
 	}
 
 	if (!try) {
 		stream->dvp2axi_fmt_out = fmt;
 		stream->pixm = *pixm;
 
-		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 			 "%s: req(%d, %d) out(%d, %d)\n", __func__, pixm->width,
 			 pixm->height, stream->pixm.width, stream->pixm.height);
 	}
@@ -2843,77 +2248,37 @@ void es_dvp2axi_stream_init(struct es_dvp2axi_device *dev, u32 id)
 {
 	struct es_dvp2axi_stream *stream = &dev->stream[0];
 	struct v4l2_pix_format_mplane pixm;
-	int i;
-
-	pr_debug("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	memset(stream, 0, sizeof(*stream));
 	memset(&pixm, 0, sizeof(pixm));
 	stream->id = id;
 	stream->dvp2axidev = dev;
 
 	INIT_LIST_HEAD(&stream->buf_head);
-	INIT_LIST_HEAD(&stream->rx_buf_head);
-	INIT_LIST_HEAD(&stream->rx_buf_head_vicap);
-	INIT_LIST_HEAD(&stream->eskit_buf_head);
 	spin_lock_init(&stream->vbq_lock);
 	spin_lock_init(&stream->fps_lock);
 	stream->state = ES_DVP2AXI_STATE_READY;
 	init_waitqueue_head(&stream->wq_stopped);
 
 	/* Set default format */
-	pixm.pixelformat = V4L2_PIX_FMT_NV12;
+	pixm.pixelformat = V4L2_PIX_FMT_SRGGB10;
 	pixm.width = ES_DVP2AXI_DEFAULT_WIDTH;
 	pixm.height = ES_DVP2AXI_DEFAULT_HEIGHT;
 	es_dvp2axi_set_fmt(stream, &pixm, false);
 
-	for (i = 0; i < CROP_SRC_MAX; i++) {
-		stream->crop[i].left = 0;
-		stream->crop[i].top = 0;
-		stream->crop[i].width = ES_DVP2AXI_DEFAULT_WIDTH;
-		stream->crop[i].height = ES_DVP2AXI_DEFAULT_HEIGHT;
-	}
+	// for (i = 0; i < CROP_SRC_MAX; i++) {
+	// 	stream->crop[i].left = 0;
+	// 	stream->crop[i].top = 0;
+	// 	stream->crop[i].width = ES_DVP2AXI_DEFAULT_WIDTH;
+	// 	stream->crop[i].height = ES_DVP2AXI_DEFAULT_HEIGHT;
+	// }
 
 	stream->crop_enable = false;
 	stream->crop_dyn_en = false;
 	stream->crop_mask = 0x0;
-
-	if (dev->inf_id == ES_DVP2AXI_DVP) {
-		stream->is_compact = true;
-	} else {
-		stream->is_compact = true;
-	}
-
-	stream->is_high_align = false;
-	stream->is_finish_stop_dma = false;
-	stream->is_wait_dma_stop = false;
-
-	stream->extend_line.is_extended = false;
-
-	stream->is_dvp_yuv_addr_init = false;
-	stream->is_fs_fe_not_paired = false;
-	stream->fs_cnt_in_single_frame = 0;
-	if (dev->wait_line) {
-		dev->wait_line_cache = dev->wait_line;
-		dev->wait_line_bak = dev->wait_line;
-		stream->is_line_wake_up = true;
-	} else {
-		stream->is_line_wake_up = false;
-		dev->wait_line_cache = 0;
-		dev->wait_line_bak = 0;
-	}
+	stream->is_compact = true;
 	stream->cur_stream_mode = 0;
-	stream->dma_en = 0;
-	stream->to_en_dma = 0;
-	stream->to_stop_dma = 0;
-	stream->to_en_scale = false;
 	stream->buf_owner = 0;
-	stream->buf_replace_cnt = 0;
-	stream->is_stop_capture = false;
-	stream->is_single_cap = false;
 	atomic_set(&stream->buf_cnt, 0);
-	stream->rx_buf_num = 0;
-	init_completion(&stream->stop_complete);
-	stream->is_wait_stop_complete = false;
 }
 
 static int es_dvp2axi_fh_open(struct file *filp)
@@ -2924,7 +2289,6 @@ static int es_dvp2axi_fh_open(struct file *filp)
 	struct es_dvp2axi_device *dvp2axidev = stream->dvp2axidev;
 	int ret;
 
-	stream->is_first_flush = true;
 	ret = es_dvp2axi_attach_hw(dvp2axidev);
 	if (ret)
 		return ret;
@@ -2936,17 +2300,16 @@ static int es_dvp2axi_fh_open(struct file *filp)
 		return ret;
 	}
 
-	ret = pm_runtime_resume_and_get(dvp2axidev->dev);
+	ret = pm_runtime_resume_and_get(dvp2axidev->hw_dev->dev);
 	if (ret < 0) {
 		v4l2_err(vdev, "Failed to get runtime pm, %d\n", ret);
 		return ret;
 	}
 
 	ret = v4l2_fh_open(filp);
-	
+
 	if (ret < 0)
 		vb2_fop_release(filp);
-	
 
 	return ret;
 }
@@ -2959,9 +2322,9 @@ static int es_dvp2axi_fh_release(struct file *filp)
 	struct es_dvp2axi_device *dvp2axidev = stream->dvp2axidev;
 	int ret = 0;
 
-	stream->is_first_flush = true;
 	ret = vb2_fop_release(filp);
-	pm_runtime_put_sync(dvp2axidev->dev);
+	pm_runtime_mark_last_busy(dvp2axidev->hw_dev->dev);
+	pm_runtime_put_autosuspend(dvp2axidev->hw_dev->dev);
 	return ret;
 }
 
@@ -2974,7 +2337,7 @@ void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, u32 stream_id, int ma
 	int0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR);
 	int1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR);
 	int2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR);
-	if(mask) {
+    if(mask) {
 		if(stream_id < 3) {
 			int0 |= (0x7 << stream_id*3) | (0x7 << (9 + stream_id*3));
 		} else {
@@ -3051,8 +2414,6 @@ static int es_dvp2axi_enum_framesizes(struct file *file, void *prov,
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	struct v4l2_rect input_rect;
 	struct csi_channel_info csi_info;
-	
-	
 	if (fsize->index != 0)
 		return -EINVAL;
 
@@ -3097,7 +2458,7 @@ static int es_dvp2axi_enum_frameintervals(struct file *file, void *fh,
 
 	if (!sensor || !sensor->sd) {
 		/* TODO: active_sensor is NULL if using DMARX path */
-		v4l2_err(&dev->v4l2_dev, "%s Not active sensor\n", __func__);
+		v4l2_err(dev->v4l2_dev, "%s Not active sensor\n", __func__);
 		return -ENODEV;
 	}
 
@@ -3190,7 +2551,7 @@ static int es_dvp2axi_s_fmt_vid_cap_mplane(struct file *file, void *priv,
 	int ret = 0;
 
 	if (vb2_is_busy(&stream->vnode.buf_queue)) {
-		v4l2_err(&dev->v4l2_dev, "%s queue busy\n", __func__);
+		v4l2_err(dev->v4l2_dev, "%s queue busy\n", __func__);
 		return -EBUSY;
 	}
 	ret = es_dvp2axi_set_fmt(stream, &f->fmt.pix_mp, false);
@@ -3220,33 +2581,6 @@ static int es_dvp2axi_querycap(struct file *file, void *priv,
 	return 0;
 }
 
-static __maybe_unused int es_dvp2axi_cropcap(struct file *file, void *fh,
-					struct v4l2_cropcap *cap)
-{
-	struct es_dvp2axi_stream *stream = video_drvdata(file);
-	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct v4l2_rect *raw_rect = &dev->terminal_sensor.raw_rect;
-	int ret = 0;
-
-	if (stream->crop_mask & CROP_SRC_SENSOR) {
-		cap->bounds.left = stream->crop[CROP_SRC_SENSOR].left;
-		cap->bounds.top = stream->crop[CROP_SRC_SENSOR].top;
-		cap->bounds.width = stream->crop[CROP_SRC_SENSOR].width;
-		cap->bounds.height = stream->crop[CROP_SRC_SENSOR].height;
-	} else {
-		cap->bounds.left = raw_rect->left;
-		cap->bounds.top = raw_rect->top;
-		cap->bounds.width = raw_rect->width;
-		cap->bounds.height = raw_rect->height;
-	}
-
-	cap->defrect = cap->bounds;
-	cap->pixelaspect.numerator = 1;
-	cap->pixelaspect.denominator = 1;
-
-	return ret;
-}
-
 static int es_dvp2axi_s_selection(struct file *file, void *fh,
 			     struct v4l2_selection *s)
 {
@@ -3257,11 +2591,12 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 	const struct v4l2_rect *rect = &s->r;
 	struct v4l2_rect sensor_crop;
 	struct v4l2_rect *raw_rect = &dev->terminal_sensor.raw_rect;
+	struct v4l2_device* v4l2_dev = dev->v4l2_dev;
 	u16 pad = 0;
 	int ret = 0;
 
 	if (!s) {
-		v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev, "sel is null\n");
+		v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev, "sel is null\n");
 		goto err;
 	}
 
@@ -3277,15 +2612,14 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 				       &sd_sel);
 		if (!ret) {
 			s->r = sd_sel.r;
-			v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev,
+			v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev,
 				 "%s: pad:%d, which:%d, target:%d\n", __func__,
 				 pad, sd_sel.which, sd_sel.target);
 		}
 	} else if (s->target == V4L2_SEL_TGT_CROP) {
-		pr_debug("%s:%d start check fmt\n", __func__, __LINE__);
 		ret = es_dvp2axi_sanity_check_fmt(stream, rect);
 		if (ret) {
-			v4l2_err(&dev->v4l2_dev, "set crop failed\n");
+			v4l2_err(v4l2_dev, "set crop failed\n");
 			return ret;
 		}
 
@@ -3294,7 +2628,7 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 			if (rect->left + rect->width > sensor_crop.width ||
 			    rect->top + rect->height > sensor_crop.height) {
 				v4l2_err(
-					&dev->v4l2_dev,
+					v4l2_dev,
 					"crop size is bigger than sensor input:left:%d, top:%d, width:%d, height:%d\n",
 					sensor_crop.left, sensor_crop.top,
 					sensor_crop.width, sensor_crop.height);
@@ -3304,7 +2638,7 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 			if (rect->left + rect->width > raw_rect->width ||
 			    rect->top + rect->height > raw_rect->height) {
 				v4l2_err(
-					&dev->v4l2_dev,
+					v4l2_dev,
 					"crop size is bigger than sensor raw input:left:%d, top:%d, width:%d, height:%d\n",
 					raw_rect->left, raw_rect->top,
 					raw_rect->width, raw_rect->height);
@@ -3330,13 +2664,13 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 			stream->crop_dyn_en = true;
 
 			v4l2_info(
-				&dev->v4l2_dev,
+				v4l2_dev,
 				"enable dynamic crop, S_SELECTION(%ux%u@%u:%u) target: %d\n",
 				rect->width, rect->height, rect->left,
 				rect->top, s->target);
 		} else {
 			v4l2_info(
-				&dev->v4l2_dev,
+				v4l2_dev,
 				"static crop, S_SELECTION(%ux%u@%u:%u) target: %d\n",
 				rect->width, rect->height, rect->left,
 				rect->top, s->target);
@@ -3362,7 +2696,7 @@ static int es_dvp2axi_g_selection(struct file *file, void *fh,
 	int ret = 0;
 
 	if (!s) {
-		v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev, "sel is null\n");
+		v4l2_dbg(1, es_dvp2axi_debug, dev->v4l2_dev, "sel is null\n");
 		goto err;
 	}
 
@@ -3373,7 +2707,7 @@ static int es_dvp2axi_g_selection(struct file *file, void *fh,
 		sd_sel.target = s->target;
 		sd_sel.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 
-		v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, dev->v4l2_dev,
 			 "%s(line:%d): sd:%s pad:%d, which:%d, target:%d\n",
 			 __func__, __LINE__, sensor_sd->name, pad, sd_sel.which,
 			 sd_sel.target);
@@ -3438,7 +2772,7 @@ void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps 
 	if (!stream->dvp2axidev->terminal_sensor.sd) {
 		ret = es_dvp2axi_update_sensor_info(stream);
 		if (ret) {
-			v4l2_dbg(1, es_dvp2axi_debug ,&stream->dvp2axidev->v4l2_dev,
+			v4l2_dbg(1, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 				 "%s update sensor info fail\n", __func__);
 			return;
 		}
@@ -3459,7 +2793,7 @@ void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps 
 		cur_fps = def_fps;
 
 	if (fps->fps == 0 || fps->fps > cur_fps) {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
+		v4l2_err(stream->dvp2axidev->v4l2_dev,
 			 "set fps %d fps failed, current fps %d fps\n",
 			 fps->fps, cur_fps);
 		return;
@@ -3507,69 +2841,15 @@ void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps 
 			stream->skip_info.skip_to_dis = true;
 		}
 	}
-	v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+	v4l2_dbg(1, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 		 "skip_to_en %d, cap_m %d, skip_n %d\n",
 		 stream->skip_info.skip_to_en, cap_m, skip_n);
 }
 
-static int es_dvp2axi_do_reset_work(struct es_dvp2axi_device *dvp2axi_dev,
-			       enum esmodule_reset_src reset_src);
+
 static long es_dvp2axi_ioctl_default(struct file *file, void *fh, bool valid_prio,
 				unsigned int cmd, void *arg)
 {
-	struct es_dvp2axi_stream *stream = video_drvdata(file);
-	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	const struct dvp2axi_input_fmt *in_fmt;
-	struct v4l2_rect rect;
-	struct csi_channel_info csi_info;
-	struct es_dvp2axi_fps fps;
-	int reset_src;
-
-	switch (cmd) {
-	case ES_DVP2AXI_CMD_GET_CSI_MEMORY_MODE:
-		if (stream->is_compact) {
-			*(int *)arg = CSI_LVDS_MEM_COMPACT;
-		} else {
-			if (stream->is_high_align)
-				*(int *)arg = CSI_LVDS_MEM_WORD_HIGH_ALIGN;
-			else
-				*(int *)arg = CSI_LVDS_MEM_WORD_LOW_ALIGN;
-		}
-		break;
-	case ES_DVP2AXI_CMD_SET_CSI_MEMORY_MODE:
-		if (dev->terminal_sensor.sd) {
-			in_fmt = es_dvp2axi_get_input_fmt(dev, &rect, 0, &csi_info);
-			if (in_fmt == NULL) {
-				v4l2_err(&dev->v4l2_dev,
-					 "can't get sensor input format\n");
-				return -EINVAL;
-			}
-		} else {
-			v4l2_err(&dev->v4l2_dev, "can't get sensor device\n");
-			return -EINVAL;
-		}
-		if (*(int *)arg == CSI_LVDS_MEM_COMPACT) {
-			stream->is_compact = true;
-			stream->is_high_align = false;
-		} else if (*(int *)arg == CSI_LVDS_MEM_WORD_HIGH_ALIGN) {
-			stream->is_compact = false;
-			stream->is_high_align = true;
-		} else {
-			stream->is_compact = false;
-			stream->is_high_align = false;
-		}
-		break;
-	case ES_DVP2AXI_CMD_SET_FPS:
-		fps = *(struct es_dvp2axi_fps *)arg;
-		es_dvp2axi_set_fps(stream, &fps);
-		break;
-	case ES_DVP2AXI_CMD_SET_RESET:
-		reset_src = *(int *)arg;
-		return es_dvp2axi_do_reset_work(dev, reset_src);
-	default:
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
@@ -3616,7 +2896,7 @@ void es_dvp2axi_vb_done_oneframe(struct es_dvp2axi_stream *stream,
 	}
 
 	vb2_buffer_done(&vb_done->vb2_buf, VB2_BUF_STATE_DONE);
-	v4l2_dbg(2, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+	v4l2_dbg(2, es_dvp2axi_debug, stream->dvp2axidev->v4l2_dev,
 		 "stream[%d] vb done, index: %d, sequence %d\n", stream->id,
 		 vb_done->vb2_buf.index, vb_done->sequence);
 	atomic_dec(&stream->buf_cnt);
@@ -3665,7 +2945,7 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 				      bool is_multi_input)
 {
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
+	struct v4l2_device *v4l2_dev = dev->v4l2_dev;
 	struct video_device *vdev = &stream->vnode.vdev;
 	struct es_dvp2axi_vdev_node *node;
 	int ret = 0;
@@ -3739,7 +3019,6 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 	es_dvp2axi_init_vb2_queue(&node->buf_queue, stream,
 			     V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	vdev->queue = &node->buf_queue;
-	
 	ret = media_entity_pads_init(&vdev->entity, 1, &node->pad);
 	if (ret < 0)
 		goto unreg;
@@ -3751,11 +3030,10 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 		return ret;
 	}
 
-
 	INIT_LIST_HEAD(&stream->vb_done_list);
 	tasklet_init(&stream->vb_done_tasklet, es_dvp2axi_tasklet_handle,
 		     (unsigned long)stream);
-		 
+
 	tasklet_disable(&stream->vb_done_tasklet);
 	return 0;
 unreg:
@@ -3798,334 +3076,6 @@ err:
 	return ret;
 }
 
-static struct v4l2_subdev *get_lvds_remote_sensor(struct v4l2_subdev *sd)
-{
-	struct media_pad *local, *remote;
-	struct media_entity *sensor_me;
-
-	local = &sd->entity.pads[ES_DVP2AXI_LVDS_PAD_SINK];
-	remote = media_pad_remote_pad_first(local);
-	if (!remote) {
-		v4l2_warn(sd, "No link between dphy and sensor with lvds\n");
-		return NULL;
-	}
-
-	sensor_me = media_pad_remote_pad_first(local)->entity;
-	return media_entity_to_v4l2_subdev(sensor_me);
-}
-
-static int es_dvp2axi_lvds_subdev_link_setup(struct media_entity *entity,
-					const struct media_pad *local,
-					const struct media_pad *remote,
-					u32 flags)
-{
-	return 0;
-}
-
-static int es_dvp2axi_lvds_sd_set_fmt(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_state *sd_state,
-				 struct v4l2_subdev_format *fmt)
-{
-	struct v4l2_subdev *sensor = get_lvds_remote_sensor(sd);
-
-	/*
-	 * Do not allow format changes and just relay whatever
-	 * set currently in the sensor.
-	 */
-	return v4l2_subdev_call(sensor, pad, get_fmt, NULL, fmt);
-}
-
-static int es_dvp2axi_lvds_sd_get_fmt(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_state *sd_state,
-				 struct v4l2_subdev_format *fmt)
-{
-	struct es_dvp2axi_lvds_subdev *subdev =
-		container_of(sd, struct es_dvp2axi_lvds_subdev, sd);
-	struct v4l2_subdev *sensor = get_lvds_remote_sensor(sd);
-	int ret;
-
-	/*
-	 * Do not allow format changes and just relay whatever
-	 * set currently in the sensor.
-	 */
-	ret = v4l2_subdev_call(sensor, pad, get_fmt, NULL, fmt);
-	if (!ret)
-		subdev->in_fmt = fmt->format;
-
-	return ret;
-}
-
-static struct v4l2_rect *
-es_dvp2axi_lvds_sd_get_crop(struct es_dvp2axi_lvds_subdev *subdev,
-		       struct v4l2_subdev_state *sd_state,
-		       enum v4l2_subdev_format_whence which)
-{
-	if (which == V4L2_SUBDEV_FORMAT_TRY)
-		return v4l2_subdev_get_try_crop(&subdev->sd, sd_state,
-						ES_DVP2AXI_LVDS_PAD_SINK);
-	else
-		return &subdev->crop;
-}
-
-static int es_dvp2axi_lvds_sd_set_selection(struct v4l2_subdev *sd,
-				       struct v4l2_subdev_state *sd_state,
-				       struct v4l2_subdev_selection *sel)
-{
-	struct es_dvp2axi_lvds_subdev *subdev =
-		container_of(sd, struct es_dvp2axi_lvds_subdev, sd);
-	struct v4l2_subdev *sensor = get_lvds_remote_sensor(sd);
-	int ret = 0;
-
-	ret = v4l2_subdev_call(sensor, pad, set_selection, sd_state, sel);
-	if (!ret)
-		subdev->crop = sel->r;
-
-	return ret;
-}
-
-static int es_dvp2axi_lvds_sd_get_selection(struct v4l2_subdev *sd,
-				       struct v4l2_subdev_state *sd_state,
-				       struct v4l2_subdev_selection *sel)
-{
-	struct es_dvp2axi_lvds_subdev *subdev =
-		container_of(sd, struct es_dvp2axi_lvds_subdev, sd);
-	struct v4l2_subdev *sensor = get_lvds_remote_sensor(sd);
-	struct v4l2_subdev_format fmt;
-	int ret = 0;
-
-	if (!sel) {
-		v4l2_dbg(1, es_dvp2axi_debug, sd, "sel is null\n");
-		goto err;
-	}
-
-	if (sel->pad > ES_DVP2AXI_LVDS_PAD_SRC_ID3) {
-		v4l2_dbg(1, es_dvp2axi_debug, sd, "pad[%d] isn't matched\n",
-			 sel->pad);
-		goto err;
-	}
-
-	switch (sel->target) {
-	case V4L2_SEL_TGT_CROP_BOUNDS:
-		if (sel->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
-			ret = v4l2_subdev_call(sensor, pad, get_selection,
-					       sd_state, sel);
-			if (ret) {
-				fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-				ret = v4l2_subdev_call(sensor, pad, get_fmt,
-						       NULL, &fmt);
-				if (!ret) {
-					subdev->in_fmt = fmt.format;
-					sel->r.top = 0;
-					sel->r.left = 0;
-					sel->r.width = subdev->in_fmt.width;
-					sel->r.height = subdev->in_fmt.height;
-					subdev->crop = sel->r;
-				} else {
-					sel->r = subdev->crop;
-				}
-			} else {
-				subdev->crop = sel->r;
-			}
-		} else {
-			sel->r = *v4l2_subdev_get_try_crop(sd, sd_state,
-							   sel->pad);
-		}
-		break;
-
-	case V4L2_SEL_TGT_CROP:
-		sel->r = *es_dvp2axi_lvds_sd_get_crop(subdev, sd_state, sel->which);
-		break;
-
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-err:
-	return -EINVAL;
-}
-
-static int es_dvp2axi_lvds_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
-				    struct v4l2_mbus_config *mbus)
-{
-	struct v4l2_subdev *sensor_sd = get_lvds_remote_sensor(sd);
-	int ret;
-
-	ret = v4l2_subdev_call(sensor_sd, pad, get_mbus_config, 0, mbus);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static int es_dvp2axi_lvds_sd_s_stream(struct v4l2_subdev *sd, int on)
-{
-	struct es_dvp2axi_lvds_subdev *subdev =
-		container_of(sd, struct es_dvp2axi_lvds_subdev, sd);
-
-	if (on)
-		atomic_set(&subdev->frm_sync_seq, 0);
-
-	return 0;
-}
-
-static int es_dvp2axi_lvds_sd_s_power(struct v4l2_subdev *sd, int on)
-{
-	return 0;
-}
-
-#define ESCIF_V4L2_EVENT_ELEMS 4
-
-static int es_dvp2axi_sof_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
-				     struct v4l2_event_subscription *sub)
-{
-	if (sub->type == V4L2_EVENT_FRAME_SYNC ||
-	    sub->type == V4L2_EVENT_RESET_DEV)
-		return v4l2_event_subscribe(fh, sub, ES_DVP2AXI_V4L2_EVENT_ELEMS,
-					    NULL);
-	else
-		return -EINVAL;
-}
-
-static const struct media_entity_operations es_dvp2axi_lvds_sd_media_ops = {
-	.link_setup = es_dvp2axi_lvds_subdev_link_setup,
-	.link_validate = v4l2_subdev_link_validate,
-};
-
-static const struct v4l2_subdev_pad_ops es_dvp2axi_lvds_sd_pad_ops = {
-	.set_fmt = es_dvp2axi_lvds_sd_set_fmt,
-	.get_fmt = es_dvp2axi_lvds_sd_get_fmt,
-	.set_selection = es_dvp2axi_lvds_sd_set_selection,
-	.get_selection = es_dvp2axi_lvds_sd_get_selection,
-	.get_mbus_config = es_dvp2axi_lvds_g_mbus_config,
-};
-
-static const struct v4l2_subdev_video_ops es_dvp2axi_lvds_sd_video_ops = {
-	.s_stream = es_dvp2axi_lvds_sd_s_stream,
-};
-
-static const struct v4l2_subdev_core_ops es_dvp2axi_lvds_sd_core_ops = {
-	.s_power = es_dvp2axi_lvds_sd_s_power,
-	.subscribe_event = es_dvp2axi_sof_subscribe_event,
-	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
-};
-
-static struct v4l2_subdev_ops es_dvp2axi_lvds_sd_ops = {
-	.core = &es_dvp2axi_lvds_sd_core_ops,
-	.video = &es_dvp2axi_lvds_sd_video_ops,
-	.pad = &es_dvp2axi_lvds_sd_pad_ops,
-};
-
-int es_dvp2axi_register_lvds_subdev(struct es_dvp2axi_device *dev)
-{
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
-	struct es_dvp2axi_lvds_subdev *lvds_subdev = &dev->lvds_subdev;
-	struct v4l2_subdev *sd;
-	int ret;
-	int pad_num = 4;
-
-	memset(lvds_subdev, 0, sizeof(*lvds_subdev));
-	lvds_subdev->dvp2axidev = dev;
-	sd = &lvds_subdev->sd;
-	lvds_subdev->state = ES_DVP2AXI_LVDS_STOP;
-	v4l2_subdev_init(sd, &es_dvp2axi_lvds_sd_ops);
-	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
-	sd->entity.ops = &es_dvp2axi_lvds_sd_media_ops;
-
-	snprintf(sd->name, sizeof(sd->name), "es_dvp2axi-lvds-subdev");
-
-	lvds_subdev->pads[ES_DVP2AXI_LVDS_PAD_SINK].flags =
-		MEDIA_PAD_FL_SINK | MEDIA_PAD_FL_MUST_CONNECT;
-	lvds_subdev->pads[ES_DVP2AXI_LVDS_PAD_SRC_ID0].flags = MEDIA_PAD_FL_SOURCE;
-	lvds_subdev->pads[ES_DVP2AXI_LVDS_PAD_SRC_ID1].flags = MEDIA_PAD_FL_SOURCE;
-	lvds_subdev->pads[ES_DVP2AXI_LVDS_PAD_SRC_ID2].flags = MEDIA_PAD_FL_SOURCE;
-	lvds_subdev->pads[ES_DVP2AXI_LVDS_PAD_SRC_ID3].flags = MEDIA_PAD_FL_SOURCE;
-	lvds_subdev->in_fmt.width = ES_DVP2AXI_DEFAULT_WIDTH;
-	lvds_subdev->in_fmt.height = ES_DVP2AXI_DEFAULT_HEIGHT;
-	lvds_subdev->crop.left = 0;
-	lvds_subdev->crop.top = 0;
-	lvds_subdev->crop.width = ES_DVP2AXI_DEFAULT_WIDTH;
-	lvds_subdev->crop.height = ES_DVP2AXI_DEFAULT_HEIGHT;
-
-	ret = media_entity_pads_init(&sd->entity, pad_num, lvds_subdev->pads);
-	if (ret < 0)
-		return ret;
-	sd->owner = THIS_MODULE;
-	v4l2_set_subdevdata(sd, lvds_subdev);
-	ret = v4l2_device_register_subdev(v4l2_dev, sd);
-	if (ret < 0)
-		goto free_media;
-
-	ret = v4l2_device_register_subdev_nodes(v4l2_dev);
-	if (ret < 0)
-		goto free_subdev;
-	return ret;
-free_subdev:
-	v4l2_device_unregister_subdev(sd);
-free_media:
-	media_entity_cleanup(&sd->entity);
-	v4l2_err(sd, "Failed to register subdev, ret:%d\n", ret);
-	return ret;
-}
-
-void es_dvp2axi_unregister_lvds_subdev(struct es_dvp2axi_device *dev)
-{
-	struct v4l2_subdev *sd = &dev->lvds_subdev.sd;
-
-	v4l2_device_unregister_subdev(sd);
-	media_entity_cleanup(&sd->entity);
-}
-
-static const struct v4l2_subdev_core_ops es_dvp2axi_dvp_sof_sd_core_ops = {
-	.subscribe_event = es_dvp2axi_sof_subscribe_event,
-	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
-};
-
-static struct v4l2_subdev_ops es_dvp2axi_dvp_sof_sd_ops = {
-	.core = &es_dvp2axi_dvp_sof_sd_core_ops,
-};
-
-int es_dvp2axi_register_dvp_sof_subdev(struct es_dvp2axi_device *dev)
-{
-	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
-	struct es_dvp2axi_dvp_sof_subdev *subdev = &dev->dvp_sof_subdev;
-	struct v4l2_subdev *sd;
-	int ret;
-
-	memset(subdev, 0, sizeof(*subdev));
-	subdev->dvp2axidev = dev;
-	sd = &subdev->sd;
-	v4l2_subdev_init(sd, &es_dvp2axi_dvp_sof_sd_ops);
-	sd->owner = THIS_MODULE;
-	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
-	snprintf(sd->name, sizeof(sd->name), "es_dvp2axi-dvp-sof");
-
-	v4l2_set_subdevdata(sd, subdev);
-	ret = v4l2_device_register_subdev(v4l2_dev, sd);
-	if (ret < 0)
-		goto end;
-
-	ret = v4l2_device_register_subdev_nodes(v4l2_dev);
-	if (ret < 0)
-		goto free_subdev;
-
-	return ret;
-
-free_subdev:
-	v4l2_device_unregister_subdev(sd);
-
-end:
-	v4l2_err(sd, "Failed to register subdev, ret:%d\n", ret);
-	return ret;
-}
-
-void es_dvp2axi_unregister_dvp_sof_subdev(struct es_dvp2axi_device *dev)
-{
-	struct v4l2_subdev *sd = &dev->dvp_sof_subdev.sd;
-
-	v4l2_device_unregister_subdev(sd);
-}
-
 void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *dvp2axi_hw)
 {
 	uint32_t soft_rstn;
@@ -4137,7 +3087,7 @@ void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *dvp2axi_hw)
 		volatile uint32_t cycle = 0;
 		while (cycle++ < 100);
 		soft_rstn = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-		udelay(500);
+		udelay(100);
 	} while ((soft_rstn & VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_DONE_MASK) != VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_DONE_MASK && count++ < 100);
     // release reset
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, soft_rstn | VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_MASK);
@@ -4157,7 +3107,6 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 
 	vi_dvp2axi_int0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR);
 	vi_dvp2axi_int1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR);
-
 	dev_dbg(dev, "stream%d: vi_dvp2axi_int0 0x%x, vi_dvp2axi_int1 0x%x \n", stream->id, vi_dvp2axi_int0, vi_dvp2axi_int1);
 
 	if(stream->id == 0 || stream->id == 1 || stream->id == 2) {
@@ -4193,7 +3142,7 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 
 	es_dvp2axi_addr_state = ES_DVP2AXI_YUV_ADDR_STATE_UPDATE;
 
-	if (stream->frame_phase == DVP2AXI_CSI_FRAME0_READY) {  // done handle
+	if (stream->frame_phase == DVP2AXI_CSI_FRAME0_READY) {
 		ret = es_dvp2axi_assign_new_buffer_oneframe(stream, es_dvp2axi_addr_state);
 	}
 	if(stream->frame_phase == DVP2AXI_CSI_FRAME1_READY) {
@@ -4275,100 +3224,8 @@ void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev
 
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_AFULL)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[8]);
-
+	// dvp2axi_hw_soft_reset(dvp2axi_hw);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, vi_dvp2axi_int_err);
-}
-
-static bool es_dvp2axi_is_csi2_err_trigger_reset(struct es_dvp2axi_timer *timer)
-{
-	struct es_dvp2axi_device *dev =
-		container_of(timer, struct es_dvp2axi_device, reset_watchdog_timer);
-	struct es_dvp2axi_stream *stream = &dev->stream[ES_DVP2AXI_STREAM_MIPI_ID0];
-	bool is_triggered = false, is_assign_triggered = false,
-	     is_first_err = false;
-	unsigned long flags;
-	u64 cur_time, diff_time;
-
-	spin_lock_irqsave(&timer->csi2_err_lock, flags);
-
-	if (timer->csi2_err_cnt_even != 0 && timer->csi2_err_cnt_odd != 0) {
-		timer->csi2_err_cnt_odd = 0;
-		timer->csi2_err_cnt_even = 0;
-		timer->reset_src = ES_RESET_SRC_ERR_CSI2;
-		timer->csi2_err_triggered_cnt++;
-		if (timer->csi2_err_triggered_cnt == 1) {
-			is_first_err = true;
-			timer->csi2_first_err_timestamp =
-				es_dvp2axi_time_get_ns(dev);
-		}
-
-		is_assign_triggered = true;
-
-		v4l2_info(&dev->v4l2_dev, "find csi2 err cnt is:%d\n",
-			  timer->csi2_err_triggered_cnt);
-	}
-
-	if (!is_first_err) {
-		if (timer->csi2_err_triggered_cnt >= 1) {
-			cur_time = es_dvp2axi_time_get_ns(dev);
-			diff_time = cur_time - timer->csi2_first_err_timestamp;
-			diff_time = div_u64(diff_time, 1000000);
-			if (diff_time >= timer->err_time_interval) {
-				is_triggered = true;
-				v4l2_info(
-					&dev->v4l2_dev,
-					"trigger reset for time out of csi err\n");
-				goto end_judge;
-			}
-
-			if (!is_assign_triggered &&
-			    (timer->csi2_err_cnt_odd == 0 ||
-			     timer->csi2_err_cnt_even == 0)) {
-				is_triggered = true;
-				v4l2_info(&dev->v4l2_dev,
-					  "trigger reset for csi err\n");
-				goto end_judge;
-			}
-		}
-	}
-
-	/*
-	 * when fs cnt is beyond 2, it indicates that frame end is not coming,
-	 * or fs and fe had been not paired.
-	 */
-	if (stream->is_fs_fe_not_paired ||
-	    stream->fs_cnt_in_single_frame > ES_DVP2AXI_FS_DETECTED_NUM) {
-		is_triggered = true;
-		v4l2_info(&dev->v4l2_dev, "reset for fs & fe not paired\n");
-	}
-end_judge:
-	spin_unlock_irqrestore(&timer->csi2_err_lock, flags);
-
-	return is_triggered;
-}
-
-static bool es_dvp2axi_is_triggered_monitoring(struct es_dvp2axi_device *dev)
-{
-	struct es_dvp2axi_timer *timer = &dev->reset_watchdog_timer;
-	struct es_dvp2axi_stream *stream = &dev->stream[ES_DVP2AXI_STREAM_MIPI_ID0];
-	bool ret = false;
-
-	if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_IDLE)
-		ret = false;
-
-	if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_CONTINUE ||
-	    timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_HOTPLUG) {
-		if (stream->frame_idx >= timer->triggered_frame_num)
-			ret = true;
-	}
-
-	if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_TRIGGER) {
-		timer->is_csi2_err_occurred =
-			es_dvp2axi_is_csi2_err_trigger_reset(timer);
-		ret = timer->is_csi2_err_occurred;
-	}
-
-	return ret;
 }
 
 s32 es_dvp2axi_get_sensor_vblank(struct es_dvp2axi_device *dev)
@@ -4405,459 +3262,6 @@ s32 es_dvp2axi_get_sensor_vblank_def(struct es_dvp2axi_device *dev)
 	return 0;
 }
 
-static void es_dvp2axi_monitor_reset_event(struct es_dvp2axi_device *dev)
-{
-	struct es_dvp2axi_stream *stream = NULL;
-	struct es_dvp2axi_timer *timer = &dev->reset_watchdog_timer;
-	unsigned int cycle = 0;
-	u64 fps, timestamp0, timestamp1;
-	unsigned long flags, fps_flags;
-	int i = 0;
-
-	if (timer->is_running)
-		return;
-
-	if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_IDLE)
-		return;
-
-	for (i = 0; i < ES_DVP2AXI_MAX_STREAM_MIPI; i++) {
-		stream = &dev->stream[i];
-		if (stream->state == ES_DVP2AXI_STATE_STREAMING)
-			break;
-	}
-
-	if (i >= ES_DVP2AXI_MAX_STREAM_MIPI)
-		return;
-
-	timer->is_triggered = es_dvp2axi_is_triggered_monitoring(dev);
-
-	if (timer->is_triggered) {
-		struct v4l2_rect *raw_rect = &dev->terminal_sensor.raw_rect;
-		enum es_dvp2axi_monitor_mode mode;
-		s32 vblank = 0;
-		u32 vts = 0;
-		u64 numerator = 0;
-		u64 denominator = 0;
-
-		if (stream->frame_idx > 2) {
-			spin_lock_irqsave(&stream->fps_lock, fps_flags);
-			timestamp0 = stream->fps_stats.frm0_timestamp;
-			timestamp1 = stream->fps_stats.frm1_timestamp;
-			spin_unlock_irqrestore(&stream->fps_lock, fps_flags);
-
-			fps = timestamp0 > timestamp1 ?
-				      timestamp0 - timestamp1 :
-				      timestamp1 - timestamp0;
-			fps = div_u64(fps, 1000);
-		} else {
-			numerator = dev->terminal_sensor.fi.interval.numerator;
-			denominator =
-				dev->terminal_sensor.fi.interval.denominator;
-			fps = div_u64(1000000 * numerator, denominator);
-		}
-		spin_lock_irqsave(&timer->timer_lock, flags);
-
-		timer->frame_end_cycle_us = fps;
-
-		vblank = es_dvp2axi_get_sensor_vblank(dev);
-		timer->raw_height = raw_rect->height;
-		vts = timer->raw_height + vblank;
-		timer->vts = vts;
-
-		timer->line_end_cycle =
-			div_u64(timer->frame_end_cycle_us, timer->vts);
-		fps = div_u64(timer->frame_end_cycle_us, 1000);
-		cycle = fps * timer->frm_num_of_monitor_cycle;
-		timer->cycle = msecs_to_jiffies(cycle);
-
-		timer->run_cnt = 0;
-		timer->is_running = true;
-		timer->is_buf_stop_update = false;
-		for (i = 0; i < dev->num_channels; i++) {
-			stream = &dev->stream[i];
-			if (stream->state == ES_DVP2AXI_STATE_STREAMING)
-				timer->last_buf_wakeup_cnt[i] =
-					stream->buf_wake_up_cnt;
-		}
-		/* in trigger mode, monitoring count is fps */
-		mode = timer->monitor_mode;
-		if (mode == ES_DVP2AXI_MONITOR_MODE_CONTINUE ||
-		    mode == ES_DVP2AXI_MONITOR_MODE_HOTPLUG)
-			timer->max_run_cnt = 0xffffffff - DVP2AXI_TIMEOUT_FRAME_NUM;
-		else
-			timer->max_run_cnt = div_u64(1000, fps) * 1;
-
-		timer->timer.expires = jiffies + timer->cycle;
-		mod_timer(&timer->timer, timer->timer.expires);
-
-		spin_unlock_irqrestore(&timer->timer_lock, flags);
-
-		v4l2_dbg(
-			3, es_dvp2axi_debug, &dev->v4l2_dev,
-			"%s:mode:%d, raw height:%d,vblank:%d, cycle:%ld, fps:%llu\n",
-			__func__, timer->monitor_mode, raw_rect->height, vblank,
-			timer->cycle, div_u64(1000, fps));
-	}
-}
-
-static int es_dvp2axi_do_reset_work(struct es_dvp2axi_device *dvp2axi_dev,
-			       enum esmodule_reset_src reset_src)
-{
-	return 0;
-}
-
-void es_dvp2axi_reset_work(struct work_struct *work)
-{
-	struct es_dvp2axi_work_struct *reset_work =
-		container_of(work, struct es_dvp2axi_work_struct, work);
-	struct es_dvp2axi_device *dev =
-		container_of(reset_work, struct es_dvp2axi_device, reset_work);
-	int ret;
-
-	ret = es_dvp2axi_do_reset_work(dev, reset_work->reset_src);
-	if (ret)
-		v4l2_info(&dev->v4l2_dev, "do reset work failed!\n");
-}
-
-static bool es_dvp2axi_is_reduced_frame_rate(struct es_dvp2axi_device *dev)
-{
-	struct es_dvp2axi_timer *timer = &dev->reset_watchdog_timer;
-	struct es_dvp2axi_stream *stream = &dev->stream[ES_DVP2AXI_STREAM_MIPI_ID0];
-	struct v4l2_rect *raw_rect = &dev->terminal_sensor.raw_rect;
-	u64 fps, timestamp0, timestamp1, diff_time;
-	unsigned long fps_flags;
-	unsigned int deviation = 1;
-	bool is_reduced = false;
-	u64 cur_time = 0;
-	u64 time_distance = 0;
-
-	spin_lock_irqsave(&stream->fps_lock, fps_flags);
-	timestamp0 = stream->fps_stats.frm0_timestamp;
-	timestamp1 = stream->fps_stats.frm1_timestamp;
-	spin_unlock_irqrestore(&stream->fps_lock, fps_flags);
-
-	fps = timestamp0 > timestamp1 ? timestamp0 - timestamp1 :
-					timestamp1 - timestamp0;
-	fps = div_u64(fps, 1000);
-	diff_time = fps > timer->frame_end_cycle_us ?
-			    fps - timer->frame_end_cycle_us :
-			    0;
-	deviation = DIV_ROUND_UP(timer->vts, 100);
-
-	v4l2_dbg(3, es_dvp2axi_debug, &dev->v4l2_dev,
-		 "diff_time:%lld,devi_t:%ld,devi_h:%d\n", diff_time,
-		 timer->line_end_cycle * deviation, deviation);
-
-	cur_time = es_dvp2axi_time_get_ns(dev);
-	time_distance = timestamp0 > timestamp1 ? cur_time - timestamp0 :
-						  cur_time - timestamp1;
-	time_distance = div_u64(time_distance, 1000);
-	if (time_distance > fps * 2)
-		return false;
-
-	if (diff_time > timer->line_end_cycle * deviation) {
-		s32 vblank = 0;
-		unsigned int vts;
-
-		is_reduced = true;
-		vblank = es_dvp2axi_get_sensor_vblank(dev);
-		vts = vblank + timer->raw_height;
-
-		v4l2_dbg(3, es_dvp2axi_debug, &dev->v4l2_dev,
-			 "old vts:%d,new vts:%d\n", timer->vts, vts);
-
-		v4l2_dbg(
-			3, es_dvp2axi_debug, &dev->v4l2_dev,
-			"reduce frame rate,vblank:%d, height(raw output):%d, fps:%lld, frm_end_t:%ld, line_t:%ld, diff:%lld\n",
-			es_dvp2axi_get_sensor_vblank(dev), raw_rect->height, fps,
-			timer->frame_end_cycle_us, timer->line_end_cycle,
-			diff_time);
-
-		timer->vts = vts;
-		timer->frame_end_cycle_us = fps;
-		timer->line_end_cycle =
-			div_u64(timer->frame_end_cycle_us, timer->vts);
-	} else {
-		is_reduced = false;
-	}
-
-	timer->frame_end_cycle_us = fps;
-
-	fps = div_u64(fps, 1000);
-	fps = fps * timer->frm_num_of_monitor_cycle;
-	timer->cycle = msecs_to_jiffies(fps);
-	timer->timer.expires = jiffies + timer->cycle;
-
-	return is_reduced;
-}
-
-static void es_dvp2axi_dvp_event_reset_pipe(struct es_dvp2axi_device *dev, int reset_src)
-{
-	struct es_dvp2axi_dvp_sof_subdev *subdev = &dev->dvp_sof_subdev;
-
-	if (subdev) {
-		struct v4l2_event event = {
-			.type = V4L2_EVENT_RESET_DEV,
-			.reserved[0] = reset_src,
-		};
-		v4l2_event_queue(subdev->sd.devnode, &event);
-	}
-}
-
-static void es_dvp2axi_lvds_event_reset_pipe(struct es_dvp2axi_device *dev, int reset_src)
-{
-	struct es_dvp2axi_lvds_subdev *subdev = &dev->lvds_subdev;
-
-	if (subdev) {
-		struct v4l2_event event = {
-			.type = V4L2_EVENT_RESET_DEV,
-			.reserved[0] = reset_src,
-		};
-		v4l2_event_queue(subdev->sd.devnode, &event);
-	}
-}
-
-static void es_dvp2axi_send_reset_event(struct es_dvp2axi_device *dvp2axi_dev, int reset_src)
-{
-	struct v4l2_mbus_config *mbus = &dvp2axi_dev->active_sensor->mbus;
-	// struct csi2_dev *csi;
-
-	if (mbus->type == V4L2_MBUS_CCP2) {
-		es_dvp2axi_lvds_event_reset_pipe(dvp2axi_dev, reset_src);
-	} else {
-		es_dvp2axi_dvp_event_reset_pipe(dvp2axi_dev, reset_src);
-	}
-	v4l2_dbg(3, es_dvp2axi_debug, &dvp2axi_dev->v4l2_dev,
-		 "send reset event,bus type 0x%x\n", mbus->type);
-}
-
-static void es_dvp2axi_init_reset_work(struct es_dvp2axi_timer *timer)
-{
-	struct es_dvp2axi_device *dev =
-		container_of(timer, struct es_dvp2axi_device, reset_watchdog_timer);
-	struct es_dvp2axi_stream *stream = NULL;
-	unsigned long flags;
-	int i = 0;
-
-	v4l2_info(&dev->v4l2_dev,
-		  "do reset work schedule, run_cnt:%d, reset source:%d\n",
-		  timer->run_cnt, timer->reset_src);
-
-	spin_lock_irqsave(&timer->timer_lock, flags);
-	timer->is_running = false;
-	timer->is_triggered = false;
-	timer->csi2_err_cnt_odd = 0;
-	timer->csi2_err_cnt_even = 0;
-	timer->csi2_err_fs_fe_cnt = 0;
-	timer->notifer_called_cnt = 0;
-	dev->is_toisp_reset = false;
-	for (i = 0; i < dev->num_channels; i++) {
-		stream = &dev->stream[i];
-		if (stream->state == ES_DVP2AXI_STATE_STREAMING)
-			timer->last_buf_wakeup_cnt[stream->id] =
-				stream->buf_wake_up_cnt;
-	}
-	spin_unlock_irqrestore(&timer->timer_lock, flags);
-	if (timer->is_ctrl_by_user) {
-		es_dvp2axi_send_reset_event(dev, timer->reset_src);
-	} else {
-		dev->reset_work.reset_src = timer->reset_src;
-		if (!schedule_work(&dev->reset_work.work))
-			v4l2_info(&dev->v4l2_dev,
-				  "schedule reset work failed\n");
-	}
-}
-
-static int es_dvp2axi_detect_reset_event(struct es_dvp2axi_stream *stream,
-				    struct es_dvp2axi_timer *timer, int check_cnt,
-				    bool *is_mod_timer)
-{
-	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct es_dvp2axi_sensor_info *terminal_sensor = &dev->terminal_sensor;
-	unsigned long flags;
-	int ret, is_reset = 0;
-	struct esmodule_vicap_reset_info rst_info;
-
-	if (dev->is_toisp_reset) {
-		is_reset = 1;
-		timer->reset_src = ES_RESET_SRC_ERR_ISP;
-	}
-	if (is_reset) {
-		es_dvp2axi_init_reset_work(timer);
-		return is_reset;
-	}
-
-	if (timer->last_buf_wakeup_cnt[stream->id] < stream->buf_wake_up_cnt &&
-	    check_cnt == 0) {
-		v4l2_dbg(
-			1, es_dvp2axi_debug, &dev->v4l2_dev,
-			"info: frame end still update(%d, %d) in detecting cnt:%d, mode:%d\n",
-			timer->last_buf_wakeup_cnt[stream->id],
-			stream->frame_idx, timer->run_cnt, timer->monitor_mode);
-
-		timer->last_buf_wakeup_cnt[stream->id] =
-			stream->buf_wake_up_cnt;
-
-		if (stream->frame_idx > 2)
-			es_dvp2axi_is_reduced_frame_rate(dev);
-
-		if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_HOTPLUG) {
-			ret = v4l2_subdev_call(terminal_sensor->sd, core, ioctl,
-					       ESMODULE_GET_VICAP_RST_INFO,
-					       &rst_info);
-			if (ret)
-				is_reset = 0;
-			else
-				is_reset = rst_info.is_reset;
-			rst_info.is_reset = 0;
-			if (is_reset)
-				timer->reset_src = ES_RESET_SRC_ERR_HOTPLUG;
-			v4l2_subdev_call(terminal_sensor->sd, core, ioctl,
-					 ESMODULE_SET_VICAP_RST_INFO,
-					 &rst_info);
-			if (!is_reset) {
-				is_reset =
-					es_dvp2axi_is_csi2_err_trigger_reset(timer);
-				if (is_reset)
-					timer->reset_src =
-						ES_RESET_SRC_ERR_CSI2;
-			}
-		} else if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_CONTINUE) {
-			is_reset = es_dvp2axi_is_csi2_err_trigger_reset(timer);
-		} else if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_TRIGGER) {
-			is_reset = timer->is_csi2_err_occurred;
-			if (is_reset)
-				timer->reset_src = ES_RESET_SRC_ERR_CSI2;
-			timer->is_csi2_err_occurred = false;
-		}
-
-		if (is_reset) {
-			es_dvp2axi_init_reset_work(timer);
-			return is_reset;
-		}
-
-		if (timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_CONTINUE ||
-		    timer->monitor_mode == ES_DVP2AXI_MONITOR_MODE_HOTPLUG) {
-			if (timer->run_cnt == timer->max_run_cnt)
-				timer->run_cnt = 0x0;
-			*is_mod_timer = true;
-		} else {
-			if (timer->run_cnt <= timer->max_run_cnt) {
-				*is_mod_timer = true;
-			} else {
-				spin_lock_irqsave(&timer->timer_lock, flags);
-				timer->is_triggered = false;
-				timer->is_running = false;
-				spin_unlock_irqrestore(&timer->timer_lock,
-						       flags);
-				v4l2_info(&dev->v4l2_dev,
-					  "stop reset detecting!\n");
-			}
-		}
-	} else if (timer->last_buf_wakeup_cnt[stream->id] ==
-		   stream->buf_wake_up_cnt) {
-		bool is_reduced = false;
-
-		if (stream->frame_idx > 2)
-			is_reduced = es_dvp2axi_is_reduced_frame_rate(dev);
-		else if (timer->run_cnt < 20)
-			is_reduced = true;
-
-		if (is_reduced) {
-			*is_mod_timer = true;
-			v4l2_dbg(3, es_dvp2axi_debug, &dev->v4l2_dev,
-				 "%s fps is reduced\n", __func__);
-		} else {
-			v4l2_info(
-				&dev->v4l2_dev,
-				"do reset work due to frame end is stopped, run_cnt:%d\n",
-				timer->run_cnt);
-
-			timer->reset_src = ES_RESET_SRC_ERR_CUTOFF;
-			es_dvp2axi_init_reset_work(timer);
-			is_reset = true;
-		}
-	}
-
-	return is_reset;
-}
-
-void es_dvp2axi_reset_watchdog_timer_handler(struct timer_list *t)
-{
-	struct es_dvp2axi_timer *timer = container_of(t, struct es_dvp2axi_timer, timer);
-	struct es_dvp2axi_device *dev =
-		container_of(timer, struct es_dvp2axi_device, reset_watchdog_timer);
-	struct es_dvp2axi_stream *stream = NULL;
-	unsigned long flags;
-	unsigned int i;
-	int is_reset = 0;
-	int check_cnt = 0;
-	bool is_mod_timer = false;
-
-	for (i = 0; i < dev->num_channels; i++) {
-		stream = &dev->stream[i];
-		if (stream->state == ES_DVP2AXI_STATE_STREAMING) {
-			is_reset = es_dvp2axi_detect_reset_event(
-				stream, timer, check_cnt, &is_mod_timer);
-			check_cnt++;
-			if (is_reset)
-				break;
-		}
-	}
-	if (!is_reset && is_mod_timer)
-		mod_timer(&timer->timer, jiffies + timer->cycle);
-
-	timer->run_cnt += 1;
-
-	if (!check_cnt) {
-		spin_lock_irqsave(&timer->timer_lock, flags);
-		timer->is_triggered = false;
-		timer->is_running = false;
-		spin_unlock_irqrestore(&timer->timer_lock, flags);
-
-		v4l2_info(&dev->v4l2_dev,
-			  "all stream is stopped, stop reset detect!\n");
-	}
-}
-int es_dvp2axi_reset_notifier(struct notifier_block *nb, unsigned long action,
-			      void *data)
-{
-	struct es_dvp2axi_hw *hw =
-		container_of(nb, struct es_dvp2axi_hw, reset_notifier);
-	struct es_dvp2axi_device *dev = NULL;
-	struct es_dvp2axi_timer *timer = NULL;
-	unsigned long flags, val;
-	u32 *csi_idx = data;
-	int i = 0;
-	bool is_match_dev = false;
-
-	for (i = 0; i < hw->dev_num; i++) {
-		dev = hw->dvp2axi_dev[i];
-		if (*csi_idx == dev->csi_host_idx) {
-			is_match_dev = true;
-			break;
-		}
-	}
-	if (!is_match_dev)
-		return -EINVAL;
-	timer = &dev->reset_watchdog_timer;
-	if (timer->is_running) {
-		val = action & CSI2_ERR_COUNT_ALL_MASK;
-		spin_lock_irqsave(&timer->csi2_err_lock, flags);
-		if ((val % timer->csi2_err_ref_cnt) == 0) {
-			timer->notifer_called_cnt++;
-			if ((timer->notifer_called_cnt % 2) == 0)
-				timer->csi2_err_cnt_even = val;
-			else
-				timer->csi2_err_cnt_odd = val;
-		}
-
-		timer->csi2_err_fs_fe_cnt = (action & CSI2_ERR_FSFE_MASK) >> 8;
-		spin_unlock_irqrestore(&timer->csi2_err_lock, flags);
-	}
-
-	return 0;
-}
 u32 es_dvp2axi_mbus_pixelcode_to_v4l2(u32 pixelcode)
 {
 	u32 pixelformat;
@@ -4944,8 +3348,6 @@ void es_dvp2axi_set_default_fmt(struct es_dvp2axi_device *dvp2axi_dev)
 
 	if (dvp2axi_dev->terminal_sensor.sd) {
 		for (i = 0; i < stream_num; i++) {
-			if (i == ES_DVP2AXI_STREAM_MIPI_ID3)
-				dvp2axi_dev->stream[i].is_compact = false;
 			memset(&fmt, 0, sizeof(fmt));
 			fmt.pad = i;
 			fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
@@ -4973,10 +3375,99 @@ void es_dvp2axi_set_default_fmt(struct es_dvp2axi_device *dvp2axi_dev)
 	}
 }
 
-static int es_dvp2axi_stop_dma_capture(struct es_dvp2axi_stream *stream)
+static void es_dvp2axi_init_dummy_vb2(struct es_dvp2axi_device *dev,
+				struct es_dvp2axi_dummy_buffer *buf)
 {
-	return 0;
+	unsigned long attrs = buf->is_need_vaddr ? 0 : DMA_ATTR_NO_KERNEL_MAPPING;
+
+	memset(&buf->vb2_queue, 0, sizeof(struct vb2_queue));
+	memset(&buf->vb, 0, sizeof(struct vb2_buffer));
+	buf->vb2_queue.gfp_flags = GFP_KERNEL | GFP_DMA32;
+	buf->vb2_queue.dma_dir = DMA_BIDIRECTIONAL;
+	if (dev->hw_dev->is_dma_contig)
+		attrs |= DMA_ATTR_FORCE_CONTIGUOUS;
+	buf->vb2_queue.dma_attrs = attrs;
+	buf->vb.vb2_queue = &buf->vb2_queue;
 }
+
+int es_dvp2axi_alloc_buffer(struct es_dvp2axi_device *dev,
+		       struct es_dvp2axi_dummy_buffer *buf)
+{
+	const struct vb2_mem_ops *g_ops = dev->hw_dev->mem_ops;
+	struct sg_table	 *sg_tbl;
+	void *mem_priv;
+	int ret = 0;
+
+	if (!buf->size) {
+		ret = -EINVAL;
+		goto err;
+	}
+	es_dvp2axi_init_dummy_vb2(dev, buf);
+
+	buf->size = PAGE_ALIGN(buf->size);
+	mem_priv = g_ops->alloc(&buf->vb, dev->hw_dev->dev, buf->size);
+	if (IS_ERR_OR_NULL(mem_priv)) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	buf->mem_priv = mem_priv;
+	if (dev->hw_dev->is_dma_sg_ops) {
+		sg_tbl = (struct sg_table *)g_ops->cookie(&buf->vb, mem_priv);
+		buf->dma_addr = sg_dma_address(sg_tbl->sgl);
+		g_ops->prepare(mem_priv);
+	} else {
+		buf->dma_addr = *((dma_addr_t *)g_ops->cookie(&buf->vb, mem_priv));
+	}
+
+	if (buf->is_need_vaddr)
+		buf->vaddr = g_ops->vaddr(&buf->vb, mem_priv);
+
+	if (buf->is_need_dbuf) {
+		buf->dbuf = g_ops->get_dmabuf(&buf->vb, mem_priv, O_RDWR);
+		if (buf->is_need_dmafd) {
+			buf->dma_fd = dma_buf_fd(buf->dbuf, O_CLOEXEC);
+			if (buf->dma_fd < 0) {
+				dma_buf_put(buf->dbuf);
+				ret = buf->dma_fd;
+				goto err;
+			}
+			get_dma_buf(buf->dbuf);
+		}
+	}
+
+	v4l2_dbg(1, es_dvp2axi_debug, dev->v4l2_dev,
+		 "%s buf:0x%x~0x%x size:%d\n", __func__,
+		 (u32)buf->dma_addr, (u32)buf->dma_addr + buf->size, buf->size);
+	return ret;
+err:
+	dev_err(dev->dev, "%s failed ret:%d\n", __func__, ret);
+	return ret;
+}
+
+void es_dvp2axi_free_buffer(struct es_dvp2axi_device *dev,
+			struct es_dvp2axi_dummy_buffer *buf)
+{
+	const struct vb2_mem_ops *g_ops = dev->hw_dev->mem_ops;
+
+	if (buf && buf->mem_priv) {
+		v4l2_dbg(1, es_dvp2axi_debug, dev->v4l2_dev,
+			 "%s buf:0x%x~0x%x\n", __func__,
+			 (u32)buf->dma_addr, (u32)buf->dma_addr + buf->size);
+		if (buf->dbuf)
+			dma_buf_put(buf->dbuf);
+		g_ops->put(buf->mem_priv);
+		buf->size = 0;
+		buf->dbuf = NULL;
+		buf->vaddr = NULL;
+		buf->mem_priv = NULL;
+		buf->is_need_dbuf = false;
+		buf->is_need_vaddr = false;
+		buf->is_need_dmafd = false;
+		buf->is_free = true;
+	}
+}
+
 
 int es_dvp2axi_stream_suspend(struct es_dvp2axi_device *dvp2axi_dev, int mode)
 {
