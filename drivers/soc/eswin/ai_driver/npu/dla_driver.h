@@ -31,7 +31,7 @@
 #include <linux/wait.h>
 #include <linux/clk.h>
 #include <linux/mailbox_controller.h>
-
+#include <linux/regulator/consumer.h>
 #include "dla_interface.h"
 #include "hetero_common.h"
 
@@ -67,6 +67,11 @@ struct nvdla_device {
 
 	struct reset_control *rstc_e31_core;
 	struct clk *e31_core_clk;
+	struct clk *core_clk;
+	struct clk *cfg_clk;
+	struct clk *mux_u_npu_core_3mux1_gfree;
+	struct clk *fixed_rate_clk_spll2_fout2;
+	struct clk *fixed_rate_clk_spll1_fout1;
 
 	struct clk *mbox_pclk_device;
 	struct clk *mbox_pclk;
@@ -78,8 +83,11 @@ struct nvdla_device {
 	u32 mbox_tx_lock_bit;
 	u32 mbox_tx_irq_bit;
 	spinlock_t mbox_lock;
+	unsigned long rate, volt;
+	struct mutex devfreq_lock;
 
 	uint16_t *pause_op_list;
+	struct regulator *npu_regulator;
 };
 
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);

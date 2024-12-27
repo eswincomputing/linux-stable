@@ -106,6 +106,11 @@
 #include "dts_parser.h"
 #include "vdec_allocator.h"
 
+#if defined(CONFIG_PM_DEVFREQ)
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+#endif
+
 #define LOG_TAG DEC_DEV_NAME ":main"
 #include "vc_drv_log.h"
 
@@ -3945,10 +3950,68 @@ int d1_clk_reset_init(void)
 	return 0;
 }
 
+#if defined(CONFIG_PM_DEVFREQ)
+static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
+{
+	int ret;
+	vdec_clk_rst_t *vcrt = dev_get_drvdata(dev);
+
+	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, *freq);
+	*freq = clk_round_rate(vcrt->jd_clk, *freq);
+	if (*freq > 0) {
+		ret = clk_set_rate(vcrt->jd_clk, *freq);
+		if (ret) {
+			LOG_ERR("%d: failed to set jd_clk: %d\n", __LINE__, ret);
+			return ret;
+		}
+		LOG_DBG("set jd_clk to %ldHZ\n", *freq);
+	} else {
+		LOG_ERR("%d: failed to round rate for jd_clk %ld\n", __LINE__, *freq);
+		return -1;
+	}
+
+	*freq = clk_round_rate(vcrt->vd_clk, *freq);
+	if (*freq > 0) {
+		ret = clk_set_rate(vcrt->vd_clk, *freq);
+		if (ret) {
+			LOG_ERR("%d: failed to set vd_clk: %d\n", __LINE__, ret);
+			return ret;
+		}
+		LOG_DBG("set vd_clk to %ldHZ\n", *freq);
+	} else {
+		LOG_ERR("%d: failed to round rate for vd_clk %ld\n", __LINE__, *freq);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int vdec_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	vdec_clk_rst_t *vcrt = dev_get_drvdata(dev);
+
+	*freq = clk_get_rate(vcrt->vd_clk);
+
+	return 0;
+}
+
+/** devfreq profile */
+static struct devfreq_dev_profile vdec_devfreq_profile = {
+	.initial_freq = VDEC_SYS_CLK_HIGHEST,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 1000, /** Poll every 1000ms to monitor load */
+	.target = vdec_devfreq_target,
+	.get_cur_freq = vdec_devfreq_get_cur_freq,
+};
+#endif /** CONFIG_PM_DEVFREQ*/
+
 static int hantro_vdec_probe(struct platform_device *pdev)
 {
 	int numa_id;
 	int ret, vdec_dev_num = 0;
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df = NULL;
+#endif
 	vdec_clk_rst_t *vcrt = devm_kzalloc(&pdev->dev, sizeof(vdec_clk_rst_t), GFP_KERNEL);
 	if (!vcrt) {
 		LOG_ERR("malloc drvdata failed\n");
@@ -3969,6 +4032,20 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 	}
 
 	LOG_INFO("initializing vdec, numa id %d\n", numa_id);
+
+#if defined(CONFIG_PM_DEVFREQ)
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		LOG_ERR("%s, %d, failed to add OPP table\n", __func__, __LINE__);
+		return -1;
+	}
+	df = devm_devfreq_add_device(&pdev->dev, &vdec_devfreq_profile, "userspace", NULL);
+	if (IS_ERR(df)) {
+		LOG_ERR("%s, %d, add devfreq failed\n", __func__, __LINE__);
+		return -1;
+	}
+#endif /** CONFIG_PM_DEVFREQ*/
 
 	ret = vdec_sys_reset_init(pdev, vcrt);
 	if (ret < 0) {

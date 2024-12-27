@@ -90,6 +90,9 @@
 # include <linux/clk.h>
 # include <linux/reset.h>
 #endif
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+#define G2D_HILOAD_CLK 1040000000
 
 /* Disable MSI for internal FPGA build except PPC */
 #if gcdFPGA_BUILD
@@ -159,7 +162,10 @@ struct gpu_power_domain {
     int num_domains;
     struct device **power_dev;
     struct clk *clks[gcdDEVICE_COUNT][gcvCLKS_COUNT];
+    struct device *dev[gcdDEVICE_COUNT];
+    struct devfreq *df[gcdDEVICE_COUNT];
 };
+static struct gpu_power_domain gpd;
 
 static struct _gpu_reset {
     struct reset_control *rsts[gcdDEVICE_COUNT][gcvRST_COUNT];
@@ -217,7 +223,57 @@ static void show_clk_status(int dieIndex)
     iounmap(g2d_top_ptr);
 }
 
-struct gpu_power_domain gpd;
+#if defined(CONFIG_PM_DEVFREQ)
+static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags) {
+    int i, j;
+    unsigned long rate = *freq;
+    int ret = -1;
+    struct clk *aclk;
+
+    for (i = 0; i < gpd.num_domains; i++) {
+        if (gpd.dev[i] != dev) continue;
+        for (j = 0; j < nc_of_clks; j++) {
+            if (strcmp("g2d_clk", clk_names[j]) && strcmp("g2d_aclk", clk_names[j])) continue;
+            aclk = gpd.clks[i][j];
+            rate = clk_round_rate(aclk, rate);
+            if (rate > 0) {
+                ret = clk_set_rate(aclk, rate);
+                if (ret) {
+                    dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
+                    return ret;
+                }
+            }
+            dev_info(dev, "set %s rate to %ldHZ\n", clk_names[j], rate);
+        }
+    }
+    if (!ret) {
+        *freq = rate;
+        return 0;
+    } else {
+        dev_err(dev, "set rate to %ldHZ\n failed", rate);
+        return -1;
+    }
+}
+static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
+    int i, j;
+    for (i = 0; i < gpd.num_domains; i++) {
+        if (gpd.dev[i] != dev) continue;
+        for (j = 0; j < nc_of_clks; j++) {
+            if (!strcmp("g2d_clk", clk_names[j])) {
+                return clk_get_rate(gpd.clks[i][j]);
+            }
+        }
+    }
+    return 0;
+}
+static struct devfreq_dev_profile g2d_devfreq_profile = {
+    .initial_freq = G2D_HILOAD_CLK,
+    .timer = DEVFREQ_TIMER_DELAYED,
+    .polling_ms = 1000, /* Poll every 1000ms to monitor load */
+    .target = g2d_devfreq_target,
+    .get_cur_freq = g2d_devfreq_get_cur_freq,
+};
+#endif
 
 gceSTATUS
 _set_clock(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable)
@@ -411,6 +467,9 @@ static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *para
     const char *str;
     int dieIndex = 0;
     int peerDieIndex;
+#if defined(CONFIG_PM_DEVFREQ)
+    struct devfreq *df;
+#endif
 
     gcmSTATIC_ASSERT(gcvCORE_COUNT == gcmCOUNTOF(core_names),
                      "core_names array does not match core types");
@@ -548,7 +607,18 @@ static int gpu_parse_dt(struct platform_device *pdev, gcsMODULE_PARAMETERS *para
     }
 
     g2d_reset(&pdev->dev, dieIndex, 1);
-
+#if defined(CONFIG_PM_DEVFREQ)
+    if (dev_pm_opp_of_add_table(&pdev->dev)) {
+        gcmkPRINT("%s, %d, Failed to add OPP table", __func__, __LINE__);
+        return gcvSTATUS_INVALID_OBJECT;
+    }
+    df = devm_devfreq_add_device(&pdev->dev, &g2d_devfreq_profile, "userspace", NULL);
+    if (IS_ERR(df)) {
+        gcmkPRINT("%s, %d, add devfreq failed", __func__, __LINE__);
+        return gcvSTATUS_INVALID_OBJECT;
+    }
+    gpd.df[dieIndex] = df;
+#endif
     show_clk_status(dieIndex);
 
     params->devCount++;
@@ -775,10 +845,18 @@ gceSTATUS
 _AdjustParam(gcsPLATFORM *Platform, gcsMODULE_PARAMETERS *Args)
 {
     int ret;
+#if defined(CONFIG_PM_DEVFREQ)
+    int i;
+#endif
 #if gcdSUPPORT_DEVICE_TREE_SOURCE
     ret = gpu_parse_dt(Platform->device, Args);
-    if(!ret){
+    if(gcmIS_SUCCESS(ret)){
         gpu_add_power_domains(Platform->device, Args);
+#if defined(CONFIG_PM_DEVFREQ)
+        for (i = 0; i < gcdDEVICE_COUNT; i++) {
+            gpd.dev[i] = Args->devices[i];
+        }
+#endif
     }
 #elif USE_LINUX_PCIE
     struct _gcsPLATFORM_PCIE *pcie_platform = (struct _gcsPLATFORM_PCIE *)Platform;
@@ -1204,6 +1282,9 @@ gceSTATUS _DmaExit(gcsPLATFORM *Platform)
         struct device *dev = Platform->params.devices[i];
         if (!dev) continue;
         g2d_reset(dev, i, 0);
+#if defined(CONFIG_PM_DEVFREQ)
+        devm_devfreq_remove_device(dev, gpd.df[i]);
+#endif
         show_clk_status(i);
     }
     return gcvSTATUS_OK;

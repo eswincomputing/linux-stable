@@ -42,6 +42,7 @@
 
 #include <linux/eswin_npu.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_runtime.h>
 #include "llc_spram.h"
 
 #define HAVE_LLC_HARDWARE	1
@@ -102,6 +103,8 @@ struct spram_dev {
 	struct reset_control *rstc_cfg;
 	struct reset_control *rstc_core;
 	struct reset_control *rstc_llc;
+	struct regulator *npu_regulator;
+	u8 is_low_freq;
 };
 
 #define dma_buf_map		iosys_map
@@ -671,9 +674,8 @@ static int llc_clk_init(struct platform_device *pdev)
 	return 0;
 }
 
-static int llc_clk_enable(struct platform_device *pdev)
+static int llc_clk_enable(struct spram_dev *spram)
 {
-	struct spram_dev *spram = platform_get_drvdata(pdev);
 	int ret = 0;
 
 	if (spram == NULL)
@@ -682,25 +684,37 @@ static int llc_clk_enable(struct platform_device *pdev)
 	/*enable clk*/
 	ret = clk_prepare_enable(spram->aclk);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable aclk: %d\n", ret);
+		dev_err(spram->dev, "failed to enable aclk: %d\n", ret);
 		return ret;
 	}
 	ret = clk_prepare_enable(spram->cfg_clk);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable cfg_clk: %d\n", ret);
+		dev_err(spram->dev, "failed to enable cfg_clk: %d\n", ret);
 		return ret;
 	}
 
 	ret = clk_prepare_enable(spram->llc_clk);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable llc_clk: %d\n", ret);
+		dev_err(spram->dev, "failed to enable llc_clk: %d\n", ret);
 		return ret;
 	}
 	ret = clk_prepare_enable(spram->core_clk);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable core_clk: %d\n", ret);
+		dev_err(spram->dev, "failed to enable core_clk: %d\n", ret);
 		return ret;
 	}
+
+	return 0;
+}
+
+static int llc_clk_disable(struct spram_dev *spram)
+{
+	if (spram == NULL)
+		return -EINVAL;
+	clk_disable_unprepare(spram->aclk);
+	clk_disable_unprepare(spram->cfg_clk);
+	clk_disable_unprepare(spram->llc_clk);
+	clk_disable_unprepare(spram->core_clk);
 
 	return 0;
 }
@@ -739,56 +753,42 @@ static int llc_rst_init(struct platform_device *pdev)
 	return 0;
 }
 
-static int llc_clk_set_parent(struct platform_device *pdev, u8 *is_low_freq)
+static int llc_clk_set_parent(struct platform_device *pdev)
 {
 	int ret;
 	struct spram_dev *spram = platform_get_drvdata(pdev);
-
 	struct device_node *np;
-	struct regulator *npu_regulator;
 	struct device *dev = &pdev->dev;
 
+	spram->is_low_freq = 0;
 	if (spram == NULL)
 		return -EINVAL;
 	np = of_node_get(dev->of_node);
-	npu_regulator = devm_regulator_get_exclusive(dev, "npu");
-
-	if ((NULL == npu_regulator) || (IS_ERR(npu_regulator)))
+	spram->npu_regulator = devm_regulator_get(dev, "npu");
+	ret = regulator_get_voltage(spram->npu_regulator);
+	if (ret < 0)
 	{
 		dev_warn(dev, "failed to get npu regulator,the npu freq will set to 1G\n");
-		*is_low_freq = 1;
-		//return -ENODEV;
+		spram->is_low_freq = 1;
 	}
 	else
 	{
-		*is_low_freq = (of_property_read_bool(np, "apply_npu_1G_freq"));
+		spram->is_low_freq = (of_property_read_bool(np, "apply_npu_1G_freq"));
 		dev_dbg(dev, "success to get npu regulator,apply_npu_1G_freq:%d\n",
-				 *is_low_freq);
-	}
-
-	if (0 == *is_low_freq)
-	{
-		ret = regulator_set_voltage(npu_regulator, NPU_1P5G_VOLTAGE, NPU_1P5G_VOLTAGE);
-		dev_dbg(dev,"name:%s,volt:%d,ret:%d\n",pdev->name,NPU_1P5G_VOLTAGE,ret);
-		if(0 != ret)
+				 spram->is_low_freq);
+		ret = regulator_enable(spram->npu_regulator);
+		if (ret < 0)
 		{
-			dev_err(dev, "set volt:%duV ret:%d\n", NPU_1P5G_VOLTAGE,ret);
-			return -EINVAL;
+			return ret;
 		}
-		/* devm_regulator_put(npu_regulator); */
-		mdelay(10);
+	}
+	if (0 == spram->is_low_freq)
+	{
 		ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree,
 							 spram->fixed_rate_clk_spll1_fout1);
 	}
 	else
 	{
-		if (((NULL != npu_regulator)) && (!IS_ERR(npu_regulator)))
-		{
-			regulator_set_voltage(npu_regulator, NPU_DEFAULT_VOLTAGE, NPU_DEFAULT_VOLTAGE);
-			dev_dbg(dev,"name:%s,volt:%d,ret:%d\n",	pdev->name,NPU_DEFAULT_VOLTAGE,ret);
-			/* devm_regulator_put(npu_regulator); */
-			mdelay(10);
-		}
 		ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree,
 							 spram->fixed_rate_clk_spll2_fout2);
 	}
@@ -798,10 +798,9 @@ static int llc_clk_set_parent(struct platform_device *pdev, u8 *is_low_freq)
 				ret);
 		return ret;
 	}
-
 	return 0;
 }
-static int llc_clk_set_frq(struct platform_device *pdev, u8 is_low_freq)
+static int llc_clk_set_frq(struct platform_device *pdev)
 {
 	int ret;
 	unsigned long rate = 0;
@@ -818,7 +817,7 @@ static int llc_clk_set_frq(struct platform_device *pdev, u8 is_low_freq)
 		return ret;
 	}
 
-	if (0 == is_low_freq)
+	if (0 == spram->is_low_freq)
 	{
 		rate = clk_round_rate(spram->llc_clk, NPU_LLC_CLK_1P5G_RATE);
 		ret = clk_set_rate(spram->llc_clk, rate);
@@ -858,10 +857,9 @@ static int llc_clk_set_frq(struct platform_device *pdev, u8 is_low_freq)
 	return 0;
 }
 
-static int llc_rst_deassert(struct platform_device *pdev)
+static int llc_rst_deassert(struct spram_dev *spram)
 {
 	int ret = 0;
-	struct spram_dev *spram = platform_get_drvdata(pdev);
 
 	if (spram == NULL)
 		return -EINVAL;
@@ -880,6 +878,25 @@ static int llc_rst_deassert(struct platform_device *pdev)
 
 	/*reset npu cfg*/
 	ret = reset_control_deassert(spram->rstc_cfg);
+	WARN_ON(0 != ret);
+
+	return 0;
+}
+
+
+static int llc_rst_assert(struct spram_dev *spram)
+{
+	int ret = 0;
+
+	if (spram == NULL)
+		return -EINVAL;
+	ret = reset_control_assert(spram->rstc_axi);
+	WARN_ON(0 != ret);
+	ret = reset_control_assert(spram->rstc_core);
+	WARN_ON(0 != ret);
+	ret = reset_control_assert(spram->rstc_llc);
+	WARN_ON(0 != ret);
+	ret = reset_control_assert(spram->rstc_cfg);
 	WARN_ON(0 != ret);
 
 	return 0;
@@ -944,8 +961,9 @@ static int llc_clk_rst_print(struct platform_device *pdev)
 static int llc_clk_rst_init(struct platform_device *pdev)
 {
 	int ret = 0;
-	u8 is_low_freq = 0;
+	struct spram_dev *spram = platform_get_drvdata(pdev);
 
+	spram->is_low_freq = 0;
 	dev_dbg(&pdev->dev, "---%s\n", __func__);
 
 	ret = llc_clk_init(pdev);
@@ -954,7 +972,7 @@ static int llc_clk_rst_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = llc_clk_set_parent(pdev, &is_low_freq);
+	ret = llc_clk_set_parent(pdev);
 	if(ret != 0){
 		dev_err(&pdev->dev, "llc_clk_set_parent error: %d\n", ret);
 		return ret;
@@ -966,19 +984,19 @@ static int llc_clk_rst_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = llc_clk_set_frq(pdev, is_low_freq);
+	ret = llc_clk_set_frq(pdev);
 	if(ret != 0){
 		dev_err(&pdev->dev, "llc_clk_set_frq error: %d\n", ret);
 		return ret;
 	}
 
-	ret = llc_clk_enable(pdev);
+	ret = llc_clk_enable(spram);
 	if(ret != 0){
 		dev_err(&pdev->dev, "llc_clk_enable error: %d\n", ret);
 		return ret;
 	}
 
-	llc_rst_deassert(pdev);
+	llc_rst_deassert(spram);
 
 	llc_clk_rst_print(pdev);
 	dev_dbg(&pdev->dev, "%s done successfully!\n", __func__);
@@ -1438,6 +1456,101 @@ free_spram:
 }
 #endif
 
+#ifdef CONFIG_PM
+static int __maybe_unused llc_suspend(struct device *dev)
+{
+
+	struct spram_dev *spram = dev_get_drvdata(dev);
+
+	llc_rst_assert(spram);
+	if (!pm_runtime_status_suspended(dev))
+	{
+		llc_clk_disable(spram);
+	}
+	if ((NULL != spram->npu_regulator) && (!IS_ERR(spram->npu_regulator)))
+	{
+		regulator_disable(spram->npu_regulator);
+	}
+
+	return 0;
+}
+
+static int __maybe_unused llc_resume(struct device *dev)
+{
+	int ret = 0;
+	int is_enable = 0;
+	struct spram_dev *spram = dev_get_drvdata(dev);
+
+	if ((NULL != spram->npu_regulator) && (!IS_ERR(spram->npu_regulator)))
+	{
+		is_enable = regulator_is_enabled(spram->npu_regulator);
+		if(0 == is_enable)
+		{
+			mdelay(20);
+		}
+		ret = regulator_enable(spram->npu_regulator);
+		if (ret < 0)
+		{
+			dev_err(spram->dev, "regulator_enable error: %d\n", ret);
+			return ret;
+		}
+		if(0 == is_enable)
+		{
+			mdelay(20);
+		}
+	}
+
+	ret = llc_clk_enable(spram);
+	if(ret != 0){
+		dev_err(spram->dev, "llc_clk_enable error: %d\n", ret);
+		return ret;
+	}
+	ret = llc_rst_deassert(spram);
+	if (ret)
+		return ret;
+
+	ret = llc_spram_init(spram);
+	if (ret) {
+		return ret;
+	}
+
+	return ret;
+}
+
+
+static int __maybe_unused llc_runtime_suspend(struct device *dev)
+{
+	struct spram_dev *spram = dev_get_drvdata(dev);
+
+	llc_clk_disable(spram);
+
+	return 0;
+}
+
+static int __maybe_unused llc_runtime_resume(struct device *dev)
+{
+	struct spram_dev *spram = dev_get_drvdata(dev);
+	int ret = 0;
+
+	ret = llc_clk_enable(spram);
+	if(ret != 0){
+		dev_err(spram->dev, "llc_clk_enable error: %d\n", ret);
+	}
+
+	return ret;
+}
+
+static const struct dev_pm_ops llc_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(llc_suspend, llc_resume)
+	SET_RUNTIME_PM_OPS(llc_runtime_suspend,
+				   llc_runtime_resume, NULL)
+};
+
+#define DEV_PM_OPS (&llc_dev_pm_ops)
+#else
+#define DEV_PM_OPS NULL
+#endif /* CONFIG_PM */
+
 static struct dma_buf *spram_heap_allocate(struct dma_heap *heap,
 					 unsigned long len,
 					 unsigned long fd_flags,
@@ -1555,6 +1668,51 @@ static int __add_spram_heap(struct spram_dev *spram, void *data)
 	return 0;
 }
 
+static ssize_t npu_regulator_show(struct device *device,
+			      struct device_attribute *attr, char *buf)
+{
+	struct spram_dev *spram = dev_get_drvdata(device);
+
+	return sprintf(buf, "%d\n",regulator_is_enabled(spram->npu_regulator));
+
+}
+
+static ssize_t npu_regulator_store(struct device *device,
+			       struct device_attribute *attr, const char *buf,
+			       size_t count)
+{
+	int ret = 0;
+	struct spram_dev *spram = dev_get_drvdata(device);
+
+	if (!strncmp(buf, "0", 1))
+	{
+		regulator_disable(spram->npu_regulator);
+	}
+	else
+	{
+		ret = regulator_enable(spram->npu_regulator);
+		if (ret < 0)
+		{
+			return ret;
+		}
+
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(npu_regulator);
+
+static struct attribute *llc_attrs[] = {
+	&dev_attr_npu_regulator.attr,
+	NULL,
+};
+
+static struct attribute_group llc_attr_group = {
+	.name = NULL, /* we want them in the same directory */
+	.attrs = llc_attrs,
+};
+
 static int llc_probe(struct platform_device *pdev)
 {
 	struct spram_dev *spram;
@@ -1651,7 +1809,9 @@ static int llc_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s Done!\n", __func__);
 
 	pdevs[spram->nid] = pdev;
-
+	ret = sysfs_create_group(&pdev->dev.kobj, &llc_attr_group);
+	if (ret)
+		dev_err(&pdev->dev, "failed to create sysfs group: %d\n", ret);
 	return 0;
 }
 
@@ -1666,6 +1826,7 @@ static struct platform_driver llc_driver = {
 	.driver = {
 		.name = DEVICE_NAME,
 		.of_match_table = llc_dt_ids,
+		.pm	= DEV_PM_OPS,
 	},
 	.probe = llc_probe,
 };
@@ -1674,3 +1835,4 @@ builtin_platform_driver(llc_driver);
 MODULE_DESCRIPTION("ESWIN LLC driver");
 MODULE_AUTHOR("Lin MIn <linmin@eswincomputing.com>");
 MODULE_LICENSE("GPL");
+

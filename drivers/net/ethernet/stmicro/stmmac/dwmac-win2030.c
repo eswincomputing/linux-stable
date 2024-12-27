@@ -1,6 +1,22 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Eswin DWC Ethernet linux driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: iangshuang <liangshuang@eswincomputing.com>
  */
 
 #include <linux/clk.h>
@@ -66,6 +82,10 @@ struct dwc_qos_priv {
 	struct gpio_desc *phy_reset;
 	struct stmmac_priv *stmpriv;
 	int phyled_cfgs[3];
+	unsigned int dly_hsp_reg[3];
+	unsigned int dly_param_1000m[3];
+	unsigned int dly_param_100m[3];
+	unsigned int dly_param_10m[3];
 };
 
 static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
@@ -198,21 +218,15 @@ static int eswin_eth_sid_cfg(struct device *dev)
 static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 {
 	unsigned long rate = 125000000;
-	int err, data = 0;
+	int i, err, data = 0;
 	struct dwc_qos_priv *dwc_priv = (struct dwc_qos_priv *)priv;
 
 	switch (speed) {
 	case SPEED_1000:
 		rate = 125000000;
 
-		if ((dwc_priv->dev_id & 0x1) == 0) {
-			regmap_write(dwc_priv->hsp_regmap, 0x118, 0x800c8023);
-			regmap_write(dwc_priv->hsp_regmap, 0x11c, 0x0c0c0c0c);
-			regmap_write(dwc_priv->hsp_regmap, 0x114, 0x23232323);
-		} else {
-			regmap_write(dwc_priv->hsp_regmap, 0x218, 0x80268025);
-			regmap_write(dwc_priv->hsp_regmap, 0x21c, 0x26262626);
-			regmap_write(dwc_priv->hsp_regmap, 0x214, 0x25252525);
+		for (i = 0; i < 3; i++) {
+			regmap_write(dwc_priv->hsp_regmap, dwc_priv->dly_hsp_reg[i], dwc_priv->dly_param_1000m[i]);
 		}
 
 		if (dwc_priv->stmpriv) {
@@ -226,14 +240,8 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	case SPEED_100:
 		rate = 25000000;
 
-		if ((dwc_priv->dev_id & 0x1) == 0) {
-			regmap_write(dwc_priv->hsp_regmap, 0x118, 0x803f8050);
-			regmap_write(dwc_priv->hsp_regmap, 0x11c, 0x3f3f3f3f);
-			regmap_write(dwc_priv->hsp_regmap, 0x114, 0x50505050);
-		} else {
-			regmap_write(dwc_priv->hsp_regmap, 0x218, 0x80588048);
-			regmap_write(dwc_priv->hsp_regmap, 0x21c, 0x58585858);
-			regmap_write(dwc_priv->hsp_regmap, 0x214, 0x48484848);
+		for (i = 0; i < 3; i++) {
+			regmap_write(dwc_priv->hsp_regmap, dwc_priv->dly_hsp_reg[i], dwc_priv->dly_param_100m[i]);
 		}
 
 		if (dwc_priv->stmpriv) {
@@ -247,14 +255,8 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	case SPEED_10:
 		rate = 2500000;
 
-		if ((dwc_priv->dev_id & 0x1) == 0) {
-			regmap_write(dwc_priv->hsp_regmap, 0x118, 0x0);
-			regmap_write(dwc_priv->hsp_regmap, 0x11c, 0x0);
-			regmap_write(dwc_priv->hsp_regmap, 0x114, 0x0);
-		} else {
-			regmap_write(dwc_priv->hsp_regmap, 0x218, 0x0);
-			regmap_write(dwc_priv->hsp_regmap, 0x21c, 0x0);
-			regmap_write(dwc_priv->hsp_regmap, 0x214, 0x0);
+		for (i = 0; i < 3; i++) {
+			regmap_write(dwc_priv->hsp_regmap, dwc_priv->dly_hsp_reg[i], dwc_priv->dly_param_10m[i]);
 		}
 
 		if (dwc_priv->stmpriv) {
@@ -342,11 +344,11 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	dwc_priv->dev = &pdev->dev;
 	dwc_priv->phy_reset = devm_gpiod_get(&pdev->dev, "rst", GPIOD_OUT_LOW);
 	if (IS_ERR(dwc_priv->phy_reset)) {
-		dev_err(&pdev->dev, "Reset gpio not specified\n");
-		return -EINVAL;
+		dev_info(&pdev->dev, "Reset gpio not specified\n");
 	}
 
-	gpiod_set_value(dwc_priv->phy_reset, 0);
+	if (dwc_priv->phy_reset)
+		gpiod_set_value(dwc_priv->phy_reset, 0);
 
 	dwc_priv->rgmii_sel = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,rgmiisel");
 	if (IS_ERR(dwc_priv->rgmii_sel)){
@@ -367,6 +369,30 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,led-cfgs", 2, &dwc_priv->phyled_cfgs[2]);
 	if (ret) {
 		dev_warn(&pdev->dev, "can't get led cfgs for 10Mbps mode (%d)\n", ret);
+	}
+
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "eswin,dly_hsp_reg", &dwc_priv->dly_hsp_reg[0], 3, 0);
+	if (ret != 3) {
+		dev_err(&pdev->dev, "can't get delay hsp reg.ret(%d)\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "dly-param-1000m", &dwc_priv->dly_param_1000m[0], 3, 0);
+	if (ret != 3) {
+		dev_err(&pdev->dev, "can't get delay param for 1Gbps mode (%d)\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "dly-param-100m", &dwc_priv->dly_param_100m[0], 3, 0);
+	if (ret != 3) {
+		dev_err(&pdev->dev, "can't get delay param for 100Mbps mode (%d)\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "dly-param-10m", &dwc_priv->dly_param_10m[0], 3, 0);
+	if (ret != 3) {
+		dev_err(&pdev->dev, "can't get delay param for 10Mbps mode (%d)\n", ret);
+		return ret;
 	}
 
 	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,rgmiisel", 1, &rgmiisel_offset);
@@ -487,7 +513,8 @@ static int dwc_qos_remove(struct platform_device *pdev)
 	reset_control_assert(dwc_priv->rst);
 	dwc_clks_config(dwc_priv, false);
 
-	devm_gpiod_put(&pdev->dev, dwc_priv->phy_reset);
+	if (dwc_priv->phy_reset)
+		devm_gpiod_put(&pdev->dev, dwc_priv->phy_reset);
 
 	return 0;
 }

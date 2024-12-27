@@ -24,7 +24,7 @@
 #include <linux/clk-provider.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-
+#include <linux/clk.h>
 #include <dt-bindings/reset/eswin,win2030-syscrg.h>
 #include <dt-bindings/clock/win2030-clock.h>
 
@@ -1170,6 +1170,42 @@ static void special_div_table_init(struct clk_div_table *table, int table_size)
 	return;
 }
 
+
+static int eswin_cpu_clk_init(struct platform_device *pdev)
+{
+	struct clk *cpu_clk;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	u32 default_freq;
+	int ret = 0;
+	int numa_id;
+	char name[128] = {0};
+
+	ret = of_property_read_u32(np, "cpu-default-frequency", &default_freq);
+	if (ret) {
+		dev_info(dev, "cpu-default-frequency not set\n");
+		return ret;
+	}
+	numa_id = dev_to_node(dev->parent);
+	if (numa_id < 0) {
+		sprintf(name, "%s", "clk_cpu_ext_src_core_clk_0");
+	} else {
+		sprintf(name, "d%d_%s", numa_id, "clk_cpu_ext_src_core_clk_0");
+	}
+	cpu_clk = __clk_lookup(name);
+	if (!cpu_clk) {
+		dev_err(dev, "Failed to lookup CPU clock\n");
+		return -EINVAL;
+	}
+	ret = clk_set_rate(cpu_clk, default_freq);
+	if (ret) {
+		dev_err(dev, "Failed to set CPU frequency: %d\n", ret);
+		return ret;
+	}
+	dev_info(dev, "CPU frequency set to %u Hz\n", default_freq);
+	return 0;
+}
+
 static int eswin_clk_probe(struct platform_device *pdev)
 {
 	struct eswin_clock_data *clk_data;
@@ -1207,6 +1243,9 @@ static int eswin_clk_probe(struct platform_device *pdev)
 	eswin_clk_register_gate(win2030_gate_clks, ARRAY_SIZE(win2030_gate_clks),
 				clk_data);
 	eswin_clk_register_clk(win2030_clks, ARRAY_SIZE(win2030_clks), clk_data);
+
+	eswin_cpu_clk_init(pdev);
+
 	return 0;
 }
 

@@ -42,6 +42,7 @@ int npu_create_sysfs(struct platform_device *pdev);
 int npu_hardware_reset(struct nvdla_device *nvdla_dev);
 
 int npu_dev_reset(struct nvdla_device *nvdla_dev);
+int npu_dev_assert(struct nvdla_device *nvdla_dev);
 int npu_init_reset(struct nvdla_device *nvdla_dev);
 void npu_dma_sid_cfg(void __iomem *npu_subsys_base, u32 sid);
 

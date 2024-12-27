@@ -24,6 +24,7 @@ d0_cfg_noc:d0_cfg_noc{
 	#size-cells = <2>;
 	ranges;
 	reg = <0 0x52060000 0 0x4000>;
+	numa-node-id = <0>;
 
 	interrupts = <446>;
 	interrupt-names = "error";
@@ -273,6 +274,7 @@ d0_llc_noc:d0_llc_noc@52081400 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <0>;
 	reg = <0 0x52081400 0 0x4000>;
 	interrupts = <441>;
 	interrupt-names = "error";
@@ -548,6 +550,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <0>;
 	reg = <0 0x52002C00 0 0x4000>;
 	interrupts = <431>;
 	interrupt-names = "error";
@@ -2220,6 +2223,7 @@ d0_media_noc:d0_media_noc@52021400 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <0>;
 	reg = <0 0x52021400 0 0x4000>;
 	interrupts = <454>;
 	interrupt-names = "error";
@@ -2530,6 +2534,7 @@ d0_realtime_noc:d0_realtime_noc@52041400 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <0>;
 	reg = <0 0x52041400 0 0x4000>;
 	interrupts = <448>;
 	interrupt-names = "error";

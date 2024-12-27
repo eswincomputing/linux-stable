@@ -262,7 +262,7 @@ void es_dsp_halt(struct es_dsp_hw *hw)
 void es_dsp_release(struct es_dsp_hw *hw)
 {
 }
-long es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long rate)
+long es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long *rate)
 {
 	return 0;
 }

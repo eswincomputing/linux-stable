@@ -1169,3 +1169,190 @@ static void __exit split_dmabuf_exit(void)
 
 module_init(split_dmabuf_init);
 module_exit(split_dmabuf_exit);
+
+
+static int vmf_replace_pages(struct vm_area_struct *vma, unsigned long addr,
+				struct page **pages, unsigned long num, pgprot_t prot)
+{
+	struct mm_struct *const mm = vma->vm_mm;
+	unsigned long remaining_pages_total = num;
+	unsigned long pfn;
+	pte_t *pte, entry;
+	spinlock_t *ptl;
+	unsigned long newprot_val = pgprot_val(prot);
+	pgprot_t new_prot;
+	u32 i = 0;
+
+	while (remaining_pages_total) {
+		pte = get_locked_pte(mm, addr, &ptl);
+		if (!pte)
+			return VM_FAULT_OOM;
+
+		entry = ptep_get(pte);
+		pfn = page_to_pfn(pages[i]);
+		pr_debug("page_to_pfn(pages[%d])=0x%lx, pte_pfn(entry)=0x%lx, pte_val(entry)=0x%lx\n",
+			i, pfn, pte_pfn(entry), pte_val(entry));
+
+		newprot_val = (pte_val(entry) & (~_PAGE_PFN_MASK)) | newprot_val;
+		if (newprot_val == (pte_val(entry) & (~_PAGE_PFN_MASK)))
+			goto SKIP_PAGE;
+
+		new_prot = __pgprot(newprot_val);
+		entry = mk_pte(pages[i], new_prot);
+		pr_debug("page_to_pfn(pages[%d])=0x%lx, pte_pfn(entry)=0x%lx, modified pte_val(entry)=0x%lx\n",
+			i, page_to_pfn(pages[i]), pte_pfn(entry), pte_val(entry));
+		set_pte_at(vma->vm_mm, addr, pte, entry);
+		update_mmu_cache(vma, addr, pte);
+
+SKIP_PAGE:
+		addr += PAGE_SIZE;
+		pte_unmap_unlock(pte, ptl);
+		remaining_pages_total--;
+		i++;
+	}
+
+	return 0;
+}
+
+static int zap_and_replace_pages(struct vm_area_struct *vma, u64 addr, size_t len, pgprot_t prot)
+{
+	struct page **pages;
+	u32 offset;
+	unsigned long nr_pages;
+	u64 first, last;
+	u64 addr_aligned = ALIGN_DOWN(addr, PAGE_SIZE);
+	u32 i;
+	int ret = -ENOMEM;
+
+	if (!len) {
+		pr_err("invalid userptr size.\n");
+		return -EINVAL;
+	}
+	/* offset into first page */
+	offset = offset_in_page(addr);
+
+	/* Calculate number of pages */
+	first = (addr & PAGE_MASK) >> PAGE_SHIFT;
+	last  = ((addr + len - 1) & PAGE_MASK) >> PAGE_SHIFT;
+	nr_pages = last - first + 1;
+	pr_debug("%s:%d, addr=0x%llx(addr_aligned=0x%llx), len=0x%lx, nr_pages=0x%lx(fist:0x%llx,last:0x%llx)\n",
+		__func__, __LINE__, addr, addr_aligned, len, nr_pages, first, last);
+
+	/* alloc array to storing the pages */
+	pages = kvmalloc_array(nr_pages,
+				   sizeof(struct page *),
+				   GFP_KERNEL);
+	if (!pages)
+		return -ENOMEM;
+
+	ret = get_user_pages_fast(addr_aligned,
+				nr_pages,
+				FOLL_FORCE | FOLL_WRITE,
+				pages);
+
+	if (ret != nr_pages) {
+		nr_pages = (ret >= 0) ? ret : 0;
+		pr_err("get_user_pages_fast, err=%d [0x%lx]\n",
+			ret, nr_pages);
+		ret = ret < 0 ? ret : -EINVAL;
+		goto free_pages_list;
+	}
+	#if 0
+	for (i = 0; i < nr_pages; i++) {
+		pr_debug("page_to_pfn(pages[%i])=0x%lx\n", i, page_to_pfn(pages[i]));
+	}
+	#endif
+
+	pr_debug("%s, vma->vm_start 0x%lx, vma->vm_end 0x%lx, (vm_end - vm_start) 0x%lx, vma->vm_pgoff 0x%lx, user_va 0x%llx, len 0x%lx, nr_pages 0x%lx\n",
+		__func__, vma->vm_start, vma->vm_end,
+		(vma->vm_end - vma->vm_start), vma->vm_pgoff, addr, len, nr_pages);
+
+	/* construct new page table entry for the pages*/
+	ret = vmf_replace_pages(vma, addr_aligned,
+				pages, nr_pages, prot);
+	if (ret) {
+		pr_err("err %d, failed to vmf_replace_pages!!!\n", ret);
+		ret = -EFAULT;
+		goto free_user_pages;
+	}
+
+	/* Flush cache if the access to the user virtual address is uncached. */
+	if (pgprot_val(prot) & _PAGE_UNCACHE) {
+		for (i = 0; i < nr_pages; i++) {
+			/* flush cache*/
+			arch_sync_dma_for_device(page_to_phys(pages[i]), PAGE_SIZE, DMA_BIDIRECTIONAL);
+			/* put page back */
+			put_page(pages[i]);
+		}
+	}
+	else {
+		for (i = 0; i < nr_pages; i++) {
+			/* put page back */
+			put_page(pages[i]);
+		}
+	}
+
+	kvfree(pages);
+
+	return 0;
+
+free_user_pages:
+	for (i = 0; i < nr_pages; i++) {
+		/* put page back */
+		put_page(pages[i]);
+	}
+free_pages_list:
+	kvfree(pages);
+
+	return ret;
+}
+
+/**
+ * remap_malloc_buf - remap a range of memory allocated by malloc() API from user space.
+ * Normally, the CPU access to the user virtual address which is allocated by mallc() API is
+ * through cache. This remap_malloc_buf() API is to re-construct the pte table entry for the
+ * corresponding pages of the user virtual address as uncached memory, so that CPU access to
+ * the virtual address is uncached.
+ * @addr: virtual address which is got by malloc API from user space
+ * @len: the length of the memory allocated by malloc API
+ * @uncaced: if true, remap the memory as uncached, otherwise cached
+ *
+ * Return 0 if success.
+ *
+ * If uncached flag is true, the memory range of this virtual address will be flushed to make
+ * sure all the dirty data is evicted.
+ *
+ */
+int remap_malloc_buf(unsigned long addr, size_t len, bool uncaced)
+{
+	struct vm_area_struct *vma = NULL;
+	struct mm_struct *mm = current->mm;
+	pgprot_t prot;
+	int ret = 0;
+
+	if (!len) {
+		pr_err("Invalid userptr size!!!\n");
+		return -EINVAL;
+	}
+
+	mmap_read_lock(mm);
+	vma = vma_lookup(mm, addr);
+	if (!vma) {
+		pr_err("%s, vma_lookup failed!\n", __func__);
+		mmap_read_unlock(mm);
+		return -EFAULT;
+	}
+
+	pgprot_val(prot) = 0;
+	/* If true, add uncached property so that pfn_pte will use the pfn of system port to
+	   constructs the page table entry.
+	   Be carefull, do NOT change the value of the original vma->vm_page_prot*/
+	if (uncaced)
+		prot = pgprot_dmacoherent(prot);
+
+	ret = zap_and_replace_pages(vma, addr, len, prot);
+	mmap_read_unlock(mm);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(remap_malloc_buf);

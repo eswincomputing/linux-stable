@@ -260,6 +260,35 @@ int npu_dev_reset(struct nvdla_device *nvdla_dev)
 	return 0;
 }
 
+
+int npu_dev_assert(struct nvdla_device *nvdla_dev)
+{
+	int ret = 0;
+
+	ret = reset_control_assert(nvdla_dev->rstc_e31_core);
+	WARN_ON(0 != ret);
+
+	/*reset npu core*/
+	ret = npu_core_rst(0, false);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d.\n",
+			ret);
+		return ret;
+	}
+
+	/*reset npu cfg*/
+	ret = npu_cfg_rst(0, false);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d.\n",
+			ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+
+
 int npu_init_reset(struct nvdla_device *nvdla_dev)
 {
 	struct platform_device *pdev = nvdla_dev->pdev;
@@ -826,6 +855,44 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 		dev_err(&pdev->dev, "failed to get core_clk: %d\n", ret);
 		return ret;
 	}
+	nvdla_dev->core_clk = devm_clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(nvdla_dev->core_clk)) {
+		ret = PTR_ERR(nvdla_dev->core_clk);
+		nvdla_dev->core_clk = NULL;
+		dev_err(&pdev->dev, "failed to get core clk: %d.\n", ret);
+		return ret;
+	}
+	nvdla_dev->cfg_clk = devm_clk_get(&pdev->dev, "cfg_clk");
+	if (IS_ERR(nvdla_dev->cfg_clk)) {
+		ret = PTR_ERR(nvdla_dev->cfg_clk);
+		nvdla_dev->cfg_clk = NULL;
+		dev_err(&pdev->dev, "failed to get cfg clk: %d.\n", ret);
+		return ret;
+	}
+	nvdla_dev->mux_u_npu_core_3mux1_gfree = devm_clk_get(&pdev->dev, "mux_u_npu_core_3mux1_gfree");
+	if (IS_ERR(nvdla_dev->mux_u_npu_core_3mux1_gfree)) {
+		ret = PTR_ERR(nvdla_dev->mux_u_npu_core_3mux1_gfree);
+		nvdla_dev->mux_u_npu_core_3mux1_gfree = NULL;
+		dev_err(&pdev->dev, "failed to get mux_u_npu_core_3mux1_gfree clk: %d.\n", ret);
+		return ret;
+	}
+
+	nvdla_dev->fixed_rate_clk_spll2_fout2 = devm_clk_get(&pdev->dev, "fixed_rate_clk_spll2_fout2");
+	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll2_fout2)) {
+		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll2_fout2);
+		nvdla_dev->fixed_rate_clk_spll2_fout2 = NULL;
+		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout2 clk: %d.\n", ret);
+		return ret;
+	}
+
+	nvdla_dev->fixed_rate_clk_spll1_fout1 = devm_clk_get(&pdev->dev, "fixed_rate_clk_spll1_fout1");
+	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll1_fout1)) {
+		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll1_fout1);
+		nvdla_dev->fixed_rate_clk_spll1_fout1 = NULL;
+		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll1_fout1 clk: %d.\n", ret);
+		return ret;
+	}
+
 	//nvdla_dev->rstc_e31_core = devm_reset_control_get_optional_exclusive(
 	nvdla_dev->rstc_e31_core = devm_reset_control_get_optional(
 		&pdev->dev, "e31_core");
@@ -976,17 +1043,29 @@ int npu_disable_clock(struct nvdla_device *ndev)
 {
 	npu_disable_mbox_clock(ndev);
 	clk_disable_unprepare(ndev->e31_core_clk);
-	return npu_clk_gate_set(ndev->numa_id, false);
+
+	clk_disable_unprepare(ndev->core_clk);
+
+	clk_disable_unprepare(ndev->cfg_clk);
+	return 0;
 }
 
 int npu_enable_clock(struct nvdla_device *ndev)
 {
 	int ret;
-	ret = npu_clk_gate_set(ndev->numa_id, true);
-	if (ret < 0) {
-		dla_error("npu_clk_gate_set failed.\n");
+
+	ret = clk_prepare_enable(ndev->cfg_clk);
+	if (ret) {
+		dla_error("failed to enable cfg_clk: %d\n", ret);
 		return ret;
 	}
+
+	ret = clk_prepare_enable(ndev->core_clk);
+	if (ret) {
+		dla_error("failed to enable core_clk: %d\n", ret);
+		goto core_clk;
+	}
+
 	ret = clk_prepare_enable(ndev->e31_core_clk);
 	if (ret < 0) {
 		dla_error("npu enable e31 core clk err.\n");
@@ -1001,7 +1080,9 @@ int npu_enable_clock(struct nvdla_device *ndev)
 err_mbox_clk:
 	clk_disable_unprepare(ndev->e31_core_clk);
 err_e31_clk:
-	npu_clk_gate_set(ndev->numa_id, false);
+	clk_disable_unprepare(ndev->core_clk);
+core_clk:
+	clk_disable_unprepare(ndev->cfg_clk);
 	return ret;
 }
 

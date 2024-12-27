@@ -291,5 +291,6 @@ source "sound/soc/sof/imx/Kconfig"
 source "sound/soc/sof/intel/Kconfig"
 source "sound/soc/sof/mediatek/Kconfig"
 source "sound/soc/sof/xtensa/Kconfig"
+source "sound/soc/sof/eswin/Kconfig"
 
 endif

@@ -515,7 +515,7 @@ static int win2030_noc_get_error(struct win2030_noc_device *noc_device)
 	struct win2030_noc_error *noc_err;
 	unsigned long flags;
 	int i;
-	char buf[1024] = {'\0'};
+	char buf[2048] = {'\0'};
 
 	struct device *mydev = noc_device->dev;
 

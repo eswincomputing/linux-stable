@@ -25,6 +25,9 @@
 #include <linux/version.h>
 #include <linux/of_address.h>
 #include <linux/dma-map-ops.h>
+#include <linux/of.h>
+#include <linux/of_reserved_mem.h>
+#include <linux/platform_device.h>
 
 #include <drm/drm_drv.h>
 #include <drm/drm_file.h>
@@ -367,9 +370,15 @@ static int es_drm_of_component_probe(struct device *dev,
 	int i;
 	bool found = false;
 	bool matched = false;
+	int ret;
 
 	if (!dev->of_node)
 		return -EINVAL;
+
+	ret = of_reserved_mem_device_init(dev);
+	if (ret) {
+		dev_info(dev, "No memory-region specified, use system cma, ret:%d\n", ret);
+	}
 
 	/*
 	 * Bind the crtc's ports first, so that drm_of_find_possible_crtcs()
@@ -465,7 +474,7 @@ static int es_drm_of_component_probe(struct device *dev,
 							   compare_of, remote);
 				matched = false;
 				dev_dbg(dev, "matched: %pOF, remote->name:%s\n",
-					 remote, remote->name);
+					remote, remote->name);
 			}
 
 			of_node_put(remote);

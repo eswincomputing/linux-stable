@@ -1,0 +1,198 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7700 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "eic7700-som260-a1.dtsi"
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	model = "ESWIN EIC7700 Z530";
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		ap_backup {
+			label = "ap-backup";
+			linux,code = <KEY_OK>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio26_default>;
+			gpios = <&porta 26 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&d0_gmac0 {
+	dly-param-1000m = <0x23232323 0xa0209023 0x20202020>;
+	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
+	dly-param-10m = <0 0 0>;
+};
+
+&d0_gmac1 {
+	dly-param-1000m = <0x00000000 0xe002e000 0x04040404>;
+	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
+	dly-param-10m = <0 0 0>;
+};
+
+
+&pcie {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio10_default>;
+	pci-prsnt = <&porta 10 GPIO_ACTIVE_LOW>;
+};
+
+&sdio0 {
+	/* sd card */
+	delay_code = <0x3b>;
+	drive-impedance-ohm = <33>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	no-sdio;
+	no-mmc;
+};
+
+&sdio1 {
+	/* wifi module */
+	delay_code = <0x32>;
+	drive-impedance-ohm = <33>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	keep-power-in-suspend;
+	non-removable;
+	no-sd;
+	no-mmc;
+	aw3155:wifi_aw3155@0 {
+		compatible = "aml_w1_sdio";
+		reg = <0x0>;
+		interrupt-parent = <&porta>;
+		interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default", "default";
+		pinctrl-0 = <&pinctrl_gpio15_default>;
+		pinctrl-1 = <&pinctrl_gpio79_default>;
+		irq-gpios = <&porta 15 GPIO_ACTIVE_HIGH>;
+		rst-gpios = <&portc 15 GPIO_ACTIVE_HIGH>;
+
+	};
+};
+
+&ssi0 {
+	/* lora */
+};
+
+&ssi1 {
+	/* unused */
+	status = "disabled";
+};
+
+&dsi_panel {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio92_default>;
+	backlight0-gpios = <&porta 7 GPIO_ACTIVE_HIGH>;
+	rst-gpios = <&portc 28 GPIO_ACTIVE_HIGH>;
+};
+
+&d0_graphcard1 {
+	status = "okay";
+	label = "Analog Audio-0";
+	dais = <&d0_i2s1_port>;
+};
+
+&d0_graphcard2 {
+	status = "disabled";
+};
+
+&d0_i2s1 {
+	status = "okay";
+	d0_i2s1_port: port {
+		d0_i2s1_endpoint: endpoint {
+			remote-endpoint = <&d0_codec0_endpoint>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d0_i2s2 {
+	status = "disabled";
+};
+
+&d0_i2c0 {
+	/* codec es8388 */
+	d0_es8388_0: es8388-0@10 {
+		compatible = "eswin,es8388";
+		reg = <0x10>;
+		#sound-dai-cells = <0>;
+		eswin-plat = <3>;
+		port {
+			d0_codec0_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
+};
+
+&d0_i2c1 {
+	/* rtc rs4c411 & mipi dsi */
+
+};
+
+&d0_i2c2 {
+	/* touch screen*/
+	gt911:touchscreen@14 {
+		compatible = "goodix,gt911";
+		reg = <0x14>;
+		interrupt-parent = <&porta>;
+		interrupts = <0 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio0_default &pinctrl_gpio92_default>;
+		irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portc 28 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&d0_aon_i2c0 {
+	/* rk628f x2 */
+
+};
+
+/* GPIO Function Description
+	gpio0   : touch int(I)
+	gpio5   : 5g wake on host(I)
+	gpio6   : 5g disable2(O)
+	gpio7   : mipi dsi ctrl(O)
+	gpio8   : 5g disable1(O)
+	gpio9   : rk628 plugin detect(I)
+	gpio10  : pcie prsnt(I)
+	gpio12  : bt wake host(I)
+	gpio15  : wlan wake host(I)
+	gpio26  : ap backup(I)
+	gpio39  : lora busy(I)
+	gpio41  : host wake bt(I)
+	gpio70  : rk628 int(I)
+	gpio71  : rk628 reset(O)
+	gpio73  : rk628 power enable(O)
+	gpio74  : 5g pwren(O)
+	gpio76  : eth rset(O)
+	gpio77  : lora nreset(O)
+	gpio79  : m2 power on(O)
+	gpio80  : lora ctrl2(O)
+	gpio81  : lora ctrl1(O)
+	gpio92  : touch rstn(O)
+	gpio93  : 5g reset(O)
+*/

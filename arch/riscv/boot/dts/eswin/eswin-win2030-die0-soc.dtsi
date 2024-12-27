@@ -32,77 +32,6 @@
 
 / {
     compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000","sifive,fu740";
-	d0_cpu_opp_table: opp-table0 {
-		compatible = "operating-points-v2";
-		opp-shared;
-
-		opp-24000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_24M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-100000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_100M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-200000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_200M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-400000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_400M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-500000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_500M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-600000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_600M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-700000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_700M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-800000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_800M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-900000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_900M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1000000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1000M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1200000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1200M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1300000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1300M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1400000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1400M>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-	};
-
 	thermal-zones {
 		thermal0 {
 			polling-delay-passive = <500>; /*ms*/
@@ -111,9 +40,10 @@
 			thermal-sensors = <&pvt0>;
 
 			trips {
+				/*
 				threshold: trip-point0 {
-					temperature = <60000>; /* DC*1000 */
-					hysteresis = <1000>; /* DC*1000 */
+					temperature = <60000>;
+					hysteresis = <1000>;
 					type = "passive";
 				};
 				target: trip-point1 {
@@ -121,14 +51,16 @@
 					hysteresis = <1000>;
 					type = "passive";
 				};
+				*/
 				crit: trip-point2 {
-					temperature     = <110000>;
+					temperature     = <88000>;
 					hysteresis      = <0>;
 					type            = "critical";
 				};
 			};
 
 			cooling-maps {
+				/*
 				map0 {
 					trip = <&target>;
 					contribution = <1024>;
@@ -140,14 +72,15 @@
 				};
 				map1 {
 					trip = <&target>;
-					contribution = <1024>; /*TBD*/
+					contribution = <1024>;
 					cooling-device = <&d0_npu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map2 {
 					trip = <&target>;
-					contribution = <1024>; /*TBD*/
+					contribution = <1024>;
 					cooling-device = <&gpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
+				*/
 			};
 		};
 	};
@@ -241,10 +174,12 @@
 			d0_reset: reset-controller {
 				compatible = "eswin,win2030-reset";
 				#reset-cells = <2>;
+				numa-node-id = <0>;
 			};
 			d0_clock: clock-controller {
 				compatible = "eswin,win2030-clock";
 				#clock-cells = <1>;
+				numa-node-id = <0>;
 			};
 		};
 
@@ -253,10 +188,12 @@
 			compatible = "fixed-clock";
 			clock-frequency = <LSPCLK_FREQ>;
 			clock-output-names = "hfclk";
+			numa-node-id = <0>;
 		};
 
 		d0_hsp_sp_csr: hsp_sp_top_csr@0x50440000 {
 			compatible = "eswin,win2030-hsp-sp-csr", "syscon";
+			numa-node-id = <0>;
 			#size-cells = <2>;
 			reg = <0x0 0x50440000 0x0 0x2000>;
 		};
@@ -482,11 +419,12 @@
 			clock-names = "app", "stmmaceth","tx";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_ETH0_ARSTN>;
 			reset-names = "ethrst";
-			iommus = <&smmu0 WIN2030_SID_ETH0>;
+			//iommus = <&smmu0 WIN2030_SID_ETH0>;
 			tbus = <WIN2030_TBUID_ETH>;
 			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1030 0x100 0x108>;
 			eswin,syscrg_csr = <&d0_sys_crg 0x148 0x14c>;
+			eswin,dly_hsp_reg = <0x114 0x118 0x11c>;
 			snps,axi-config = <&d0_stmmac_axi_setup>;
 			d0_stmmac_axi_setup: stmmac-axi-config {
 				snps,blen = <0 0 0 0 16 8 4>;
@@ -512,11 +450,12 @@
 			clock-names = "app", "stmmaceth","tx";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_ETH1_ARSTN>;
 			reset-names = "ethrst";
-			iommus = <&smmu0 WIN2030_SID_ETH1>;
+			//iommus = <&smmu0 WIN2030_SID_ETH1>;
 			tbus = <WIN2030_TBUID_ETH>;
 			dma-noncoherent;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1034 0x200 0x208>;
 			eswin,syscrg_csr = <&d0_sys_crg 0x148 0x14c>;
+			eswin,dly_hsp_reg = <0x214 0x218 0x21c>;
 			snps,axi-config = <&d0_stmmac_axi_setup_gmac1>;
 			d0_stmmac_axi_setup_gmac1: stmmac-axi-config {
 				snps,blen = <0 0 0 0 16 8 4>;
@@ -530,6 +469,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
+			numa-node-id = <0>;
 			#include "eswin-win2030-die0-noc.dtsi"
 		};
 
@@ -549,11 +489,17 @@
 			clocks = <&d0_clock WIN2030_CLK_NPU_ACLK>,
 					<&d0_clock WIN2030_CLK_NPU_CFG_CLK>,
 					<&d0_clock WIN2030_CLK_NPU_CLK>,
-					<&d0_clock WIN2030_CLK_NPU_E31_CLK>;
-			clock-names = "aclk", "cfg_clk", "core_clk", "e31_core_clk";
+					<&d0_clock WIN2030_CLK_NPU_E31_CLK>,
+					<&d0_clock WIN2030_MUX_U_NPU_CORE_3MUX1_GFREE>,
+					<&d0_clock WIN2030_SPLL2_FOUT2>,
+					<&d0_clock WIN2030_SPLL1_FOUT1>;
+
+			clock-names = "aclk", "cfg_clk", "core_clk", "e31_core_clk", "mux_u_npu_core_3mux1_gfree", "fixed_rate_clk_spll2_fout2",
+					"fixed_rate_clk_spll1_fout1";
 
 			resets = <&d0_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
 			reset-names = "e31_core";
+			operating-points-v2 = <&npu_opp_table>;
 
 			numa-node-id = <0>;
 			firmware-name = "eic7700_die0_e31_fw";
@@ -593,6 +539,7 @@
 			reg = <0x0 0x52280400 0x0 0x10000>,
 					<0x0 0x51810000 0x0 0x8000>;
 			ranges;
+			numa-node-id = <0>;
 			dma-ranges = <0x0 0x30000000 0x0 0xc0000000 0x0 0xce000000>;
 			compatible = "es-dsp-subsys", "simple-bus";
 			clocks = <&d0_clock WIN2030_CLK_DSPT_CFG_CLK>, <&d0_clock WIN2030_CLK_DSPT_ACLK>;
@@ -614,6 +561,7 @@
 					0x28120000 0 0x5b120000 0x20000>;
 				clocks = <&d0_clock WIN2030_CLK_DSP_ACLK_0>;
 				clock-names = "aclk";
+				operating-points-v2 = <&dsp_opp_table>;
 				dsp_mbox = <&d0_mbox4>;
 				device-irq = <11
 					ESWIN_MAILBOX_DSP_0_TO_U84_REG_BASE
@@ -644,6 +592,7 @@
 					0x28120000 0 0x5b160000 0x20000>;
 				clocks = <&d0_clock WIN2030_CLK_DSP_ACLK_1>;
 				clock-names = "aclk";
+				operating-points-v2 = <&dsp_opp_table>;
 				dsp_mbox = <&d0_mbox5>;
 				device-irq = <13
 					ESWIN_MAILBOX_DSP_1_TO_U84_REG_BASE
@@ -673,6 +622,7 @@
 					0x28120000 0 0x5b1a0000 0x20000>;
 				clocks = <&d0_clock WIN2030_CLK_DSP_ACLK_2>;
 				clock-names = "aclk";
+				operating-points-v2 = <&dsp_opp_table>;
 				dsp_mbox = <&d0_mbox6>;
 				device-irq = <15
 					ESWIN_MAILBOX_DSP_2_TO_U84_REG_BASE
@@ -702,6 +652,7 @@
 					0x28120000 0 0x5b1e0000 0x20000>;
 				clocks = <&d0_clock WIN2030_CLK_DSP_ACLK_3>;
 				clock-names = "aclk";
+				operating-points-v2 = <&dsp_opp_table>;
 				dsp_mbox = <&d0_mbox7>;
 				device-irq = <17
 					ESWIN_MAILBOX_DSP_3_TO_U84_REG_BASE
@@ -721,6 +672,27 @@
 				aux-e31-dtim = <0x5a110000>;
 				dsp@0 {
 				};
+			};
+			d0_sofdsp3: sofdsp@4 {
+				#sound-dai-cells = <1>;
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,sof-dsp";
+				reg = <0x0 0x5b018000 0x0 0x8000>,
+					  <0x0 0x5b1c0000 0x0 0x40000>;
+				mbox-names = "dsp-mbox";
+				mboxes = <&d0_mbox7 0>;
+				clocks = <&d0_clock WIN2030_CLK_DSP_ACLK_3>;
+				clock-names = "aclk";
+				process-id = <3>;
+				iommus = <&smmu0 WIN2030_SID_DSP_3>;
+				tbus = <WIN2030_TBUID_DSP3>;
+				dma-noncoherent;
+				mailbox-dsp-to-u84-addr = <ESWIN_MAILBOX_DSP_3_TO_U84_REG_BASE>;
+				mailbox-u84-to-dsp-addr = <ESWIN_MAILBOX_U84_TO_DSP_3_REG_BASE>;
+				dsp-uart = <&d0_uart0>;
+				device-uart-mutex = <0x51820000>;
+				numa-node-id = <0>;
 			};
 		};
 
@@ -751,6 +723,7 @@
 			contiguous-size = <0xa00000>;
 			recovery = <0>;
 			dma-noncoherent;
+			operating-points-v2 = <&g2d_opp_table>;
 			numa-node-id = <0>;
 		};
 
@@ -772,6 +745,7 @@
 			interrupt-parent = <&plic0>;
 			interrupts = <15>;
 			dma-noncoherent;
+			numa-node-id = <0>;
 
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <0>; /*TBD*/
@@ -893,6 +867,7 @@
 			reset-names = "rst";
 			spi-max-frequency = <4800000>;
 			reg-io-width = <4>;
+			numa-node-id = <0>;
 			status = "disabled";
 		};
 		sdhci_emmc: mmc@50450000 {
@@ -1024,6 +999,7 @@
 					 <&d0_reset VD_RST_CTRL SW_VD_AXI_RSTN>;
 			reset-names = "axi", "cfg", "moncfg", "jd_cfg", "jd_axi", "vd_cfg", "vd_axi";
 			eswin,syscfg = <&d0_sys_con 0x0 0x4>;
+			operating-points-v2 = <&vdec_opp_table>;
 
 			vcmd-core = <0 0x6c>;
 			axife-core = <0x200 0x100>;
@@ -1072,6 +1048,7 @@
 					 <&d0_reset VE_RST_CTRL SW_VE_AXI_RSTN>;
 			reset-names = "axi", "cfg", "moncfg", "je_cfg", "je_axi", "ve_cfg", "ve_axi";
 			eswin,syscfg = <&d0_sys_con 0x0 0x4>;
+			operating-points-v2 = <&venc_opp_table>;
 
 			vcmd-core = <0 0x6c>;
 			axife-core = <0x2000 0x7d0>;
@@ -1115,6 +1092,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit = <ESWIN_MAIBOX_SCPU_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1134,6 +1112,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_LPCPU_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1153,6 +1132,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_NPU_0_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1172,6 +1152,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_NPU_1_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1191,6 +1172,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_0_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1210,6 +1192,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_1_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1229,6 +1212,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_2_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1248,6 +1232,7 @@
 			reset-names = "rst", "rst_device";
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_3_IRQ_BIT>;
+			numa-node-id = <0>;
 			dma-noncoherent;
 		};
 
@@ -1303,6 +1288,7 @@
 			#thermal-sensor-cells = <0>;
 			status = "disabled";
 			label = "pvt0";
+			numa-node-id = <0>;
 		};
 		pvt1: pvt@0x52360000 {
 			compatible = "eswin,eswin-pvt-ddr";
@@ -1317,6 +1303,7 @@
 			interrupt-parent = <&plic0>;
 			status = "disabled";
 			label = "pvt1";
+			numa-node-id = <0>;
 		};
 
 		fan_control: fan_control@50b50000 {
@@ -1333,9 +1320,10 @@
 			pwm-minimum-period = <1000>;
 			pwms = <&pwm0 0 100000>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_die0_fan_tach_default>;
+			pinctrl-0 = <&pinctrl_die0_fan_tach_default &pinctrl_die0_pwm0_default>;
 			status = "disabled";
 			label = "fan_control";
+			numa-node-id = <0>;
 		};
 
 		d0_i2c0: i2c@50950000 {
@@ -1350,6 +1338,7 @@
 			reg = <0x0 0x50950000 0x0 0x8000>;
 			interrupts = <105>;
 			interrupt-parent = <&plic0>;
+			numa-node-id = <0>;
 		};
 		d0_i2c1: i2c@50960000 {
 			compatible = "snps,designware-i2c";
@@ -1363,6 +1352,7 @@
 			reg = <0x0 0x50960000 0x0 0x10000>;
 			interrupts = <106>;
 			interrupt-parent = <&plic0>;
+			numa-node-id = <0>;
 		};
 		d0_i2c2: i2c@50970000 {
 				compatible = "snps,designware-i2c";
@@ -1376,6 +1366,7 @@
 				reg = <0x0 0x50970000 0x0 0x8000>;
 				interrupts = <107>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c3: i2c@50980000 {
 				compatible = "snps,designware-i2c";
@@ -1389,6 +1380,7 @@
 				reg = <0x0 0x50980000 0x0 0x8000>;
 				interrupts = <108>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c4: i2c@50990000 {
 				compatible = "snps,designware-i2c";
@@ -1402,6 +1394,7 @@
 				reg = <0x0 0x50990000 0x0 0x8000>;
 				interrupts = <109>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c5: i2c@509a0000 {
 				compatible = "snps,designware-i2c";
@@ -1415,6 +1408,7 @@
 				reg = <0x0 0x509a0000 0x0 0x8000>;
 				interrupts = <110>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c6: i2c@509b0000 {
 				compatible = "snps,designware-i2c";
@@ -1428,6 +1422,7 @@
 				reg = <0x0 0x509b0000 0x0 0x8000>;
 				interrupts = <111>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c7: i2c@509c0000 {
 				compatible = "snps,designware-i2c";
@@ -1441,6 +1436,7 @@
 				reg = <0x0 0x509c0000 0x0 0x8000>;
 				interrupts = <112>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c8: i2c@509d0000 {
 				compatible = "snps,designware-i2c";
@@ -1454,6 +1450,7 @@
 				reg = <0x0 0x509d0000 0x0 0x8000>;
 				interrupts = <113>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_i2c9: i2c@509e0000 {
 				compatible = "snps,designware-i2c";
@@ -1467,6 +1464,7 @@
 				reg = <0x0 0x509e0000 0x0 0x8000>;
 				interrupts = <114>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		d0_aon_i2c0: i2c@51830000 {
 				compatible = "snps,designware-i2c";
@@ -1489,6 +1487,7 @@
 				* 0xff : no need to select to dma controller
 				*/
 				dmas = <&d0_aon_dmac 41 0xff>, <&d0_aon_dmac 42 0xff>;
+				numa-node-id = <0>;
 		};
 		d0_aon_i2c1: i2c@51838000 {
 				compatible = "snps,designware-i2c";
@@ -1502,10 +1501,12 @@
 				reg = <0x0 0x51838000 0x0 0x8000>;
 				interrupts = <291>;
 				interrupt-parent = <&plic0>;
+				numa-node-id = <0>;
 		};
 		pinctrl: pinctrl@0x51600080 {
 			compatible = "eswin,eic7x-pinctrl";
 			reg = <0x0 0x51600080 0x0 0x1FFF80>;
+			numa-node-id = <0>;
 			status = "disabled";
 			pinctrl_die0_pwm0_default: pwm0-default{
 				mux {
@@ -1526,6 +1527,7 @@
 			#size-cells = <0>;
 			compatible = "snps,dw-apb-gpio";
 			reg = <0x0 0x51600000 0x0 0x80>;
+			numa-node-id = <0>;
 
 			porta: gpio-port@0 {
 				compatible = "snps,dw-apb-gpio-port";
@@ -1574,9 +1576,8 @@
 			clock-frequency = <200000000>;
 			resets = <&d0_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
 			reset-names = "rst";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_die0_pwm0_default>;
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		wdt0: watchdog@0x50800000 {
@@ -1589,6 +1590,7 @@
 			interrupts = <87>;
 			interrupt-parent = <&plic0>;
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		wdt1: watchdog@0x50804000 {
@@ -1601,6 +1603,7 @@
 			interrupts = <88>;
 			interrupt-parent = <&plic0>;
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		wdt2: watchdog@0x50808000 {
@@ -1613,6 +1616,7 @@
 			interrupts = <89>;
 			interrupt-parent = <&plic0>;
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		wdt3: watchdog@0x5080c000 {
@@ -1625,6 +1629,7 @@
 			interrupts = <90>;
 			interrupt-parent = <&plic0>;
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		timer0: timer@0x51840000 {
@@ -1633,6 +1638,7 @@
 			#size-cells = <2>;
 			reg = <0x0 0x51840000 0x0 0x8000>;
 			perf_count = <7>;
+			numa-node-id = <0>;
 			interrupt-parent = <&plic0>;
 			interrupts = <345>;
 			clock-names = "pclk","timer_aclk";
@@ -1655,6 +1661,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x51848000 0x0 0x8000>;
+			numa-node-id = <0>;
 			interrupt-parent = <&plic0>;
 			interrupts = <346>;
 			clock-names = "pclk","timer_aclk";
@@ -1677,6 +1684,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x51850000 0x0 0x8000>;
+			numa-node-id = <0>;
 			interrupt-parent = <&plic0>;
 			interrupts = <347>;
 			clock-names = "pclk","timer_aclk";
@@ -1699,6 +1707,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x51858000 0x0 0x8000>;
+			numa-node-id = <0>;
 			interrupt-parent = <&plic0>;
 			interrupts = <348>;
 			clock-names = "pclk","timer_aclk","timer3_clk8";
@@ -1729,12 +1738,14 @@
 			resets = <&d0_reset RTC_RST_CTRL SW_RTC_RSTN>;
 			reset-names = "rtcrst";
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		d0_i2s0: i2s0@50200000 {
 			compatible = "snps,i2s";
-			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>;
-			clock-names = "mclk";
+			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>,
+					<&d0_clock WIN2030_APLL_FOUT1>;
+			clock-names = "mclk", "apll";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#sound-dai-cells = <0x00000000>;
@@ -1747,12 +1758,14 @@
 				<&d0_reset VO_PHYRST_CTRL SW_VO_PRSTN>;
 			reset-names = "i2srst", "i2sprst", "voprst";
 			dma-noncoherent;
+			numa-node-id = <0>;
 		};
 
 		d0_i2s1: i2s1@50210000 {
 			compatible = "snps,i2s";
-			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>;
-			clock-names = "mclk";
+			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>,
+					<&d0_clock WIN2030_APLL_FOUT1>;
+			clock-names = "mclk", "apll";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#sound-dai-cells = <0x00000000>;
@@ -1765,12 +1778,14 @@
 				<&d0_reset VO_PHYRST_CTRL SW_VO_PRSTN>;
 			reset-names = "i2srst", "i2sprst", "voprst";
 			dma-noncoherent;
+			numa-node-id = <0>;
 		};
 
 		d0_i2s2: i2s2@50220000 {
 			compatible = "snps,i2s";
-			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>;
-			clock-names = "mclk";
+			clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>,
+					<&d0_clock WIN2030_APLL_FOUT1>;
+			clock-names = "mclk", "apll";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#sound-dai-cells = <0x00000000>;
@@ -1783,18 +1798,28 @@
 				<&d0_reset VO_PHYRST_CTRL SW_VO_PRSTN>;
 			reset-names = "i2srst", "i2sprst", "voprst";
 			dma-noncoherent;
+			numa-node-id = <0>;
+		};
+
+		d0_soundcard: soundcard {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "Eswin sound card";
+			numa-node-id = <0>;
 		};
 
 		d0_graphcard0: graphcard0 {
 			compatible = "audio-graph-card";
+			numa-node-id = <0>;
 		};
 
 		d0_graphcard1: graphcard1 {
 			compatible = "audio-graph-card";
+			numa-node-id = <0>;
 		};
 
 		d0_graphcard2: graphcard2 {
 			compatible = "audio-graph-card";
+			numa-node-id = <0>;
 		};
 
 		video_output: display-subsystem@0 {
@@ -1807,6 +1832,7 @@
 		dvb_widgets: dvb-subsystem {
 			compatible = "amlogic,dvb_widgets";
 			status = "disabled";
+			numa-node-id = <0>;
 		};
 
 		dc: display_control@502c0000 {
@@ -1819,8 +1845,12 @@
 			         <&d0_clock WIN2030_CLK_VO_PIXEL_CLK>,
 			         <&d0_clock WIN2030_CLK_VO_ACLK>,
 			         <&d0_clock WIN2030_SPLL0_FOUT1>,
-			         <&d0_clock WIN2030_MUX_U_VO_ACLK_ROOT_2MUX1_GFREE>;
-			clock-names = "cfg_clk", "pix_clk", "axi_clk", "spll0_fout1", "vo_mux";
+			         <&d0_clock WIN2030_MUX_U_VO_ACLK_ROOT_2MUX1_GFREE>,
+					 <&d0_clock WIN2030_MUX_U_VO_PIXEL_ROOT_2MUX1>,
+					 <&d0_clock WIN2030_SPLL2_FOUT2>,
+					 <&d0_clock WIN2030_VPLL_FOUT1>;
+			clock-names = "cfg_clk", "pix_clk", "axi_clk", "spll0_fout1", "vo_mux",
+						  "pix_mux", "spll2_fout2", "vpll_fout1";
 			resets = <&d0_reset VO_RST_CTRL SW_VO_AXI_RSTN>,
 					 <&d0_reset VO_RST_CTRL SW_VO_CFG_RSTN>,
 					 <&d0_reset VO_RST_CTRL SW_VO_DC_RSTN>,
@@ -1926,6 +1956,7 @@
 			reg = <0x0 0x502c0000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <238>;
+			numa-node-id = <0>;
 		};
 
 		dw_hdmi: hdmi@502a0000 {
@@ -1985,6 +2016,7 @@
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_USB0_VAUX_RSTN>;
 			reset-names = "vaux";
 			ranges;
+			numa-node-id = <0>;
 			status = "disabled";
 			d0_usbdrd_dwc3_0: dwc3@50480000 {
 				compatible = "snps,dwc3";
@@ -2024,6 +2056,7 @@
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_USB1_VAUX_RSTN>;
 			reset-names = "vaux";
 			ranges;
+			numa-node-id = <0>;
 			status = "disabled";
 			d0_usbdrd_dwc3_1: dwc3@50490000 {
 				compatible = "snps,dwc3";
@@ -2090,6 +2123,7 @@
 			id = <0>;
 			#size-cells = <2>;
 			reg = <0x0 0x51030000 0x0 0x10000>;
+			numa-node-id = <0>;
 		};
 
 
@@ -2140,6 +2174,7 @@
 			         <&d0_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
 			reset-names = "axi", "cfg", "dwe";
 
+			operating-points-v2 = <&vi_opp_table>;
 			interrupt-parent = <&plic0>;
 			interrupts = <26 25>;
 			#size-cells = <2>;
@@ -2297,6 +2332,7 @@
 			reg = <0x0 0x502c0000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <238>;
+			numa-node-id = <0>;
 		};
 
 		d0_numa_sample:numa_sample@0 {

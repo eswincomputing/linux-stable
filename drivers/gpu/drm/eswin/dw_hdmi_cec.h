@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * Authors: Eswin Driver team
+ * Authors: DengLei <denglei@eswincomputing.com>
  */
 
 #ifndef DW_HDMI_CEC_H

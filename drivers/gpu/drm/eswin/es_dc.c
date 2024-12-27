@@ -345,6 +345,7 @@ static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
 	struct es_crtc_state *crtc_state = to_es_crtc_state(crtc->state);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct dc_hw_display display;
+	int ret;
 
 	display.bus_format = crtc_state->output_fmt;
 	display.h_active = mode->hdisplay;
@@ -373,7 +374,20 @@ static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
 	es_dc_clk_configs(dev, true);
 
 	if (dc->pix_clk_rate != mode->clock) {
-		clk_set_rate(dc->pix_clk, mode->clock * 1000);
+		if (mode->clock == 513820) {
+			ret = clk_set_parent(dc->pix_mux, dc->spll2_fout2);
+			if (ret < 0) {
+				dev_err(dev, "failed to set pix mux parent spll2, err:%d\n", ret);
+			}
+			/* set mode (2880*1800@90hz) clock to 520M */
+			clk_set_rate(dc->pix_clk, 520000000);
+		} else {
+			ret = clk_set_parent(dc->pix_mux, dc->vpll_fout1);
+			if (ret < 0) {
+				dev_err(dev, "failed to set pix mux parent vpll, err:%d\n", ret);
+			}
+			clk_set_rate(dc->pix_clk, mode->clock * 1000);
+		}
 		dc->pix_clk_rate = mode->clock;
 	}
 
@@ -411,6 +425,10 @@ static bool es_dc_mode_fixup(struct device *dev,
 {
 	struct es_dc *dc = dev_get_drvdata(dev);
 	long clk_rate;
+
+	dev_dbg(dev, "adjust mode clock:%d\n", adjusted_mode->clock);
+	if (adjusted_mode->clock == 513820)
+		return true;
 
 	if (dc->pix_clk) {
 		clk_rate = clk_round_rate(dc->pix_clk,
@@ -1081,6 +1099,24 @@ static int dc_probe(struct platform_device *pdev)
 	if (IS_ERR(dc->axi_clk)) {
 		dev_err(dev, "failed to get axi_clk source\n");
 		return PTR_ERR(dc->axi_clk);
+	}
+
+	dc->pix_mux = devm_clk_get_optional(dev, "pix_mux");
+	if (IS_ERR(dc->pix_mux)) {
+		dev_err(dev, "failed to get pix mux clk source\n");
+		return PTR_ERR(dc->pix_mux);
+	}
+
+	dc->spll2_fout2 = devm_clk_get_optional(dev, "spll2_fout2");
+	if (IS_ERR(dc->spll2_fout2)) {
+		dev_err(dev, "failed to get spll2 fout2 clk source\n");
+		return PTR_ERR(dc->spll2_fout2);
+	}
+
+	dc->vpll_fout1 = devm_clk_get_optional(dev, "vpll_fout1");
+	if (IS_ERR(dc->vpll_fout1)) {
+		dev_err(dev, "failed to get vpll fout1 clk source\n");
+		return PTR_ERR(dc->vpll_fout1);
 	}
 
 	dc->vo_arst = devm_reset_control_get_optional(dev, "vo_arst");

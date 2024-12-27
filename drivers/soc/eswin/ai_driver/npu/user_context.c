@@ -600,6 +600,20 @@ err_model_id:
 
 static struct win_engine *get_engine_from_file(struct file *file);
 
+static int runtime_try_lock(struct user_context *uctx, struct file *file)
+{
+	struct win_engine *engine;
+	engine = get_engine_from_file(file);
+
+	if (down_trylock(&engine->runtime_sem)) {
+		return -EINTR;
+	}
+	BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
+	atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
+	dla_debug("try %s, %d locked\n", __func__, __LINE__);
+	return 0;
+}
+
 static int runtime_lock_request(struct user_context *uctx, struct file *file,
 				unsigned int cmd)
 {
@@ -607,15 +621,7 @@ static int runtime_lock_request(struct user_context *uctx, struct file *file,
 	struct win_engine *engine;
 
 	engine = get_engine_from_file(file);
-	if (cmd == ES_NPU_IOCTL_MUTEX_TRYLOCK) {
-		if (down_trylock(&engine->runtime_sem)) {
-			return -EINTR;
-		}
-		BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
-		atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
-		dla_debug("try %s, %d locked\n", __func__, __LINE__);
-
-	} else if (cmd == ES_NPU_IOCTL_MUTEX_LOCK) {
+	if (cmd == ES_NPU_IOCTL_MUTEX_LOCK) {
 		if (down_interruptible(&engine->runtime_sem)) {
 			return -EINTR;
 		}
@@ -893,9 +899,10 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 	case ES_NPU_IOCTL_TASK_SUBMIT:
 		ret = commit_new_io_tensor(uctx, &win_arg);
 		break;
-	case ES_NPU_IOCTL_MUTEX_LOCK:
-	case ES_NPU_IOCTL_MUTEX_UNLOCK:
 	case ES_NPU_IOCTL_MUTEX_TRYLOCK:
+		return runtime_try_lock(uctx, file);
+	case ES_NPU_IOCTL_MUTEX_UNLOCK:
+	case ES_NPU_IOCTL_MUTEX_LOCK:
 		ret = runtime_lock_request(uctx, file, cmd);
 		break;
 	case ES_NPU_IOCTL_HETERO_CMD:

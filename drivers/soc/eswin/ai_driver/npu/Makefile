@@ -3,6 +3,9 @@ LOG_LEVEL ?= 0
 NPU_DEV_SIM ?= 0
 SMALL_PEC_MAT ?= 0
 
+ifeq ($(CONFIG_NPU_PERF),y)
+	NPU_PERF_STATS = 2
+endif
 ccflags-y += -I$(src)
 ccflags-y += -I$(srctree)/drivers/soc/eswin
 ccflags-y += -I$(srctree)/drivers/memory/eswin/codacache/
@@ -22,7 +25,7 @@ ccflags-y += -DNPU_DBG
 #ccflags-y += -DCONV_DUMP
 ccflags-y += -DLOG_LEVEL=$(LOG_LEVEL)
 ccflags-y += -Wno-unused-function
-ccflags-y += -Werror
+#ccflags-y += -Werror
 ccflags-y += -Wno-int-to-pointer-cast
 
 obj-$(CONFIG_ESWIN_NPU) += eic7700_npu.o

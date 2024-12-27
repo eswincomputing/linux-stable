@@ -20,6 +20,7 @@
 
 #define CHIPLET_AND_DIE (0x2)
 #include "eswin-win2030-arch.dtsi"
+#include "eic770x-ooptable.dtsi"
 
 
 &L64 {
@@ -105,7 +106,7 @@
 		tlb-split;
 		numa-node-id = <1>;
 		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
-		operating-points-v2 = <&d1_cpu_opp_table>;
+		operating-points-v2 = <&cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu4_intc: interrupt-controller {
 			#interrupt-cells = <1>;
@@ -153,7 +154,7 @@
 		tlb-split;
 		numa-node-id = <1>;
 		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
-		operating-points-v2 = <&d1_cpu_opp_table>;
+		operating-points-v2 = <&cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu5_intc: interrupt-controller {
 			#interrupt-cells = <1>;
@@ -200,7 +201,7 @@
 		tlb-split;
 		numa-node-id = <1>;
 		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
-		operating-points-v2 = <&d1_cpu_opp_table>;
+		operating-points-v2 = <&cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu6_intc: interrupt-controller {
 			#interrupt-cells = <1>;
@@ -247,7 +248,7 @@
 		tlb-split;
 		numa-node-id = <1>;
 		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
-		operating-points-v2 = <&d1_cpu_opp_table>;
+		operating-points-v2 = <&cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu7_intc: interrupt-controller {
 			#interrupt-cells = <1>;
@@ -272,6 +273,7 @@
 		riscv,event-to-mhpmevent = <0x4 0x0 0x202 0x5 0x0 0x4000 0x6 0x0 0x2001 0x10009 0x0 0x102 0x10019 0x0 0x1002 0x10021 0x0 0x802>;
 		compatible = "riscv,pmu0", "riscv,pmu";
 		interrupts-extended = <&cpu4_intc 13 &cpu5_intc 13 &cpu6_intc 13 &cpu7_intc 13>;
+		numa-node-id = <1>;
 	};
 
 	d1_bus_err0: bus-error-unit@21700000 {
@@ -280,6 +282,7 @@
 		interrupts = <517>;
 		reg = <0x0 0x21700000 0x0 0x1000>;
 		reg-names = "control";
+		numa-node-id = <1>;
 	};
 	d1_bus_err1: bus-error-unit@21701000 {
 		compatible = "sifive,buserror";
@@ -287,6 +290,7 @@
 		interrupts = <518>;
 		reg = <0x0 0x21701000 0x0 0x1000>;
 		reg-names = "control";
+		numa-node-id = <1>;
 	};
 	d1_bus_err2: bus-error-unit@21702000 {
 		compatible = "sifive,buserror";
@@ -294,6 +298,7 @@
 		interrupts = <519>;
 		reg = <0x0 0x21702000 0x0 0x1000>;
 		reg-names = "control";
+		numa-node-id = <1>;
 	};
 	d1_bus_err3: bus-error-unit@21703000 {
 		compatible = "sifive,buserror";
@@ -301,6 +306,7 @@
 		interrupts = <520>;
 		reg = <0x0 0x21703000 0x0 0x1000>;
 		reg-names = "control";
+		numa-node-id = <1>;
 	};
 
 	D1CACHE: cache-controller@22010000 {
@@ -356,6 +362,7 @@
 		reg-names = "control";
 		sifive,ecc-granularity = <16>;
 		sifive,perfmon-counters = <6>;
+		numa-node-id = <1>;
 	};
 	d1_l2_cache_1: pl2@20108000 {
 		cache-block-size = <64>;
@@ -369,6 +376,7 @@
 		reg-names = "control";
 		sifive,ecc-granularity = <16>;
 		sifive,perfmon-counters = <6>;
+		numa-node-id = <1>;
 	};
 	d1_l2_cache_2: pl2@2010c000 {
 		cache-block-size = <64>;
@@ -382,6 +390,7 @@
 		reg-names = "control";
 		sifive,ecc-granularity = <16>;
 		sifive,perfmon-counters = <6>;
+		numa-node-id = <1>;
 	};
 	d1_l2_cache_3: pl2@20110000 {
 		cache-block-size = <64>;
@@ -395,6 +404,7 @@
 		reg-names = "control";
 		sifive,ecc-granularity = <16>;
 		sifive,perfmon-counters = <6>;
+		numa-node-id = <1>;
 	};
 };
 

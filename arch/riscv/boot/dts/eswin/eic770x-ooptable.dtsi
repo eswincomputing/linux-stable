@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Include file for pin control of Eswin EIC770x family SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/clock/win2030-clock.h>
+/ {
+	cpu_opp_table: opp-table@cpu {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-24000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_24M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-100000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_100M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-200000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_200M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-400000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_400M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-500000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_500M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-600000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_600M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-700000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_700M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-800000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_800M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-900000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_900M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1000000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1000M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1200000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1200M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1300000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1300M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1400000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1400M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+	};
+
+	dsp_opp_table: opp-table@dsp {
+		compatible = "operating-points-v2";
+		opp@520000000 {
+			opp-hz = /bits/ 64 <520000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@1040000000 {
+			opp-hz = /bits/ 64 <1040000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+	npu_opp_table: opp-table@npu {
+		compatible = "operating-points-v2";
+		opp@1040000000 {
+			opp-hz = /bits/ 64 <1040000000>;
+			opp-microvolt = <900000>;
+		};
+		opp@1500000000 {
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <1050000>;
+		};
+
+	};
+
+	g2d_opp_table: opp-table@g2d {
+		compatible = "operating-points-v2";
+		opp@260000000 {
+			opp-hz = /bits/ 64 <260000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@520000000 {
+			opp-hz = /bits/ 64 <520000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@693333334 {
+			opp-hz = /bits/ 64 <693333334>;
+			opp-microvolt = <800000>;
+		};
+		opp@1040000000 {
+			opp-hz = /bits/ 64 <1040000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
+	vi_opp_table: opp-table@vi {
+		compatible = "operating-points-v2";
+		opp@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
+	venc_opp_table: opp-table@venc {
+		compatible = "operating-points-v2";
+		opp@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
+	vdec_opp_table: opp-table@vdec {
+		compatible = "operating-points-v2";
+		opp@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+};

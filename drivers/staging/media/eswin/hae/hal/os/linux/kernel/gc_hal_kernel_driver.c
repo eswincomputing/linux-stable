@@ -1393,11 +1393,16 @@ static int __devinit viv_dev_probe(struct platform_device *pdev)
 
     if (platform->ops->adjustParam) {
         /* Override default module param. */
+        gceSTATUS status;
         activeDeviceCount++;
-        if(gcvSTATUS_MORE_DATA == platform->ops->adjustParam(platform, &platform->params)){
+        status = platform->ops->adjustParam(platform, &platform->params);
+        if(gcvSTATUS_MORE_DATA == status){
             gcmkPRINT("hae loaded first device, waiting for another...");
             _SyncModuleParam(&platform->params);
             return 0;
+        } else if (!gcmIS_SUCCESS(status)){
+            gcmkPRINT("hae adjust param error, status=%d", status);
+            return -1;
         }
     }
 

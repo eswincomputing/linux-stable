@@ -47,6 +47,9 @@ struct es_dc {
 	struct clk *cfg_clk;
 	struct clk *pix_clk;
 	struct clk *axi_clk;
+	struct clk *pix_mux;
+	struct clk *spll2_fout2;
+	struct clk *vpll_fout1;
 	unsigned int pix_clk_rate; /* in KHz */
 
 	struct reset_control *vo_arst;

@@ -1,8 +1,22 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) ESWIN Electronics Co.Ltd
+ * ESWIN timer driver
  *
- * Eswin timer driver
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Xuxiang <xuxiang@eswincomputing.com>
  */
 
 #include <linux/clk.h>
@@ -44,10 +58,11 @@ struct eswin_timer {
     struct resource *mem;
     void __iomem *mmio_base;
     u32 perf_count;
+    u32 numa_id;
 };
 
-static struct eswin_timer *perf_timer = NULL;
-static void __iomem *perf_cnt_base = NULL;
+static struct eswin_timer *perf_timer[2] = {NULL, NULL};
+static void __iomem *perf_cnt_base[2] = {NULL, NULL};
 
 static inline u32 eswin_readl(struct eswin_timer *timer, unsigned long offs)
 {
@@ -163,27 +178,56 @@ static int timer_mmap(struct file *file, struct vm_area_struct *vma)
 {
     struct resource *res;
     u64 base;
-    if (perf_timer == NULL) {
+    if (perf_timer[0] == NULL) {
         return -EIO;
     }
 
-    res = perf_timer->mem;
+    res = perf_timer[0]->mem;
 
-    base = res->start + perf_timer->perf_count * 0x14;
+    base = res->start + perf_timer[0]->perf_count * 0x14;
     remap_pfn_range(vma, vma->vm_start, base >> 12,
             vma->vm_end - vma->vm_start, vma->vm_page_prot);
     return 0;
 }
 
-static struct file_operations timer_fops = {
-    .owner = THIS_MODULE,
-    .mmap = timer_mmap,
+static int timer_mmap_die1(struct file *file, struct vm_area_struct *vma)
+{
+    struct resource *res;
+    u64 base;
+    if (perf_timer[1] == NULL) {
+        return -EIO;
+    }
+
+    res = perf_timer[1]->mem;
+
+    base = res->start + perf_timer[1]->perf_count * 0x14;
+    remap_pfn_range(vma, vma->vm_start, base >> 12,
+            vma->vm_end - vma->vm_start, vma->vm_page_prot);
+    return 0;
+}
+
+static struct file_operations timer_fops[2] = {
+    {
+        .owner = THIS_MODULE,
+        .mmap = timer_mmap,
+    },
+    {
+        .owner = THIS_MODULE,
+        .mmap = timer_mmap_die1,
+    },
 };
 
-static struct miscdevice timer_misc = {
-    .minor = MISC_DYNAMIC_MINOR,
-    .name = "perf_count",
-    .fops = &timer_fops,
+static struct miscdevice timer_misc[2] = {
+    {
+        .minor = MISC_DYNAMIC_MINOR,
+        .name = "perf_count",
+        .fops = &timer_fops[0],
+    },
+    {
+        .minor = MISC_DYNAMIC_MINOR,
+        .name = "perf_count_die1",
+        .fops = &timer_fops[1],
+    },
 };
 
 /*
@@ -195,9 +239,9 @@ static struct miscdevice timer_misc = {
  * resolution: about 42ns per cnt. So the max time that will not overflow is 42 * 0xFFFF_FFFF ~= 180s
  */
 
-u32 get_perf_timer_cnt(void)
+u32 get_perf_timer_cnt(u32 numa_id)
 {
-    return APBTMR_MAX_CNT - readl(perf_cnt_base);
+    return APBTMR_MAX_CNT - readl(perf_cnt_base[numa_id]);
 }
 EXPORT_SYMBOL(get_perf_timer_cnt);
 
@@ -208,22 +252,21 @@ static int init_timer_perf_counter(struct eswin_timer *time, u32 chan)
     time->perf_count = chan;
     eswin_writel(time, APBTMR_MAX_CNT, chan * APBTMR_EACH_OFS + APBTMR_N_LOAD_COUNT);
     eswin_writel(time, 0x7, chan * APBTMR_EACH_OFS + APBTMR_N_CONTROL);
-    ret = misc_register(&timer_misc);
-    perf_timer = time;
-    perf_cnt_base = perf_timer->mmio_base + chan * APBTMR_EACH_OFS + APBTMR_N_CURRENT_VALUE;
+    ret = misc_register(&timer_misc[time->numa_id]);
+    perf_timer[time->numa_id] = time;
+    perf_cnt_base[time->numa_id] = perf_timer[time->numa_id]->mmio_base + chan * APBTMR_EACH_OFS + APBTMR_N_CURRENT_VALUE;
     return 0;
 }
 
 static int eswin_timer_probe(struct platform_device *pdev)
 {
-    struct device *dev = &pdev->dev;
-    struct device_node *np = dev->of_node;
+    struct device_node *np = pdev->dev.of_node;
     struct eswin_timer *time;
     struct resource *res;
     int error, irq, ret;
     u32 val;
 
-    dev_err(&pdev->dev, "eswin_timer_probe\n");
+    dev_info(&pdev->dev, "eswin_timer_probe\n");
     /*add eswin timer*/
     time = devm_kzalloc(&pdev->dev, sizeof(struct eswin_timer), GFP_KERNEL);
     if (!time)
@@ -235,6 +278,12 @@ static int eswin_timer_probe(struct platform_device *pdev)
         return -EINVAL;
     }
     time->mem = res;
+
+    ret = device_property_read_u32(&pdev->dev, "numa-node-id", &time->numa_id);
+	if (0 != ret) {
+		dev_err(&pdev->dev, "failed to get numa node id\n");
+		return ret;
+	}
 
     time->mmio_base = devm_ioremap_resource(&pdev->dev, res);
     if (IS_ERR(time->mmio_base))
@@ -262,7 +311,7 @@ static int eswin_timer_probe(struct platform_device *pdev)
         init_timer_perf_counter(time, val);
     }
 
-    dev_err(&pdev->dev, "eswin_timer_probe success\n");
+    dev_info(&pdev->dev, "eswin_timer_probe success\n");
     return 0;
 }
 

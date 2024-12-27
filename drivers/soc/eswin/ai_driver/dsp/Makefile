@@ -50,4 +50,8 @@ eic7700_dsp-y += dsp_platform.o dsp_sram.o dsp_firmware.o dsp_pool.o \
 
 endif
 
+ifeq ($(CONFIG_DSP_PERF),y)
+	BUILD_RELEASE = 2
+endif
+
 ccflags-y += -DDSP_ENV_SIM=${DSP_ENV_SIM} -DBUILD_RELEASE=${BUILD_RELEASE} -DDEBUG_LEVEL=${DEBUG_LEVEL} -w

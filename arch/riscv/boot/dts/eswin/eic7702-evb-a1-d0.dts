@@ -228,6 +228,7 @@
 
 &d0_npu{
 	status = "okay";
+	npu-supply=<&npu_vcc1>;
 };
 
 &d0_dsp_subsys {
@@ -428,7 +429,9 @@
 	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-
+	dly-param-1000m = <0x23232323 0x800c8023 0x0c0c0c0c>;
+	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
+	dly-param-10m = <0 0 0>;
 	status = "okay";
 };
 
@@ -438,7 +441,9 @@
 	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-
+	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
+	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
+	dly-param-10m = <0 0 0>;
 	status = "okay";
 };
 
@@ -624,7 +629,6 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};

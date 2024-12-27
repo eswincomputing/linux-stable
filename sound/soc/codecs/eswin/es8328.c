@@ -6,20 +6,24 @@
  *
  * Author: Sean Cross <xobs@kosagi.com>
  */
-
-/*
- * Copyright (C) 2021 ESWIN, Inc. All rights reserved.
+/*****************************************************************************
+ * ESWIN codec driver
  *
- * This program is free software; you can redistribute it and/or modify
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * the Free Software Foundation, version 2.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: DengLei <denglei@eswincomputing.com>
  */
 
 
@@ -94,7 +98,12 @@ static const char * const supply_names[ES8328_SUPPLY_NUM] = {
 		SNDRV_PCM_FMTBIT_S18_3LE | \
 		SNDRV_PCM_FMTBIT_S20_3LE | \
 		SNDRV_PCM_FMTBIT_S24_LE | \
+		SNDRV_PCM_FMTBIT_S24_3LE | \
 		SNDRV_PCM_FMTBIT_S32_LE)
+
+#define EVB_BOARD   1
+#define DVB_BOARD   2
+#define Z530_BOARD  3
 
 struct es8328_priv {
 	struct regmap *regmap;
@@ -691,6 +700,10 @@ static const struct snd_soc_dapm_route es8328_dapm_routes[] = {
 
 static int es8328_mute(struct snd_soc_dai *dai, int mute, int direction)
 {
+	if ((mute == 1) && (direction == 0)) {
+		snd_soc_component_write(dai->component, ES8328_DACPOWER, 0xc0);
+	}
+
 	return snd_soc_component_update_bits(dai->component, ES8328_DACCONTROL3,
 			ES8328_DACCONTROL3_DACMUTE,
 			mute ? ES8328_DACCONTROL3_DACMUTE : 0);
@@ -784,6 +797,13 @@ static int es8328_hw_params(struct snd_pcm_substream *substream,
 		snd_soc_component_update_bits(component, ES8328_ADCCONTROL4,
 				ES8328_ADCCONTROL4_ADCWL_MASK,
 				wl << ES8328_ADCCONTROL4_ADCWL_SHIFT);
+
+	if (params_rate(params) <= 48000) {
+		snd_soc_component_update_bits(component, reg, ES8328_DACCONTROL2_DOUBLESPEED, 0);
+	} else {
+		snd_soc_component_update_bits(component, reg,
+			ES8328_DACCONTROL2_DOUBLESPEED, ES8328_DACCONTROL2_DOUBLESPEED);
+	}
 
 	return snd_soc_component_update_bits(component, reg, ES8328_RATEMASK, ratio);
 }
@@ -894,7 +914,7 @@ static int es8328_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	/* Set MIC PGA Volume */
 	snd_soc_component_write(component, ES8328_ADCCONTROL1, 0x88);
 
-	if (es8328->eswin_plat == 2) {
+	if (es8328->eswin_plat == DVB_BOARD) {
 		if (gpiod_get_value(es8328->front_jack_gpio) == 1 && gpiod_get_value(es8328->back_jack_gpio) == 0) {
 			/* Select default capture path ---> LIN1 */
 			snd_soc_component_write(component, ES8328_ADCCONTROL2, 0);
@@ -902,6 +922,9 @@ static int es8328_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			/* Select default capture path ---> LIN2 */
 			snd_soc_component_write(component, ES8328_ADCCONTROL2, 0x50);
 		}
+	} else if (es8328->eswin_plat == Z530_BOARD) {
+		/* Select default capture path ---> LIN1 */
+		snd_soc_component_write(component, ES8328_ADCCONTROL2, 0);
 	} else {
 		/* Select default capture path ---> phone mic */
 		snd_soc_component_write(component, ES8328_ADCCONTROL2, 0xf0);
@@ -967,6 +990,7 @@ static int es8328_set_bias_level(struct snd_soc_component *component,
 				0);
 		break;
 	}
+
 	return 0;
 }
 
@@ -981,7 +1005,7 @@ static const struct snd_soc_dai_ops es8328_dai_ops = {
 
 static struct snd_soc_dai_driver es8328_dai[3] = {
 	{
-		.name = "es8328-0-hifi-analog",
+		.name = "es8328-0",
 		.playback = {
 			.stream_name = "Playback",
 			.channels_min = MIN_CHANNEL_NUM,
@@ -1000,7 +1024,7 @@ static struct snd_soc_dai_driver es8328_dai[3] = {
 		.symmetric_rate = 1,
 	},
 	{
-		.name = "es8328-1-hifi-analog",
+		.name = "es8328-1",
 		.playback = {
 			.stream_name = "Playback",
 			.channels_min = MIN_CHANNEL_NUM,
@@ -1019,7 +1043,7 @@ static struct snd_soc_dai_driver es8328_dai[3] = {
 		.symmetric_rate = 1,
 	},
 	{
-		.name = "es8328-2-hifi-analog",
+		.name = "es8328-2",
 		.playback = {
 			.stream_name = "Playback",
 			.channels_min = MIN_CHANNEL_NUM,
@@ -1117,6 +1141,7 @@ static int es8328_open(struct snd_soc_component *component,
 }
 
 static const struct snd_soc_component_driver es8328_component_driver = {
+	.name           = "es8388",
 	.probe			= es8328_component_probe,
 	.remove			= es8328_remove,
 	.suspend		= es8328_suspend,
@@ -1184,7 +1209,7 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
     }
 	dev_info(dev, "eswin platform:%d\n", es8328->eswin_plat);
 
-	if (es8328->eswin_plat == 2) {
+	if (es8328->eswin_plat == DVB_BOARD) {
 		es8328->front_jack_gpio = devm_gpiod_get(dev, "front-jack", GPIOD_IN);
 		ret = IS_ERR(es8328->front_jack_gpio);
 		if(ret) {

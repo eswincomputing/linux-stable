@@ -1,0 +1,688 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7700 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+#define RTCCLK_FREQ		1000000
+#define LSPCLK_FREQ		200000000
+
+/* If wanna enable ECC capability of DDR, should reserve highest zone of 1/8 all space for it */
+#define MEMORY_SIZE_H		0x4
+#define MEMORY_SIZE_L		0x0
+#define CMA_SIZE		0x20000000
+
+#include "eswin-win2030-die0-soc.dtsi"
+#include "eic7700-pinctrl.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/* Clock frequency (in Hz) of the PCB crystal for rtcclk */
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	model = "ESWIN 7700S314";
+	compatible = "eswin,eic7700";
+
+	aliases {
+		serial0 = &d0_uart0;
+		ethernet0 = &d0_gmac0;
+		ethernet1 = &d0_gmac1;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+		opensbi_domain_config: domain-config {
+			compatible = "opensbi,domain,config";
+			system-suspend-test;
+		};
+	};
+
+	cpus {
+		timebase-frequency = <RTCCLK_FREQ>;
+	};
+
+	memory@59000000 {
+		device_type = "memory";
+		reg = <0x0 0x59000000 0x0 0x400000>;
+		numa-node-id = <0>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		numa-node-id = <0>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 CMA_SIZE>;
+			alignment = <0x0 0x1000>;
+			alloc-ranges = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+			linux,cma-default;
+		};
+
+		npu0_reserved: sprammemory@59000000 {
+			no-map;
+			reg = <0x0 0x59000000 0x0 0x400000>;
+		};
+
+		g2d_4GB_boundary_reserved_4k {
+			no-map;
+			reg = <0x0 0xfffff000 0x0 0x1000>;
+		};
+
+		g2d_8GB_boundary_reserved_4k {
+			no-map;
+			reg = <0x1 0xfffff000 0x0 0x1000>;
+		};
+
+		g2d_12GB_boundary_reserved_4k {
+			no-map;
+			reg = <0x2 0xfffff000 0x0 0x1000>;
+		};
+
+		mmz_nid_0_part_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x3 0x0 0x1 0x80000000>;
+			no-map;
+		};
+	};
+};
+
+&d0_clock {
+	status = "okay";
+};
+
+&d0_reset {
+	status = "okay";
+};
+
+&d0_pmu {
+	status = "okay";
+};
+
+&ddr0 {
+	status = "okay";
+};
+
+&ddr1 {
+	status = "okay";
+};
+
+&smmu0 {
+	status = "okay";
+};
+
+&smmu_pmu0 {
+	status = "disabled";
+};
+
+&dev_foo_a {
+	status = "okay";
+};
+
+&d0_cfg_noc {
+	status = "okay";
+};
+
+&d0_llc_noc {
+	status = "okay";
+	stat,0 = "TracePort:ddr0_p0_req";
+	stat,1 = "TracePort:ddr1_p0_req";
+	//latency,0 = "TracePort:llcnoc_trans_probe";
+	//pending,0 = "TracePort:llcnoc_trans_probe";
+};
+
+&d0_sys_noc {
+	status = "okay";
+
+	//eswin,DSPT-qos-owner;
+	//eswin,NPU-qos-owner;
+	//eswin,SPISLV_TBU3-qos-owner;
+
+#if 0
+	stat,0 = "TracePort:ddr0_p1_req",
+		 "InitFlow:mcput_snoc_mp/I/0";
+
+	stat,1 = "TracePort:ddr0_p2_req",
+		 "InitFlow:dspt_snoc/I/0",
+		 "AddrBase:0x81000000", "AddrSize:0x30",
+		 "Opcode:RdWrLockUrg", "Status:ReqRsp", "Length:0x8000", "Urgency:0x0";
+
+	stat,2 = "TracePort:ddr1_p1_req",
+		 "Status:Req", "AddrSize:0x28";
+
+	stat,3 = "TracePort:ddr1_p2_req";
+#else
+	stat,0 = "TracePort:ddr0_p1_req";
+
+	stat,1 = "TracePort:ddr0_p2_req";
+
+	stat,2 = "TracePort:ddr1_p1_req";
+
+	stat,3 = "TracePort:ddr1_p2_req";
+#endif
+
+	latency,0 = "TracePort:sysnoc_trans_probe_0", "AddrSize:0x0";
+	latency,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x28","Opcode:RdWr";
+	//latency,2 = "TracePort:sysnoc_trans_probe_2";
+
+	//pending,0 = "TracePort:sysnoc_trans_probe_0";
+	//pending,1 = "TracePort:sysnoc_trans_probe_1","Mode:latency","AddrBase:0x82000000","AddrSize:0x0","Opcode:RdWr";
+	pending,0 = "TracePort:sysnoc_trans_probe_2", "AddrSize:0x3";
+};
+
+&d0_media_noc {
+	status = "okay";
+
+	//eswin,GPU-qos-owner;
+	//eswin,TBU2-qos-owner;
+	//eswin,VC-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p3_req";
+	stat,1 = "TracePort:ddr1_p3_req";
+	//latency,0 = "TracePort:mnoc_trans_probe";
+	//pending,0 = "TracePort:mnoc_trans_probe";
+};
+
+&d0_realtime_noc {
+	status = "okay";
+
+	//eswin,TBU0-qos-owner;
+	//eswin,VO-qos-owner;
+
+	stat,0 = "TracePort:ddr0_p4_req";
+	stat,1 = "TracePort:ddr1_p4_req";
+	//latency,0 = "TracePort:rnoc_trans_probe";
+	//pending,0 = "TracePort:rnoc_trans_probe";
+};
+
+&d0_noc_wdt {
+	status = "okay";
+};
+
+&d0_ipc_scpu {
+	status = "okay";
+};
+
+&d0_lpcpu {
+	status = "okay";
+};
+
+&pcie {
+	status = "okay";
+};
+
+&d0_npu{
+	status = "okay";
+};
+
+&d0_dsp_subsys {
+	status = "okay";
+};
+
+&d0_dsp0 {
+	status = "okay";
+};
+
+&d0_dsp1 {
+	status = "okay";
+};
+
+&d0_dsp2 {
+	status = "okay";
+};
+
+&d0_dsp3 {
+	status = "okay";
+};
+
+&gpu0 {
+	status = "okay";
+};
+
+&gc820 {
+	status = "okay";
+};
+
+&vdec0 {
+	status = "okay";
+};
+
+&venc0 {
+	status = "okay";
+};
+
+&video_output {
+	status = "okay";
+};
+
+&dc {
+	status = "okay";
+};
+
+&dc_test {
+    status = "disabled";
+};
+
+&virtual_display {
+    status = "okay";
+};
+
+&dsi_output {
+    status = "okay";
+};
+
+&dsi_controller {
+    status = "okay";
+};
+
+&dsi_panel {
+	status = "okay";
+};
+
+&dw_hdmi {
+	status = "okay";
+	ports {
+		port@2 {
+			reg = <2>;
+			hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s0_endpoint>;
+			};
+		};
+	};
+};
+
+&dw_hdmi_hdcp2 {
+    status = "okay";
+};
+
+&d0_i2s0 {
+	status = "okay";
+	d0_i2s0_port: port {
+		d0_i2s0_endpoint: endpoint {
+			remote-endpoint = <&hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d0_i2s1 {
+	status = "okay";
+};
+
+&d0_i2s2 {
+	status = "okay";
+};
+
+&d0_graphcard0 {
+	status = "okay";
+	label = "HDMI Audio";
+	dais = <&d0_i2s0_port>;
+};
+
+&isp_0 {
+	status = "okay";
+};
+
+&isp_1 {
+	status = "okay";
+};
+
+&dewarp {
+	status = "okay";
+};
+
+&mipi_dphy_rx {
+	status = "disabled";
+};
+
+&csi_dma0 {
+	status = "disabled";
+};
+
+&csi_dma1 {
+	status = "disabled";
+};
+
+&csi2_0 {
+	status = "disabled";
+};
+
+&csi2_1 {
+	status = "disabled";
+};
+
+&sdhci_emmc {
+	/* emmc */
+	status = "okay";
+	delay_code = <0x17>;
+	drive-impedance-ohm = <50>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
+	no-sdio;
+	no-sd;
+};
+
+&sdio0 {
+	status = "okay";
+};
+
+&sdio1 {
+	status = "okay";
+};
+
+&d0_gmac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio106_default>;
+	rst-gpios = <&portd 10 GPIO_ACTIVE_LOW>;
+	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
+	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	dly-param-1000m = <0x23232323 0x800c8023 0x0c0c0c0c>;
+	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
+	dly-param-10m = <0 0 0>;
+};
+
+&d0_gmac1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio111_default>;
+	rst-gpios = <&portd 15 GPIO_ACTIVE_LOW>;
+	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
+	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
+	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
+	dly-param-10m = <0 0 0>;
+};
+
+&d0_sata {
+	status = "okay";
+};
+
+&d0_usbdrd3_0 {
+	status = "okay";
+};
+
+&d0_usbdrd_dwc3_0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+};
+
+&d0_usbdrd3_1 {
+	status = "okay";
+};
+
+&d0_usbdrd_dwc3_1 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+};
+
+&d0_dmac0 {
+	status = "okay";
+};
+
+&d0_aon_dmac {
+	status = "okay";
+};
+
+&d0_uart0 {
+	/* debug */
+	status = "okay";
+};
+
+&d0_uart1 {
+	status = "okay";
+};
+
+&d0_uart2 {
+	status = "okay";
+};
+
+&d0_uart3 {
+	status = "okay";
+};
+
+&d0_uart4 {
+	status = "okay";
+};
+
+&ssi0 {
+	status = "okay";
+};
+
+&ssi1 {
+	status = "okay";
+};
+
+&bootspi {
+	/* spi flash */
+	status = "okay";
+	num-cs = <1>;
+	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
+	spi-flash@0 {
+		compatible = "winbond,w25q128jw",
+					"jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <4800000>;
+		rx-sample-delay-ns = <10>;
+	};
+};
+
+&d0_mbox0 {
+	status = "okay";
+};
+
+&d0_mbox1 {
+	status = "okay";
+};
+
+&d0_mbox2 {
+	status = "okay";
+};
+
+&d0_mbox3 {
+	status = "okay";
+};
+
+&d0_mbox4 {
+	status = "okay";
+};
+
+&d0_mbox5 {
+	status = "okay";
+};
+
+&d0_mbox6 {
+	status = "okay";
+};
+
+&d0_mbox7 {
+	status = "okay";
+};
+
+&fan_control {
+	status = "okay";
+	eswin,pwm_inverted;
+};
+
+&d0_i2c0 {
+	status = "okay";
+};
+
+&d0_i2c1 {
+	status = "okay";
+};
+
+&d0_i2c2 {
+	status = "okay";
+};
+
+&d0_i2c3 {
+	status = "okay";
+};
+
+&d0_i2c4 {
+	status = "okay";
+};
+
+&d0_i2c5 {
+	status = "okay";
+};
+
+&d0_i2c6 {
+	status = "okay";
+};
+
+&d0_i2c7 {
+	status = "okay";
+};
+
+&d0_i2c8 {
+	status = "okay";
+};
+
+&d0_i2c9 {
+	status = "okay";
+};
+
+&d0_aon_i2c0 {
+	status = "okay";
+};
+
+&d0_aon_i2c1 {
+	status = "okay";
+};
+
+&pwm0 {
+	/* fan */
+	status = "okay";
+};
+
+&pvt0 {
+	status = "okay";
+};
+
+&pvt1 {
+	status = "okay";
+};
+
+&wdt0 {
+	status = "disabled";
+};
+
+&wdt1 {
+	status = "disabled";
+};
+
+&wdt2 {
+	status = "disabled";
+};
+
+&wdt3 {
+	status = "disabled";
+};
+
+&die0_rtc {
+	status = "okay";
+};
+
+&timer0 {
+	status = "okay";
+};
+
+&timer1 {
+	status = "okay";
+};
+
+&timer2 {
+	status = "okay";
+};
+
+&timer3 {
+	status = "okay";
+};
+
+&pinctrl {
+	status = "okay";
+};
+
+/*
+ GPIO USED ON SOM:
+	gpio18  : HOST WAKE WLAN(O), active low
+	gpio19  : HOST WAKE BT(O), active low
+	gpio20  : WLAN WAKE HOST(I), active low
+	gpio21  : BT WAKE HOST(I), active low
+	gpio106 : gphy0 resern(O), active low
+	gpio111 : gphy1 resern(O), active low
+
+*/
+
+&gpio0 {
+	status = "okay";
+};
+&dev_llc_d0{
+	/* apply_npu_1G_freq; */
+	npu-supply=<&npu_vcc1>;
+	status = "okay";
+};
+
+&d0_clock {
+	status = "okay";
+	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
+};
+
+&cpu_opp_table {
+	opp-1500000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+	opp-1600000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+	opp-1700000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+	opp-1800000000 {
+		opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
+		opp-microvolt = <900000>;
+		clock-latency-ns = <70000>;
+	};
+};

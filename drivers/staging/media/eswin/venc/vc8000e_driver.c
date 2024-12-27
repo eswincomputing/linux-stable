@@ -15,6 +15,11 @@
 #include <linux/dma-mapping.h>
 #include <linux/eswin-win2030-sid-cfg.h>
 
+#if defined(CONFIG_PM_DEVFREQ)
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+#endif
+
 #include "vc8000_driver.h"
 
 #define LOG_TAG  VENC_DEV_NAME ":main"
@@ -821,12 +826,72 @@ int enc_reset_system(u32 core_id) {
 }
 /** end of interface functions*/
 
+#if defined(CONFIG_PM_DEVFREQ)
+static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
+{
+	int ret;
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+
+	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, *freq);
+	*freq = clk_round_rate(vcrt->je_clk, *freq);
+	if (*freq > 0) {
+		ret = clk_set_rate(vcrt->je_clk, *freq);
+		if (ret) {
+			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
+			return ret;
+		}
+		LOG_DBG("VE set je_clk to %ldHZ\n", *freq);
+	} else {
+		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", *freq);
+		return -1;
+	}
+
+	*freq = clk_round_rate(vcrt->ve_clk, *freq);
+	if (*freq > 0) {
+		ret = clk_set_rate(vcrt->ve_clk, *freq);
+		if (ret) {
+			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
+			return ret;
+		}
+		LOG_DBG("VE set ve_clk to %ldHZ\n", *freq);
+	} else {
+		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", *freq);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int venc_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+
+	*freq = clk_get_rate(vcrt->ve_clk);
+
+	return 0;
+}
+
+/** devfreq profile */
+static struct devfreq_dev_profile venc_devfreq_profile = {
+	.initial_freq = VENC_SYS_CLK_HIGHEST,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 1000, /** Poll every 1000ms to monitor load */
+	.target = venc_devfreq_target,
+	.get_cur_freq = venc_devfreq_get_cur_freq,
+};
+#endif /** CONFIG_PM_DEVFREQ*/
+
 static int hantro_venc_probe(struct platform_device *pdev)
 {
 	static int pdev_count = 0;
 	int ret, numa_id, venc_dev_num = 0;
 	venc_dev_prvdata *prvdata = devm_kzalloc(&pdev->dev, sizeof(venc_dev_prvdata), GFP_KERNEL);
 	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df = NULL;
+#endif
 
 	venc_dev_num = venc_device_nodes_check();
 	if (venc_dev_num <= 0) {
@@ -841,6 +906,20 @@ static int hantro_venc_probe(struct platform_device *pdev)
 	}
 
 	LOG_INFO("initializing venc, numa id %d\n", numa_id);
+
+#if defined(CONFIG_PM_DEVFREQ)
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		LOG_ERR("%s, %d, Failed to add OPP table\n", __func__, __LINE__);
+		return -1;
+	}
+	df = devm_devfreq_add_device(&pdev->dev, &venc_devfreq_profile, "userspace", NULL);
+	if (IS_ERR(df)) {
+		LOG_ERR("%s, %d, add devfreq failed\n", __func__, __LINE__);
+		return -1;
+	}
+#endif /** CONFIG_PM_DEVFREQ*/
 
 	if (!numa_id) {
 		ret = venc_sys_reset_init(pdev, vcrt);

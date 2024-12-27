@@ -132,4 +132,6 @@ struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd,
 void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj);
 void common_dmabuf_heap_rsv_iova_uninit(struct heap_root *root);
 
+int remap_malloc_buf(unsigned long addr, size_t len, bool uncaced);
+
 #endif

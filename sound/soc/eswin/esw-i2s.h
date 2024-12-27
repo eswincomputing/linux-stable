@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (ST) 2012 Rajeev Kumar (rajeevkumar.linux@gmail.com)
  *
@@ -5,21 +6,24 @@
  * License version 2. This program is licensed "as is" without any
  * warranty of any kind, whether express or implied.
  */
-
-/*
+/*****************************************************************************
+ * ESWIN i2s driver
  *
- * Copyright (C) 2021 ESWIN, Inc. All rights reserved.
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * the Free Software Foundation, version 2.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: DengLei <denglei@eswincomputing.com>
  */
 
 #ifndef __I2S_H
@@ -32,7 +36,6 @@
 #include <sound/soc.h>
 #include <linux/clk.h>
 #include <linux/types.h>
-#include <sound/dmaengine_pcm.h>
 #include <sound/designware_i2s.h>
 
 
@@ -145,9 +148,20 @@ enum {
 	RESOLUTION_32_BIT
 };
 
+
+struct esw_i2s_dma_data {
+	void *data;
+	dma_addr_t addr;
+	u32 max_burst;
+	unsigned int fifo_size;
+	enum dma_slave_buswidth addr_width;
+	bool (*filter)(struct dma_chan *chan, void *slave);
+};
+
 struct i2s_dev {
 	void __iomem *i2s_base;
-	struct clk *clk;
+	struct clk *mclk;
+	struct clk *apll_clk;
 	struct device *dev;
 	unsigned int i2s_reg_comp1;
 	unsigned int i2s_reg_comp2;
@@ -155,8 +169,8 @@ struct i2s_dev {
 	u32 fifo_th;
 	bool use_pio;
 	/* data related to DMA transfers b/w i2s and DMAC */
-	struct snd_dmaengine_dai_dma_data play_dma_data;
-	struct snd_dmaengine_dai_dma_data capture_dma_data;
+	struct esw_i2s_dma_data play_dma_data;
+	struct esw_i2s_dma_data capture_dma_data;
 	struct i2s_clk_config_data config;
 	struct snd_pcm_substream __rcu *tx_substream;
 	struct snd_pcm_substream __rcu *rx_substream;
@@ -175,6 +189,17 @@ struct i2s_dev {
 	u32 i2s_div_num;
 	bool playback_active;
 	bool capture_active;
+	int nid;
+
+	struct dma_chan *chan[2];
+	dma_cookie_t cookie[2];
+	void *pos[2];
+	dma_addr_t rb_in_iova;
+	dma_addr_t rb_out_iova;
+
+	unsigned int pcm_pos[2];
+	struct snd_soc_component pcm_component;
+	void *conv_buf[2];
 };
 
 #endif /* __I2S_H */

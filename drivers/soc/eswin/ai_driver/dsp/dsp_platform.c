@@ -318,7 +318,7 @@ int es_dsp_clk_enable(struct es_dsp *dsp)
 	return 0;
 }
 
-int es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long rate)
+int es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long *rate)
 {
 	struct es_dsp *dsp = hw->es_dsp;
 	int ret;
@@ -327,16 +327,22 @@ int es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long rate)
 		dsp_err("%s %d: failed to get device\n", __func__, __LINE__);
 		return -ENXIO;
 	}
-	rate = clk_round_rate(hw->aclk, rate);
-	if (rate > 0) {
-		ret = clk_set_rate(hw->aclk, rate);
+
+	*rate = clk_round_rate(hw->aclk, *rate);
+	if (*rate > 0) {
+		ret = clk_set_rate(hw->aclk, *rate);
 		if (ret) {
 			dev_err(dsp->dev, "failed to set aclk: %d\n", ret);
 			return ret;
 		}
 	}
-	dev_info(dsp->dev, "set device rate to %ldHZ\n", rate);
+	dev_info(dsp->dev, "set dev rate to %ldHZ\n", *rate);
 	return 0;
+}
+
+int es_dsp_get_rate(struct es_dsp_hw *hw)
+{
+	return clk_get_rate(hw->aclk);
 }
 
 void es_dsp_halt(struct es_dsp_hw *hw)
@@ -1269,7 +1275,6 @@ int es_dsp_hw_init(struct es_dsp *dsp)
 		hw->pts_iova = 0;
 		goto err;
 	}
-	es_dsp_set_rate(hw, dsp->rate);
 	dev_dbg(dsp->dev, "firmware-name:%s.\n", dsp->firmware_name);
 	return 0;
 err:

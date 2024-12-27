@@ -58,6 +58,9 @@
 #include <uapi/asm-generic/siginfo.h>
 #include <linux/mailbox/eswin-mailbox.h>
 #include <linux/dma-mapping.h>
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+
 #include "eswin-khandle.h"
 
 #include "dsp_main.h"
@@ -682,9 +685,14 @@ static inline void dsp_release(struct es_dsp *dsp)
 	es_dsp_release(dsp->hw_arg);
 }
 
-static inline int dsp_set_rate(struct es_dsp *dsp, unsigned long rate)
+static inline int dsp_set_rate(struct es_dsp *dsp, unsigned long *rate)
 {
 	return es_dsp_set_rate(dsp->hw_arg, rate);
+}
+
+static inline int dsp_get_rate(struct es_dsp *dsp)
+{
+	return es_dsp_get_rate(dsp->hw_arg);
 }
 
 static int dsp_synchronize(struct es_dsp *dsp)
@@ -852,95 +860,6 @@ out:
 }
 EXPORT_SYMBOL(dsp_runtime_resume);
 
-/**
- * Called when opening rate file
- * @param inode
- * @param file
- * @return
- */
-static int dsp_rate_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-/**
- * Called when reading rate file
- */
-static ssize_t dsp_rate_read(struct file *flip, char __user *ubuf, size_t cnt,
-			     loff_t *ppos)
-{
-#define RUN_STR_SIZE 11
-	struct es_dsp *dsp = flip->private_data;
-	char buf[RUN_STR_SIZE];
-	int r;
-
-	r = snprintf(buf, RUN_STR_SIZE, "%ld\n", dsp->rate);
-
-	return simple_read_from_buffer(ubuf, cnt, ppos, buf, r);
-}
-/**
- * Called when writing rate file
- */
-static ssize_t dsp_rate_write(struct file *flip, const char __user *ubuf,
-			      size_t cnt, loff_t *ppos)
-{
-#define SIZE_SMALL_BUF 256
-	struct es_dsp *dsp = flip->private_data;
-	char buf[SIZE_SMALL_BUF] = { 0 };
-	unsigned ret;
-
-	if (cnt > SIZE_SMALL_BUF)
-		cnt = SIZE_SMALL_BUF - 1;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-
-	if (0 == strncmp(buf, "5200000", strlen("5200000"))) {
-		dsp->rate = DSP_SUBSYS_LOWLOAD_CLK; /* FIXME spinlock? */
-	} else if (0 == strncmp(buf, "1040000000", strlen("1040000000"))) {
-		dsp->rate = DSP_SUBSYS_HILOAD_CLK;
-	} else {
-		dev_err(dsp->dev, "invalid rate para %s\n", buf);
-		return -EFAULT;
-	}
-	ret = dsp_set_rate(dsp, dsp->rate);
-	if (0 != ret) {
-		dev_err(dsp->dev, "failed to set rate to %ldHZ", dsp->rate);
-	} else {
-		dev_info(dsp->dev, "set rate to %ldHZ", dsp->rate);
-	}
-	*ppos += cnt;
-
-	return cnt;
-}
-
-static const struct file_operations dsp_rate_fops = {
-	.open = dsp_rate_open,
-	.read = dsp_rate_read,
-	.write = dsp_rate_write,
-	.llseek = generic_file_llseek,
-};
-static int dsp_debug_init(struct es_dsp *dsp)
-{
-	struct dentry *dir, *d;
-	char name[32];
-
-	scnprintf(name, ARRAY_SIZE(name), "dsp_%d", dsp->nodeid);
-
-	dir = debugfs_create_dir(name, NULL);
-	if (IS_ERR(dir))
-		return PTR_ERR(dir);
-
-	d = debugfs_create_file("rate", S_IRUGO | S_IWUSR, dir, dsp,
-				&dsp_rate_fops);
-	if (IS_ERR(d))
-		return PTR_ERR(d);
-
-	dsp->debug_dentry = dir;
-	return 0;
-}
-
 #ifdef CONFIG_OF
 static const struct of_device_id es_dsp_hw_match[] = {
 	{
@@ -965,13 +884,48 @@ static void dsp_init_prio_array(struct es_dsp *dsp)
 	set_bit(DSP_MAX_PRIO, array->bitmap);
 }
 
-static int32_t  dsp_probe_result = 0;
+#if defined(CONFIG_PM_DEVFREQ)
+/* devfreq target function to set frequency */
+static int dsp_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
+{
+	struct es_dsp *dsp = dev_get_drvdata(dev);
 
+	return dsp_set_rate(dsp, freq);
+}
+
+static int dsp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	struct es_dsp *dsp = dev_get_drvdata(dev);
+	unsigned long rate;
+
+	rate = dsp_get_rate(dsp);
+	if (rate <= 0) {
+		dev_err(dsp->dev, "failed to get aclk: %d\n", rate);
+		return rate;
+	}
+	*freq = rate;
+	return 0;
+}
+
+/* devfreq profile */
+static struct devfreq_dev_profile dsp_devfreq_profile = {
+	.initial_freq = DSP_SUBSYS_HILOAD_CLK,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 1000, /* Poll every 1000ms to monitor load */
+	.target = dsp_devfreq_target,
+	.get_cur_freq = dsp_devfreq_get_cur_freq,
+};
+#endif
+
+static int32_t  dsp_probe_result = 0;
 static int es_dsp_hw_probe(struct platform_device *pdev)
 {
 	int ret;
 	char nodename[sizeof("es-dsp") + 3 * sizeof(int)];
 	struct es_dsp *dsp;
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df;
+#endif
 
 	dsp = devm_kzalloc(&pdev->dev,
 			   sizeof(*dsp) + sizeof(struct es_dsp_stats) +
@@ -1038,6 +992,23 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 			__LINE__, ret);
 		goto err_mbox_clk;
 	}
+
+#if defined(CONFIG_PM_DEVFREQ)
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		dsp_err("%s, %d, Failed to add OPP table\n", __func__, __LINE__);
+		goto err_dsp_devfreq;
+	}
+
+	df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, "userspace", NULL);
+	if (IS_ERR(df)) {
+		dsp_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
+		ret = PTR_ERR(df);
+		goto err_dsp_devfreq;
+	}
+#endif
+
 	ret = es_dsp_clk_enable(dsp);
 	if (ret) {
 		dsp_err("%s, %d, clock enbale error.\n", __func__, __LINE__,
@@ -1081,7 +1052,6 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	g_es_dsp[dsp->numa_id][dsp->process_id] = dsp;
 
-	dsp_debug_init(dsp);
 	pm_runtime_mark_last_busy(dsp->dev);
 	pm_runtime_put_autosuspend(dsp->dev);
 
@@ -1100,6 +1070,10 @@ err_hw_init:
 err_tbu_power:
 	es_dsp_clk_disable(dsp);
 err_dsp_clk:
+#if defined(CONFIG_PM_DEVFREQ)
+	devm_devfreq_remove_device(dsp->dev, df);
+err_dsp_devfreq:
+#endif
 	dsp_disable_mbox_clock(dsp);
 err_mbox_clk:
 	es_dsp_unmap_resource(dsp);
