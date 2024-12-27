@@ -414,6 +414,26 @@ static int esw_cmdq_add_task(struct file *filp, void __user *user_arg) {
         return -EFAULT;
     }
 
+    if (memcp_f2f_cmd.len == 0) {
+        pr_err("Copy length is zero\n");
+        kfree(cmdq_task);
+        return -EINVAL;
+    }
+
+    if ((size_t)memcp_f2f_cmd.src_offset > SIZE_MAX - memcp_f2f_cmd.len) {
+        pr_err("Overflow detected in (src_offset + len), src_offset=%d, len=%zu\n",
+               memcp_f2f_cmd.src_offset, memcp_f2f_cmd.len);
+        kfree(cmdq_task);
+        return -EINVAL;
+    }
+
+    if ((size_t)memcp_f2f_cmd.dst_offset > SIZE_MAX - memcp_f2f_cmd.len) {
+        pr_err("Overflow detected in (dst_offset + len), dst_offset=%d, len=%zu\n",
+               memcp_f2f_cmd.dst_offset, memcp_f2f_cmd.len);
+        kfree(cmdq_task);
+        return -EINVAL;
+    }
+
     cmdq_task->cmdq = q;
     cmdq_task->f2f_cmd = memcp_f2f_cmd;
 

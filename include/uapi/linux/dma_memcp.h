@@ -36,9 +36,9 @@
  */
 struct esw_memcp_f2f_cmd {
     int src_fd;
-    int src_offset;
+    unsigned int src_offset;
     int dst_fd;
-    int dst_offset;
+    unsigned int dst_offset;
     size_t len;
     int timeout;
 };
