@@ -187,6 +187,26 @@ static char *pcer_str(u8 pcer)
 	return "FAIL";
 }
 
+
+static int npu_stat_show(struct seq_file *m, void *p)
+{
+	int i = 0;
+	struct nvdla_device *ndev;
+	uint64_t start_stat_time = ktime_get_real_ns();
+	for (i = 0; i < 2; i++) {
+		ndev = get_nvdla_dev(i);
+		if (!ndev) {
+			continue;
+		}
+		if(atomic64_read(&ndev->start_lock_time) > atomic64_read(&ndev->end_lock_time)){
+			start_stat_time = atomic64_read(&ndev->start_lock_time);
+		}
+		seq_printf(m, "npu%d %llu %llu %llu\n",i, start_stat_time,
+		           atomic64_read(&ndev->total_lock_time), atomic64_read(&ndev->total_hwexec_time));
+	}
+	return 0;
+}
+
 static int npu_info_show(struct seq_file *m, void *p)
 {
 #if NPU_PERF_STATS > 1
@@ -253,6 +273,11 @@ static int npu_info_show(struct seq_file *m, void *p)
 static int info_open(struct inode *inode, struct file *flip)
 {
 	return single_open(flip, npu_info_show, NULL);
+}
+
+static int stat_open(struct inode *inode, struct file *flip)
+{
+	return single_open(flip, npu_stat_show, NULL);
 }
 
 static int perf_show(struct seq_file *m, void *p)
@@ -325,6 +350,12 @@ static struct proc_ops proc_info_fops = {
 	.proc_release = single_release,
 };
 
+static struct proc_ops proc_stat_fops = {
+	.proc_open = stat_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
+};
+
 static struct proc_ops proc_perf_fops = {
 	.proc_open = perf_open,
 	.proc_read = seq_read,
@@ -344,6 +375,11 @@ int npu_create_procfs(void)
 
 	if (!proc_create("info", 0644, proc_esnpu, &proc_info_fops)) {
 		dla_error("error create proc npu info file.\n");
+		goto err_info;
+	}
+
+	if (!proc_create("stat", 0444, proc_esnpu, &proc_stat_fops)) {
+		dla_error("error create proc npu stat file.\n");
 		goto err_info;
 	}
 

@@ -95,10 +95,10 @@
 #define SCU_DSPT_DIV_SEL BIT_ULL(19)
 #define SCU_DSPT_DIV_EN BIT_ULL(23)
 
-// from eswin/dsp/framework/lsp/memmap.xmm .dram1.perfdata(0x2813ffc8)
+// from eswin/dsp/framework/lsp/memmap.xmm .dram1.perfdata(0x2813ffc0)
 #define DSP_FLAT_ADDR 0x5b13fe70
 #define DSP_FW_STATE_ADDR 0x5b13ffb0
-#define DSP_PERF_START_ADDR 0x5b13ffc8
+#define DSP_PERF_START_ADDR 0x5b13ffc0
 #define DIE_BASE_INTERVAL 0x20000000
 #define DSP_CORE_INTERVAL 0x40000
 

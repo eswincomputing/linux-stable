@@ -603,13 +603,15 @@ static struct win_engine *get_engine_from_file(struct file *file);
 static int runtime_try_lock(struct user_context *uctx, struct file *file)
 {
 	struct win_engine *engine;
+	struct nvdla_device* ndev;
 	engine = get_engine_from_file(file);
-
+	ndev = (struct nvdla_device *)(engine->nvdla_dev);
 	if (down_trylock(&engine->runtime_sem)) {
 		return -EINTR;
 	}
 	BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
 	atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
+	atomic64_set(&ndev->start_lock_time, ktime_get_real_ns());
 	dla_debug("try %s, %d locked\n", __func__, __LINE__);
 	return 0;
 }
@@ -619,8 +621,10 @@ static int runtime_lock_request(struct user_context *uctx, struct file *file,
 {
 	unsigned long last_state;
 	struct win_engine *engine;
+	struct nvdla_device* ndev;
 
 	engine = get_engine_from_file(file);
+	ndev = (struct nvdla_device *)(engine->nvdla_dev);
 	if (cmd == ES_NPU_IOCTL_MUTEX_LOCK) {
 		if (down_interruptible(&engine->runtime_sem)) {
 			return -EINTR;
@@ -628,11 +632,15 @@ static int runtime_lock_request(struct user_context *uctx, struct file *file,
 
 		BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
 		atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
+		atomic64_set(&ndev->start_lock_time, ktime_get_real_ns());
 		dla_debug("%s, %d locked\n", __func__, __LINE__);
 	} else {
 		last_state = atomic_fetch_and(~NPU_RT_MUTX_LOCKED,
 					      &uctx->lock_status);
 		if (last_state == NPU_RT_MUTX_LOCKED) {
+			atomic64_set(&ndev->end_lock_time, ktime_get_real_ns());
+			atomic64_add(ktime_get_real_ns()-atomic64_read(&ndev->start_lock_time),
+			             &ndev->total_lock_time);
 			up(&engine->runtime_sem);
 			dla_debug("%s, %d unlocked\n", __func__, __LINE__);
 		}
