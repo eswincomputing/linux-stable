@@ -71,6 +71,7 @@ typedef struct {
     volatile ES_U32 send_prepare_to_npu;
     volatile ES_U32 send_eval_to_npu;
     volatile ES_U32 invalid_cmd_cnt;
+    volatile ES_U64 total_ran_time;
 } es_dsp_perf_info;
 
 #endif

@@ -93,6 +93,12 @@ struct nvdla_device {
 	uint16_t *pause_op_list;
 	struct regulator *npu_regulator;
 	u8 is_low_freq;
+
+	atomic64_t start_lock_time;
+	atomic64_t end_lock_time;
+	atomic64_t total_lock_time;
+	atomic64_t start_hwexec_time;
+	atomic64_t total_hwexec_time;
 };
 
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);

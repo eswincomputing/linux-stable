@@ -56,6 +56,32 @@ static char *func_state[] = {
 static int stats_show(struct seq_file *m, void *p)
 {
 	struct es_dsp *dsp;
+	int i,j;
+	const int die_cnt = 2;
+	const int dsp_cnt = 4;
+	es_dsp_perf_info perf_info;
+
+	for (j = 0; j < die_cnt; j++) {
+		for (i = 0; i < dsp_cnt; i++) {
+			dsp = es_proc_get_dsp(j, i);
+			if (dsp == NULL) {
+				continue;
+			}
+			if(!dsp->perf_reg_base) {
+				continue;
+			}
+			memcpy((void *)&perf_info, dsp->perf_reg_base, sizeof(es_dsp_perf_info));
+			seq_printf( m, "dsp%d %llu %llu\n",j*dsp_cnt + i, ktime_get_real_ns(),
+			            (perf_info.total_ran_time * 1000) /24);
+		}
+	}
+	return 0;
+
+}
+
+static int info_show(struct seq_file *m, void *p)
+{
+	struct es_dsp *dsp;
 	int i, j;
 	dsp_request_t req;
 	dsp_request_t *myreq;
@@ -339,6 +365,43 @@ static int proc_stats_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int proc_info_open(struct inode *inode, struct file *file)
+{
+	int ret;
+	const int die_cnt = 2;
+	const int dsp_cnt = 4;
+	int i, j;
+	struct es_dsp *dsp;
+
+	for (j = 0; j < die_cnt; j++) {
+		for (i = 0; i < dsp_cnt; i++) {
+			dsp = es_proc_get_dsp(j, i);
+			if (dsp == NULL) {
+				continue;
+			}
+			ret = es_dsp_pm_get_sync(dsp);
+			if (ret < 0) {
+				dsp_err("%s, %d, get dsp die = %d, core = %d pm err.\n",
+					__func__, __LINE__, j, i);
+				goto err;
+			}
+		}
+	}
+	return single_open(file, info_show, NULL);
+
+err:
+	for (j; j >= 0; j--) {
+		for (i -= 1; i >= 0; i--) {
+			dsp = es_proc_get_dsp(j, i);
+			if (dsp == NULL) {
+				continue;
+			}
+			es_dsp_pm_put_sync(dsp);
+		}
+	}
+	return ret;
+}
+
 static int proc_stats_open(struct inode *inode, struct file *file)
 {
 	int ret;
@@ -499,6 +562,12 @@ static ssize_t perf_write(struct file *flip, const char __user *buf,
 	return size;
 }
 
+static struct proc_ops proc_info_fops = {
+	.proc_open = proc_info_open,
+	.proc_read = seq_read,
+	.proc_release = proc_stats_release,
+};
+
 static struct proc_ops proc_stats_fops = {
 	.proc_open = proc_stats_open,
 	.proc_read = seq_read,
@@ -526,7 +595,12 @@ int es_dsp_init_proc(void)
 		dsp_err("proc mkdir esdsp dir err.\n");
 		return -ENOMEM;
 	}
-	if (!proc_create("info", 0644, proc_es_dsp, &proc_stats_fops)) {
+	if (!proc_create("info", 0644, proc_es_dsp, &proc_info_fops)) {
+		dsp_err("error create proc dsp info file.\n");
+		goto err;
+	}
+	if (!proc_create("stat", 0644, proc_es_dsp, &proc_stats_fops)) {
+		dsp_err("error create proc dsp stat file.\n");
 		goto err;
 	}
 	if (!proc_create("debug", 0644, proc_es_dsp, &proc_debug_fops)) {

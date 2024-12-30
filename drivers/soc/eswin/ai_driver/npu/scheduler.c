@@ -62,6 +62,7 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 			    npu_io_tensor_t *io_tensor, host_node_t *host_node)
 {
 	int ret;
+	struct nvdla_device *ndev = (struct nvdla_device *)engine->nvdla_dev;
 	emission_node_t *pemission_node =
 		(emission_node_t *)host_node->emission_base_addr;
 	program_node_t *program_node =
@@ -78,6 +79,7 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 		dla_error("%s, %d, send mailbox to npu error=%d.\n", __func__,
 			  __LINE__, ret);
 	}
+	atomic64_set(&ndev->start_hwexec_time, ktime_get_real_ns());
 	return ret;
 }
 
@@ -272,6 +274,7 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	int ret = 1;
 	unsigned long last_state;
 	unsigned long flags;
+	struct nvdla_device *ndev = (struct nvdla_device *)engine->nvdla_dev;
 
 	ret = del_timer(&engine->timer[tiktok]);
 	if (!ret) {
@@ -302,7 +305,8 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	engine->tiktok_frame[f->tiktok] = NULL;
 	unset_current(engine, executor, f->tiktok);
 	spin_unlock_irqrestore(&engine->executor_lock, flags);
-
+	atomic64_add(ktime_get_real_ns() - atomic64_read(&ndev->start_hwexec_time),
+	             &ndev->total_hwexec_time);
 	npu_frame_done_process(f);
 	last_state = atomic_fetch_and(~NPU_RT_MUTX_FRAME_DONE,
 				      &model->uctx->lock_status);
