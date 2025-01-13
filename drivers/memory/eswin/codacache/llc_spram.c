@@ -110,8 +110,6 @@ struct spram_dev {
 	struct reset_control *rstc_core;
 	struct reset_control *rstc_llc;
 	struct regulator *npu_regulator;
-	u8 is_low_freq;
-	bool is_suspend;
 };
 
 #define dma_buf_map		iosys_map
@@ -591,8 +589,6 @@ static int llc_clk_init(struct platform_device *pdev)
 		return ret;
 	}
 
-
-
 	spram->core_clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(spram->core_clk)) {
 		ret = PTR_ERR(spram->core_clk);
@@ -628,6 +624,7 @@ static int llc_clk_enable(struct spram_dev *spram)
 		dev_err(spram->dev, "failed to enable llc_clk: %d\n", ret);
 		return ret;
 	}
+
 	ret = clk_prepare_enable(spram->core_clk);
 	if (ret) {
 		dev_err(spram->dev, "failed to enable core_clk: %d\n", ret);
@@ -682,40 +679,6 @@ static int llc_rst_init(struct platform_device *pdev)
 	return 0;
 }
 
-static int llc_clk_set_parent(struct platform_device *pdev)
-{
-	int ret;
-	struct spram_dev *spram = platform_get_drvdata(pdev);
-	struct device_node *np;
-	struct device *dev = &pdev->dev;
-
-	spram->is_low_freq = 0;
-	if (spram == NULL)
-		return -EINVAL;
-
-	np = of_node_get(dev->of_node);
-
-	spram->npu_regulator = devm_regulator_get(dev, "npu");
-	if (IS_ERR_OR_NULL(spram->npu_regulator)) {
-		dev_err(dev, "failed to get npu regulator!\n");
-		return -ENODEV;
-	}
-
-	ret = regulator_get_voltage(spram->npu_regulator);
-	if (ret < 0) {
-		dev_warn(dev, "failed to get npu regulator,the npu freq will set to 1G\n");
-		spram->is_low_freq = 1;
-	} else {
-		spram->is_low_freq = (of_property_read_bool(np, "apply_npu_1G_freq"));
-		dev_dbg(dev, "success to get npu regulator,apply_npu_1G_freq:%d\n",
-				 spram->is_low_freq);
-		ret = regulator_enable(spram->npu_regulator);
-		if (ret < 0) {
-			return ret;
-		}
-	}
-	return 0;
-}
 static int llc_clk_set_frq(struct platform_device *pdev)
 {
 	int ret;
@@ -842,18 +805,11 @@ static int llc_clk_rst_init(struct platform_device *pdev)
 	int ret = 0;
 	struct spram_dev *spram = platform_get_drvdata(pdev);
 
-	spram->is_low_freq = 0;
 	dev_dbg(&pdev->dev, "---%s\n", __func__);
 
 	ret = llc_clk_init(pdev);
-	if(ret != 0){
+	if (ret != 0) {
 		dev_err(&pdev->dev, "llc_clk_init error: %d\n", ret);
-		return ret;
-	}
-
-	ret = llc_clk_set_parent(pdev);
-	if(ret != 0){
-		dev_err(&pdev->dev, "llc_clk_set_parent error: %d\n", ret);
 		return ret;
 	}
 
@@ -1335,7 +1291,7 @@ free_spram:
 }
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int llc_sideband_query(struct device *dev)
 {
 	int ret = 0;
@@ -1380,17 +1336,17 @@ static int llc_sideband_check(struct device *dev)
 			break;
 		}
 	}
+
 	if (ret) {
 		dev_err(dev, "%s failed, npu noc is busy.\n", __func__);
 		return ret;
 	}
 	return 0;
 }
+
 static int __maybe_unused llc_suspend(struct device *dev)
 {
-
 	struct spram_dev *spram = dev_get_drvdata(dev);
-	int is_enable = 0;
 	int ret = 0;
 
 	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
@@ -1398,52 +1354,29 @@ static int __maybe_unused llc_suspend(struct device *dev)
 	ret = llc_sideband_check(dev);
 	if (ret) {
 		dev_err(dev, "llc suspend failed.\n");
-		spram->is_suspend = false;
 		return ret;
 	}
+	win2030_tbu_power(dev, false);
 	llc_rst_assert(spram);
-		llc_clk_disable(spram);
+	llc_clk_disable(spram);
+	regulator_disable(spram->npu_regulator);
 
-	if ((NULL != spram->npu_regulator) && (!IS_ERR(spram->npu_regulator)))
-	{
-		is_enable = regulator_is_enabled(spram->npu_regulator);
-		if(1 == is_enable)
-		{
-		regulator_disable(spram->npu_regulator);
-			mdelay(20);
-	}
-	}
-	spram->is_suspend = true;
 	return 0;
 }
 
 static int __maybe_unused llc_resume(struct device *dev)
 {
 	int ret = 0;
-	int is_enable = 0;
 	struct spram_dev *spram = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
 
-	if(spram->is_suspend == false) {
-		dev_err(spram->dev, "llc was not suspended at last time.\n");
-		return -EACCES;
+	ret = regulator_enable(spram->npu_regulator);
+	if (ret < 0) {
+		dev_err(spram->dev, "regulator_enable error: %d\n", ret);
+		return ret;
 	}
-
-	if (!IS_ERR_OR_NULL(spram->npu_regulator)) {
-		is_enable = regulator_is_enabled(spram->npu_regulator);
-		if (0 == is_enable) {
-			mdelay(20);
-		}
-		ret = regulator_enable(spram->npu_regulator);
-		if (ret < 0) {
-			dev_err(spram->dev, "regulator_enable error: %d\n", ret);
-			return ret;
-		}
-		if (0 == is_enable) {
-			mdelay(20);
-		}
-	}
+	mdelay(20);
 
 	ret = llc_clk_enable(spram);
 	if (ret != 0) {
@@ -1453,6 +1386,8 @@ static int __maybe_unused llc_resume(struct device *dev)
 	ret = llc_rst_deassert(spram);
 	if (ret)
 		return ret;
+
+	win2030_tbu_power(dev, true);
 
 	ret = llc_spram_init(spram);
 	if (ret) {
@@ -1471,7 +1406,7 @@ static const struct dev_pm_ops llc_dev_pm_ops = {
 #define DEV_PM_OPS (&llc_dev_pm_ops)
 #else
 #define DEV_PM_OPS NULL
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM_SLEEP */
 
 static struct dma_buf *spram_heap_allocate(struct dma_heap *heap,
 					 unsigned long len,
@@ -1608,6 +1543,7 @@ static ssize_t npu_regulator_store(struct device *device,
 
 	if (!strncmp(buf, "0", 1))
 	{
+		win2030_tbu_power(device, false);
 		regulator_disable(spram->npu_regulator);
 	}
 	else
@@ -1617,6 +1553,7 @@ static ssize_t npu_regulator_store(struct device *device,
 		{
 			return ret;
 		}
+		win2030_tbu_power(device, true);
 	}
 
 	return count;
@@ -1651,6 +1588,18 @@ static int llc_probe(struct platform_device *pdev)
 
 	ret = llc_resource_parse(pdev);
 	if (ret) {
+		return ret;
+	}
+
+	spram->npu_regulator = devm_regulator_get(&pdev->dev, "npu");
+	if (IS_ERR_OR_NULL(spram->npu_regulator)) {
+		dev_err(&pdev->dev, "failed to get npu regulator!\n");
+		return -ENODEV;
+	}
+
+	ret = regulator_enable(spram->npu_regulator);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to enable npu regulator!\n");
 		return ret;
 	}
 
@@ -1699,6 +1648,8 @@ static int llc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	win2030_tbu_power(&pdev->dev, true);
+
 	llc_user_init(spram);
 
 	proc_spram_init(spram);
@@ -1739,6 +1690,18 @@ static int llc_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int llc_remove(struct platform_device *pdev)
+{
+	struct spram_dev *spram = platform_get_drvdata(pdev);
+
+	win2030_tbu_power(&pdev->dev, false);
+	llc_rst_assert(spram);
+	llc_clk_disable(spram);
+	regulator_disable(spram->npu_regulator);
+
+	return 0;
+}
+
 static const struct of_device_id llc_dt_ids[] = {
 	{ .compatible = "eswin,llc" },
 	{}
@@ -1753,6 +1716,7 @@ static struct platform_driver llc_driver = {
 		.pm	= DEV_PM_OPS,
 	},
 	.probe = llc_probe,
+	.remove  = llc_remove,
 };
 
 builtin_platform_driver(llc_driver);

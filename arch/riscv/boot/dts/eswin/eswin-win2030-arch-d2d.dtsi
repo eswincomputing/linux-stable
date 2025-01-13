@@ -293,6 +293,7 @@
 		reg = <0x0 0x21700000 0x0 0x1000>;
 		reg-names = "control";
 		numa-node-id = <1>;
+		status = "disabled";
 	};
 	d1_bus_err1: bus-error-unit@21701000 {
 		compatible = "sifive,buserror";
@@ -301,6 +302,7 @@
 		reg = <0x0 0x21701000 0x0 0x1000>;
 		reg-names = "control";
 		numa-node-id = <1>;
+		status = "disabled";
 	};
 	d1_bus_err2: bus-error-unit@21702000 {
 		compatible = "sifive,buserror";
@@ -309,6 +311,7 @@
 		reg = <0x0 0x21702000 0x0 0x1000>;
 		reg-names = "control";
 		numa-node-id = <1>;
+		status = "disabled";
 	};
 	d1_bus_err3: bus-error-unit@21703000 {
 		compatible = "sifive,buserror";
@@ -317,6 +320,7 @@
 		reg = <0x0 0x21703000 0x0 0x1000>;
 		reg-names = "control";
 		numa-node-id = <1>;
+		status = "disabled";
 	};
 
 	D1CACHE: cache-controller@22010000 {

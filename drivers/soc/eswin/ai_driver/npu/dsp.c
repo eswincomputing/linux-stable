@@ -151,8 +151,7 @@ static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
 	dsp_op = &operation_desc->dsp_op;
 
 	dsp_tensor = &tensor_set[idx];
-	dla_debug("%s, %d, op_idx=%d, idx=%d, dsp_tensor=0x%px.\n", __func__,
-			  __LINE__, op_idx, idx, dsp_tensor);
+	dla_debug("op_idx=%d, op_type:%d, idx=%d, dsp_tensor=0x%px.\n", op_idx, op_type, idx, dsp_tensor);
 
 	if (tensor_set != NULL && dsp_tensor != NULL &&
 	    dsp_tensor->have_unfold) {
@@ -162,11 +161,18 @@ static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
 		if (ret != 0) {
 			dla_error("err:dsp load_operator failed,ret:%d dsp_dev_idx:%d idx:%d\n",
 					  ret, dsp_dev_idx, idx);
-			return -1;
+			return -DLA_ERR_INVALID_INPUT;
 		}
-		dla_debug("%s, %d, op_idx=%d, dsp_tensor=0x%px, handle=0x%llx.\n",
-				  __func__, __LINE__, op_idx, dsp_tensor, dsp_tensor->handle);
+		dla_debug("op_idx=%d, dsp_tensor=0x%px, handle=0x%llx.\n",
+				  op_idx, dsp_tensor, dsp_tensor->handle);
 		return 0;
+	}
+
+	if (dsp_op->buffer_cnt_input > DSP_KERNEL_MAX_IN_TENSOR_NUM ||
+		dsp_op->buffer_cnt_output > DSP_KERNEL_MAX_OUT_TENSOR_NUM) {
+		dla_error("op_idx=%d, buffer cnt invalid, input cnt=%d, output cnt=%d.\n",
+				  op_idx, dsp_op->buffer_cnt_input, dsp_op->buffer_cnt_output);
+		return -DLA_ERR_INVALID_INPUT;
 	}
 
 	flat1_size = (dsp_op->buffer_cnt_cfg + dsp_op->buffer_cnt_input +
@@ -178,18 +184,14 @@ static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
 
 	mem_id = dsp_op->mem_id;
 	offset = dsp_op->offset;
-
 	dsp_tensor = &tensor_set[idx];
-	dla_debug("%s, %d, op_type=%d.\n", __func__, __LINE__, op_type);
-	dla_debug("%s, %d, idx=%d, tensor_set=0x%px.\n", __func__, __LINE__, idx, tensor_set);
-	dla_debug("%s, %d, idx=%d, dsp_tensor=0x%px.\n", __func__, __LINE__, idx, dsp_tensor);
 	for (i = 0; i < dsp_op->buffer_cnt_input; i++) {
 		ret = read_input_address(executor, &surface->src_data[i],
 					 (void *)&dsp_tensor->src_base_addr[i],
 					 &dsp_tensor->src_is_io_tensor[i]);
 		if (ret != 0) {
-			dla_error("%s %d bad memory type %d\n", __func__, __LINE__, surface->src_data[i].type);
-			return -1;
+			dla_error("bad memory type %d\n", surface->src_data[i].type);
+			return -DLA_ERR_NO_MEM;
 		}
 		if (dsp_tensor->src_is_io_tensor[i] != invalid_tensor_idx) {
 			executor->dsp_all_inout[dsp_dev_idx][dsp_tensor->src_is_io_tensor[i]]++;
@@ -205,8 +207,8 @@ static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
 					 (void *)&dsp_tensor->dst_base_addr[i],
 					 &dsp_tensor->dst_is_io_tensor[i]);
 		if (ret != 0) {
-			dla_error("%s %d bad memory type %d\n", __func__, __LINE__, surface->dst_data[i].type);
-			return -1;
+			dla_error("bad memory type %d\n", surface->dst_data[i].type);
+			return -DLA_ERR_NO_MEM;
 		}
 		if (dsp_tensor->dst_is_io_tensor[i] != invalid_tensor_idx) {
 			executor->dsp_all_inout[dsp_dev_idx][dsp_tensor->dst_is_io_tensor[i]]++;
@@ -289,14 +291,13 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 
 	flat1_desc = (struct es_dsp_flat1_desc *)dsp_tensor->flat1_vaddr;
 
-	dla_debug("%s, %d, flat1_desc=0x%px.\n", __func__, __LINE__, flat1_desc);
-	dla_debug("%s, %d, cnt_cfg=%d.\n", __func__, __LINE__, dsp_op->buffer_cnt_cfg);
-	dla_debug("%s, %d, cnt_input=%d.\n", __func__, __LINE__, dsp_op->buffer_cnt_input);
-	dla_debug("%s, %d, cnt_output=%d.\n", __func__, __LINE__, dsp_op->buffer_cnt_output);
-	flat1_desc->num_buffer = dsp_op->buffer_cnt_cfg + dsp_op->buffer_cnt_input +
-							 dsp_op->buffer_cnt_output;
+	dla_debug("flat1_desc=0x%px.\n", flat1_desc);
+	dla_debug("cnt_cfg=%d.\n", dsp_op->buffer_cnt_cfg);
+	dla_debug("cnt_input=%d.\n", dsp_op->buffer_cnt_input);
+	dla_debug("cnt_output=%d.\n", dsp_op->buffer_cnt_output);
+	flat1_desc->num_buffer = dsp_op->buffer_cnt_cfg + dsp_op->buffer_cnt_input + dsp_op->buffer_cnt_output;
 
-	dla_debug("%s, %d op_handle=0x%llx.\n", __func__, __LINE__, dsp_tensor->handle);
+	dla_debug("op_handle=0x%llx.\n", dsp_tensor->handle);
 	dsp_set_flat_func(flat1_desc, dsp_tensor->handle);
 
 	flat1_desc->input_index = dsp_op->buffer_cnt_cfg;
@@ -308,8 +309,7 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 							 offset + param_addr_offset;
 		dsp_buffer[i].size = dsp_op->buffer_size[i];
 		param_addr_offset += dsp_op->buffer_size[i];
-		dla_debug("%s, %d cfg=%d , addr=0x%x, size=0x%x.\n", __func__,
-				  __LINE__, i, dsp_buffer[i].addr, dsp_buffer[i].size);
+		dla_debug("cfg=%d, addr=0x%x, size=0x%x.\n", i, dsp_buffer[i].addr, dsp_buffer[i].size);
 	}
 
 	dsp_buf_idx = dsp_op->buffer_cnt_cfg;
@@ -319,7 +319,7 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 			if (surface->src_data[i].type == DLA_MEM_MC) {
 				dsp_addr = npu_get_dsp_ddr( executor, dev_id, surface->src_data[i].address);
 				if(!dsp_addr) {
-					return -1;
+					return -DLA_ERR_NO_MEM;
 				}
 				dsp_buffer[dsp_buf_idx + i].addr = dsp_addr + surface->src_data[i].offset;
 			} else if (surface->src_data[i].type == DLA_MEM_CV) {
@@ -332,9 +332,13 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 			dsp_buffer[dsp_buf_idx + i].addr = surface->src_data[i].offset;
 			io_cnt = executor->dsp_io[dev_id][dsp_tensor->src_is_io_tensor[i]].io_cnt;
 			executor->dsp_io[dev_id][dsp_tensor->src_is_io_tensor[i]].virt[io_cnt] =
-								(u64)&dsp_buffer[dsp_buf_idx + i].addr;
+														(u64)&dsp_buffer[dsp_buf_idx + i].addr;
 			executor->dsp_io[dev_id][dsp_tensor->src_is_io_tensor[i]].offset[io_cnt] =
-								surface->src_data[i].offset;
+																surface->src_data[i].offset;
+			dla_debug("io_cnt=%d, dsp_io=%d, src=0x%llx.\n",
+					  io_cnt, dsp_tensor->src_is_io_tensor[i],
+					  executor->dsp_io[dev_id][dsp_tensor->src_is_io_tensor[i]].virt[io_cnt]);
+			dla_debug("input %d, offset=0x%x.\n", dsp_buf_idx + i, dsp_buffer[dsp_buf_idx + i].addr);
 			executor->dsp_io[dev_id][dsp_tensor->src_is_io_tensor[i]].io_cnt++;
 		}
 		dsp_buffer[dsp_buf_idx + i].size = surface->src_data[i].size;
@@ -344,39 +348,36 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 	for (i = 0; i < dsp_op->buffer_cnt_output; i++) {
 		if (dsp_tensor->dst_is_io_tensor[i] == invalid_tensor_idx) {
 			if (surface->dst_data[i].type == DLA_MEM_MC) {
-				dla_debug("%s, %d, output dst mc, address index=%d.\n", __func__, __LINE__,
-						  surface->dst_data[i].address);
+				dla_debug("output dst mc, address index=%d.\n", surface->dst_data[i].address);
 				dsp_addr = npu_get_dsp_ddr( executor, dev_id, surface->dst_data[i].address);
 				if(!dsp_addr) {
 					return -1;
 				}
 				dsp_buffer[dsp_buf_idx + i].addr = dsp_addr + surface->dst_data[i].offset;
-				dla_debug("%s, %d, i=%d, addr=0x%x.\n", __func__, __LINE__, i,
-						  dsp_buffer[dsp_buf_idx + i].addr);
+				dla_debug("i=%d, addr=0x%x.\n",  i, dsp_buffer[dsp_buf_idx + i].addr);
 			} else if (surface->dst_data[i].type == DLA_MEM_CV) {
 				dsp_buffer[dsp_buf_idx + i].addr =
 							 dsp_get_sram_iova_by_addr(executor->engine->dsp_dev[dev_id],
 													   dsp_tensor->dst_base_addr[i]);
-				dla_debug("%s, %d, cv. output offset=0x%x, addr=0x%x.\n", __func__, __LINE__,
-						  surface->dst_data[i].offset, dsp_buffer[dsp_buf_idx + i].addr);
+				dla_debug("cv. output offset=0x%x, addr=0x%x.\n", surface->dst_data[i].offset,
+						  dsp_buffer[dsp_buf_idx + i].addr);
 			}
-			dla_debug("%s, %d, i=%d, outidx=%d, buffer addr=0x%x, offset=0x%x. size=0x%x.\n",
-					  __func__, __LINE__, i, dsp_buf_idx + i,
+			dla_debug("i=%d, outidx=%d, buffer addr=0x%x, offset=0x%x. size=0x%x.\n",
+					  i, dsp_buf_idx + i,
 					  dsp_buffer[dsp_buf_idx + i].addr, surface->dst_data[i].offset,
 					  dsp_buffer[dsp_buf_idx + i].size);
 		} else {
 			dsp_buffer[dsp_buf_idx + i].addr = surface->dst_data[i].offset;
 			io_cnt = executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].io_cnt;
 			executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].virt[io_cnt] =
-					(u64)&dsp_buffer[dsp_buf_idx + i].addr;
+														(u64)&dsp_buffer[dsp_buf_idx + i].addr;
 			executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].offset[io_cnt] =
-					surface->dst_data[i].offset;
-			dla_debug("%s, %d, io_cnt=%d, dsp_io=%d, dst=0x%llx.\n",
-					__func__, __LINE__, io_cnt, dsp_tensor->dst_is_io_tensor[i],
-					executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].virt[io_cnt]);
-			dla_debug("%s, %d, output %d, offset=0x%x.\n", __func__,
-					__LINE__, dsp_buf_idx + i, dsp_buffer[dsp_buf_idx + i].addr);
-					executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].io_cnt++;
+																surface->dst_data[i].offset;
+			dla_debug("io_cnt=%d, dsp_io=%d, dst=0x%llx.\n",
+					  io_cnt, dsp_tensor->dst_is_io_tensor[i],
+					  executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].virt[io_cnt]);
+			dla_debug("output %d, offset=0x%x.\n", dsp_buf_idx + i, dsp_buffer[dsp_buf_idx + i].addr);
+			executor->dsp_io[dev_id][dsp_tensor->dst_is_io_tensor[i]].io_cnt++;
 		}
 		dsp_buffer[dsp_buf_idx + i].size = surface->dst_data[i].size;
 	}
@@ -397,7 +398,7 @@ int dsp0_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
 			   union dla_surface_container *surf_desc)
 {
 	int ret;
-	dla_debug("%s, %d, op_idx=%d.\n", __func__, __LINE__, op_idx);
+	dla_debug("op_idx=%d.\n", op_idx);
 	ret = processor_dsp_program(executor, idx, op_idx, op_desc, surf_desc, DLA_KMD_OP_DSP_0);
 	return ret;
 }
@@ -447,15 +448,14 @@ static int npu_acquire_dsp_file(struct win_executor *executor)
 		filefd = executor->dsp_fd[i];
 		file = fget(filefd);
 		if (file == NULL) {
-			dla_error("%s, %d, cannot find dsp%d dsp_file fd=%d file, error\n",
-					  __func__, __LINE__, i, filefd);
+			dla_error("cannot find dsp%d dsp_file fd=%d file, error\n", i, filefd);
 			executor->dsp_file[i] = NULL;
 			continue;
 		}
 
 		dsp_file = file->private_data;
 		if (dsp_file == NULL) {
-			dla_error("%s, %d, dsp file(%d) is null.\n", __func__, __LINE__, filefd);
+			dla_error("dsp file(%d) is null.\n", filefd);
 			executor->dsp_file[i] = NULL;
 			fput(file);
 			continue;
@@ -515,8 +515,8 @@ int resolve_dsp_data(struct win_executor *executor)
 			size = pcer_interface->tensor_unfold(executor, op_idx, &task->op_desc[op_idx],
 				   &task->surface_desc[op_idx], tensor_set, j);  //get dsp flat1 len and mem_id
 			if (size < 0) {
-				dla_error("err:get dsp flat1 len failed!\n");
-				return -1;
+				dla_error("err:get dsp flat1 len failed! ret:%d\n", size);
+				return size;
 			}
 
 			dsp_tensor->flat1_size = size;
@@ -543,7 +543,7 @@ int resolve_dsp_data(struct win_executor *executor)
 		executor->dsp_iobuf_virt[i] = kzalloc(executor->dsp_iobuf_cnt[i] *
 					(sizeof(u64) + sizeof(u32)), GFP_KERNEL);
 		if (executor->dsp_iobuf_virt[i] == NULL) {
-			dla_error("%s, %d, alloc dsp iobuf vir for device %d error.\n", __func__, __LINE__, i);
+			dla_error("alloc dsp iobuf vir for device %d error.\n", i);
 			goto alloc_err;
 		}
 		size = 0;
@@ -552,7 +552,7 @@ int resolve_dsp_data(struct win_executor *executor)
 			if (executor->dsp_all_inout[i][j] != 0) {
 				executor->dsp_io[i][j].virt = (u64 *)(executor->dsp_iobuf_virt[i] + size * sizeof(u64));
 				executor->dsp_io[i][j].offset = (u32 *)(executor->dsp_iobuf_offset[i] + size * sizeof(u32));
-				dla_debug("%s, %d, virt[0]=0x%px.\n", __func__, __LINE__, executor->dsp_io[i][j].virt);
+				dla_debug("virt[0]=0x%px.\n", executor->dsp_io[i][j].virt);
 				size += executor->dsp_all_inout[i][j];
 			}
 		}
@@ -563,7 +563,7 @@ int resolve_dsp_data(struct win_executor *executor)
 		}
 		dsp_dev = executor->engine->dsp_dev[i];
 		if (dsp_dev == NULL) {
-			dla_error("%s, %d, dsp device%d is NULL, err.\n", __func__, __LINE__, i);
+			dla_error("dsp device%d is NULL, err.\n", i);
 			ret = -ENODEV;
 			goto err_dev;
 		}
@@ -572,10 +572,11 @@ int resolve_dsp_data(struct win_executor *executor)
 								dsp_dev, flat1_total_len[i],
 								&executor->dsp_flat1_set_dma[i], GFP_KERNEL);
 		if (executor->dsp_flat1_set_vaddr[i] == NULL) {
-			dla_error("%s, %d, dma alloc cohernet for dsp dev%d error.\n", __func__, __LINE__, i);
+			dla_error("dma alloc cohernet for dsp dev%d error.\n", i);
 			goto alloc_err;
 		}
-		dla_debug("%s, %d, i=%d, flat vaddr=0x%px.\n", __func__, __LINE__, i, executor->dsp_flat1_set_vaddr[i]);
+		dla_debug("cord id:%d, flat vaddr=0x%px, size:%d.\n", i,
+				  executor->dsp_flat1_set_vaddr[i], flat1_total_len[i]);
 		executor->dsp_flat1_set_size[i] = flat1_total_len[i];
 		/*get the fd of dsp param buffer*/
 		fd = dla_data_get_fd(executor->driver_context, executor->mem_handles, NULL,
@@ -608,7 +609,7 @@ int resolve_dsp_data(struct win_executor *executor)
 			dsp_tensor->data_dma_addr = data_dma_set;
 		}
 	}
-	dla_debug("%s, %d, done.\n", __func__, __LINE__);
+	dla_debug("done.\n");
 	return 0;
 
 alloc_err:
@@ -658,16 +659,15 @@ int npu_set_dsp_iobuf(struct win_executor *executor, struct host_frame_desc *f)
 
 			f->dsp_io_dmabuf[i][j] = npu_get_dsp_dmabuf(executor->dsp_file[i], fd);
 			if (f->dsp_io_dmabuf[i][j] == NULL) {
-				dla_error("%s, %d, npu get dsp%d dmabuf-%d error.\n ", __func__, __LINE__, i, j);
+				dla_error("npu get dsp%d dmabuf-%d error.\n ", i, j);
 				return -EINVAL;
 			}
-			dla_debug("%s, %d dspio=%d.\n", __func__, __LINE__, executor->dsp_io[i][j].io_cnt);
+			dla_debug("dspio=%d.\n", executor->dsp_io[i][j].io_cnt);
 			for (k = 0; k < executor->dsp_io[i][j].io_cnt; k++) {
-				dla_debug("%s, %d, virt=0x%llx.\n", __func__, __LINE__, executor->dsp_io[i][j].virt[k]);
+				dla_debug("virt=0x%llx.\n", executor->dsp_io[i][j].virt[k]);
 				tmp = (u32 *)executor->dsp_io[i][j].virt[k];
 				offset = executor->dsp_io[i][j].offset[k];
-				dla_debug("%s, %d, offset=0x%x, dma addr=0x%x.\n", __func__, __LINE__, offset,
-						  f->dsp_io_dmabuf[i][j]->dma_addr);
+				dla_debug("offset=0x%x, dma addr=0x%x.\n", offset, f->dsp_io_dmabuf[i][j]->dma_addr);
 				*tmp = offset + address[j].devBuf.offset + f->dsp_io_dmabuf[i][j]->dma_addr;
 
 				dla_debug("tmp content=0x%x.\n", *tmp);
@@ -686,20 +686,17 @@ static int npu_unload_dsp_op(struct win_executor *executor, int idx,
 	int ret;
 
 	if (executor->engine->dsp_dev[dev_id] == NULL) {
-		dla_error("%s, %d, unload op for dsp%d, idx=%d.\n", __func__,
-			  __LINE__, dev_id, idx);
+		dla_error("unload op for dsp%d, idx=%d.\n", dev_id, idx);
 		return -EINVAL;
 	}
 	if (tensor_set == NULL) {
-		dla_error("%s, %d, tensor set is null, idx=%d, op_type=%d.\n",
-			  __func__, __LINE__, idx, op_type);
+		dla_error("tensor set is null, idx=%d, op_type=%d.\n", idx, op_type);
 		return -EINVAL;
 	}
 	dsp_tensor = &tensor_set[idx];
 	if (dsp_tensor == NULL || (dsp_tensor->handle == 0)) {
-		dla_error("%s, %d, idx=%d, op_type=%d.\n dsp tensor null or handle is 0, err.\n",
-				  __func__, __LINE__, idx, op_type);
-		return -EINVAL;
+		dla_info("idx=%d, op_type=%d.\n dsp tensor null or handle is 0.\n", idx, op_type);
+		return 0;
 	}
 	ret = unload_operator(executor->engine->dsp_dev[dev_id], dsp_tensor->handle);
 	return ret;

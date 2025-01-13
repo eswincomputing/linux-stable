@@ -137,6 +137,7 @@
 };
 
 &d0_pmu {
+	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
 
@@ -471,7 +472,6 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
-	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -482,7 +482,6 @@
 
 &d0_usbdrd3_1 {
 	status = "okay";
-	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_1 {
@@ -734,6 +733,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	pwm-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 };
 
 &pvt0 {

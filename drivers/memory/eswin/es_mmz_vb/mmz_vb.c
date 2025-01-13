@@ -494,7 +494,8 @@ static const struct dma_buf_ops mmz_vb_buf_ops = {
 	.release = mmz_vb_dma_buf_release,
 };
 
-static const unsigned int orders[] = {MAX_ORDER-1, 9, 0};
+static const unsigned int orders[] =
+	{ESWIN_BUDDY_MAX_ORDER - 1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
 
 static struct page *alloc_largest_available(struct mem_block *memblock,
@@ -1705,11 +1706,32 @@ static int es_refresh_mempeak(struct mem_block *memblock, void *data)
         return 0;
 }
 
-static inline void mmz_vb_proc_print_help(void)
+#define PROC_VB_MAX_INPUT_LEN 8
+static inline void mmz_vb_proc_print_help(const char *buf, int count)
 {
-	dev_info(mmz_vb_dev, "Useage:\n");
-	dev_info(mmz_vb_dev, "    'echo 1(or 0) > /proc/eswin/vb' to release all VB block.\n");
-	dev_info(mmz_vb_dev, "    'echo 2 > /proc/eswin/vb' to refresh uesed peak value for all reserved memory zone.\n");
+	char *kern_buf;
+
+	if (count > PROC_VB_MAX_INPUT_LEN) {
+		count = PROC_VB_MAX_INPUT_LEN;
+		dev_err(mmz_vb_dev, "Inputs too long, using %d chars only!\n",
+			PROC_VB_MAX_INPUT_LEN);
+	}
+
+	kern_buf = memdup_user_nul(buf, count);
+	if (!IS_ERR(kern_buf)) {
+		if ('\n' == kern_buf[count - 1])
+			kern_buf[count - 1] = '\0';
+
+		dev_err(mmz_vb_dev, "Failed to parse input. Received: '%s'\n",
+			kern_buf);
+		kfree(kern_buf);
+	} else {
+		dev_err(mmz_vb_dev, "Failed to duplicate user buffer from input. (dup_err=%ld)\n",
+			 PTR_ERR(kern_buf));
+	}
+	dev_err(mmz_vb_dev, "Useage:\n");
+	dev_err(mmz_vb_dev, "    'echo 1(or 0) > /proc/eswin/vb' to release all VB block.\n");
+	dev_err(mmz_vb_dev, "    'echo 2 > /proc/eswin/vb' to refresh uesed peak value for all reserved memory zone.\n");
 }
 
 int mmz_vb_proc_store(struct es_proc_dir_entry *entry, const char *buf,
@@ -1720,7 +1742,9 @@ int mmz_vb_proc_store(struct es_proc_dir_entry *entry, const char *buf,
 
 	ret = kstrtou8_from_user(buf, count, 0, &val);
 	if (ret < 0) {
-		mmz_vb_proc_print_help();
+		dev_err(mmz_vb_dev,"%s copy from user failed, ret=%d",
+			 __func__, ret);
+		mmz_vb_proc_print_help(buf, count);
 		return count;
 	}
 
@@ -1738,7 +1762,7 @@ int mmz_vb_proc_store(struct es_proc_dir_entry *entry, const char *buf,
 		eswin_rsvmem_for_each_block(es_refresh_mempeak, NULL);
 		break;
 	default:
-		mmz_vb_proc_print_help();
+		mmz_vb_proc_print_help(buf, count);
 		break;
 	}
 

@@ -282,6 +282,7 @@ static void dc_deinit(struct device *dev)
 {
 	struct es_dc *dc = dev_get_drvdata(dev);
 
+	es_dc_clk_configs(dev, true);
 	dc_hw_enable_interrupt(&dc->hw, 0);
 	dc_hw_deinit(&dc->hw);
 	es_dc_clk_configs(dev, false);
@@ -325,6 +326,29 @@ static int dc_init(struct device *dev)
 	return 0;
 }
 
+static void vo_qos_cfg(int die_id)
+{
+	void __iomem *qos;
+	uint32_t vo_pos;
+
+	if (die_id == 0)
+		vo_pos = 0x50281050;
+	else
+		vo_pos = 0x70281050;
+
+	qos = ioremap(vo_pos, 8);
+	if (!qos) {
+		printk("qos ioremap fail---------------\n");
+		return;
+	}
+	writel(0x9, qos);
+	writel(0x9, (char *)qos + 4);
+
+	iounmap(qos);
+	return;
+}
+
+
 static void es_dc_dump_enable(struct device *dev, dma_addr_t addr,
 			      unsigned int pitch)
 {
@@ -338,6 +362,60 @@ static void es_dc_dump_disable(struct device *dev)
 	struct es_dc *dc = dev_get_drvdata(dev);
 
 	dc_hw_disable_dump(&dc->hw);
+}
+
+static int es_dc_suspend(struct device *dev, struct drm_device *drm_dev)
+{
+	struct es_dc *dc = dev_get_drvdata(dev);
+	int ret = 0;
+
+	dev_dbg(dev, "%s\n", __func__);
+	disable_irq(dc->irq);
+
+	dc_deinit(dev);
+
+	es_drm_iommu_detach_device(drm_dev, dev);
+
+	es_dc_clk_configs(dev, false);
+
+	return ret;
+}
+
+static int es_dc_resume(struct device *dev, struct drm_device *drm_dev)
+{
+	struct es_dc *dc = dev_get_drvdata(dev);
+	int ret = 0;
+	int die_id;
+	struct es_drm_private *priv = drm_dev->dev_private;
+
+	dev_dbg(dev, "%s\n", __func__);
+	es_dc_clk_configs(dev, true);
+	ret = dc_init(dev);
+	if (ret < 0) {
+		dev_err(dev, "Failed to initialize DC hardware.\n");
+		return ret;
+	}
+
+	ret = dc_hw_mmu_init(&dc->hw, priv->mmu);
+	if (ret < 0) {
+		dev_err(dev, "Failed to dc_hw_mmu_init\n");
+	}
+
+	ret = es_drm_iommu_attach_device(drm_dev, dev);
+	if (ret < 0) {
+		dev_err(dev, "Failed to attached iommu device.\n");
+	}
+	enable_irq(dc->irq);
+
+	ret = of_property_read_u32(dev->of_node, "numa-node-id", &die_id);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "Failed to read index property, ret = %d\n",
+			      ret);
+		return ret;
+	}
+	vo_qos_cfg(die_id);
+
+	return 0;
 }
 
 static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
@@ -979,6 +1057,8 @@ static const struct es_plane_funcs dc_plane_funcs = {
 static const struct es_dc_funcs dc_funcs = {
 	.dump_enable = es_dc_dump_enable,
 	.dump_disable = es_dc_dump_disable,
+	.dc_suspend = es_dc_suspend,
+	.dc_resume = es_dc_resume,
 };
 
 static int dc_bind(struct device *dev, struct device *master, void *data)
@@ -1004,13 +1084,13 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 		dev_err(dev, "Failed to initialize DC hardware.\n");
 		return ret;
 	}
-
 	if (priv->mmu_constructed == false) {
 		ret = dc_mmu_construct(priv->dma_dev, &priv->mmu);
 		if (ret) {
 			dev_err(dev, "failed to construct DC MMU\n");
 			goto err_clean_dc;
 		}
+
 		priv->mmu_constructed = true;
 	}
 	ret = dc_hw_mmu_init(&dc->hw, priv->mmu);
@@ -1072,7 +1152,6 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 				plane_info->max_height;
 		}
 	}
-
 	dc->crtc = crtc;
 	dc->funcs = &dc_funcs;
 
@@ -1110,28 +1189,6 @@ const struct component_ops dc_component_ops = {
 	.unbind = dc_unbind,
 };
 
-static void vo_qos_cfg(int die_id)
-{
-	void __iomem *qos;
-	uint32_t vo_pos;
-
-	if (die_id == 0)
-		vo_pos = 0x50281050;
-	else
-		vo_pos = 0x70281050;
-
-	qos = ioremap(vo_pos, 8);
-	if (!qos) {
-		printk("qos ioremap fail---------------\n");
-		return;
-	}
-	writel(0x9, qos);
-	writel(0x9, (char *)qos + 4);
-
-	iounmap(qos);
-	return;
-}
-
 static const struct of_device_id dc_driver_dt_match[] = {
 	{
 		.compatible = "eswin,dc",
@@ -1144,7 +1201,7 @@ static int dc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct es_dc *dc;
-	int irq, ret, die_id;
+	int ret, die_id;
 
 	dc = devm_kzalloc(dev, sizeof(*dc), GFP_KERNEL);
 	if (!dc)
@@ -1161,11 +1218,11 @@ static int dc_probe(struct platform_device *pdev)
 	dc->hw.reg_base = devm_platform_ioremap_resource(pdev, 2);
 	if (IS_ERR(dc->hw.reg_base))
 		return PTR_ERR(dc->hw.reg_base);
-
-	irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(dev, irq, dc_isr, 0, dev_name(dev), dc);
+	
+	dc->irq = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(dev, dc->irq, dc_isr, 0, dev_name(dev), dc);
 	if (ret < 0) {
-		dev_err(dev, "Failed to install irq:%u.\n", irq);
+		dev_err(dev, "Failed to install irq:%u.\n", dc->irq);
 		return ret;
 	}
 

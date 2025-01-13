@@ -34,12 +34,13 @@
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "clk.h"
 
-#define NUMA_NODE_NUMS 2
+#define DEFAULT_CPU_VOLTAGE VOLTAGE_0_8V
 
 struct cpu_info {
-	uint64_t cpu_freqhz[NUMA_NODE_NUMS];
+	uint64_t cpu_freqhz[MAX_NUMNODES];
+	enum voltage_level cpu_current_voltage[MAX_NUMNODES];
 };
-struct cpu_info g_cpu_info = {.cpu_freqhz = {0}};
+struct cpu_info g_cpu_info = {.cpu_freqhz = {0}, .cpu_current_voltage = {DEFAULT_CPU_VOLTAGE}};
 static DEFINE_MUTEX(lock);
 
 struct clk_hw *eswin_clk_find_parent(struct eswin_clock_data *data,
@@ -435,7 +436,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		dev_pm_opp_put(opp);
 		cpu_target_voltage = target_volt > VOLTAGE_0_8V ? VOLTAGE_0_9V:VOLTAGE_0_8V;
 
-		if (clk->cpu_current_voltage !=	cpu_target_voltage) {
+		if (g_cpu_info.cpu_current_voltage[clk->numa_id] != cpu_target_voltage) {
 			ret = eswin_clk_set_cpu_voltage(clk->cpu_voltage_gpio,
 							cpu_target_voltage);
 			if (ret) {
@@ -446,7 +447,9 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			} else {
 				pr_info("cluster%d change to %s voltage, target rate %ld\n",
 						clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
-				clk->cpu_current_voltage = cpu_target_voltage;
+				/*all die voltage has been changed,shouled be change the value together.*/
+				for (int die_index = 0; die_index < MAX_NUMNODES; die_index++)
+					g_cpu_info.cpu_current_voltage[die_index] = cpu_target_voltage;
 			}
 		} else {
 			pr_info("cluster%d keep %s voltage, target rate %ld\n",
@@ -724,7 +727,7 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 		cpu_voltage_gpio = NULL;
 	} else {
 		/*cpu default freq is 1400M, the voltage should be VOLTAGE_0_8V*/
-		eswin_clk_set_cpu_voltage(cpu_voltage_gpio, VOLTAGE_0_8V);
+		eswin_clk_set_cpu_voltage(cpu_voltage_gpio, DEFAULT_CPU_VOLTAGE);
 	}
 
 	mutex_lock(&lock);
@@ -790,7 +793,6 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 
 		p_clk->hw.init = &init;
 		p_clk->cpu_voltage_gpio = cpu_voltage_gpio;
-		p_clk->cpu_current_voltage = VOLTAGE_0_8V;
 		clk = clk_register(dev, &p_clk->hw);
 		if (IS_ERR(clk)) {
 			devm_kfree(dev, p_clk);

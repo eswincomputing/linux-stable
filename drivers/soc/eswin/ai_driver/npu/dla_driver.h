@@ -32,8 +32,11 @@
 #include <linux/clk.h>
 #include <linux/mailbox_controller.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_qos.h>
 #include "dla_interface.h"
 #include "hetero_common.h"
+
+#define NPU_VERSION "1.0.0"
 
 struct npu_freq_param {
 	struct clk *npu_clk_parent;
@@ -111,9 +114,12 @@ struct nvdla_device {
 	bool is_suspend;
 	atomic64_t total_frame_done;
 
+	struct devfreq *df;
+	struct dev_pm_qos_request req_max_freq;
 	struct npu_freq_param *freq_tbl;
 	u32 freq_count;
-	u32 freq_index_1G;
+	u32 freq_idx_1G;
+	u32 freq_idx;
 };
 
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);

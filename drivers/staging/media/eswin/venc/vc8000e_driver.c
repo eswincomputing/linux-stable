@@ -93,6 +93,9 @@ typedef struct {
 	/** current frequency*/
 	unsigned long freq_cur_je;
 	unsigned long freq_cur_ve;
+
+	/** dev freq available*/
+	struct semaphore dev_setting_sem;
 } venc_dev_prvdata;
 
 SUBSYS_CONFIG vc8000e_subsys_array[4] = {0};
@@ -102,7 +105,7 @@ struct platform_device *venc_pdev = NULL;
 struct platform_device *venc_pdev_d1 = NULL;
 
 static u32 vcmd_supported = 1;
-static u32 power_management = 0;
+static u32 power_management = 1;
 
 module_param(vcmd_supported, uint, 0);
 module_param(power_management, uint, 0);
@@ -112,7 +115,10 @@ extern void hantroenc_normal_cleanup(void);
 extern int hantroenc_wait_core_idle(u32 core_id);
 extern int vc8000e_vcmd_init(void);
 extern int vc8000e_vcmd_cleanup(void);
+extern void vc8000e_vcmd_abort(u32 core_id);
 extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
+extern int vc8000e_vcmd_reset(u32 core_id);
+extern void vc8000e_vcmd_restart(u32 core_id);
 /* proc functions*/
 extern void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *core_freq);
 
@@ -145,36 +151,94 @@ static struct platform_device *venc_get_platform_device(u32 core_id)
 	return pdev;
 }
 
-static int venc_wait_core_idle(u32 core_id) {
+/** <TODO> the je & ve should be seperated as two devices*/
+static void venc_abort_device(struct platform_device *pdev) {
 	if (0 == vcmd_supported) {
-		return hantroenc_wait_core_idle(core_id);
-	} else {
-		return vc8000e_vcmd_wait_core_idle(core_id);
+		/** <todo> for normal*/
+		return;
+	}
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
+	u8 numa_id = 0;
+	if (!prvdata) {
+		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
+		return;
+	}
+
+	numa_id = prvdata->numa_id;
+	for (u32 core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+		if (numa_id_array[core_id] == numa_id) {
+			vc8000e_vcmd_abort(core_id);
+		}
 	}
 }
 
-/** <TODO> the je & ve should be seperated as two devices*/
 static int venc_wait_device_idle(struct platform_device *pdev)
 {
+	if (0 == vcmd_supported) {
+		/** <todo> for normal*/
+		return 0;
+	}
 	int ret = 0;
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
+	u8 numa_id = 0;
 
-	if (pdev == venc_pdev) {
-		ret = venc_wait_core_idle(0);
-		if (ret <= 0)
-			return ret;
-		ret = venc_wait_core_idle(1);
-		return ret;
+	if (!prvdata) {
+		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
+		return -1;
 	}
-	else if (pdev == venc_pdev_d1) {
-		ret = venc_wait_core_idle(2);
-		if (ret <= 0)
-			return ret;
-		ret = venc_wait_core_idle(3);
-		return ret;
+	numa_id = prvdata->numa_id;
+
+	for (u32 core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+		if (numa_id_array[core_id] == numa_id) {
+			ret = vc8000e_vcmd_wait_core_idle(core_id);
+			if (ret != 0)
+				return -1;
+		}
 	}
 
-	LOG_ERR("Unknown platform device = %p\n", pdev);
-	return 1;
+	return 0;
+}
+
+static void venc_reset_device(struct platform_device *pdev) {
+	if (vcmd_supported == 0) {
+		/** <todo> for normal*/
+		return;
+	}
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
+	u8 numa_id = 0;
+
+	if (!prvdata) {
+		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
+		return;
+	}
+	numa_id = prvdata->numa_id;
+	/** reset vc8000d vcmd*/
+	for (u32 core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+		if (numa_id_array[core_id] == numa_id) {
+			vc8000e_vcmd_reset(core_id);
+		}
+	}
+}
+
+static void venc_restart_device(struct platform_device *pdev) {
+	if (vcmd_supported == 0) {
+		/** <todo> for normal*/
+		return;
+	}
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
+	u8 numa_id = 0;
+
+	if (!prvdata) {
+		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
+		return;
+	}
+	numa_id = prvdata->numa_id;
+	/** restart vc8000d vcmd*/
+	for (u32 core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+		if (numa_id_array[core_id] == numa_id) {
+			vc8000e_vcmd_restart(core_id);
+		}
+	}
 }
 
 static int venc_device_node_scan(unsigned char *compatible)
@@ -235,6 +299,10 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 	unsigned int jenc_freq = 0;
 	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
+	if (!prvdata) {
+		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
+		return -1;
+	}
 	if (of_property_read_u32_array(pdev->dev.of_node, "vcmd-core", vcmd_addr, 2)) {
 		LOG_ERR("Encoder VCMD core not found\n");
 		vcmd_supported = 0;
@@ -595,31 +663,12 @@ static int venc_hardware_reset(venc_clk_rst_t *vcrt)
 static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type)
 {
 	int ret;
-	unsigned int reg_val, vccsr_addr[4] = {0};
-	unsigned int dynm_csr_en_off, dynm_csr_gnt_off;
-	struct regmap *regmap;
+	unsigned int vccsr_addr[4] = {0};
 	void __iomem *venc_csr_reg = NULL;
 
 	if (VCMD_TYPE_ENCODER != module_type && VCMD_TYPE_JPEG_ENCODER != module_type)
 	{
 		LOG_ERR("Unknown module type %u, while smmu sid init\n", module_type);
-		return -1;
-	}
-	regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscfg");
-	if (IS_ERR(regmap)) {
-		dev_err(&pdev->dev, "No syscfg phandle specified\n");
-		return PTR_ERR(regmap);
-	}
-
-	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscfg", 1, &dynm_csr_en_off);
-	if (ret) {
-		dev_err(&pdev->dev, "No dynm csr enable offset found\n");
-		return -1;
-	}
-
-	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscfg", 2, &dynm_csr_gnt_off);
-	if (ret) {
-		dev_err(&pdev->dev, "No dynm csr gnt offset found\n");
 		return -1;
 	}
 
@@ -646,27 +695,11 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_ARSSID_OFF));
 	}
 
-	regmap_read(regmap, dynm_csr_en_off, &reg_val);
-	LOG_INFO("after read dynm_csr_en_off, reg_val=%x\n", reg_val);
-	reg_val |= (1 << MCPU_SP0_DYMN_CSR_EN_BIT);
-	regmap_write(regmap, dynm_csr_en_off, reg_val);
-	LOG_INFO("after write dynm_csr_en_off, reg_val=%x\n", reg_val);
-
-	while(1) {
-		regmap_read(regmap, dynm_csr_gnt_off, &reg_val);
-		// LOG_INFO("after read dynm_csr_gnt_off, reg_val=%x\n", reg_val);
-		reg_val &= (1 << MCPU_SP0_DYMN_CSR_GNT_BIT);
-		if (reg_val)
-			break;
-
-		msleep(10);
+	ret = win2030_dynm_sid_enable(dev_to_node(&pdev->dev));
+	if (ret) {
+		LOG_ERR("enc Dynamic smmu stream id setting failed\n\n");
+		return -1;
 	}
-
-	regmap_read(regmap, dynm_csr_en_off, &reg_val);
-	LOG_INFO("after read dynm_csr_en_off, reg_val=%x\n", reg_val);
-	reg_val &= (~(1U << MCPU_SP0_DYMN_CSR_EN_BIT));
-	regmap_write(regmap, dynm_csr_en_off, reg_val);
-	LOG_INFO("after write dynm_csr_en_off, reg_val=%x\n", reg_val);
 
 	return 0;
 }
@@ -716,9 +749,9 @@ static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
 		}
 
 		if (!strcmp(core_name, core_name_tag)) {
-			LOG_INFO("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
+			LOG_DBG("%s tbu power on = %u, mod_type = %u\n", core_name_tag, powerUp, mod_type);
 			win2030_tbu_power_by_dev_and_node(dev, chi, powerUp);
-			LOG_INFO("ve tbu power on = %u, mod_type = %u completed\n", powerUp, mod_type);
+			LOG_DBG("ve tbu power on = %u, mod_type = %u completed\n", powerUp, mod_type);
 		}
 	}
 
@@ -728,10 +761,11 @@ static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
 static int venc_pm_enable(struct platform_device *pdev) {
 	/** enable runtime PM */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_idle(&pdev->dev);
 
 	return 0;
 }
@@ -742,14 +776,13 @@ static void enc_pm_disable(struct platform_device *pdev) {
 
 static int venc_dev_open(struct device *dev)
 {
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+#if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_DBG)
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+#endif
 	int ret = -1;
 
-	if (atomic_dec_return(&prvdata->dev_open_gate) < 0) {
-		LOG_DBG("The device is opening\n");
-		atomic_inc(&prvdata->dev_open_gate);
-		return 0;
-	}
+	LOG_DBG("dev open, enter\n");
 
 	ret = venc_sys_clk_enable(dev);
 	if (ret) {
@@ -766,11 +799,23 @@ static int venc_dev_open(struct device *dev)
 		LOG_ERR("je: open device, tbu power up failed\n");
 		goto end;
 	}
-	prvdata->dev_closed = 0;
+#ifdef SUPPORT_DMA_HEAP
+	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_ENCODER);
+	if (ret < 0) {
+		LOG_ERR("ve: dynamic smmu sid set failed");
+		return -1;
+	}
+	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_JPEG_ENCODER);
+	if (ret < 0) {
+		LOG_ERR("je: dynamic smmu sid set failed");
+		return -1;
+	}
+#endif
+
+	venc_reset_device(pdev);
 
 end:
 	LOG_DBG("dev open, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
-	atomic_inc(&prvdata->dev_open_gate);
 	return ret;
 }
 
@@ -781,23 +826,15 @@ static int venc_dev_close(struct device *dev)
 	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 	int ret;
 
-	if (atomic_dec_return(&prvdata->dev_close_gate) < 0) {
-		LOG_DBG("The device is closing\n");
-		atomic_inc(&prvdata->dev_close_gate);
-		return 0;
-	}
+	LOG_DBG("dev close, enter\n");
+
 	/** check the device be idle*/
 	ret = venc_wait_device_idle(pdev);
-	if (0 == ret) {
-		/** timeout*/
-		LOG_ERR("Timeout for venc_suspend\n");
-		ret = -ETIMEDOUT;
-		goto end;
-	} else if (ret < 0) {
-		LOG_ERR("Interrupt triggered while venc_suspend\n");
-		ret = -ERESTARTSYS;
+	if (ret != 0) {
+		LOG_ERR("ve: wait device idle failed\n");
 		goto end;
 	}
+
 	ret = enc_tbu_power(dev, VCMD_TYPE_ENCODER, false);
 	if (ret != 0) {
 		LOG_ERR("ve: close device, tbu power down failed\n");
@@ -809,20 +846,17 @@ static int venc_dev_close(struct device *dev)
 		goto end;
 	}
 	ret = venc_clk_disable(vcrt);
-	if (ret) {
+	if (ret != 0) {
 		LOG_ERR("close device, venc disable clock failed\n");
 		goto end;
 	}
-	prvdata->dev_closed = 1;
 
 end:
-	LOG_DBG("dev closed, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
-	atomic_inc(&prvdata->dev_close_gate);
 	return ret;
 }
 
 /** interface functions might be called by others files*/
-int enc_pm_runtime_sync(u32 core_id) {
+int enc_pm_runtime_get(u32 core_id) {
 	struct platform_device *pdev = venc_get_platform_device(core_id);
 
 	if (!pdev) {
@@ -839,39 +873,47 @@ int enc_pm_runtime_put(u32 core_id) {
 		LOG_ERR("get platform device failed for pm put, core_id = %u\n", core_id);
 	}
 
-	return pm_runtime_put(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
+	return pm_runtime_put_autosuspend(&pdev->dev);
 }
 
 int enc_reset_system(u32 core_id) {
 	struct platform_device *pdev = venc_get_platform_device(core_id);
-	int ret = 0;
+	venc_dev_prvdata *prvdata = NULL;
+	int ret = -1;
 	u16 mod_type = vc8000e_vcmd_core_array[core_id].sub_module_type;
 
 	if (!pdev) {
 		LOG_ERR("get platform device failed for reset system, core_id = %u\n", core_id);
-		return -1;
+		return ret;
 	}
+	prvdata = (venc_dev_prvdata *)platform_get_drvdata(pdev);
+	if (!prvdata) {
+		LOG_ERR("get platform drvdata failed for reset system, core_id = %u\n", core_id);
+		return ret;
+	}
+	down(&prvdata->dev_setting_sem);
 	if (VCMD_TYPE_ENCODER != mod_type && VCMD_TYPE_JPEG_ENCODER != mod_type) {
 		LOG_ERR("Unsupported module type %u, while reset system\n", mod_type);
-		return -1;
+		goto end;
 	}
 	/** enc tbu power down*/
 	ret = enc_tbu_power(&pdev->dev, mod_type, false);
 	if (ret != 0) {
 		LOG_ERR("mod_type=%u: reset system tbu power down failed\n", mod_type);
-		return -1;
+		goto end;
 	}
 	/** enc core reset*/
 	ret = enc_reset_core(&pdev->dev, mod_type);
 	if (ret != 0) {
 		LOG_ERR("mod_type=%u: core reset failed\n", mod_type);
-		return -1;
+		goto end;
 	}
 	/** enc tbu power up*/
 	ret = enc_tbu_power(&pdev->dev, mod_type, true);
 	if (ret != 0) {
 		LOG_ERR("mod_type=%u: reset system tbu power up failed\n", mod_type);
-		return -1;
+		goto end;
 	}
 #ifdef SUPPORT_DMA_HEAP
 	LOG_INFO("venc_smmu_dynm_sid_init, mod_type = %u\n", mod_type);
@@ -879,7 +921,11 @@ int enc_reset_system(u32 core_id) {
 	LOG_INFO("venc_smmu_dynm_sid_init completed, mod_type = %u\n", mod_type);
 #endif
 
-	return 0;
+	ret = 0;
+end:
+	up(&prvdata->dev_setting_sem);
+
+	return ret;
 }
 /** end of interface functions*/
 
@@ -956,21 +1002,31 @@ void hantroenc_remove_procfs(void)
 #if defined(CONFIG_PM_DEVFREQ)
 static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
-	int ret;
+	int ret = -1;
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	venc_clk_rst_t *vcrt = NULL;
 	unsigned long freq_target = *freq;
+
+	if (!prvdata) {
+		LOG_ERR("get device drvdata failed for set devfreq\n");
+		return ret;
+	}
+	vcrt = &prvdata->vcrt;
+	if (down_timeout(&prvdata->dev_setting_sem, msecs_to_jiffies(50))) {
+		LOG_INFO("timeout while devfreq_target\n");
+		return -ETIMEDOUT;
+	}
 
 	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, freq_target);
 	*freq = clk_round_rate(vcrt->je_clk, freq_target);
 	if (0 == *freq) {
 		LOG_ERR("Video encoder: failed to round rate for je_clk %lu\n", freq_target);
-		return -1;
+		goto end;
 	} else if (prvdata->freq_cur_je != *freq) {
 		ret = clk_set_rate(vcrt->je_clk, *freq);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
-			return ret;
+			goto end;
 		}
 		LOG_DBG("devfreq, set je_clk %lu --> %luHZ\n", prvdata->freq_cur_je, *freq);
 		prvdata->freq_cur_je = *freq;
@@ -979,18 +1035,21 @@ static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flag
 	*freq = clk_round_rate(vcrt->ve_clk, freq_target);
 	if (0 == *freq) {
 		LOG_ERR("Video encoder: failed to round rate for ve_clk %lu\n", freq_target);
-		return -1;
+		goto end;
 	} else if (prvdata->freq_cur_ve != *freq) {
 		ret = clk_set_rate(vcrt->ve_clk, *freq);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
-			return ret;
+			goto end;
 		}
 		LOG_INFO("devfreq, set ve_clk %lu --> %luHZ\n", prvdata->freq_cur_ve, *freq);
 		prvdata->freq_cur_ve = *freq;
 	}
+	ret = 0;
 
-	return 0;
+end:
+	up(&prvdata->dev_setting_sem);
+	return ret;
 }
 
 static int venc_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
@@ -1055,6 +1114,8 @@ static int hantro_venc_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, (void *)prvdata);
 	vcrt = &prvdata->vcrt;
+
+	sema_init(&prvdata->dev_setting_sem, 1);
 
 	venc_dev_num = venc_device_nodes_check();
 	if (venc_dev_num <= 0) {
@@ -1152,9 +1213,6 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		LOG_ERR("41bit esdma dev: No suitable DMA available\n");
 #endif
 
-	atomic_set(&prvdata->dev_open_gate, 1);
-	atomic_set(&prvdata->dev_close_gate, 1);
-	prvdata->dev_closed = 1;
 	prvdata->numa_id = numa_id;
 
 	pdev_count++;
@@ -1189,6 +1247,10 @@ static int hantro_venc_remove(struct platform_device *pdev)
 #endif
 	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
+	if (!prvdata) {
+		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
+		return -1;
+	}
 	hantroenc_remove_procfs();
 	enc_pm_disable(pdev);
 	if (vcmd_supported == 0)
@@ -1209,29 +1271,10 @@ static int hantro_venc_remove(struct platform_device *pdev)
 	}
 	vcrt = &prvdata->vcrt;
 	venc_hardware_reset(vcrt);
+	venc_clk_disable(vcrt);
 #endif
 
 	return 0;
-}
-
-int venc_pm_runtime_sync(u32 core_id) {
-	struct platform_device *pdev = venc_get_platform_device(core_id);
-
-	if (!pdev) {
-		LOG_ERR("get platform device failed for pm sync, core_id = %u\n", core_id);
-	}
-
-	return pm_runtime_get_sync(&pdev->dev);
-}
-
-int venc_pm_runtime_put(u32 core_id) {
-	struct platform_device *pdev = venc_get_platform_device(core_id);
-
-	if (!pdev) {
-		LOG_ERR("get platform device failed for pm put, numa_id = %u\n", core_id);
-	}
-
-	return pm_runtime_put(&pdev->dev);
 }
 
 static int venc_runtime_suspend(struct device *dev) {
@@ -1265,6 +1308,7 @@ static int venc_suspend(struct device *dev) {
 		LOG_DBG("generic suspend, venc is suspended already\n");
 		return 0;
 	}
+	venc_abort_device(container_of(dev, struct platform_device, dev));
 	return venc_dev_close(dev);
 }
 
@@ -1279,7 +1323,11 @@ static int venc_resume(struct device *dev) {
 		LOG_DBG("generic resume, venc is resumed already\n");
 		return 0;
 	}
-	return venc_dev_open(dev);
+
+	int ret = venc_dev_open(dev);
+
+	venc_restart_device(container_of(dev, struct platform_device, dev));
+	return ret;
 }
 
 static const struct dev_pm_ops venc_pm_ops = {
@@ -1299,7 +1347,7 @@ static struct platform_driver eswin_venc_driver = {
     .driver = {
         .name   = "Eswinenc",
         .of_match_table = eswin_venc_match,
-		.pm = &venc_pm_ops,
+		.pm = pm_sleep_ptr(&venc_pm_ops),
     },
 };
 

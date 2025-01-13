@@ -28,6 +28,7 @@
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
+#include <linux/of_platform.h>
 
 #include <drm/drm_drv.h>
 #include <drm/drm_file.h>
@@ -245,7 +246,7 @@ static int es_drm_bind(struct device *dev)
 {
 	struct drm_device *drm_dev;
 	struct es_drm_private *priv;
-	int ret, id;
+	int ret, id, i;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
 	static u64 dma_mask = DMA_BIT_MASK(40);
 #else
@@ -296,7 +297,45 @@ static int es_drm_bind(struct device *dev)
 	if (ret)
 		goto err_helper;
 
+	for (i = 0;; i++) {
+		struct device_node *port;
+		struct platform_device *pdev;
+
+		port = of_parse_phandle(dev->of_node, "ports", i);
+		if (!port)
+			break;
+
+		if (of_device_is_available(port->parent)) {
+			dev_info(dev, "matched: %pOF, dev->name:%s\n",
+				 port->parent, port->parent->name);
+			pdev = of_find_device_by_node(port->parent);
+			if (!pdev) {
+				DRM_DEV_ERROR(
+					dev, "of_find_device_by_node failed\n");
+				of_node_put(port->parent);
+				of_node_put(port);
+				ret = -EPROBE_DEFER;
+				break;
+			}
+
+			if (!get_device(&pdev->dev)) {
+				DRM_DEV_ERROR(dev, "get_device failed\n");
+				of_node_put(port->parent);
+				of_node_put(port);
+				ret = -EPROBE_DEFER;
+				break;
+			}
+
+			priv->dc_dev = &pdev->dev;
+			of_node_put(port->parent);
+		}
+		of_node_put(port);
+	}
+
 	drm_fbdev_generic_setup(drm_dev, 32);
+
+	/* Disable VT switch for suspend/resume */
+	pm_set_vt_switch(0);
 
 	ret = of_property_read_u32(dev->of_node, "numa-node-id", &id);
 	if (ret) {
@@ -306,6 +345,7 @@ static int es_drm_bind(struct device *dev)
 	}
 	DRM_INFO("drm dev is on die%d\n", id);
 	priv->die_id = id;
+
 	priv->mmu_constructed = false;
 
 	if (drm_dev->unique) {
@@ -393,6 +433,8 @@ static int es_drm_of_component_probe(struct device *dev,
 		if (of_device_is_available(port->parent)) {
 			drm_of_component_match_add(dev, &match, compare_of,
 						   port->parent);
+			dev_info(dev, "matched: %pOF, dev->name:%s\n",
+				 port->parent, port->parent->name);
 		}
 
 		iommu = of_parse_phandle(port->parent, "iommus", 0);
@@ -501,15 +543,34 @@ static int es_drm_platform_remove(struct platform_device *pdev)
 static int es_drm_suspend(struct device *dev)
 {
 	struct drm_device *drm = dev_get_drvdata(dev);
+	struct es_drm_private *priv = drm->dev_private;
+	int ret;
+	struct es_dc *dc;
 
-	return drm_mode_config_helper_suspend(drm);
+	dc = dev_get_drvdata(priv->dc_dev);
+
+	ret = drm_mode_config_helper_suspend(drm);
+
+	if (dc->funcs && dc->funcs->dc_suspend)
+		dc->funcs->dc_suspend(priv->dc_dev, drm);
+
+	return ret;
 }
 
 static int es_drm_resume(struct device *dev)
 {
 	struct drm_device *drm = dev_get_drvdata(dev);
+	struct es_drm_private *priv = drm->dev_private;
+	int ret;
+	struct es_dc *dc;
 
-	return drm_mode_config_helper_resume(drm);
+	dc = dev_get_drvdata(priv->dc_dev);
+
+	if (dc->funcs && dc->funcs->dc_resume)
+		dc->funcs->dc_resume(priv->dc_dev, drm);
+
+	ret = drm_mode_config_helper_resume(drm);
+	return ret;
 }
 #endif
 
@@ -534,7 +595,7 @@ static struct platform_driver es_drm_platform_driver = {
     .driver = {
         .name = DRV_NAME,
         .of_match_table = es_drm_dt_ids,
-        .pm = &es_drm_pm_ops,
+        .pm = pm_sleep_ptr(&es_drm_pm_ops),
     },
 };
 

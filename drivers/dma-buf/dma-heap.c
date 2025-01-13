@@ -300,7 +300,6 @@ err0:
 	kfree(heap);
 	return err_ret;
 }
-EXPORT_SYMBOL(dma_heap_add);
 
 static char *dma_heap_devnode(const struct device *dev, umode_t *mode)
 {

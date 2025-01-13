@@ -298,7 +298,7 @@ static unsigned int reg_access_opt;
 unsigned int vcmd = 1;
 unsigned long alloc_size = 0xb0000000;
 unsigned long alloc_base = 16;
-unsigned long power_management = 0;
+unsigned long power_management = 1;
 
 unsigned long multicorebase[HXDEC_MAX_CORES] = {
 	HANTRO_REG_OFFSET0,
@@ -403,6 +403,10 @@ static void ResetAsic(hantrodec_t *dev);
 
 static int vdec_clk_enable(vdec_clk_rst_t *vcrt);
 static int vdec_pm_enable(struct platform_device *pdev);
+static void vdec_abort_device(struct platform_device *pdev);
+static int vdec_wait_device_idle(struct platform_device *pdev);
+static void vdec_reset_device(struct platform_device *pdev);
+static void vdec_restart_device(struct platform_device *pdev);
 
 #ifdef HANTRODEC_DEBUG
 static void dump_regs(hantrodec_t *dev);
@@ -3867,52 +3871,10 @@ static int vdec_smmu_dynm_sid_init(struct platform_device *pdev, int numa_id)
 	writel(WIN2030_SID_JDEC, (vdec_csr_reg + JDEC_MMU_AWSSID_OFF));
 	writel(WIN2030_SID_JDEC, (vdec_csr_reg + JDEC_MMU_ARSSID_OFF));
 
-/*
-	ret = win2030_dynm_sid_enable(numa_id);
+	ret = win2030_dynm_sid_enable(dev_to_node(&pdev->dev));
 	if (ret) {
-		dev_err(&pdev->dev, "Dynamic smmu stream id setting failed\n");
+		LOG_ERR("dec Dynamic smmu stream id setting failed\n");
 		return -1;
-	}
-*/
-	{
-		unsigned int reg_val;
-		unsigned int dynm_csr_en_off, dynm_csr_gnt_off;
-		struct regmap *regmap;
-
-		regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscfg");
-		if (IS_ERR(regmap)) {
-			dev_err(&pdev->dev, "No syscfg phandle specified\n");
-			return PTR_ERR(regmap);
-		}
-
-		ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscfg", 1, &dynm_csr_en_off);
-		if (ret) {
-			dev_err(&pdev->dev, "No dynm csr enable offset found\n");
-			return -1;
-		}
-
-		ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscfg", 2, &dynm_csr_gnt_off);
-		if (ret) {
-			dev_err(&pdev->dev, "No dynm csr gnt offset found\n");
-			return -1;
-		}
-
-		regmap_read(regmap, dynm_csr_en_off, &reg_val);
-		reg_val |= (1 << MCPU_SP0_DYMN_CSR_EN_BIT);
-		regmap_write(regmap, dynm_csr_en_off, reg_val);
-
-		while(1) {
-			regmap_read(regmap, dynm_csr_gnt_off, &reg_val);
-			reg_val &= (1 << MCPU_SP0_DYMN_CSR_GNT_BIT);
-			if (reg_val)
-				break;
-
-			msleep(10);
-		}
-
-		regmap_read(regmap, dynm_csr_en_off, &reg_val);
-		reg_val &= (~(1U << MCPU_SP0_DYMN_CSR_EN_BIT));
-		regmap_write(regmap, dynm_csr_en_off, reg_val);
 	}
 
 	return 0;
@@ -4201,10 +4163,11 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 static int vdec_pm_enable(struct platform_device *pdev) {
 	/* The code below assumes runtime PM to be disabled. */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_idle(&pdev->dev);
 
 	return 0;
 }
@@ -4238,6 +4201,7 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 }
 
 static int eswin_vdec_runtime_suspend(struct device *dev) {
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	if (!power_management) {
 		/**pm disabled */
 		return 0;
@@ -4248,6 +4212,15 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
 	vcrt = &prvdata->vcrt;
+	LOG_DBG("runtime suspend enter\n");
+	ret = vdec_wait_device_idle(pdev);
+	if (!ret) {
+		LOG_ERR("Timeout for vdec_suspend\n");
+		return -ETIMEDOUT;
+	} else if (ret < 0) {
+		LOG_ERR("Interrupt triggered while vdec_suspend\n");
+		return -ERESTARTSYS;
+	}
 	if (vcrt) {
 		ret = win2030_tbu_power(dev, false);
 		if (ret != 0) {
@@ -4256,10 +4229,12 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 		}
 		ret = vdec_clk_disable(vcrt);
 	}
+	LOG_DBG("runtime suspend done\n");
 	return ret;
 }
 
 static int eswin_vdec_runtime_resume(struct device *dev) {
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	if (!power_management) {
 		/**pm disabled */
 		return 0;
@@ -4267,9 +4242,11 @@ static int eswin_vdec_runtime_resume(struct device *dev) {
 
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
-	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	u8 numa_id = (pdev == platformdev) ? 0 : 1;
 
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 	vcrt = &prvdata->vcrt;
+	LOG_DBG("runtime resume enter\n");
 	if (vcrt) {
 		ret = vdec_clk_enable(vcrt);
 		if (ret) {
@@ -4282,15 +4259,39 @@ static int eswin_vdec_runtime_resume(struct device *dev) {
 			LOG_ERR("tbu power down failed, %d\n", __LINE__);
 			return -1;
 		}
+#ifdef SUPPORT_DMA_HEAP
+		ret = vdec_smmu_dynm_sid_init(pdev, numa_id);
+		if (ret < 0) {
+			LOG_ERR("rumtime_resume: dynamic smmu sid set failed");
+			return -1;
+		}
+#endif
+		vdec_reset_device(pdev);
 	}
+	LOG_DBG("runtime resume done\n");
 	return ret;
 }
 
 /** <TODO> the jd & vd should be seperated as two devices*/
-int vdec_wait_device_idle(struct platform_device *pdev) {
+static void vdec_abort_device(struct platform_device *pdev) {
+	if (pdev == platformdev) {
+		/** abort the devices*/
+		hantrovcmd_abort(0);
+		hantrovcmd_abort(1);
+	} else if (pdev == platformdev_d1) {
+		/** abort the devices*/
+		hantrovcmd_abort(2);
+		hantrovcmd_abort(3);
+	} else {
+		LOG_ERR("vdec_abort_device, Unknown platform device = 0x%llx\n", (unsigned long long)pdev);
+	}
+}
+
+static int vdec_wait_device_idle(struct platform_device *pdev) {
 	int ret;
 
 	if (pdev == platformdev) {
+		/** wait for the devices be idle*/
 		ret = hantrovcmd_wait_core_idle(0, msecs_to_jiffies(500));
 		if (ret <= 0) {
 			return ret;
@@ -4299,6 +4300,7 @@ int vdec_wait_device_idle(struct platform_device *pdev) {
 		return ret;
 	}
 	else if (pdev == platformdev_d1) {
+		/** wait for the devices be idle*/
 		ret = hantrovcmd_wait_core_idle(2, msecs_to_jiffies(500));
 		if (ret <= 0) {
 			return ret;
@@ -4307,8 +4309,38 @@ int vdec_wait_device_idle(struct platform_device *pdev) {
 		return ret;
 	}
 
-	LOG_ERR("Unknown platform device = %p\n", pdev);
+	LOG_ERR("vdec_wait_device_idle, Unknown platform device = 0x%llx\n", (unsigned long long)pdev);
 	return 1;
+}
+
+static void vdec_reset_device(struct platform_device *pdev) {
+	if (vcmd == 0) {
+		/** <todo> for normal*/
+	} else {
+		u8 numa_id = (pdev == platformdev) ? 0 : 1;
+
+		/** reset vc8000d vcmd*/
+		for (u32 core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+			if (numa_id_array[core_id] == numa_id) {
+				hantrovcmd_reset(core_id);
+			}
+		}
+	}
+}
+
+static void vdec_restart_device(struct platform_device *pdev) {
+	if (vcmd == 0) {
+		/** <todo> for normal*/
+	} else {
+		u8 numa_id = (pdev == platformdev) ? 0 : 1;
+
+		/** restart vc8000d vcmd*/
+		for (u32 core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+			if (numa_id_array[core_id] == numa_id) {
+				hantrovcmd_restart(core_id);
+			}
+		}
+	}
 }
 
 static int eswin_vdec_suspend(struct device *dev) {
@@ -4318,21 +4350,15 @@ static int eswin_vdec_suspend(struct device *dev) {
 	}
 
 	int ret = 0;
-	struct platform_device *pdev = NULL;
 
+	LOG_DBG("system suspend enter\n");
 	if (!pm_runtime_status_suspended(dev)) {
-		pdev = container_of(dev, struct platform_device, dev);
-		ret = vdec_wait_device_idle(pdev);
-		if (!ret) {
-			LOG_ERR("Timeout for vdec_suspend\n");
-			return -ETIMEDOUT;
-		} else if (ret < 0) {
-			LOG_ERR("Interrupt triggered while vdec_suspend\n");
-			return -ERESTARTSYS;
-		}
-
+		LOG_DBG("system suspend work\n");
+		/** abort device firstly*/
+		vdec_abort_device(container_of(dev, struct platform_device, dev));
 		ret = eswin_vdec_runtime_suspend(dev);
 	}
+	LOG_DBG("system suspend done\n");
 	return ret;
 }
 
@@ -4344,9 +4370,14 @@ static int eswin_vdec_resume(struct device *dev) {
 
 	int ret = 0;
 
+	LOG_DBG("system resume enter\n");
 	if (!pm_runtime_status_suspended(dev)) {
+		LOG_DBG("system resume work\n");
 		ret = eswin_vdec_runtime_resume(dev);
+		/** restart pending tasks*/
+		vdec_restart_device(container_of(dev, struct platform_device, dev));
 	}
+	LOG_DBG("system resume done\n");
 	return ret;
 }
 
@@ -4367,7 +4398,7 @@ static struct platform_driver eswin_vdec_driver = {
 	.driver = {
 		.name   = DEC_DEV_NAME,
 		.of_match_table = eswin_vdec_match,
-		.pm = &eswin_vdec_dev_pm_ops,
+		.pm = pm_sleep_ptr(&eswin_vdec_dev_pm_ops),
 	},
 };
 

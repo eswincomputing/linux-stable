@@ -68,7 +68,7 @@
 
 &sdio0 {
 	/* sd card */
-	delay_code = <0x3b>;
+	delay_code = <0x55>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
@@ -81,7 +81,7 @@
 
 &sdio1 {
 	/* wifi module */
-	delay_code = <0x32>;
+	delay_code = <0x29>;
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
@@ -117,6 +117,13 @@
 &ssi1 {
 	/* unused */
 	status = "disabled";
+};
+
+&dsi_panel {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio92_default>;
+	backlight0-gpios = <&porta 7 GPIO_ACTIVE_HIGH>;
+	rst-gpios = <&portc 28 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_graphcard1 {
@@ -200,7 +207,6 @@
 		compatible = "eswin,es8388";
 		reg = <0x10>;
 		#sound-dai-cells = <0>;
-		eswin-plat = <3>;
 		port {
 			d0_codec0_endpoint: endpoint {
 				system-clock-frequency = <12288000>;

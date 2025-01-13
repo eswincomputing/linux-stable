@@ -74,17 +74,15 @@
 #define DSP_SUBSYS_HILOAD_CLK 1040000000
 #define DSP_SUBSYS_LOWLOAD_CLK 5200000
 
-#define ES_DSP_DEFAULT_TIMEOUT (100 * 6)
-
 #ifdef DEBUG
 #pragma GCC optimize("O0")
 #endif
 
 int dsp_boot_firmware(struct es_dsp *dsp);
 
-static int fw_timeout = ES_DSP_DEFAULT_TIMEOUT;
-module_param(fw_timeout, int, 0644);
-MODULE_PARM_DESC(fw_timeout, "Firmware command timeout in seconds.");
+static int task_timeout = 30000;
+module_param(task_timeout, int, 0644);
+MODULE_PARM_DESC(task_timeout, "task timeout in ms.");
 
 enum {
 	LOOPBACK_NORMAL, /* normal work mode */
@@ -120,7 +118,7 @@ static char *dsp_devm_kstrdup(struct device *dev, const char *s, gfp_t gfp)
 
 int es_dsp_exec_cmd_timeout(void)
 {
-	return fw_timeout;
+	return task_timeout;
 }
 
 void __dsp_enqueue_task(struct es_dsp *dsp, dsp_request_t *req)
@@ -173,7 +171,7 @@ static void __dsp_send_task(struct es_dsp *dsp)
 	dsp->stats->send_to_dsp_cnt++;
 
 	if (req->allow_eval) {
-		dsp->task_timer.expires = jiffies + fw_timeout * HZ;
+		dsp->task_timer.expires = jiffies + msecs_to_jiffies(task_timeout);
 		BUG_ON(timer_pending(&dsp->task_timer));
 		add_timer(&dsp->task_timer);
 	}
@@ -239,16 +237,15 @@ static void dsp_process_expire_work(struct work_struct *work)
 	struct dsp_fw_state_t *dsp_fw_state =
 		(struct dsp_fw_state_t *)dsp->dsp_fw_state_base;
 
-	dsp_err("%s, %d, task timeout, dsp fw state=0x%x, excause=0x%x, ps=0x%x, pc=0x%x, dsp_task=0x%x"
+	dsp_err("task timeout, dsp fw state=0x%x, excause=0x%x, ps=0x%x, pc=0x%x, dsp_task=0x%x"
 		"npu_task=0x%x, func_state=0x%x\n",
-		__func__, __LINE__, dsp_fw_state->fw_state,
+		dsp_fw_state->fw_state,
 		dsp_fw_state->exccause, dsp_fw_state->ps, dsp_fw_state->pc,
 		dsp_fw_state->dsp_task_state, dsp_fw_state->npu_task_state,
 		dsp_fw_state->func_state);
 
 	if (dsp->stats->last_op_name) {
-		dsp_err("%s, %d, op name = %s.\n", __func__, __LINE__,
-			dsp->stats->last_op_name);
+		dsp_err("op name = %s.\n", dsp->stats->last_op_name);
 	}
 	ret = es_dsp_reboot_core(dsp->hw_arg);
 	if (ret < 0) {
@@ -307,7 +304,7 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 	if (msg->status == 0 && msg->return_value == DSP_CMD_READY) {
 		dsp->off = false;
 		wake_up_interruptible_nr(&dsp->hd_ready_wait, 1);
-		dsp_info("%s, this is hardware sync.\n", __func__);
+		dsp_info("this is hardware sync.\n");
 		return IRQ_HANDLED;
 	}
 
@@ -322,8 +319,7 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 	if (req->allow_eval) {
 		ret = del_timer(&dsp->task_timer);
 		if (!ret) {
-			dsp_err("%s, %d, task is now processing in timer.\n",
-				__func__, __LINE__);
+			dsp_err("task is now processing in timer.\n");
 			spin_unlock_irqrestore(&dsp->send_lock, flags);
 			return IRQ_NONE;
 		}
@@ -338,10 +334,12 @@ irqreturn_t dsp_irq_handler(void *msg_data, struct es_dsp *dsp)
 	req->d2h_msg = *msg;
 	dsp_complete_work(dsp, req);
 	dsp->current_task = NULL;
+	if (waitqueue_active(&dsp->event_wq)) {
+		wake_up_interruptible(&dsp->event_wq);
+	}
 
-	dsp_debug("%s, current task req = 0x%px.\n", __func__, req);
-	dsp_info("op name:%s take time:%lld\n", dsp->stats->last_op_name,
-		 dsp->stats->last_task_time);
+	dsp_debug("current task req = 0x%px.\n", req);
+	dsp_info("op name:%s take time:%lld\n", dsp->stats->last_op_name, dsp->stats->last_task_time);
 	if (dsp->off == false) {
 		dsp_schedule_task(dsp);
 	}
@@ -376,7 +374,7 @@ static struct dsp_op_desc *load_oper_to_mem(struct es_dsp *dsp, char *op_dir,
 	dsp_send_invalid_code_seg(dsp->hw_arg, op);
 	kref_init(&op->refcount);
 	list_add(&op->entry, &dsp->all_op_list);
-	dsp_debug("%s, done.\n", __func__);
+	dsp_debug("done.\n");
 	return op;
 err_load_firm:
 	kfree((void *)op);
@@ -444,13 +442,12 @@ void dsp_op_release(struct kref *kref)
 		container_of(kref, struct dsp_op_desc, refcount);
 	struct es_dsp *dsp;
 	if (!op) {
-		dsp_err("%s, op is null, error.\n", __func__);
+		dsp_err("op is null, error.\n");
 		return;
 	}
 	dsp = op->dsp;
 
-	dsp_debug("%s, opname=%s, refcount=%d.\n", __func__, op->name,
-		  kref_read(kref));
+	dsp_debug("opname=%s, refcount=%d.\n", op->name, kref_read(kref));
 
 	list_del(&op->entry);
 	if (op->op_shared_seg_ptr) {
@@ -460,7 +457,7 @@ void dsp_op_release(struct kref *kref)
 	}
 
 	kfree((void *)op);
-	dsp_debug("%s, free mem ok.\n", __func__);
+	dsp_debug("free mem ok.\n");
 	return;
 }
 
@@ -534,15 +531,13 @@ int submit_task(struct device *dsp_dev, dsp_request_t *req)
 	unsigned long flags;
 
 	if (req->prio >= DSP_MAX_PRIO) {
-		dsp_err("%s, dsp request prio = %d great max prio %d, error.\n",
-			__func__, req->prio, DSP_MAX_PRIO);
+		dsp_err("dsp request prio = %d great max prio %d, error.\n", req->prio, DSP_MAX_PRIO);
 		return -EINVAL;
 	}
 
 	op = (struct dsp_op_desc *)req->handle;
 	if (!op) {
-		dsp_err("%s, handle=0x%llx is invalid.\n", __func__,
-			req->handle);
+		dsp_err("handle=0x%llx is invalid.\n", req->handle);
 		return -EINVAL;
 	}
 	dsp_set_flat_func(req->flat_virt, req->handle);
@@ -556,7 +551,7 @@ int submit_task(struct device *dsp_dev, dsp_request_t *req)
 	spin_unlock_irqrestore(&dsp->send_lock, flags);
 
 	dsp_schedule_task(dsp);
-	dsp_debug("%s, done.\n", __func__);
+	dsp_debug("done.\n");
 	return 0;
 }
 EXPORT_SYMBOL(submit_task);
@@ -595,8 +590,7 @@ static int check_device_node_status(u32 die_id, u32 dspid)
 		}
 
 		if (of_property_read_u32(node, "process-id", &pro_id)) {
-			dsp_err("%s, failed to get 'process-id' property\n",
-				__func__);
+			dsp_err("failed to get 'process-id' property\n");
 			return -ENODEV;
 		}
 
@@ -605,8 +599,7 @@ static int check_device_node_status(u32 die_id, u32 dspid)
 		}
 
 		if (of_device_is_available(node) == false) {
-			printk("die%d, dsp core %d status is disabled.\n",
-			       die_id, dspid);
+			dsp_err("die%d, dsp core %d status is disabled.\n", die_id, dspid);
 			return -ENODEV;
 		}
 
@@ -635,8 +628,7 @@ int subscribe_dsp_device(u32 die_id, u32 dspId, struct device *subscrib,
 	}
 
 	if (g_es_dsp[die_id][dspId] == NULL) {
-		dsp_err("%s, dsp die %d, dsp_core %d have not register.\n",
-			__func__, die_id, dspId);
+		dsp_err("dsp die %d, dsp_core %d have not register.\n", die_id, dspId);
 		return -EPROBE_DEFER;
 	}
 	dsp = g_es_dsp[die_id][dspId];
@@ -703,9 +695,7 @@ int dsp_boot_firmware(struct es_dsp *dsp)
 		ret = dsp_synchronize(dsp);
 		if (ret < 0) {
 			dsp_halt(dsp);
-			dev_err(dsp->dev,
-				"%s: couldn't synchronize with the DSP core\n",
-				__func__);
+			dev_err(dsp->dev, "couldn't synchronize with the DSP core\n");
 			dsp_err("es dsp device will not use the DSP until the driver is rebound to this device\n");
 			dsp->off = true;
 			return ret;
@@ -724,16 +714,17 @@ int __maybe_unused dsp_suspend(struct device *dev)
 		return 0;
 	}
 
-	dsp->off = true;
-
-	if (dsp->current_task != NULL) {
-		ret = wait_for_current_tsk_done(dsp);
-		if (ret) {
-			dsp_err("%s, %d, cannot wait for current task done, ret = %d.\n", __func__, __LINE__, ret);
-			dsp->off = false;
-			return ret;
-		}
-	}
+	ret = wait_event_interruptible_timeout(dsp->event_wq,
+					dsp->current_task == NULL, msecs_to_jiffies(task_timeout));
+	if (ret == 0) {
+        dev_err(dev, "Timeout waiting for task done\n");
+		dsp->off = false;
+        return -ETIMEDOUT;
+    } else if (ret < 0) {
+        dev_err(dev, "Wait error: %d\n", ret);
+		dsp->off = false;
+        return ret;
+    }
 
 	flush_work(&dsp->task_work);
 
@@ -838,7 +829,6 @@ static void dsp_init_prio_array(struct es_dsp *dsp)
 	set_bit(DSP_MAX_PRIO, array->bitmap);
 }
 
-#if defined(CONFIG_PM_DEVFREQ)
 /* devfreq target function to set frequency */
 static int dsp_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
@@ -850,31 +840,24 @@ static int dsp_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 static int dsp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
-	unsigned long rate;
 
-	rate = dsp_get_rate(dsp);
-	if (rate <= 0) {
-		dev_err(dsp->dev, "failed to get aclk: %d\n", rate);
-		return rate;
-	}
-	*freq = rate;
+	*freq = dsp->rate;
 	return 0;
 }
 
 static void eswin_exit(struct device *dev)
 {
-	;
+
 }
 
-static int eswin_get_dev_status(struct device *dev,
-				     struct devfreq_dev_status *stat)
+static int eswin_get_dev_status(struct device *dev, struct devfreq_dev_status *stat)
 {
 	struct es_dsp *dsp = dev_get_drvdata(dev);
 	unsigned long rate;
 
-	stat->busy_time = 1024;	
+	stat->busy_time = 1024;
 	stat->total_time = 1024;
-	stat->current_frequency = dsp_get_rate(dsp);
+	stat->current_frequency = dsp->rate;
 
 	return 0;
 }
@@ -895,7 +878,30 @@ static struct devfreq_simple_ondemand_data ondemand_data =
 	.upthreshold =80,
 	.downdifferential=10,
 };
-#endif
+
+void dsp_devfreq_init(struct es_dsp *dsp)
+{
+	int ret;
+
+	ret = devm_pm_opp_of_add_table(dsp->dev);
+	if (ret) {
+		dev_err(dsp->dev, "Failed to add OPP table, ret:%d\n", ret);
+		return;
+	}
+
+	dsp->df = devm_devfreq_add_device(dsp->dev, &dsp_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
+	if (IS_ERR(dsp->df)) {
+		dev_err(dsp->dev, "add devfreq failed ret:%d\n", PTR_ERR(dsp->df));
+		return;
+	};
+
+	/* Register opp_notifier to catch the change of OPP  ????*/
+	ret = devm_devfreq_register_opp_notifier(dsp->dev, dsp->df);
+	if (ret < 0) {
+		dev_err(dsp->dev, "failed to register opp notifier, ret:%d\n", ret);
+		return;
+	}
+}
 
 static int32_t  dsp_probe_result = 0;
 static int es_dsp_hw_probe(struct platform_device *pdev)
@@ -916,7 +922,6 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	dsp->stats->last_op_name = (char *)((void *)dsp + sizeof(*dsp) +
 					    sizeof(struct es_dsp_stats));
 	dsp->dev = &pdev->dev;
-	dsp->rate = DSP_SUBSYS_HILOAD_CLK;
 	atomic_set(&dsp->dmabuf_mapped_cnt,0);
 	mutex_init(&dsp->lock);
 
@@ -927,8 +932,7 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dsp);
 	ret = es_dsp_get_subsys(pdev, dsp);
 	if (ret) {
-		dsp_err("%s, %d, get subsys err, ret=%d.\n", __func__, __LINE__,
-			ret);
+		dsp_err("get subsys err, ret=%d.\n", ret);
 		dsp_free_hw(dsp);
 		return -ENXIO;
 	}
@@ -952,11 +956,11 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	ret = es_dsp_map_resource(dsp);
 	if (ret < 0) {
-		dsp_err("%s, %d, dsp map resource err, ret=%d.\n", __func__,
-			__LINE__, ret);
+		dsp_err("dsp map resource err, ret=%d.\n", ret);
 		goto err_map_res;
 	}
 	init_waitqueue_head(&dsp->hd_ready_wait);
+	init_waitqueue_head(&dsp->event_wq);
 	INIT_WORK(&dsp->task_work, dsp_task_work);
 	timer_setup(&dsp->task_timer, dsp_task_timer, 0);
 	dsp->task_timer.expires = 0;
@@ -971,43 +975,20 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	ret = dsp_enable_mbox_clock(dsp);
 	if (ret < 0) {
-		dsp_err("%s, %d, enable mbox clock err, ret = %d.\n", __func__,
-			__LINE__, ret);
+		dsp_err("enable mbox clock err, ret = %d.\n", ret);
 		goto err_mbox_clk;
 	}
 
-#if defined(CONFIG_PM_DEVFREQ)
-	/* Add OPP table from device tree */
-	ret = dev_pm_opp_of_add_table(&pdev->dev);
-	if (ret) {
-		dsp_err("%s, %d, Failed to add OPP table\n", __func__, __LINE__);
-		goto err_dsp_devfreq;
-	}
-
-	dsp->df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
-	if (IS_ERR(dsp->df)) {
-		dsp_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
-		ret = PTR_ERR(dsp->df);
-		goto err_dsp_devfreq;
-	};
-
-	/* Register opp_notifier to catch the change of OPP  ????*/
-	ret = devm_devfreq_register_opp_notifier(&pdev->dev, dsp->df);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to register opp notifier\n");
-		return ret;
-	}
-#endif
+	dsp_devfreq_init(dsp);
 
 	ret = es_dsp_clk_enable(dsp);
 	if (ret) {
-		dsp_err("%s, %d, clock enbale error.\n", __func__, __LINE__,
-			ret);
+		dsp_err("clock enbale error.\n", ret);
 		goto err_dsp_clk;
 	}
 	ret = win2030_tbu_power(dsp->dev, true);
 	if (ret) {
-		dsp_err("%s, %d, tbu power failed.\n", __func__, __LINE__, ret);
+		dsp_err("tbu power failed.\n", ret);
 		goto err_tbu_power;
 	}
 
@@ -1049,11 +1030,8 @@ err_hw_init:
 err_tbu_power:
 	es_dsp_clk_disable(dsp);
 err_dsp_clk:
-#if defined(CONFIG_PM_DEVFREQ)
 	devm_devfreq_unregister_opp_notifier(dsp->dev, dsp->df);
 	devm_devfreq_remove_device(dsp->dev, dsp->df);
-err_dsp_devfreq:
-#endif
 	dsp_disable_mbox_clock(dsp);
 err_mbox_clk:
 	es_dsp_unmap_resource(dsp);
@@ -1065,7 +1043,7 @@ err_mbx:
 err_clk_init:
 	es_dsp_put_subsys(dsp);
 	dsp_free_hw(dsp);
-	dev_err(&pdev->dev, "%s: ret = %d\n", __func__, ret);
+	dev_err(&pdev->dev, "ret = %d\n", ret);
 	dsp_probe_result = ret;
 	return ret;
 }
@@ -1093,12 +1071,8 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	dsp_halt(dsp);
 
 	win2030_tbu_power(dsp->dev, false);
-
-#if defined(CONFIG_PM_DEVFREQ)
 	devm_devfreq_unregister_opp_notifier(dsp->dev, dsp->df);
 	devm_devfreq_remove_device(dsp->dev, dsp->df);
-#endif
-
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
 	es_dsp_unmap_resource(dsp);
@@ -1121,7 +1095,7 @@ static struct platform_driver es_dsp_hw_driver = {
 	.driver  = {
 		.name = DRIVER_NAME,
 		.of_match_table = of_match_ptr(es_dsp_hw_match),
-		.pm = pm_ptr(&es_dsp_hw_pm_ops),
+		.pm = pm_sleep_ptr(&es_dsp_hw_pm_ops),
 	},
 };
 
@@ -1149,7 +1123,6 @@ static int __init es_dsp_module_init(void)
 	}
 
 	es_dsp_init_proc();
-	dsp_info("%s, ok.\n", __func__);
 	return 0;
 }
 
@@ -1172,3 +1145,4 @@ module_exit(es_dsp_module_exit);
 MODULE_AUTHOR("Takayuki Sugawara");
 MODULE_AUTHOR("Max Filippov");
 MODULE_LICENSE("Dual MIT/GPL");
+MODULE_VERSION(DSP_VERSION);

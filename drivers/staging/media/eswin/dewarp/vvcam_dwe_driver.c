@@ -119,10 +119,12 @@ static struct class *es_dewarp_class;
 #define VSE_REG_INDEX (0)
 #define DWE_REG_INDEX (1)
 
-#define AWSMMUSID GENMASK(31, 24) // The sid of write operation
-#define AWSMMUSSID GENMASK(23, 16) // The ssid of write operation
-#define ARSMMUSID GENMASK(15, 8) // The sid of read operation
-#define ARSMMUSSID GENMASK(7, 0) // The ssid of read operation
+#define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
+#define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
+#define ARSMMUSID	GENMASK(15, 8) // The sid of read operation
+#define ARSMMUSSID	GENMASK(7, 0) // The ssid of read operation
+
+#define DEWARP_CLK_EN	BIT(2)
 
 #define VVCAM_DW_CLK_HIGHEST 594000000
 #define VVCAM_AXI_CLK_HIGHEST 800000000
@@ -163,6 +165,9 @@ struct es_dewarp_driver_dev {
 	unsigned int irq_num_vse;
 	bool irq_trigger;
 	wait_queue_head_t irq_wait;
+	struct regmap *vi_topcsr_regmap;
+	u32 vi_topcsr_reg;
+
 
 	atomic_t vse_online_mode_atomic;
 	wait_queue_head_t dwe_irq_wait_q;
@@ -220,7 +225,6 @@ static unsigned int dewarp_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
-#ifdef CONFIG_PM_SLEEP
 static int obtain_dewarp_mis(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
@@ -255,7 +259,6 @@ static int obtain_dewarp_mis(struct device *dev)
 	}
 	return ret;
 }
-#endif
 
 #ifdef ES_DW200_SDK
 static int triggerDwe(struct es_dw200_private *pes_dw200_priv)
@@ -1075,18 +1078,6 @@ static long dewarp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static int vvcam_sys_reset_init(struct platform_device *pdev,
 				dw_clk_rst_t *dw_crg)
 {
-	dw_crg->rstc_axi = devm_reset_control_get_shared(&pdev->dev, "axi");
-	if (IS_ERR_OR_NULL(dw_crg->rstc_axi)) {
-		dev_err(&pdev->dev, "Failed to get vi axi reset handle\n");
-		return -EFAULT;
-	}
-
-	dw_crg->rstc_cfg = devm_reset_control_get_shared(&pdev->dev, "cfg");
-	if (IS_ERR_OR_NULL(dw_crg->rstc_cfg)) {
-		dev_err(&pdev->dev, "Failed to get vi cfg reset handle\n");
-		return -EFAULT;
-	}
-
 	dw_crg->rstc_dwe = devm_reset_control_get_optional(&pdev->dev, "dwe");
 	if (IS_ERR_OR_NULL(dw_crg->rstc_dwe)) {
 		dev_err(&pdev->dev, "Failed to get dwe reset handle\n");
@@ -1113,8 +1104,6 @@ static int vvcam_sys_clk_init(struct platform_device *pdev,
 	int ret;
 	struct device *dev = &pdev->dev;
 
-	VVCAM_CLK_GET_HANDLE(dev, dw_crg->aclk, "aclk");
-	VVCAM_CLK_GET_HANDLE(dev, dw_crg->cfg_clk, "cfg_clk");
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->dw_aclk, "dw_aclk");
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->aclk_mux, "aclk_mux");
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->dw_mux, "dw_mux");
@@ -1127,12 +1116,6 @@ static int vvcam_sys_clk_init(struct platform_device *pdev,
 static int vvcam_sys_reset_release(dw_clk_rst_t *dw_crg)
 {
 	int ret;
-
-	ret = reset_control_deassert(dw_crg->rstc_cfg);
-	WARN_ON(0 != ret);
-
-	ret = reset_control_deassert(dw_crg->rstc_axi);
-	WARN_ON(0 != ret);
 
 	ret = reset_control_reset(dw_crg->rstc_dwe);
 	WARN_ON(0 != ret);
@@ -1252,8 +1235,7 @@ static int vvcam_sys_clk_config(dw_clk_rst_t *dw_crg)
 static int vvcam_sys_clk_prepare(dw_clk_rst_t *dw_crg)
 {
 	int ret = 0;
-	VVCAM_SYS_CLK_PREPARE(dw_crg->aclk);
-	VVCAM_SYS_CLK_PREPARE(dw_crg->cfg_clk);
+
 	VVCAM_SYS_CLK_PREPARE(dw_crg->dw_aclk);
 	ret = win2030_tbu_power(dw_crg->dev, true);
 	if (ret) {
@@ -1274,8 +1256,6 @@ static int vvcam_sys_clk_unprepare(dw_clk_rst_t *dw_crg)
 	}
 
 	clk_disable_unprepare(dw_crg->dw_aclk);
-	clk_disable_unprepare(dw_crg->cfg_clk);
-	clk_disable_unprepare(dw_crg->aclk);
 
 	return 0;
 }
@@ -1283,8 +1263,6 @@ static int vvcam_sys_clk_unprepare(dw_clk_rst_t *dw_crg)
 static int vvcam_reset_fini(dw_clk_rst_t *dw_crg)
 {
 	reset_control_assert(dw_crg->rstc_dwe);
-	reset_control_assert(dw_crg->rstc_cfg);
-	reset_control_assert(dw_crg->rstc_axi);
 	return 0;
 }
 
@@ -1402,8 +1380,10 @@ static int es_dewarp_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct es_dewarp_driver_dev *pdriver_dev;
+	struct device *dev = &pdev->dev;
 	struct dw200_subdev *pdwe_dev;
 	char debug_dw200_reset[64];
+	u32 reg_val;
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df;
 #endif
@@ -1423,6 +1403,24 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	}
 
 	pdwe_dev = &pdriver_dev->hw_dev;
+	dev_set_drvdata(dev, pdriver_dev);
+	pdriver_dev->device = dev;
+	pdriver_dev->vi_topcsr_regmap = syscon_regmap_lookup_by_phandle(pdriver_dev->device->of_node, "eswin,vi_top_csr");
+    if (IS_ERR(pdriver_dev->vi_topcsr_regmap)) {
+        pr_err("No vi_top_csr phandle specified, regmap=%ld\n", PTR_ERR(pdriver_dev->vi_topcsr_regmap));
+		return PTR_ERR(pdriver_dev->vi_topcsr_regmap);
+    }
+
+	ret = of_property_read_u32_index(pdriver_dev->device->of_node, "eswin,vi_top_csr", 2, &pdriver_dev->vi_topcsr_reg);
+	if (ret) {
+		pr_err("Failed to get dewarp vi top clk reg offset, ret=%d\n", ret);
+		return ret;
+	}
+
+	regmap_read(pdriver_dev->vi_topcsr_regmap, pdriver_dev->vi_topcsr_reg, &reg_val);
+	reg_val |= DEWARP_CLK_EN;
+	regmap_write(pdriver_dev->vi_topcsr_regmap, pdriver_dev->vi_topcsr_reg, reg_val);
+
 	ret = vvcam_sys_reset_init(pdev, &pdwe_dev->dw_crg);
 	if (ret) {
 		pr_err("%s: DW reset init failed\n", __func__);
@@ -1639,8 +1637,7 @@ static int es_dewarp_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int dewarp_runtime_suspend(struct device *dev)
+static int __maybe_unused dewarp_runtime_suspend(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
@@ -1649,16 +1646,24 @@ static int dewarp_runtime_suspend(struct device *dev)
 	return vvcam_sys_clk_unprepare(&pdwe_dev->dw_crg);
 }
 
-static int dewarp_runtime_resume(struct device *dev)
+static int __maybe_unused dewarp_runtime_resume(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
-
 	pdwe_dev = &pdriver_dev->hw_dev;
-	return vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+	u32 reg_val = 0;
+	int ret = 0;
+
+	regmap_read(pdriver_dev->vi_topcsr_regmap, pdriver_dev->vi_topcsr_reg, &reg_val);
+	reg_val |= DEWARP_CLK_EN;
+	regmap_write(pdriver_dev->vi_topcsr_regmap, pdriver_dev->vi_topcsr_reg, reg_val);
+
+	ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+	(void)vvcam_dw200_smmu_sid_cfg(dev);
+	return ret;
 }
 
-static int dewarp_suspend(struct device *dev)
+static int __maybe_unused dewarp_suspend(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
@@ -1666,11 +1671,9 @@ static int dewarp_suspend(struct device *dev)
 	pdriver_dev->suspended = 0;
 
 	pdwe_dev = &pdriver_dev->hw_dev;
-
 	if (pm_runtime_status_suspended(dev)) {
 		return 0;
 	}
-
 	if (atomic_read(&pdriver_dev->trigger_atom)) {
 		obtain_dewarp_mis(dev);
 		//dw200 is working wait done
@@ -1696,30 +1699,28 @@ static int dewarp_suspend(struct device *dev)
 	return vvcam_sys_clk_unprepare(&pdwe_dev->dw_crg);
 }
 
-static int dewarp_resume(struct device *dev)
+static int __maybe_unused dewarp_resume(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
 	int ret = 0;
 
 	pdwe_dev = &pdriver_dev->hw_dev;
-
 	if (pm_runtime_status_suspended(dev)) {
 		return 0;
 	}
 
 	if (pdriver_dev->suspended) {
 		ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+		(void)vvcam_dw200_smmu_sid_cfg(dev);
 		obtain_dewarp_mis(dev);
 	}
-
 	return ret;
 }
-#endif
 
 static const struct dev_pm_ops dewarp_pm_ops = {
-	SET_RUNTIME_PM_OPS(dewarp_runtime_suspend, dewarp_runtime_resume, NULL)
-		SET_SYSTEM_SLEEP_PM_OPS(dewarp_suspend, dewarp_resume)
+	LATE_SYSTEM_SLEEP_PM_OPS(dewarp_suspend, dewarp_resume) RUNTIME_PM_OPS(
+		dewarp_runtime_suspend, dewarp_runtime_resume, NULL)
 };
 
 #define DEV_NAME "dewarp-dri"
@@ -1739,7 +1740,7 @@ static struct platform_driver viv_platform_driver = {
             .owner = THIS_MODULE,
             .name = DEV_NAME,
             .of_match_table = dw200_of_id_table,
-            .pm = &dewarp_pm_ops,
+            .pm = pm_sleep_ptr(&dewarp_pm_ops),
         },
 };
 

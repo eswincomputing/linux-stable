@@ -155,13 +155,12 @@ int es_dsp_core_clk_enable(struct es_dsp *dsp)
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 
 	regmap_read(hw->map, REG_OFFSET_USR_CONF0, &val);
-	dsp_debug("%s, %d, original usr conf0 val=0x%x.\n", __func__, __LINE__,
-		  val);
+	dsp_debug("original usr conf0 val=0x%x.\n", val);
 
 	val |= (3 << (dsp->process_id * 2));
 	ret = regmap_write(hw->map, REG_OFFSET_USR_CONF0, val);
 	regmap_read(hw->map, REG_OFFSET_USR_CONF0, &val);
-	dsp_debug("%s, %d, val=0x%x.\n", __func__, __LINE__, val);
+	dsp_debug("val=0x%x.\n", val);
 	return ret;
 }
 
@@ -172,12 +171,12 @@ int es_dsp_core_clk_disable(struct es_dsp *dsp)
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 
 	regmap_read(hw->map, REG_OFFSET_USR_CONF0, &val);
-	dsp_debug("%s, %d, original val=0x%x.\n", __func__, __LINE__, val);
+	dsp_debug("original val=0x%x.\n", val);
 
 	val &= ~(3 << (dsp->process_id * 2));
 	ret = regmap_write(hw->map, REG_OFFSET_USR_CONF0, val);
 	regmap_read(hw->map, REG_OFFSET_USR_CONF0, &val);
-	dsp_debug("%s, %d, val=0x%x.\n", __func__, __LINE__, val);
+	dsp_debug("val=0x%x.\n", val);
 	return ret;
 }
 
@@ -187,7 +186,7 @@ void es_dsp_reset(struct es_dsp_hw *hw)
 	int ret;
 
 	if (NULL == dsp) {
-		dsp_err("%s %d: failed to reset device\n", __func__, __LINE__);
+		dsp_err("failed to reset device\n");
 	} else {
 		ret = regmap_set_bits(hw->map,
 				      REG_OFFSET(REG_OFFSET_DSP_RESET,
@@ -270,21 +269,19 @@ int es_dsp_clk_disable(struct es_dsp *dsp)
 
 	ret = es_dsp_core_clk_disable(dsp);
 	if (ret) {
-		dsp_debug("%s, %d, dsp core clk disable err, ret=%d.\n",
-			  __func__, __LINE__, ret);
+		dsp_debug("dsp core clk disable err, ret=%d.\n", ret);
 		return ret;
 	}
 	enabled = __clk_is_enabled(hw->subsys->aclk);
 	regmap_read(hw->map, REG_OFFSET_USR_CONF0, &val);
-	dsp_debug("%s, %d, enabled=%d, val=0x%x.\n", __func__, __LINE__,
-		  enabled, val);
+	dsp_debug("enabled=%d, val=0x%x.\n", enabled, val);
 
 	if ((enabled == true && val == 0)) {
-		dsp_debug("%s, %d, disable aclk.\n", __func__, __LINE__);
+		dsp_debug("disable aclk.\n");
 		clk_disable_unprepare(hw->subsys->aclk);
 	}
 	clk_disable_unprepare(hw->subsys->cfg_clk);
-	dsp_debug("%s, %d, done.\n", __func__, __LINE__);
+	dsp_debug("done.\n");
 	return ret;
 }
 int es_dsp_clk_enable(struct es_dsp *dsp)
@@ -315,7 +312,9 @@ int es_dsp_clk_enable(struct es_dsp *dsp)
 		return ret;
 	}
 
-	dsp_debug("enable dsp clock ok.\n");
+	dsp->rate = clk_get_rate(hw->aclk);
+
+	dsp_debug("enable dsp clock ok, dsp rate:%ld\n", dsp->rate);
 	return 0;
 }
 
@@ -337,7 +336,8 @@ int es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long *rate)
 			return ret;
 		}
 	}
-	dev_dbg(dsp->dev, "set dev rate to %ldHZ\n", *rate);
+	dsp->rate = *rate;
+	dev_dbg(dsp->dev, "set dev rate to %ldHZ\n", dsp->rate);
 	return 0;
 }
 
@@ -352,7 +352,7 @@ void es_dsp_halt(struct es_dsp_hw *hw)
 	int ret;
 
 	if (NULL == dsp) {
-		dsp_err("%s %d: failed to halt device\n", __func__, __LINE__);
+		dsp_err("failed to halt device\n");
 	} else {
 		ret = regmap_set_bits(hw->map,
 				      REG_OFFSET(REG_OFFSET_DSP_RESET,
@@ -372,45 +372,18 @@ void es_dsp_release(struct es_dsp_hw *hw)
 	unsigned int val;
 
 	if (NULL == dsp) {
-		dsp_err("%s %d: failed to release device\n", __func__,
-			__LINE__);
+		dsp_err("failed to release device\n");
 	} else {
 		ret = regmap_clear_bits(hw->map,
-					REG_OFFSET(REG_OFFSET_DSP_RESET,
-						   dsp->process_id),
+					REG_OFFSET(REG_OFFSET_DSP_RESET, dsp->process_id),
 					DSP_RESET_REG_BIT_RUNSTALL_ON_RESET);
 		WARN_ON(0 != ret);
-		regmap_read(hw->map,
-			    REG_OFFSET(REG_OFFSET_DSP_RESET, dsp->process_id),
-			    &val);
+		regmap_read(hw->map, REG_OFFSET(REG_OFFSET_DSP_RESET, dsp->process_id), &val);
 
-		dev_dbg(dsp->dev, "release device, ret %d, val=0x%x\n", ret,
-			 val);
+		dev_dbg(dsp->dev, "release device, ret %d, val=0x%x\n", ret, val);
 	}
 
 	return;
-}
-
-int wait_for_current_tsk_done(struct es_dsp *dsp)
-{
-	const int sleep_retries = 5;
-	const int wake_retries = 20;
-	int i, j;
-
-	for (i = 0; i < sleep_retries; i++) {
-		for (j = 0; j < wake_retries; j++) {
-			if (dsp->current_task == NULL) {
-				break;
-			}
-			usleep_range(100, 5000);
-		}
-
-		if (j < wake_retries) {
-			return 0;
-		}
-	}
-	dsp_err("%s, %d, Timeout for wait current task done.\n", __func__, __LINE__);
-	return -ETIMEDOUT;
 }
 
 static int check_dsp_fw_state(struct es_dsp *dsp)

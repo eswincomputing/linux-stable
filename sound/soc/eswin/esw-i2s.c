@@ -1068,6 +1068,34 @@ static int i2s_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, i2s_drvdata);
 
+	i2s_drvdata->use_pio = false;
+	i2s_drvdata->i2s_reg_comp1 = I2S_COMP_PARAM_1;
+	i2s_drvdata->i2s_reg_comp2 = I2S_COMP_PARAM_2;
+	ret = i2s_configure_res_by_dt(i2s_drvdata, res);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "i2s_configure_res_by_dt failed\n");
+		goto err_probe;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "dsp_sof_enable")) {
+		ret = esw_sof_dma_init(i2s_drvdata);
+		if (ret != 0) {
+			dev_err(&pdev->dev, "pcm dma init failed\n");
+			goto err_probe;
+		}
+		ret = i2s_sof_ringbuffer_init(i2s_drvdata);
+		if (ret != 0) {
+			dev_err(&pdev->dev, "pcm ringbuffer init failed\n");
+			goto err_probe;
+		}
+	} else {
+		ret = esw_pcm_dma_dai_register(i2s_drvdata);
+		if (ret) {
+			dev_warn(&pdev->dev, "could not register pcm: %d\n", ret);
+			goto err_probe;
+		}
+	}
+
 	vo_top_csr = get_vo_top_csr(nid);
 	if (of_node_name_prefix(pdev->dev.of_node, "i2s0")) {
 		i2s_drvdata->i2s_div_base = devm_ioremap(i2s_drvdata->dev, vo_top_csr + VO_I2S0_DIV_NUM, 4);
@@ -1108,35 +1136,6 @@ static int i2s_probe(struct platform_device *pdev)
 	}
 	if (ret != 0) {
 		dev_err(&pdev->dev, "not able to register dai\n");
-		goto err_probe;
-	}
-
-	i2s_drvdata->use_pio = false;
-
-	if (of_property_read_bool(pdev->dev.of_node, "dsp_sof_enable")) {
-		ret = esw_sof_dma_init(i2s_drvdata);
-		if (ret != 0) {
-			dev_err(&pdev->dev, "pcm dma init failed\n");
-			goto err_probe;
-		}
-		ret = i2s_sof_ringbuffer_init(i2s_drvdata);
-		if (ret != 0) {
-			dev_err(&pdev->dev, "pcm ringbuffer init failed\n");
-			goto err_probe;
-		}
-	} else {
-		ret = esw_pcm_dma_dai_register(i2s_drvdata);
-		if (ret) {
-			dev_warn(&pdev->dev, "could not register pcm: %d\n", ret);
-			goto err_probe;
-		}
-	}
-
-	i2s_drvdata->i2s_reg_comp1 = I2S_COMP_PARAM_1;
-	i2s_drvdata->i2s_reg_comp2 = I2S_COMP_PARAM_2;
-	ret = i2s_configure_res_by_dt(i2s_drvdata, res);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "i2s_configure_res_by_dt failed\n");
 		goto err_probe;
 	}
 
@@ -1199,7 +1198,7 @@ static struct platform_driver i2s_driver = {
 	.driver		= {
 		.name	= "es-i2s",
 		.of_match_table = of_match_ptr(i2s_of_match),
-		.pm = pm_ptr(&i2s_pm_ops),
+		.pm = pm_sleep_ptr(&i2s_pm_ops),
 	},
 };
 

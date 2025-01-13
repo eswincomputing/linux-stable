@@ -101,9 +101,8 @@ static const char * const supply_names[ES8328_SUPPLY_NUM] = {
 		SNDRV_PCM_FMTBIT_S24_3LE | \
 		SNDRV_PCM_FMTBIT_S32_LE)
 
-#define EVB_BOARD   1
-#define DVB_BOARD   2
-#define Z530_BOARD  3
+#define EVB_BOARD  1
+#define DVB_BOARD  2
 
 struct es8328_priv {
 	struct regmap *regmap;
@@ -700,14 +699,6 @@ static const struct snd_soc_dapm_route es8328_dapm_routes[] = {
 
 static int es8328_mute(struct snd_soc_dai *dai, int mute, int direction)
 {
-	if (direction == 0) {
-		if (mute == 1) {
-			snd_soc_component_write(dai->component, ES8328_DACPOWER, 0xC0);
-		} else {
-			snd_soc_component_write(dai->component, ES8328_DACPOWER, 0x3C);
-		}
-	}
-
 	return snd_soc_component_update_bits(dai->component, ES8328_DACCONTROL3,
 			ES8328_DACCONTROL3_DACMUTE,
 			mute ? ES8328_DACCONTROL3_DACMUTE : 0);
@@ -801,13 +792,6 @@ static int es8328_hw_params(struct snd_pcm_substream *substream,
 		snd_soc_component_update_bits(component, ES8328_ADCCONTROL4,
 				ES8328_ADCCONTROL4_ADCWL_MASK,
 				wl << ES8328_ADCCONTROL4_ADCWL_SHIFT);
-
-	if (params_rate(params) <= 48000) {
-		snd_soc_component_update_bits(component, reg, ES8328_DACCONTROL2_DOUBLESPEED, 0);
-	} else {
-		snd_soc_component_update_bits(component, reg,
-			ES8328_DACCONTROL2_DOUBLESPEED, ES8328_DACCONTROL2_DOUBLESPEED);
-	}
 
 	return snd_soc_component_update_bits(component, reg, ES8328_RATEMASK, ratio);
 }
@@ -918,7 +902,7 @@ static int es8328_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	/* Set MIC PGA Volume */
 	snd_soc_component_write(component, ES8328_ADCCONTROL1, 0x88);
 
-	if (es8328->eswin_plat == DVB_BOARD) {
+	if (es8328->eswin_plat == 2) {
 		if (gpiod_get_value(es8328->front_jack_gpio) == 1 && gpiod_get_value(es8328->back_jack_gpio) == 0) {
 			/* Select default capture path ---> LIN1 */
 			snd_soc_component_write(component, ES8328_ADCCONTROL2, 0);
@@ -926,9 +910,6 @@ static int es8328_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			/* Select default capture path ---> LIN2 */
 			snd_soc_component_write(component, ES8328_ADCCONTROL2, 0x50);
 		}
-	} else if (es8328->eswin_plat == Z530_BOARD) {
-		/* Select default capture path ---> LIN1 */
-		snd_soc_component_write(component, ES8328_ADCCONTROL2, 0);
 	} else {
 		/* Select default capture path ---> phone mic */
 		snd_soc_component_write(component, ES8328_ADCCONTROL2, 0xf0);
@@ -994,7 +975,6 @@ static int es8328_set_bias_level(struct snd_soc_component *component,
 				0);
 		break;
 	}
-
 	return 0;
 }
 

@@ -29,7 +29,6 @@
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
-// #include "eic7700-z530-dsi-panel.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -408,7 +407,6 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
-	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -419,7 +417,6 @@
 
 &d0_usbdrd3_1 {
 	status = "okay";
-	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_1 {
@@ -600,6 +597,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	pwm-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 };
 
 &pvt0 {
@@ -641,11 +642,4 @@
 	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
-};
-
-&SOC {
-       rasp_panel: rasp_panel {
-             compatible = "raspberrypi,7inch-dsi";
-	     status = "disabled";
-       };
 };

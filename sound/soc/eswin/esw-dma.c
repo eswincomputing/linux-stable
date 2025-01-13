@@ -160,6 +160,11 @@ int esw_pcm_dma_open(struct snd_soc_component *component,
 	substream->runtime->hw = hw;
 	substream->runtime->private_data = chip;
 
+	chip->conv_buf[substream->stream] = kzalloc(hw.period_bytes_max, GFP_KERNEL);
+	if (!chip->conv_buf[substream->stream]) {
+		return -ENOMEM;
+	}
+
 	return 0;
 }
 
@@ -252,9 +257,13 @@ int esw_pcm_dma_close(struct snd_soc_component *component,
 {
 	struct i2s_dev *chip = dev_get_drvdata(component->dev);
 
+	dmaengine_synchronize(chip->chan[substream->stream]);
+
 	dev_dbg(chip->dev, "%s\n", __func__);
 
-	dmaengine_synchronize(chip->chan[substream->stream]);
+	if (chip->conv_buf[substream->stream]) {
+		kfree(chip->conv_buf[substream->stream]);
+	}
 
 	return 0;
 }
@@ -417,78 +426,52 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 {
 	struct dma_chan *chan0;
 	struct dma_chan *chan1;
-	const char *channel_names0 = "tx";
-	const char *channel_names1 = "rx";
+	const char *channel_names0 = "rx";
+	const char *channel_names1 = "tx";
 	int ret;
-	u32 period_bytes_max;
 
 	dev_dbg(chip->dev, "%s\n", __func__);
 
 	chan0 = dma_request_chan(chip->dev, channel_names0);
 	if (IS_ERR(chan0)) {
 		if (PTR_ERR(chan0) == -EPROBE_DEFER) {
-			dev_warn(chip->dev, "request dma channel[%s] failed\n", channel_names0);
+			dev_err(chip->dev, "request dma channel[%d] failed\n", SNDRV_PCM_STREAM_CAPTURE);
 			return -EPROBE_DEFER;
 		}
-		chip->chan[SNDRV_PCM_STREAM_PLAYBACK] = NULL;
-		dev_warn(chip->dev, "dma channel[%s] is NULL\n", channel_names0);
+		dev_err(chip->dev, "dma channel[%d] is NULL\n", SNDRV_PCM_STREAM_CAPTURE);
 	} else {
-		chip->chan[SNDRV_PCM_STREAM_PLAYBACK] = chan0;
-		period_bytes_max = dma_get_max_seg_size(chan0->device->dev);
-		chip->conv_buf[SNDRV_PCM_STREAM_PLAYBACK] = kzalloc(period_bytes_max, GFP_KERNEL);
-		if (!chip->conv_buf[SNDRV_PCM_STREAM_PLAYBACK]) {
-			ret = -ENOMEM;
-			dev_err(chip->dev, "alloc conv buf0 err:%d\n", ret);
-			goto release_chan0;
-		}
+		chip->chan[SNDRV_PCM_STREAM_CAPTURE] = chan0;
 	}
 
 	chan1 = dma_request_chan(chip->dev, channel_names1);
 	if (IS_ERR(chan1)) {
 		if (PTR_ERR(chan1) == -EPROBE_DEFER) {
-			dev_warn(chip->dev, "request dma channel[%s] failed\n", channel_names1);
-			ret = -EPROBE_DEFER;
-			goto release_buf0;
+			dev_err(chip->dev, "request dma channel[%d] failed\n", SNDRV_PCM_STREAM_PLAYBACK);
+			dma_release_channel(chip->chan[1]);
+			return -EPROBE_DEFER;
 		}
-		chip->chan[SNDRV_PCM_STREAM_CAPTURE] = NULL;
-		dev_warn(chip->dev, "dma channel[%s] is NULL\n", channel_names1);
+		dev_err(chip->dev, "dma channel[%d] is NULL\n", SNDRV_PCM_STREAM_PLAYBACK);
 	} else {
-		chip->chan[SNDRV_PCM_STREAM_CAPTURE] = chan1;
-		period_bytes_max = dma_get_max_seg_size(chan1->device->dev);
-		chip->conv_buf[SNDRV_PCM_STREAM_CAPTURE] = kzalloc(period_bytes_max, GFP_KERNEL);
-		if (!chip->conv_buf[SNDRV_PCM_STREAM_CAPTURE]) {
-			dev_err(chip->dev, "alloc conv buf0 err:%d\n", ret);
-			ret = -ENOMEM;
-			goto release_chan1;
-		}
+		chip->chan[SNDRV_PCM_STREAM_PLAYBACK] = chan1;
 	}
 
 	ret = snd_soc_component_initialize(&chip->pcm_component, &esw_pcm_component_driver, chip->dev);
 	if (ret)
-		goto release_buf1;
+		goto error;
 
 	ret = snd_soc_add_component(&chip->pcm_component, NULL, 0);
 	if (ret) {
 		dev_err(chip->dev, "add pcm component failed\n");
-		goto release_buf1;
+		goto error;
 	}
 
 	return 0;
 
-release_buf1:
-	kfree(chip->conv_buf[1]);
-release_chan1:
-	if (chip->chan[1])
-		dma_release_channel(chip->chan[1]);
-release_buf0:
-	kfree(chip->conv_buf[0]);
-release_chan0:
-	if (chip->chan[0])
-		dma_release_channel(chip->chan[0]);
-
-	return ret;
+error:
+	dma_release_channel(chip->chan[0]);
+	dma_release_channel(chip->chan[1]);
+	return -1;
 }
-
 void esw_pcm_dma_dai_unregister(struct i2s_dev *chip)
 {
 	snd_soc_unregister_component_by_driver(chip->dev, chip->pcm_component.driver);

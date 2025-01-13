@@ -40,6 +40,7 @@
 #define SIFIVE_CCACHE_FLUSH64 0x200
 #define SIFIVE_CCACHE_FLUSH64_LINE_LEN 64
 #define SIFIVE_CCACHE_WAYMASK_OFFSET 0x800
+
 enum {
 	CACHE_NODE_0 = 0,
 	CACHE_NODE_1,
@@ -56,6 +57,34 @@ enum {
 	DATA_UNCORR,
 	DIR_UNCORR,
 };
+#define DIE0_ADDR_END (CONFIG_RISCV_DIE0_CACHED_OFFSET + CONFIG_RISCV_DIE0_MEM_MAX_SIZE)
+#define DIE1_ADDR_END (CONFIG_RISCV_DIE1_CACHED_OFFSET + CONFIG_RISCV_DIE1_MEM_MAX_SIZE)
+#define INTERLEAVE_ADDR_END (CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET + CONFIG_RISCV_INTERLEAVE_MEM_MAX_SIZE)
+static __always_inline bool is_die0_addr(phys_addr_t start, phys_addr_t end)
+{
+	return start >= CONFIG_RISCV_DIE0_CACHED_OFFSET &&
+	       end <= DIE0_ADDR_END;
+}
+static __always_inline bool is_die1_addr(phys_addr_t start, phys_addr_t end)
+{
+	return start >= CONFIG_RISCV_DIE1_CACHED_OFFSET &&
+	       end <= DIE1_ADDR_END;
+}
+static __always_inline bool is_interleave_addr(phys_addr_t start, phys_addr_t end)
+{
+	return start >= CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET &&
+	       end <= INTERLEAVE_ADDR_END;
+}
+static __always_inline int phys_to_node(phys_addr_t start, phys_addr_t end)
+{
+	if (is_die0_addr(start, end))
+		return 0;
+
+	if (is_die1_addr(start, end))
+		return 1;
+
+	return -1;
+}
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *sifive_test;
 static ssize_t ccache_write(struct file *file, const char __user *data,
@@ -102,47 +131,87 @@ static void ccache_way_enable(int node_id)
 	val = FIELD_GET(SIFIVE_CCACHE_CONFIG_WAYS_MASK, cfg);
 	writel(val -1 , ccache_base[node_id] + SIFIVE_CCACHE_WAYENABLE);
 }
-static void ccache_flush64_range(phys_addr_t paddr, size_t size)
+
+static void ccache_flush64_range_native(phys_addr_t start, phys_addr_t end)
 {
 	unsigned long line;
-	size = size + (paddr % SIFIVE_CCACHE_FLUSH64_LINE_LEN);
-	paddr = ALIGN_DOWN(paddr, SIFIVE_CCACHE_FLUSH64_LINE_LEN);
+
 	mb();	/* sync */
-	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
-	if (paddr >= CONFIG_RISCV_DIE0_CACHED_OFFSET && (paddr + size) <= (CONFIG_RISCV_DIE0_CACHED_OFFSET + CONFIG_RISCV_DIE0_MEM_MAX_SIZE)) {
-	#endif
-		for (line = paddr; line < paddr + size;
-		line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	if (is_die0_addr(start, end)) {
+#endif
+		for (line = start; line < end;
+			line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
 			writeq_cpu(line, (ccache_base[CACHE_NODE_0] + SIFIVE_CCACHE_FLUSH64));
 		}
-		mb();
-	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
-	}else if (paddr >= CONFIG_RISCV_DIE1_CACHED_OFFSET && (paddr + size) <= (CONFIG_RISCV_DIE1_CACHED_OFFSET + CONFIG_RISCV_DIE1_MEM_MAX_SIZE)) {
-		for (line = paddr; line < paddr + size;
-		line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	} else if (is_die1_addr(start, end)) {
+		for (line = start; line < end;
+			line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
 			writeq_cpu(line, (ccache_base[CACHE_NODE_1] + SIFIVE_CCACHE_FLUSH64));
 		}
-		mb();
-	}
-	else if (paddr >= CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET && (paddr + size) <= (CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET + CONFIG_RISCV_INTERLEAVE_MEM_MAX_SIZE)){
-		for (line = paddr; line < paddr + size;
-		line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
-			if((!(!(line & 0x40000)))^(!(!(line & 0x100)))) {
+	} else if (is_interleave_addr(start, end)){
+		for (line = start; line < end;
+			line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
+			if((!(!(line & 0x40000)))^(!(!(line & 0x100))))
 				writeq_cpu(line, (ccache_base[CACHE_NODE_1] + SIFIVE_CCACHE_FLUSH64));
-			}
-			else {
+			else
 				writeq_cpu(line, ccache_base[CACHE_NODE_0] + SIFIVE_CCACHE_FLUSH64);
-			}
 		}
-		mb();
-	}
-	else {
-		WARN(1, "Sifive ccache: flush64 out of range: %llx(%lx), skip flush\n",
-		     paddr, size);
+	} else {
+		WARN(1, "Sifive ccache: flush64 out of range: [0x%llx, 0x%llx], skip flush\n",
+			start, end);
 		return;
 	}
-	#endif
+#endif
+	mb();
 }
+
+typedef struct {
+	phys_addr_t start;
+	phys_addr_t end;
+} flush_range_t;
+
+static void ccache_flush64_range_remote(void *arg)
+{
+	flush_range_t *range = arg;
+	ccache_flush64_range_native(range->start, range->end);
+}
+
+static __always_inline int deaklock_check(void)
+{
+	/* see smp.c: smp_call_function_single, but not check cpu status here */
+	return (irqs_disabled() && !oops_in_progress) || (!in_task());
+}
+
+static void ccache_flush64_range(phys_addr_t paddr, size_t size) {
+	int node, cpu = smp_processor_id();
+	phys_addr_t start, end;
+	flush_range_t range;
+
+	size = size + (paddr % SIFIVE_CCACHE_FLUSH64_LINE_LEN);
+	start = ALIGN_DOWN(paddr, SIFIVE_CCACHE_FLUSH64_LINE_LEN);
+	end = start + size;
+
+	node = phys_to_node(start, end);
+	if (node == cpu_to_node(cpu))
+		return ccache_flush64_range_native(start, end);
+
+	if (size < PAGE_SIZE)
+		return ccache_flush64_range_native(start, end);
+
+	if (unlikely(deaklock_check()))
+		return ccache_flush64_range_native(start, end);
+
+	cpu = cpumask_first(cpumask_of_node(node));
+	if (unlikely(cpu >= nr_cpu_ids))
+		return ccache_flush64_range_native(start, end);
+
+	range.start = start;
+	range.end = end;
+	smp_call_function_single(cpu, ccache_flush64_range_remote, &range, 1);
+}
+
 static const struct riscv_nonstd_cache_ops ccache_cmo_ops __initdata = {
 	.wback = &ccache_flush64_range,
 	.inv = &ccache_flush64_range,
@@ -269,7 +338,7 @@ static int zero_device_init(struct device_node *root, int nid)
 				if (!rmem)
 					return -ENODEV;
 
-				pr_info("zero_device %s: base 0x%llx, size 0x%llx\n", rmem->name, rmem->base, rmem->size);
+				pr_info("zero_device[%d] %s: base 0x%llx, size 0x%llx\n", nid, rmem->name, rmem->base, rmem->size);
 				zero_device_base[nid] = memremap(rmem->base, rmem->size, MEMREMAP_WB);
 				if (IS_ERR(zero_device_base[nid])) {
 					pr_err("failed to ioremap zero device\n");
@@ -287,7 +356,7 @@ static int zero_device_init(struct device_node *root, int nid)
 					pr_err("failed to get zero_device resource\n");
 					break;
 				}
-				pr_info("zero_device resource: start 0x%llx, size 0x%llx\n", res.start, resource_size(&res));
+				pr_info("zero_device[%d] resource: start 0x%llx, size 0x%llx\n", nid, res.start, resource_size(&res));
 				zero_device_base[nid] = ioremap(res.start, resource_size(&res));
 				if (IS_ERR(zero_device_base[nid])) {
 					pr_err("failed to ioremap zero device\n");
@@ -307,40 +376,54 @@ static int zero_device_init(struct device_node *root, int nid)
 #define SIFIVE_CCACHE_TAG_SHIFT	(18)
 void ccache_flush_all(void *arg)
 {
-	int hartid, masterid, hartid_mask;
-	int nid, wayIdx, i;
 	void __iomem *zero_dev_vaddr;
 	void __iomem *waymaskN_addr;
+	struct cpumask *mask = arg;
+	int nid, wayIdx, i, cpu;
+	int hartid, masterid;
 	u64 zero_val;
 
-	hartid_mask = *(int *)arg;
-	hartid = cpuid_to_hartid_map(smp_processor_id());
-	if ((BIT(hartid) &  hartid_mask) == 0) {
-		pr_err("%s:%d, invalid para!!!, current hartid_to_mask:%d, hartid_mask:%d\n", __func__, __LINE__,
-			BIT(hartid), hartid_mask);
+	cpu = smp_processor_id();
+	if (unlikely(!cpumask_test_cpu(cpu, mask))) {
+		WARN_ONCE(1, "current cpu%d not in cpumask(%*pbl)\n", cpu,
+					cpumask_pr_args(mask));
 		return;
 	}
-
+	hartid = cpuid_to_hartid_map(smp_processor_id());
 	if (hartid > 3) {
 		masterid = hartid - 4 + 1;
 		nid = 1;
-	}
-	else {
-		masterid = hartid + 1 ;
+	} else {
+		masterid = hartid + 1;
 		nid = 0;
 	}
 
-	pr_debug("nid %d, hartid %d, masterid %d flush all cache.\n", nid, hartid, masterid);
-	if (NULL !=zero_device_base[nid]) {
+	pr_debug("nid %d, hartid %d, masterid %d this_cpu %d flush all cache.\n",
+		 nid, hartid, masterid, cpu);
+	if (likely(NULL != zero_device_base[nid])) {
 		waymaskN_addr = ccache_base[nid] + SIFIVE_CCACHE_WAYMASK_OFFSET + (masterid << 3);
 		for (wayIdx = 0; wayIdx < 16; wayIdx++) {
 			/* write WayMaskN to allow evictions from only one way */
-			writel_cpu((1<<wayIdx), waymaskN_addr);
+			writel_cpu((1 << wayIdx), waymaskN_addr);
 			mb();
 
 			/* store all the sets in this way*/
 			zero_dev_vaddr = zero_device_base[nid] + (wayIdx << SIFIVE_CCACHE_TAG_SHIFT);
-			for (i = 0; i < SIFIVE_CCACHE_SETS; i++) {
+			for (i = 0; i < SIFIVE_CCACHE_SETS; i += 8) {
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
+				zero_val = readq_cpu(zero_dev_vaddr);
+				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
 				zero_val = readq_cpu(zero_dev_vaddr);
 				zero_dev_vaddr += SIFIVE_CCACHE_FLUSH64_LINE_LEN;
 			}
@@ -349,6 +432,8 @@ void ccache_flush_all(void *arg)
 		/* restore the wayMaskN register to the original value*/
 		writel_cpu(0xffff, waymaskN_addr);
 		mb();
+	} else {
+		pr_warn("warning: nid%d doesn't contains zero_device\n", nid);
 	}
 }
 #endif
