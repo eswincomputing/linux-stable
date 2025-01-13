@@ -154,6 +154,7 @@ config RISCV
 	select MODULE_SECTIONS if MODULES
 	select OF
 	select OF_EARLY_FLATTREE
+	select HAVE_SETUP_PER_CPU_AREA if NUMA
 	select OF_IRQ
 	select PCI_DOMAINS_GENERIC if PCI
 	select PCI_MSI if PCI

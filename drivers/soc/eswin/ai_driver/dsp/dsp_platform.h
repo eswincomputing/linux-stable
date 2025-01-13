@@ -30,7 +30,7 @@ int es_dsp_send_irq(struct es_dsp_hw *, dsp_request_t *);
 int es_dsp_reboot_core(struct es_dsp_hw *);
 int es_dsp_enable(struct es_dsp_hw *);
 void es_dsp_disable(struct es_dsp_hw *);
-int es_dsp_set_rate(struct es_dsp_hw *, unsigned long rate);
+int es_dsp_set_rate(struct es_dsp_hw *, unsigned long *rate);
 void es_dsp_reset(struct es_dsp_hw *);
 void es_dsp_halt(struct es_dsp_hw *);
 void es_dsp_release(struct es_dsp_hw *);

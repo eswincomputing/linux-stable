@@ -712,9 +712,7 @@ static struct regulator_desc es5340_regulator_desc = {
 static s32 es5340_init_data(struct ES5340_DRIVER_DATA *data,
 							const struct regulation_constraints *constraints, u32 default_voltage)
 {
-	u8 value = 0;
 	s32 ret = 0;
-	u16 new_value = 0;
 	struct device *dev = &data->client->dev;
 
 	dev_info(dev,

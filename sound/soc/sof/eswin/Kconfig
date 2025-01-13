@@ -25,6 +25,7 @@ config SND_SOC_SOF_ESWIN_COMMON
 config SND_SOC_SOF_ESWIN
 	tristate "SOF support for eswin"
 	select SND_SOC_SOF_ESWIN_COMMON
+	default n
 	help
 	  This adds support for Sound Open Firmware for ESWIN win2030 platforms.
 	  Say Y if you have such a device.

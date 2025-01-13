@@ -266,7 +266,7 @@ PVRSRV_ERROR OSPhyContigPagesAlloc(PHYS_HEAP *psPhysHeap, size_t uiSize,
 #endif
 
 	/*allocate the pages */
-	psPage = alloc_pages(gfp_flags, ui32Order);
+	psPage = alloc_pages_node(dev_to_node(psDev), gfp_flags, ui32Order);
 	if (psPage == NULL)
 	{
 		return PVRSRV_ERROR_OUT_OF_MEMORY;

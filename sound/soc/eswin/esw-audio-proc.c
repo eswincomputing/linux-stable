@@ -46,9 +46,7 @@ typedef enum
 	AENC_SEND_FRAME,
 	AENC_GET_STREAM,
 	AENC_ENCODE_FRAME,
-	AGC_PROCESS,
-	ANS_PROCESS,
-	AEC_PROCESS,
+	RTC_PROCESS, //rtc processing for aec, ans, agc
 	DRC_PROCESS,
 	EQ_PROCESS,
 	DCBLOCK_PROCESS,
@@ -142,15 +140,15 @@ static void show_ao_data(struct seq_file *m)
 	seq_printf(m, "-----------------------------------------------------------------------------"
 				"-----------------------------------------------------\n");
 	seq_printf(m, "audio argorithm performance(ns/1ms):\n");
-	seq_printf(m, "%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s\n", "agc", "ans", "eq", "hpf",
+	seq_printf(m, "%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s\n", "rtc", "eq", "hpf",
 				"volume", "src-host","src-dai", "host", "dai");
 	seq_printf(m, "------------------------------------------------------------------------------"
 				"----------------------------------------------------\n");
-	seq_printf(m, "%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d\n", g_perf_data[AO][AGC_PROCESS],
-				g_perf_data[AO][ANS_PROCESS],g_perf_data[AO][EQ_PROCESS],
-				g_perf_data[AO][DCBLOCK_PROCESS],g_perf_data[AO][VOLUME_PROCESS],
-				g_perf_data[AO][SRC_HOST_PROCESS],g_perf_data[AO][SRC_DAI_PROCESS],
-				g_perf_data[AO][HOST_PROCESS], g_perf_data[AO][DAI_PROCESS]);
+	seq_printf(m, "%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d\n", g_perf_data[AO][RTC_PROCESS],
+				g_perf_data[AO][EQ_PROCESS],g_perf_data[AO][DCBLOCK_PROCESS],
+				g_perf_data[AO][VOLUME_PROCESS],g_perf_data[AO][SRC_HOST_PROCESS],
+				g_perf_data[AO][SRC_DAI_PROCESS],g_perf_data[AO][HOST_PROCESS],
+				g_perf_data[AO][DAI_PROCESS]);
 	seq_printf(m, "\n");
 	seq_printf(m,"-----------------------------------------------------AO PERF STATISTIC END"
 				"-----------------------------------------------------\n");
@@ -173,14 +171,14 @@ static void show_ai_data(struct seq_file *m)
 	seq_printf(m, "-----------------------------------------------------------------------------"
 				"-----------------------------------------------------\n");
 	seq_printf(m, "audio argorithm performance(ns/1ms):\n");
-	seq_printf(m, "%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s\n", "agc", "ans", "drc", "eq",
+	seq_printf(m, "%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s%-14s\n", "rtc", "drc", "eq",
 				"hpf", "volume","src-host", "src-dai", "host", "dai");
 	seq_printf(m, "------------------------------------------------------------------------------"
 				"----------------------------------------------------\n");
-	seq_printf(m, "%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d\n", g_perf_data[AI][AGC_PROCESS],
-		g_perf_data[AI][ANS_PROCESS],g_perf_data[AI][DRC_PROCESS], g_perf_data[AI][EQ_PROCESS],
-		g_perf_data[AI][DCBLOCK_PROCESS], g_perf_data[AI][VOLUME_PROCESS],g_perf_data[AI][SRC_HOST_PROCESS],
-		g_perf_data[AI][SRC_DAI_PROCESS], g_perf_data[AI][HOST_PROCESS], g_perf_data[AI][DAI_PROCESS]);
+	seq_printf(m, "%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d%-14d\n", g_perf_data[AI][RTC_PROCESS],
+		g_perf_data[AI][DRC_PROCESS], g_perf_data[AI][EQ_PROCESS], g_perf_data[AI][DCBLOCK_PROCESS],
+		g_perf_data[AI][VOLUME_PROCESS], g_perf_data[AI][SRC_HOST_PROCESS], g_perf_data[AI][SRC_DAI_PROCESS],
+		g_perf_data[AI][HOST_PROCESS], g_perf_data[AI][DAI_PROCESS]);
 	seq_printf(m, "\n");
 	seq_printf(m,"-----------------------------------------------------AI PERF STATISTIC END"
 				"-----------------------------------------------------\n");

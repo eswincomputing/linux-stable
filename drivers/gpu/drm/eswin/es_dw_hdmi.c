@@ -556,6 +556,10 @@ static void dw_hdmi_eswin_attatch_properties(struct drm_connector *connector,
 					     unsigned int color, int version,
 					     void *data)
 {
+	if(NULL == connector || NULL == data) {
+		pr_err("%s: parameter illegal\n",__func__);
+		return;
+	}
 	struct eswin_hdmi *hdmi = (struct eswin_hdmi *)data;
 	struct drm_property *prop;
 #ifdef CONFIG_ESWIN_DW_HDMI
@@ -688,6 +692,10 @@ static void dw_hdmi_eswin_attatch_properties(struct drm_connector *connector,
 static void dw_hdmi_eswin_destroy_properties(struct drm_connector *connector,
 					     void *data)
 {
+	if(NULL == connector || NULL == data) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return;
+	}
 	struct eswin_hdmi *hdmi = (struct eswin_hdmi *)data;
 
 	if (hdmi->color_depth_property) {
@@ -755,6 +763,11 @@ static int dw_hdmi_eswin_set_property(struct drm_connector *connector,
 				      struct drm_property *property,
 				      uint64_t val, void *data)
 {
+	if(NULL == connector || NULL == state ||
+	NULL == property || NULL == data) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	struct eswin_hdmi *hdmi = (struct eswin_hdmi *)data;
 
 	if (property == hdmi->color_depth_property) {
@@ -784,6 +797,11 @@ static int dw_hdmi_eswin_get_property(struct drm_connector *connector,
 				      struct drm_property *property,
 				      uint64_t *val, void *data)
 {
+	if(NULL == connector || NULL == state ||
+	NULL == property || NULL == data) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	struct eswin_hdmi *hdmi = (struct eswin_hdmi *)data;
 	struct drm_display_info *info = &connector->display_info;
 	struct drm_mode_config *config = &connector->dev->mode_config;
@@ -880,6 +898,11 @@ MODULE_DEVICE_TABLE(of, dw_hdmi_eswin_dt_ids);
 static int dw_hdmi_eswin_bind(struct device *dev, struct device *master,
 			      void *data)
 {
+	if(NULL == dev || NULL == master ||
+	    NULL == data) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_hdmi_plat_data *plat_data;
 	const struct of_device_id *match;
@@ -945,6 +968,12 @@ static int dw_hdmi_eswin_bind(struct device *dev, struct device *master,
 static void dw_hdmi_eswin_unbind(struct device *dev, struct device *master,
 				 void *data)
 {
+	if(NULL == dev || NULL == master ||
+	    NULL == data) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return;
+	}
+
 	struct eswin_hdmi *hdmi = dev_get_drvdata(dev);
 
 	dw_hdmi_unbind(hdmi->hdmi);
@@ -957,21 +986,29 @@ static const struct component_ops dw_hdmi_eswin_ops = {
 
 static int dw_hdmi_eswin_probe(struct platform_device *pdev)
 {
+	if(NULL == pdev) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	return component_add(&pdev->dev, &dw_hdmi_eswin_ops);
 }
 
 static void dw_hdmi_eswin_shutdown(struct platform_device *pdev)
 {
-	struct eswin_hdmi *hdmi = dev_get_drvdata(&pdev->dev);
-
-	if(hdmi == NULL)
-	{
-		pr_err("no hdmi!!!\n");
+	if(NULL == pdev) {
+		pr_err("%s: parameter illegal\n", __func__);
 		return;
 	}
-	if(hdmi->hdmi == NULL)
+	struct eswin_hdmi *hdmi = dev_get_drvdata(&pdev->dev);
+
+	if(NULL == hdmi)
 	{
-		pr_err("no hdmi->hdmi!!!\n");
+		pr_err("%s: no hdmi!!!\n", __func__);
+		return;
+	}
+	if(NULL == hdmi->hdmi)
+	{
+		pr_err("%s: no hdmi->hdmi!!!\n", __func__);
 		return;
 	}
 	dw_hdmi_suspend(hdmi->hdmi);
@@ -979,14 +1016,26 @@ static void dw_hdmi_eswin_shutdown(struct platform_device *pdev)
 
 static int dw_hdmi_eswin_remove(struct platform_device *pdev)
 {
+	if(NULL == pdev) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	component_del(&pdev->dev, &dw_hdmi_eswin_ops);
 	return 0;
 }
 
 static int __maybe_unused dw_hdmi_eswin_suspend(struct device *dev)
 {
+	if(NULL == dev) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	struct eswin_hdmi *hdmi = dev_get_drvdata(dev);
-
+	if(NULL == hdmi)
+	{
+		pr_err("%s : hdmi is NULL!\n", __func__);
+		return 0;
+	}
 	dw_hdmi_suspend(hdmi->hdmi);
 
 	return 0;
@@ -994,15 +1043,42 @@ static int __maybe_unused dw_hdmi_eswin_suspend(struct device *dev)
 
 static int __maybe_unused dw_hdmi_eswin_resume(struct device *dev)
 {
+	if(NULL == dev) {
+		pr_err("%s: parameter illegal\n", __func__);
+		return 0;
+	}
 	struct eswin_hdmi *hdmi = dev_get_drvdata(dev);
-
+	if(NULL == hdmi)
+	{
+		pr_err("%s : hdmi is NULL!\n", __func__);
+		return 0;
+	}
 	dw_hdmi_resume(hdmi->hdmi);
 
 	return 0;
 }
 
-static const struct dev_pm_ops dw_hdmi_eswin_pm = {	SET_SYSTEM_SLEEP_PM_OPS(
-	dw_hdmi_eswin_suspend, dw_hdmi_eswin_resume) };
+static int __maybe_unused dw_hdmi_eswin_resume_early(struct device *dev)
+{
+	if(NULL == dev) {
+		pr_err("%s: parameter illegal\n",__func__);
+		return 0;
+	}
+	struct eswin_hdmi *hdmi = dev_get_drvdata(dev);
+	if(NULL == hdmi)
+	{
+		pr_err("%s : hdmi is NULL!\n", __func__);
+		return 0;
+	}
+	dw_hdmi_resume_early(hdmi->hdmi);
+
+	return 0;
+}
+
+static const struct dev_pm_ops dw_hdmi_eswin_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(dw_hdmi_eswin_suspend, dw_hdmi_eswin_resume)
+	.resume_early = pm_sleep_ptr(dw_hdmi_eswin_resume_early),
+};
 
 struct platform_driver dw_hdmi_eswin_pltfm_driver = {
     .probe  = dw_hdmi_eswin_probe,
@@ -1010,7 +1086,7 @@ struct platform_driver dw_hdmi_eswin_pltfm_driver = {
     .shutdown = dw_hdmi_eswin_shutdown,
     .driver = {
         .name = "dw-hdmi-eswin",
-        .pm = &dw_hdmi_eswin_pm,
+        .pm = pm_sleep_ptr(&dw_hdmi_eswin_pm),
         .of_match_table = dw_hdmi_eswin_dt_ids,
     },
 };

@@ -29,7 +29,7 @@ d1_cfg_noc:d1_cfg_noc{
 	interrupt-names = "error";
 	interrupt-parent = <&plic1>;
 	errlogger,idx = <0 1 3 5>;
-
+	numa-node-id = <1>;
 	sideband_manager@72061000{
 		compatible = "eswin,win2xxx-noc-sideband-manager";
 		reg = <0 0x72061000 0 0x10>;
@@ -273,6 +273,7 @@ d1_llc_noc:d1_llc_noc@72081400 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <1>;
 	reg = <0 0x72081400 0 0x4000>;
 	interrupts = <441>;
 	interrupt-names = "error";
@@ -548,6 +549,7 @@ d1_sys_noc:d1_sys_noc@72002C00 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <1>;
 	reg = <0 0x72002C00 0 0x4000>;
 	interrupts = <431>;
 	interrupt-names = "error";
@@ -2220,6 +2222,7 @@ d1_media_noc:d1_media_noc@72021400 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <1>;
 	reg = <0 0x72021400 0 0x4000>;
 	interrupts = <454>;
 	interrupt-names = "error";
@@ -2530,6 +2533,7 @@ d1_realtime_noc:d1_realtime_noc@72041400 {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
+	numa-node-id = <1>;
 	reg = <0 0x72041400 0 0x4000>;
 	interrupts = <448>;
 	interrupt-names = "error";

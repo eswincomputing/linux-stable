@@ -24,7 +24,7 @@
 
 #include <linux/clk.h>
 #include <linux/mailbox_client.h>
-#include "es_iommu_rsv.h"
+#include <linux/es_iommu_rsv.h>
 #include <linux/iommu.h>
 #include "eswin-dsp-subsys.h"
 
