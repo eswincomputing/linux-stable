@@ -75,7 +75,7 @@ static struct v4l2_subdev *get_remote_sensor(struct v4l2_subdev *sd)
 	local = &sd->entity.pads[RK_CSI2_PAD_SINK];
 	remote = media_pad_remote_pad_first(local);
 	if (!remote) {
-		v4l2_warn(sd, "No link between dphy and sensor\n");
+		v4l2_warn(sd, "No link between dphy and sensor, flag = %d, entity name = %s\n", local->flags, sd->entity.name);
 		return NULL;
 	}
 
@@ -133,6 +133,7 @@ static void csi2_update_sensor_info(struct csi2_dev *csi2)
 	if (ret) {
 		v4l2_dbg(1, csi2_debug, &csi2->sd,
 			 "get CSI/DSI sel failed, default csi!\n");
+		printk("get CSI/DSI sel failed, default csi!\n");
 		csi2->dsi_input_en = 0;
 	}
 
@@ -248,7 +249,7 @@ static int csi2_start(struct csi2_dev *csi2)
 		// csi2_enable(csi2->csi2_hw[csi_idx], host_type);
 	}
 
-	pr_debug("stream sd: %s\n", csi2->src_sd->name);
+	printk("stream sd: %s\n", csi2->src_sd->name);
 	ret = v4l2_subdev_call(csi2->src_sd, video, s_stream, 1);
 	ret = (ret && ret != -ENOIOCTLCMD) ? ret : 0;
 	if (ret)
@@ -326,6 +327,7 @@ update_count:
 out:
 	mutex_unlock(&csi2->lock);
 
+	printk("csi strat_stream ret = %d\n", ret);
 	return ret;
 }
 
@@ -339,7 +341,6 @@ static int csi2_link_setup(struct media_entity *entity,
 	int ret = 0;
 
 	remote_sd = media_entity_to_v4l2_subdev(remote->entity);
-
 	mutex_lock(&csi2->lock);
 
 	if (local->flags & MEDIA_PAD_FL_SOURCE) {
@@ -378,6 +379,7 @@ static int csi2_media_init(struct v4l2_subdev *sd)
 {
 	struct csi2_dev *csi2 = sd_to_dev(sd);
 	int i = 0, num_pads = 0;
+	int ret;
 
 	num_pads = csi2->match_data->num_pads;
 
@@ -386,7 +388,7 @@ static int csi2_media_init(struct v4l2_subdev *sd)
 							    MEDIA_PAD_FL_SOURCE;
 	}
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
-	sd->entity.ops = &sun6i_mipi_csi2_entity_ops;
+	// sd->entity.ops = &sun6i_mipi_csi2_entity_ops;
 
 	csi2->pad[RK_CSI2X_PAD_SOURCE0].flags = MEDIA_PAD_FL_SOURCE |
 						MEDIA_PAD_FL_MUST_CONNECT;
@@ -404,8 +406,16 @@ static int csi2_media_init(struct v4l2_subdev *sd)
 	csi2->crop.height = RKCIF_DEFAULT_HEIGHT;
 	csi2->bus.num_data_lanes = 2;
 
-	DPRINTK("t1 csi2_media_init num_pads:%d\n", num_pads);
-	return media_entity_pads_init(&sd->entity, num_pads, csi2->pad);
+	DPRINTK("t1 csi2_media_init num_pads:%d, %s, %d, %d, %d, %d\n", 
+	num_pads, sd->entity.name, csi2->pad[RK_CSI2X_PAD_SOURCE0].flags, 
+	csi2->pad[RK_CSI2_PAD_SINK].flags, MEDIA_PAD_FL_SOURCE, MEDIA_PAD_FL_MUST_CONNECT);
+
+	ret =  media_entity_pads_init(&sd->entity, num_pads, csi2->pad);
+
+	printk("media_entity_pads_init ret = %d, csi entity major = %d, %d\n", 
+	ret, sd->entity.info.dev.major, sd->entity.info.dev.minor);
+
+	return ret;
 }
 
 /* csi2 accepts all fmt/size from sensor */
@@ -415,6 +425,7 @@ static int csi2_get_set_fmt(struct v4l2_subdev *sd,
 {
 	int ret;
 	struct csi2_dev *csi2 = sd_to_dev(sd);
+		printk("%s %d\n",__func__, __LINE__);
 	struct v4l2_subdev *sensor = get_remote_sensor(sd);
 
 	/*
@@ -508,6 +519,7 @@ static int csi2_set_selection(struct v4l2_subdev *sd,
 			      struct v4l2_subdev_selection *sel)
 {
 	struct csi2_dev *csi2 = sd_to_dev(sd);
+	printk("%s %d\n",__func__, __LINE__);
 	struct v4l2_subdev *sensor = get_remote_sensor(sd);
 	int ret = 0;
 
@@ -522,6 +534,7 @@ static int csi2_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 			      struct v4l2_mbus_config *mbus)
 {
 	struct csi2_dev *csi2 = sd_to_dev(sd);
+		printk("%s %d\n",__func__, __LINE__);
 	struct v4l2_subdev *sensor_sd = get_remote_sensor(sd);
 	int ret;
 
@@ -598,6 +611,7 @@ static long rkcif_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 			     void *arg)
 {
 	struct csi2_dev *csi2 = sd_to_dev(sd);
+		printk("%s %d, CMD = %d\n",__func__, __LINE__, cmd);
 	struct v4l2_subdev *sensor = get_remote_sensor(sd);
 	long ret = 0;
 	int i = 0;
@@ -697,7 +711,6 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 
 	if (pad == sensor->sd->entity.num_pads) {
 		dev_err(csi2->dev, "failed to find src pad for %s\n", sd->name);
-
 		return -ENXIO;
 	}
 
@@ -709,7 +722,9 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 		return ret;
 	}
 
-	link = list_first_entry(&csi2->sd.entity.links, struct media_link,
+	// link = list_first_entry(&csi2->sd.entity.links, struct media_link,
+	// 			list);
+		link = list_first_entry(&sensor->sd->entity.links, struct media_link,
 				list);
 	ret = media_entity_setup_link(link, MEDIA_LNK_FL_ENABLED);
 	if (ret) {
@@ -717,8 +732,8 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			sensor->sd->name);
 		return ret;
 	}
-	DPRINTK("t1 %s, %d succsess\n", __func__, __LINE__);
 
+	printk("success create pad link %s, %d -> %s, %d, ret = %d\n", sensor->sd->entity.name, pad, csi2->sd.entity.name, RK_CSI2_PAD_SINK, ret);
 	return 0;
 }
 
@@ -1262,6 +1277,11 @@ static int vitop_intf_cfg(struct device *dev)
 
 	regmap_read(regmap, VI_TOP_ISP_DVP_SEL, &reg_value);
 	DPRINTK("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
+
+	// regmap_write(regmap, VI_TOP_ISP_DVP_SEL, 1);;
+	// regmap_read(regmap, VI_TOP_ISP_DVP_SEL, &reg_value);
+	// DPRINTK("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
+
 	regmap_read(regmap, VI_TOP_ISP0_DVP0_SIZE, &reg_value);
     DPRINTK("ISP0_DVP0 size[0x5103000c] = %x\n", reg_value);
 	regmap_read(regmap, VI_TOP_ISP0_DVP1_SIZE, &reg_value);
@@ -1310,7 +1330,7 @@ static int eic770x_vi_init(struct device *dev)
 
     regmap_write(regmap, 0x184, 0x80000020);///vi_dwclk_ctl
     regmap_write(regmap, 0x188, 0xc0000020);///vi_aclk_ctl
-    regmap_write(regmap, 0x18c, 0x80000020);///vi_dig_isp_clk_ctl
+    regmap_write(regmap, 0x18c, 0x80000021);///vi_dig_isp_clk_ctl
     regmap_write(regmap, 0x190, 0x80000021);///vi_dvp_clk_ctl
     regmap_write(regmap, 0x194, 0x80000180);///vi_shutter0
     regmap_write(regmap, 0x198, 0x80000180);///vi_shutter1
@@ -1706,6 +1726,8 @@ static int csi2_hw_probe(struct platform_device *pdev)
 
 			return PTR_ERR(csi2_hw->base);
 		}
+		printk("ioremap csi2_hw base failed\n");
+		return -1;
 	}
 
 	eic770x_vi_init(dev);

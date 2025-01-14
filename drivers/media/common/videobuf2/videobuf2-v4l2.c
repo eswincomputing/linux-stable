@@ -1042,7 +1042,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_create_bufs);
 int vb2_ioctl_prepare_buf(struct file *file, void *priv,
 			  struct v4l2_buffer *p)
 {
-	printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct video_device *vdev = video_devdata(file);
 
 	if (vb2_queue_is_busy(vdev->queue, file))
@@ -1054,7 +1053,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_prepare_buf);
 int vb2_ioctl_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct video_device *vdev = video_devdata(file);
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	/* No need to call vb2_queue_is_busy(), anyone can query buffers. */
 	return vb2_querybuf(vdev->queue, p);
 }
@@ -1063,7 +1061,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_querybuf);
 int vb2_ioctl_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct video_device *vdev = video_devdata(file);
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (vb2_queue_is_busy(vdev->queue, file))
 		return -EBUSY;
 	return vb2_qbuf(vdev->queue, vdev->v4l2_dev->mdev, p);
@@ -1073,7 +1070,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_qbuf);
 int vb2_ioctl_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct video_device *vdev = video_devdata(file);
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (vb2_queue_is_busy(vdev->queue, file))
 		return -EBUSY;
 	return vb2_dqbuf(vdev->queue, p, file->f_flags & O_NONBLOCK);
@@ -1082,7 +1078,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_dqbuf);
 
 int vb2_ioctl_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct video_device *vdev = video_devdata(file);
 
 	if (vb2_queue_is_busy(vdev->queue, file))
@@ -1094,7 +1089,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_streamon);
 int vb2_ioctl_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct video_device *vdev = video_devdata(file);
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (vb2_queue_is_busy(vdev->queue, file))
 		return -EBUSY;
 	return vb2_streamoff(vdev->queue, i);
@@ -1278,14 +1272,12 @@ EXPORT_SYMBOL_GPL(vb2_video_unregister_device);
 
 void vb2_ops_wait_prepare(struct vb2_queue *vq)
 {
-	printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	mutex_unlock(vq->lock);
 }
 EXPORT_SYMBOL_GPL(vb2_ops_wait_prepare);
 
 void vb2_ops_wait_finish(struct vb2_queue *vq)
 {
-	printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	mutex_lock(vq->lock);
 }
 EXPORT_SYMBOL_GPL(vb2_ops_wait_finish);

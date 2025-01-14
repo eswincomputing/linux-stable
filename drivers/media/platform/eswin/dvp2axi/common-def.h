@@ -27,8 +27,8 @@
 // #define SENSOR_OUT_V 240
 
 // Stagger2 480P crop from 1080P
-#define SENSOR_OUT_H 3280
-#define SENSOR_OUT_V 2464
+#define SENSOR_OUT_H  1920//3280
+#define SENSOR_OUT_V 1080//2464
 
 // #define SENSOR_OUT_H 1600
 // #define SENSOR_OUT_V 1080
