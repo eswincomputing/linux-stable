@@ -1095,6 +1095,7 @@ void vb2_buffer_done(struct vb2_buffer *vb, enum vb2_buffer_state state)
 		return;
 	default:
 		/* Inform any processes that may be waiting for buffers */
+		pr_info("%s:%d yfx!!!!!! wakeup done_wq \n", __func__, __LINE__);
 		wake_up(&q->done_wq);
 		break;
 	}

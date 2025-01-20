@@ -18,7 +18,6 @@
 #include <linux/init.h>
 
 #include "phy-eswin-csi2-dphy-common.h"
-#include "common-def.h"
 
 struct sensor_async_subdev {
 	struct v4l2_async_connection asd;
@@ -44,6 +43,8 @@ static struct v4l2_subdev *get_remote_sensor(struct v4l2_subdev *sd)
 	local = &sd->entity.pads[CSI2_DPHY_RX_PAD_SINK];
 	remote = media_pad_remote_pad_first(local);
 	if (!remote) {
+		pr_info("%s:%d yfx !!!!! \n", __func__, __LINE__);
+
 		v4l2_warn(sd, "No link between dphy and sensor\n");
 		return NULL;
 	}
@@ -345,6 +346,7 @@ static int csi2_dphy_get_set_fmt(struct v4l2_subdev *sd,
 	 * Do not allow format changes and just relay whatever
 	 * set currently in the sensor.
 	 */
+	pr_info("%s:%d sensor_sd->name \n", __func__, __LINE__, sensor_sd->name);
 	if (!sensor_sd)
 		return -ENODEV;
 	sensor = sd_to_sensor(dphy, sensor_sd);
@@ -647,6 +649,7 @@ static int eswin_csi2_dphy_get_inno_phy_hw(struct csi2_dphy *dphy)
 				dphy->phy_index);
 			return -ENODEV;
 		}
+		pr_info("%s:%d dphy%d hw node %s\n", __func__, __LINE__, dphy->phy_index, np->name);
 		plat_dev = of_find_device_by_node(np);
 		of_node_put(np);
 		if (!plat_dev) {

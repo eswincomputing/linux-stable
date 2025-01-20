@@ -28,16 +28,16 @@
 #include "dw-mipi-csi-hal.h"
 #include "bmtest_vitop.h"
 
+#define CONFIG_EVB
+
 static int csi2_debug;
 module_param_named(debug_csi2, csi2_debug, int, 0644);
 MODULE_PARM_DESC(debug_csi2, "Debug level (0-1)");
 
 // #define write_csihost_reg(base, addr, val) writel(val, (addr) + (base))
 // #define read_csihost_reg(base, addr) readl((addr) + (base))
-
 #define write_csihost_reg(base, addr, val) printk("t1 writel\n")
 #define read_csihost_reg(base, addr) printk("t1 readel\n")
-
 static ATOMIC_NOTIFIER_HEAD(g_csi_host_chain);
 
 int rkcif_csi2_register_notifier(struct notifier_block *nb)
@@ -73,6 +73,8 @@ static struct v4l2_subdev *get_remote_sensor(struct v4l2_subdev *sd)
 	struct media_entity *sensor_me;
 
 	local = &sd->entity.pads[RK_CSI2_PAD_SINK];
+	pr_info("%s:%d: xfy! sd->name %s, sd->entity->name %s\n", __func__, __LINE__, sd->name, sd->entity.name);
+	pr_info("%s:%d xfy! local->entity->name %s\n", __func__, __LINE__, local->entity->name);
 	remote = media_pad_remote_pad_first(local);
 	if (!remote) {
 		v4l2_warn(sd, "No link between dphy and sensor, flag = %d, entity name = %s\n", local->flags, sd->entity.name);
@@ -220,6 +222,318 @@ static void csi2_enable(struct csi2_hw *csi2_hw, enum host_type_t host_type)
 	write_csihost_reg(base, CSIHOST_RESETN, 1);
 }
 
+static inline void eic770x_dw_mipi_csi_write(struct csi2_hw *csi2_hw, u32 address, u32 data) {
+    DPRINTK("csi [%08x]: %08x\n", csi2_hw->base + address, data);
+    writel(data, csi2_hw->base + address);
+    // writel(data, csi2_hw->base + address);
+    // writel(data, csi2_hw->base + address);
+}
+
+static inline u32 eic770x_dw_mipi_csi_read(struct csi2_hw *csi2_hw, u32 address) {
+    u32 val;
+
+#ifdef REG_DUMMY_READ
+    readl(csi2_hw->base + address);
+    // readl(csi2_hw->base + address);
+    // readl(csi2_hw->base + address);
+#endif
+
+    val = readl(csi2_hw->base + address);
+    // DBG_PRINT("csi RD[%08x]: %08x\n", dev->base_address+address, val);
+    return val;
+}
+
+void eic770x_dw_mipi_csi_write_part(struct csi2_hw *csi2_hw, u32 address, u32 data, u8 shift, u8 width) {
+    u32 mask = (1 << width) - 1;
+    u32 temp = eic770x_dw_mipi_csi_read(csi2_hw, address);
+
+    temp &= ~(mask << shift);
+    temp |= (data & mask) << shift;
+    eic770x_dw_mipi_csi_write(csi2_hw, address, temp);
+}
+
+
+static void eic770x_mipi_csi_enable_irq(struct csi2_hw *csi2_hw) {
+	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0xe4, 0x1FF);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0xf4, 0x3);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x114, 0xff00ff);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x134, 0xff00ff);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x144, 0x7f);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x184, 0x3ffffff);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x194, 0x3f);
+#ifdef SENSOR_HDR_STAGGER2
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x154, 0x3f);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x1a4, 0x3f);
+#endif
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x2a4, 0xffffffff);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x2b4, 0xffffffff);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x2c4, 0xffffffff);
+    eic770x_dw_mipi_csi_write(csi2_hw, 0x2d4, 0xffffffff);
+}
+
+void eic770x_dw_mipi_csi_reset(struct csi2_hw *csi2_hw) {
+    DPRINTK("**** reset controller ****\n");
+	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
+    eic770x_dw_mipi_csi_write(csi2_hw, CSI2_RESETN, 0);
+    udelay(1000);
+    eic770x_dw_mipi_csi_write(csi2_hw, CSI2_RESETN, 1);
+    udelay(50000);
+}
+
+void eic770x_dw_mipi_ppi_pg_pattern_enable(struct csi2_hw *csi2_hw, int enable) {
+	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
+    if (enable)
+        eic770x_dw_mipi_csi_write(csi2_hw, PPI_PG_ENABLE, 1);
+    else
+        eic770x_dw_mipi_csi_write(csi2_hw, PPI_PG_ENABLE, 0);
+}
+
+void eic770x_dw_mipi_csi_hw_cfg(struct csi2_hw *csi2_hw) {
+	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
+    /* Configure PHY mode  */
+    eic770x_dw_mipi_csi_write(csi2_hw, PHY_MODE, csi2_hw->phy_mode);
+    /* Configure number of lanes */
+    eic770x_dw_mipi_csi_write(csi2_hw, N_LANES, csi2_hw->num_lanes - 1);
+    /* Configure PPI width */
+	// #ifdef CONFIG_EVB
+	// ////test_to_delete
+	// eic770x_dw_mipi_csi_write(csi2_hw, PHY_CFG, 0x1);
+	// #else
+    eic770x_dw_mipi_csi_write(csi2_hw, PHY_CFG, csi2_hw->ppi_width);
+	pr_info("%s:%d yfx ppi_width %d \n", __func__, __LINE__, csi2_hw->ppi_width);
+	// #endif
+
+#ifdef SENSOR_HDR_STAGGER2
+    /* select IPI virtual channal */
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VCID, csi2_hw->vc);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_VCID, csi2_hw->vc + 1);
+    /* select IPI data type */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->dt, 0, 6);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_DATA_TYPE, csi2_hw->dt, 0, 6);
+    /* configure embedded data */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->emb, 8, 1);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_DATA_TYPE, csi2_hw->emb, 8, 1);
+
+    /* enable IPI mode */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, 1, 24, 1);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, 1, 24, 1);
+    /* Configure IPI MODE */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_mode, 0, 1);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, csi2_hw->ipi_mode, 0, 1);
+    /* Configure IPI data interface */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_color_com, 8, 1);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, csi2_hw->ipi_color_com, 8, 1);
+    /* Configure IPI cut through */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_cut_through, 16, 1);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, csi2_hw->ipi_cut_through, 16, 1);
+    /* Configure IPI MEM flush */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MEM_FLUSH, csi2_hw->ipi_auto_flush, 8, 1);
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MEM_FLUSH, csi2_hw->ipi_auto_flush, 8, 1);
+
+    if (csi2_hw->ipi_mode == CAMERA_TIMING) {
+        /* TODO: Configure line event selection */
+        eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, csi2_hw->ipi_line_event);
+        eic770x_dw_mipi_csi_write(csi2_hw, IPI2_ADV_FEATURES, csi2_hw->ipi_line_event);
+        /* Configure ipi sync event mode */
+        eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_ADV_FEATURES, csi2_hw->frame_det, 24, 1);
+        eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_ADV_FEATURES, csi2_hw->frame_det, 24, 1);
+    }
+
+    // dw_mipi_csi_write_part(csi_dev, IPI_SOFTRSTN, 1, 0, 1);
+    // dw_mipi_csi_write_part(csi_dev, IPI_SOFTRSTN, 1, 4, 1);
+
+    /* Configure the IPI horizontal frame information*/
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSA_TIME, csi2_hw->hsa);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_HSA_TIME, csi2_hw->hsa);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HBP_TIME, csi2_hw->hbp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_HBP_TIME, csi2_hw->hbp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSD_TIME, csi2_hw->hsd);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_HSD_TIME, csi2_hw->hsd);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HLINE_TIME, csi2_hw->htotal);
+
+    /*Configure the IPI vertical frame information */
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VSA_LINES, csi2_hw->vsa);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VBP_LINES, csi2_hw->vbp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VFP_LINES, csi2_hw->vfp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VACTIVE_LINES, csi2_hw->vactive);
+
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_SOFTRSTN, 0x11);
+#else
+    /* select IPI virtual channal */
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VCID, csi2_hw->vc);
+    /* select IPI data type */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->dt, 0, 6);
+    /* configure embedded data */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->emb, 8, 1);
+
+    /* enable IPI mode */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, 1, 24, 1);
+    /* Configure IPI MODE */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_mode, 0, 1);
+    /* Configure IPI data interface */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_color_com, 8, 1);
+    /* Configure IPI cut through */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_cut_through, 16, 1);
+    /* Configure IPI MEM flush */
+    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MEM_FLUSH, csi2_hw->ipi_auto_flush, 8, 1);
+
+    if (csi2_hw->ipi_mode == CAMERA_TIMING) {
+		printk("----------------- test CAMERA_TIMING ------------------\n");
+        /* TODO: Configure line event selection */
+        eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, csi2_hw->ipi_line_event);
+        /* Configure ipi sync event mode */
+        eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_ADV_FEATURES, csi2_hw->frame_det, 24, 1);
+    }
+	// #ifdef CONFIG_EVB
+	// printk("----------------- test 0x510500ac ------------------\n");
+	// #else
+    // eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, 0xb0000);
+	// #endif
+
+	///
+	// eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, 0x130000);
+
+    // dw_mipi_csi_write_part(csi_dev, IPI_SOFTRSTN, 1, 0, 1);
+
+    /* Configure the IPI horizontal frame information*/
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSA_TIME, csi2_hw->hsa);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HBP_TIME, csi2_hw->hbp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSD_TIME, csi2_hw->hsd);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HLINE_TIME, csi2_hw->htotal);
+
+    /*Configure the IPI vertical frame information */
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VSA_LINES, csi2_hw->vsa);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VBP_LINES, csi2_hw->vbp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VFP_LINES, csi2_hw->vfp);
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VACTIVE_LINES, csi2_hw->vactive);
+
+    eic770x_dw_mipi_csi_write(csi2_hw, IPI_SOFTRSTN, 1);
+    udelay(1000);
+#endif
+
+// #define DUMP_CSI_REGS
+// #ifdef DUMP_CSI_REGS
+//     eic770x_mipi_csi_regs_dump(csi2_hw);
+// #endif
+}
+
+int eic770x_mipi_csi2_init(struct csi2_hw *csi2_hw, uint32_t controller_id)
+{
+	int irq_num;
+    // struct csi_data *hw = &csi_dev.hw;
+
+    DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
+    // csi_dev.base_address = (volatile void *)(MIPI_CSI_REG_ADDR_0 + MIPI_CSI_REG_SIZE_0 * controller_id);
+    // printf("--%s : csi base addr is 0x%x\n", __func__, csi_dev.base_address);
+
+#ifdef SENSOR_OUT_2LANES
+    csi2_hw->num_lanes = 2;
+#else
+    csi2_hw->num_lanes = 4;
+#endif
+    csi2_hw->ppi_width = D_PHY_PPI_8;
+    csi2_hw->phy_mode = D_PHY_MODE;
+
+    csi2_hw->vc = 0;
+#ifdef SENSOR_OUT_12BIT
+    csi2_hw->dt = CSI_2_RAW12;
+#else
+    csi2_hw->dt = CSI_2_RAW10;
+#endif
+
+    csi2_hw->emb = 1;
+    csi2_hw->ipi_mode = CAMERA_TIMING;
+    csi2_hw->ipi_color_com = IPI_DATA_16_BIT;
+    csi2_hw->ipi_auto_flush = 0;  // TODO
+    csi2_hw->ipi_cut_through = IPI_CTACTIVE;
+
+#if 0  // legacy mode with manual selection
+    // csi2_hw->frame_det = 1;
+    hw->ipi_line_event = EN_NULL_BIT | EN_EMBEDDED_BIT | EN_VIDEO_BIT;
+#else  // default mode with manual selection (video only)
+    csi2_hw->frame_det = 0;
+    // csi2_hw->ipi_line_event = EN_NULL_BIT | EN_VIDEO_BIT;
+	// csi2_hw->ipi_line_event = EN_VIDEO_BIT | EN_BLANKING_BIT;
+	csi2_hw->ipi_line_event = 0x130000;
+#endif
+
+    csi2_hw->ipi_line_event |= LINE_EVENT_SELECTION_BIT;
+
+    // hw->ipi_line_event = EN_EMBEDDED_BIT | EN_VIDEO_BIT;
+
+    csi2_hw->hsa = 1;
+    csi2_hw->hbp = 1;
+    csi2_hw->hsd = 1;
+    csi2_hw->htotal = 0;
+
+    csi2_hw->vsa = 0;
+    csi2_hw->vbp = 0;
+    csi2_hw->vfp = 0;
+    csi2_hw->vactive = 0;
+
+    // mipi_csi_print_cfg_info(&csi_dev);
+
+    // enable interrupt
+    switch (controller_id) {
+        case CSI_CONTROLLER_ID0:
+            /* code */
+            irq_num = MIPI_CSI_IRQ_NUM_0;
+            break;
+        case CSI_CONTROLLER_ID1:
+            irq_num = MIPI_CSI_IRQ_NUM_1;
+            /* code */
+            break;
+        case CSI_CONTROLLER_ID2:
+            irq_num = MIPI_CSI_IRQ_NUM_2;
+            /* code */
+            break;
+        case CSI_CONTROLLER_ID3:
+            irq_num = MIPI_CSI_IRQ_NUM_3;
+            /* code */
+            break;
+        case CSI_CONTROLLER_ID4:
+            irq_num = MIPI_CSI_IRQ_NUM_4;
+            /* code */
+            break;
+        case CSI_CONTROLLER_ID5:
+            irq_num = MIPI_CSI_IRQ_NUM_5;
+            /* code */
+            break;
+        default:
+            break;
+    }
+
+	eic770x_mipi_csi_enable_irq(csi2_hw);
+    // eic770x_metal_external_interrupt_register(irq_num, mipi_csi_irq_handler, INTERRUPT_ISP_PRIORITY, &csi_dev);///TODO
+    // eic770x_metal_interrupt_ext_irq_enable(irq_num);///TODO
+
+    eic770x_dw_mipi_csi_reset(csi2_hw);
+
+    // /* disabel pattern */
+    eic770x_dw_mipi_ppi_pg_pattern_enable(csi2_hw, 0);
+
+    eic770x_dw_mipi_csi_hw_cfg(csi2_hw);
+	return 0;
+}
+
+int eic770x_mipi_csi2_cfg(struct device* dev, struct csi2_hw *csi2_hw, uint32_t controller_id)
+{
+	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
+	eic770x_mipi_csi2_init(csi2_hw, controller_id);
+	udelay(2000);
+
+	// struct regmap *regmap;
+	// regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,vi_top_csr");
+    // if (IS_ERR(regmap)) {
+    //     dev_err(dev, "No syscrg_csr phandle specified\n");
+    //     return -ENODEV;
+    // }
+	// regmap_write(regmap, 0x40, 0xffffffff);///lsp_clk_en0 enable(sys_crg)
+	return 0;
+}
+
+
 static int csi2_start(struct csi2_dev *csi2)
 {
 	enum host_type_t host_type;
@@ -235,19 +549,23 @@ static int csi2_start(struct csi2_dev *csi2)
 	else
 		host_type = RK_CSI_RXHOST;
 
-	for (i = 0; i < csi2->csi_info.csi_num; i++) {
-		csi_idx = csi2->csi_info.csi_idx[i];
-		// csi2_hw_do_reset(csi2->csi2_hw[csi_idx]);
-		// ret = csi2_enable_clks(csi2->csi2_hw[csi_idx]);
-		// if (ret) {
-		// 	v4l2_err(&csi2->sd, "%s: enable clks failed\n",
-		// 		 __func__);
-		// 	return ret;
-		// }
-		// enable_irq(csi2->csi2_hw[csi_idx]->irq1);
-		// enable_irq(csi2->csi2_hw[csi_idx]->irq2);
-		// csi2_enable(csi2->csi2_hw[csi_idx], host_type);
-	}
+	// for (i = 0; i < csi2->csi_info.csi_num; i++) {
+	// 	csi_idx = csi2->csi_info.csi_idx[i];
+	// 	csi2_hw_do_reset(csi2->csi2_hw[csi_idx]);
+	// 	ret = csi2_enable_clks(csi2->csi2_hw[csi_idx]);
+	// 	if (ret) {
+	// 		v4l2_err(&csi2->sd, "%s: enable clks failed\n",
+	// 			 __func__);
+	// 		return ret;
+	// 	}
+	// 	enable_irq(csi2->csi2_hw[csi_idx]->irq1);
+	// 	enable_irq(csi2->csi2_hw[csi_idx]->irq2);
+	// 	csi2_enable(csi2->csi2_hw[csi_idx], host_type);
+	// }
+
+	pr_info("%s:%d csi start \n", __func__, __LINE__);
+	eic770x_mipi_csi2_cfg(csi2->dev, csi2->csi2_hw[0], CSI_CONTROLLER_ID);
+	mdelay(1000);
 
 	printk("stream sd: %s\n", csi2->src_sd->name);
 	ret = v4l2_subdev_call(csi2->src_sd, video, s_stream, 1);
@@ -392,6 +710,9 @@ static int csi2_media_init(struct v4l2_subdev *sd)
 
 	csi2->pad[RK_CSI2X_PAD_SOURCE0].flags = MEDIA_PAD_FL_SOURCE |
 						MEDIA_PAD_FL_MUST_CONNECT;
+	csi2->pad[RK_CSI2X_PAD_SOURCE1].flags = MEDIA_PAD_FL_SOURCE |
+						MEDIA_PAD_FL_MUST_CONNECT;
+
 	csi2->pad[RK_CSI2_PAD_SINK].flags = MEDIA_PAD_FL_SINK |
 					    MEDIA_PAD_FL_MUST_CONNECT;
 
@@ -708,12 +1029,13 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 	for (pad = 0; pad < sd->entity.num_pads; pad++)
 		if (sensor->sd->entity.pads[pad].flags & MEDIA_PAD_FL_SOURCE)
 			break;
-
+	pr_info("%s:%d yfx !!sensor->sd->entity->name %s\n", __func__, __LINE__, sensor->sd->entity.name);
 	if (pad == sensor->sd->entity.num_pads) {
 		dev_err(csi2->dev, "failed to find src pad for %s\n", sd->name);
 		return -ENXIO;
 	}
 
+//TODO 为什么这里创建了link，但是没有enable
 	ret = media_create_pad_link(
 		&sensor->sd->entity, pad, &csi2->sd.entity, RK_CSI2_PAD_SINK,
 		0 /* csi2->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED */);
@@ -955,6 +1277,13 @@ static irqreturn_t rk_csirx_irq2_handler(int irq, void *ctx)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t eswin_csirx_irq1_handler(int irq, void *ctx) 
+{
+	pr_err("%s:%d mipi-csi2 host get error \n", __func__, __LINE__);
+	return IRQ_HANDLED;
+}
+
+
 /* Parse fwnode with port0, if an empty function is used, each node will parse
  * all ports, causing the device to repeatedly join the link and unable to
  * complete the link
@@ -1136,6 +1465,8 @@ static int csi2_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto rmmutex;
 	ret = csi2_notifier(csi2);
+
+
 	if (ret)
 		goto rmmutex;
 
@@ -1235,20 +1566,24 @@ static int vitop_intf_cfg(struct device *dev)
 	// Enable Clocks from TOP CSR
 	DPRINTK("ISP Top Setting ...\n");
 	val = VI_TOP_ISP0_CLOCK_ENABLED | VI_TOP_ISP1_CLOCK_ENABLED; //ISP0 ISP1 Core Clock
-    val |= VI_TOP_CTRL0_DVP_CLOCK_ENABLED | VI_TOP_CTRL1_DVP_CLOCK_ENABLED; //DVP Input Interface Clock: MIPI Controller 0,1
-    val |= VI_TOP_DVP2AXI_CLOCK_ENABLED; // DVP2AXI clock
+    // val |= VI_TOP_DVP2AXI_CLOCK_ENABLED; // DVP2AXI clock
+	// val |= VI_TOP_CTRL0_DVP_CLOCK_ENABLED | VI_TOP_CTRL1_DVP_CLOCK_ENABLED | VI_TOP_CTRL2_DVP_CLOCK_ENABLED | VI_TOP_CTRL3_DVP_CLOCK_ENABLED | VI_TOP_CTRL4_DVP_CLOCK_ENABLED | VI_TOP_CTRL5_DVP_CLOCK_ENABLED; //DVP Input Interface Clock: MIPI Controller 0,1
+	val |= VI_TOP_CTRL0_DVP_CLOCK_ENABLED | VI_TOP_CTRL1_DVP_CLOCK_ENABLED;
+	val |= VI_TOP_DVP2AXI_CLOCK_ENABLED; // DVP2AXI clock
+	
 	regmap_write(regmap, VI_TOP_CLOCK_ENABLE, val);
 	regmap_read(regmap, VI_TOP_CLOCK_ENABLE, &reg_value);
 	DPRINTK("ISP_TOP_CLOCK_EN[0x51030040] = %x\n", reg_value);
 
-	// ISP CSI0-DVP0 Input
-    #ifdef SENSOR_OUT_2LANES
-	regmap_write(regmap, VI_TOP_PHY_CONNECT_MODE, 5);
-    #else
-	regmap_write(regmap, VI_TOP_PHY_CONNECT_MODE, 3);
-    #endif
+	// // ISP CSI0-DVP0 Input
+    // #ifdef SENSOR_OUT_2LANES
+	// regmap_write(regmap, VI_TOP_PHY_CONNECT_MODE, 5);
+    // #else
+	// regmap_write(regmap, VI_TOP_PHY_CONNECT_MODE, 3);
+    // #endif
 	regmap_write(regmap, VI_TOP_CONTROLLER_SELECT, 0);//all from csi
 
+	/*
 	// isp0 and isp1: all dvp port from csi0
     val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET);
     val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
@@ -1263,7 +1598,11 @@ static int vitop_intf_cfg(struct device *dev)
 	regmap_write(regmap, VI_TOP_ISP1_DVP1_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
 	// regmap_write(regmap, VI_TOP_ISP1_DVP2_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
 	// regmap_write(regmap, VI_TOP_ISP1_DVP3_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
+	#ifdef CONFIG_EVB
+	regmap_write(regmap, VI_TOP_MULTI2ISP_BLANK, (0xff << 8) | 0xff);
+	#else
 	regmap_write(regmap, VI_TOP_MULTI2ISP_BLANK, (0xe0 << 8) | 0xe0);
+	#endif
 	regmap_write(regmap, VI_TOP_MULTI2ISP0_DVP0, (4 << 9));
 	regmap_write(regmap, VI_TOP_MULTI2ISP0_DVP1, (4 << 9));
 	regmap_write(regmap, VI_TOP_MULTI2ISP1_DVP0, (4 << 9));
@@ -1274,6 +1613,23 @@ static int vitop_intf_cfg(struct device *dev)
 	// regmap_write(regmap, VI_TOP_MULTI2ISP1_DVP3, (4 << 9));
 	regmap_read(regmap, VI_TOP_PHY_CONNECT_MODE, &reg_value);
     DPRINTK("t2 VI_TOP_PHY_CONNECT_MODE[0x51030000] = %x\n", reg_value);
+	*/
+
+	val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
+    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
+    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP1_SEL_OFFSET);
+    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
+
+	regmap_write(regmap, VI_TOP_ISP_DVP_SEL, val);
+    regmap_write(regmap, VI_TOP_ISP0_DVP0_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
+    regmap_write(regmap, VI_TOP_ISP0_DVP1_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
+    regmap_write(regmap, VI_TOP_ISP1_DVP0_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
+    regmap_write(regmap, VI_TOP_ISP1_DVP1_SIZE, (SENSOR_OUT_V << 16) | SENSOR_OUT_H);
+    regmap_write(regmap, VI_TOP_MULTI2ISP_BLANK, (0xff << 8) | 0xff);
+    regmap_write(regmap, VI_TOP_MULTI2ISP0_DVP0, (4 << 9));
+    regmap_write(regmap, VI_TOP_MULTI2ISP0_DVP1, (4 << 9));
+    regmap_write(regmap, VI_TOP_MULTI2ISP1_DVP0, (4 << 9));
+    regmap_write(regmap, VI_TOP_MULTI2ISP1_DVP1, (4 << 9));
 
 	regmap_read(regmap, VI_TOP_ISP_DVP_SEL, &reg_value);
 	DPRINTK("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
@@ -1332,8 +1688,16 @@ static int eic770x_vi_init(struct device *dev)
     regmap_write(regmap, 0x188, 0xc0000020);///vi_aclk_ctl
     regmap_write(regmap, 0x18c, 0x80000021);///vi_dig_isp_clk_ctl
     regmap_write(regmap, 0x190, 0x80000021);///vi_dvp_clk_ctl
-    regmap_write(regmap, 0x194, 0x80000180);///vi_shutter0
-    regmap_write(regmap, 0x198, 0x80000180);///vi_shutter1
+	// #endif
+    
+	#ifdef CONFIG_EVB
+	printk("@@@@@ test0123 enter CONFIG_EVB @@@@@\n");
+	regmap_write(regmap, 0x194, 0x80000100);///vi_shutter0
+    regmap_write(regmap, 0x198, 0x80000100);///vi_shutter1
+	#else
+	regmap_write(regmap, 0x194, 0x80000180);///vi_shutter0
+	regmap_write(regmap, 0x198, 0x80000180);///vi_shutter1
+	#endif
     regmap_write(regmap, 0x19c, 0x80000100);///vi_shutter2
     regmap_write(regmap, 0x1a0, 0x80000100);///vi_shutter3
     regmap_write(regmap, 0x1a4, 0x80000100);///vi_shutter4
@@ -1347,7 +1711,7 @@ static int eic770x_vi_init(struct device *dev)
     }
 
 	regmap_write(regmap, 0x40, 0xffffffff);///vi_clk_en(vi_common_top_2.4.xlsx)
-    udelay(20000);
+    udelay(200000);
 
 	viscu_cfg(dev);///isp_rst(sys_crg)
 
@@ -1356,35 +1720,35 @@ static int eic770x_vi_init(struct device *dev)
     return 0;
 }
 
-static inline void eic770x_dw_mipi_csi_write(struct csi2_hw *csi2_hw, u32 address, u32 data) {
-    DPRINTK("csi [%08x]: %08x\n", csi2_hw->base + address, data);
-    writel(data, csi2_hw->base + address);
-    // writel(data, csi2_hw->base + address);
-    // writel(data, csi2_hw->base + address);
-}
+// static inline void eic770x_dw_mipi_csi_write(struct csi2_hw *csi2_hw, u32 address, u32 data) {
+//     DPRINTK("csi [%08x]: %08x\n", csi2_hw->base + address, data);
+//     writel(data, csi2_hw->base + address);
+//     // writel(data, csi2_hw->base + address);
+//     // writel(data, csi2_hw->base + address);
+// }
 
-static inline u32 eic770x_dw_mipi_csi_read(struct csi2_hw *csi2_hw, u32 address) {
-    u32 val;
+// static inline u32 eic770x_dw_mipi_csi_read(struct csi2_hw *csi2_hw, u32 address) {
+//     u32 val;
 
-#ifdef REG_DUMMY_READ
-    readl(csi2_hw->base + address);
-    // readl(csi2_hw->base + address);
-    // readl(csi2_hw->base + address);
-#endif
+// #ifdef REG_DUMMY_READ
+//     readl(csi2_hw->base + address);
+//     // readl(csi2_hw->base + address);
+//     // readl(csi2_hw->base + address);
+// #endif
 
-    val = readl(csi2_hw->base + address);
-    // DBG_PRINT("csi RD[%08x]: %08x\n", dev->base_address+address, val);
-    return val;
-}
+//     val = readl(csi2_hw->base + address);
+//     // DBG_PRINT("csi RD[%08x]: %08x\n", dev->base_address+address, val);
+//     return val;
+// }
 
-void eic770x_dw_mipi_csi_write_part(struct csi2_hw *csi2_hw, u32 address, u32 data, u8 shift, u8 width) {
-    u32 mask = (1 << width) - 1;
-    u32 temp = eic770x_dw_mipi_csi_read(csi2_hw, address);
+// void eic770x_dw_mipi_csi_write_part(struct csi2_hw *csi2_hw, u32 address, u32 data, u8 shift, u8 width) {
+//     u32 mask = (1 << width) - 1;
+//     u32 temp = eic770x_dw_mipi_csi_read(csi2_hw, address);
 
-    temp &= ~(mask << shift);
-    temp |= (data & mask) << shift;
-    eic770x_dw_mipi_csi_write(csi2_hw, address, temp);
-}
+//     temp &= ~(mask << shift);
+//     temp |= (data & mask) << shift;
+//     eic770x_dw_mipi_csi_write(csi2_hw, address, temp);
+// }
 
 void eic770x_mipi_csi_regs_dump(struct csi2_hw *csi2_hw) {
     int i;
@@ -1405,269 +1769,7 @@ void eic770x_mipi_csi_regs_dump(struct csi2_hw *csi2_hw) {
     }
 }
 
-static void eic770x_mipi_csi_enable_irq(struct csi2_hw *csi2_hw) {
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0xe4, 0x1FF);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0xf4, 0x3);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x114, 0xff00ff);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x134, 0xff00ff);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x144, 0x7f);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x184, 0x3ffffff);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x194, 0x3f);
-#ifdef SENSOR_HDR_STAGGER2
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x154, 0x3f);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x1a4, 0x3f);
-#endif
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x2a4, 0xffffffff);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x2b4, 0xffffffff);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x2c4, 0xffffffff);
-    eic770x_dw_mipi_csi_write(csi2_hw, 0x2d4, 0xffffffff);
-}
 
-void eic770x_dw_mipi_csi_reset(struct csi2_hw *csi2_hw) {
-    DPRINTK("**** reset controller ****\n");
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-    eic770x_dw_mipi_csi_write(csi2_hw, CSI2_RESETN, 0);
-    udelay(1000);
-    eic770x_dw_mipi_csi_write(csi2_hw, CSI2_RESETN, 1);
-    udelay(50000);
-}
-
-void eic770x_dw_mipi_ppi_pg_pattern_enable(struct csi2_hw *csi2_hw, int enable) {
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-    if (enable)
-        eic770x_dw_mipi_csi_write(csi2_hw, PPI_PG_ENABLE, 1);
-    else
-        eic770x_dw_mipi_csi_write(csi2_hw, PPI_PG_ENABLE, 0);
-}
-
-void eic770x_dw_mipi_csi_hw_cfg(struct csi2_hw *csi2_hw) {
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-    /* Configure PHY mode  */
-    eic770x_dw_mipi_csi_write(csi2_hw, PHY_MODE, csi2_hw->phy_mode);
-    /* Configure number of lanes */
-    eic770x_dw_mipi_csi_write(csi2_hw, N_LANES, csi2_hw->num_lanes - 1);
-    /* Configure PPI width */
-    eic770x_dw_mipi_csi_write(csi2_hw, PHY_CFG, csi2_hw->ppi_width);
-
-#ifdef SENSOR_HDR_STAGGER2
-    /* select IPI virtual channal */
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VCID, csi2_hw->vc);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_VCID, csi2_hw->vc + 1);
-    /* select IPI data type */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->dt, 0, 6);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_DATA_TYPE, csi2_hw->dt, 0, 6);
-    /* configure embedded data */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->emb, 8, 1);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_DATA_TYPE, csi2_hw->emb, 8, 1);
-
-    /* enable IPI mode */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, 1, 24, 1);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, 1, 24, 1);
-    /* Configure IPI MODE */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_mode, 0, 1);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, csi2_hw->ipi_mode, 0, 1);
-    /* Configure IPI data interface */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_color_com, 8, 1);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, csi2_hw->ipi_color_com, 8, 1);
-    /* Configure IPI cut through */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_cut_through, 16, 1);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MODE, csi2_hw->ipi_cut_through, 16, 1);
-    /* Configure IPI MEM flush */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MEM_FLUSH, csi2_hw->ipi_auto_flush, 8, 1);
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_MEM_FLUSH, csi2_hw->ipi_auto_flush, 8, 1);
-
-    if (csi2_hw->ipi_mode == CAMERA_TIMING) {
-        /* TODO: Configure line event selection */
-        eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, csi2_hw->ipi_line_event);
-        eic770x_dw_mipi_csi_write(csi2_hw, IPI2_ADV_FEATURES, csi2_hw->ipi_line_event);
-        /* Configure ipi sync event mode */
-        eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_ADV_FEATURES, csi2_hw->frame_det, 24, 1);
-        eic770x_dw_mipi_csi_write_part(csi2_hw, IPI2_ADV_FEATURES, csi2_hw->frame_det, 24, 1);
-    }
-
-    // dw_mipi_csi_write_part(csi_dev, IPI_SOFTRSTN, 1, 0, 1);
-    // dw_mipi_csi_write_part(csi_dev, IPI_SOFTRSTN, 1, 4, 1);
-
-    /* Configure the IPI horizontal frame information*/
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSA_TIME, csi2_hw->hsa);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_HSA_TIME, csi2_hw->hsa);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HBP_TIME, csi2_hw->hbp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_HBP_TIME, csi2_hw->hbp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSD_TIME, csi2_hw->hsd);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI2_HSD_TIME, csi2_hw->hsd);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HLINE_TIME, csi2_hw->htotal);
-
-    /*Configure the IPI vertical frame information */
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VSA_LINES, csi2_hw->vsa);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VBP_LINES, csi2_hw->vbp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VFP_LINES, csi2_hw->vfp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VACTIVE_LINES, csi2_hw->vactive);
-
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_SOFTRSTN, 0x11);
-#else
-    /* select IPI virtual channal */
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VCID, csi2_hw->vc);
-    /* select IPI data type */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->dt, 0, 6);
-    /* configure embedded data */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_DATA_TYPE, csi2_hw->emb, 8, 1);
-
-    /* enable IPI mode */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, 1, 24, 1);
-    /* Configure IPI MODE */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_mode, 0, 1);
-    /* Configure IPI data interface */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_color_com, 8, 1);
-    /* Configure IPI cut through */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MODE, csi2_hw->ipi_cut_through, 16, 1);
-    /* Configure IPI MEM flush */
-    eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_MEM_FLUSH, csi2_hw->ipi_auto_flush, 8, 1);
-
-    if (csi2_hw->ipi_mode == CAMERA_TIMING) {
-        /* TODO: Configure line event selection */
-        eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, csi2_hw->ipi_line_event);
-        /* Configure ipi sync event mode */
-        eic770x_dw_mipi_csi_write_part(csi2_hw, IPI_ADV_FEATURES, csi2_hw->frame_det, 24, 1);
-    }
-
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_ADV_FEATURES, 0xb0000);
-
-    // dw_mipi_csi_write_part(csi_dev, IPI_SOFTRSTN, 1, 0, 1);
-
-    /* Configure the IPI horizontal frame information*/
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSA_TIME, csi2_hw->hsa);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HBP_TIME, csi2_hw->hbp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HSD_TIME, csi2_hw->hsd);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_HLINE_TIME, csi2_hw->htotal);
-
-    /*Configure the IPI vertical frame information */
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VSA_LINES, csi2_hw->vsa);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VBP_LINES, csi2_hw->vbp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VFP_LINES, csi2_hw->vfp);
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_VACTIVE_LINES, csi2_hw->vactive);
-
-    eic770x_dw_mipi_csi_write(csi2_hw, IPI_SOFTRSTN, 1);
-    udelay(1000);
-#endif
-
-#define DUMP_CSI_REGS
-#ifdef DUMP_CSI_REGS
-    eic770x_mipi_csi_regs_dump(csi2_hw);
-#endif
-}
-
-int eic770x_mipi_csi2_init(struct csi2_hw *csi2_hw, uint32_t controller_id)
-{
-	int irq_num;
-    // struct csi_data *hw = &csi_dev.hw;
-
-    DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-    // csi_dev.base_address = (volatile void *)(MIPI_CSI_REG_ADDR_0 + MIPI_CSI_REG_SIZE_0 * controller_id);
-    // printf("--%s : csi base addr is 0x%x\n", __func__, csi_dev.base_address);
-
-#ifdef SENSOR_OUT_2LANES
-    csi2_hw->num_lanes = 2;
-#else
-    hw->num_lanes = 4;
-#endif
-    csi2_hw->ppi_width = D_PHY_PPI_8;
-    csi2_hw->phy_mode = D_PHY_MODE;
-
-    csi2_hw->vc = 0;
-#ifdef SENSOR_OUT_12BIT
-    csi2_hw->dt = CSI_2_RAW12;
-#else
-    csi2_hw->dt = CSI_2_RAW10;
-#endif
-
-    csi2_hw->emb = 1;
-    csi2_hw->ipi_mode = CAMERA_TIMING;
-    csi2_hw->ipi_color_com = IPI_DATA_16_BIT;
-    csi2_hw->ipi_auto_flush = 0;  // TODO
-    csi2_hw->ipi_cut_through = IPI_CTACTIVE;
-
-#if 0  // legacy mode with manual selection
-    csi2_hw->frame_det = 1;
-    hw->ipi_line_event = EN_NULL_BIT | EN_EMBEDDED_BIT | EN_VIDEO_BIT;
-#else  // default mode with manual selection (video only)
-    csi2_hw->frame_det = 0;
-    csi2_hw->ipi_line_event = EN_NULL_BIT | EN_VIDEO_BIT;
-#endif
-
-    csi2_hw->ipi_line_event |= LINE_EVENT_SELECTION_BIT;
-
-    // hw->ipi_line_event = EN_EMBEDDED_BIT | EN_VIDEO_BIT;
-
-    csi2_hw->hsa = 1;
-    csi2_hw->hbp = 1;
-    csi2_hw->hsd = 1;
-    csi2_hw->htotal = 0;
-
-    csi2_hw->vsa = 0;
-    csi2_hw->vbp = 0;
-    csi2_hw->vfp = 0;
-    csi2_hw->vactive = 0;
-
-    // mipi_csi_print_cfg_info(&csi_dev);
-
-    // enable interrupt
-    switch (controller_id) {
-        case CSI_CONTROLLER_ID0:
-            /* code */
-            irq_num = MIPI_CSI_IRQ_NUM_0;
-            break;
-        case CSI_CONTROLLER_ID1:
-            irq_num = MIPI_CSI_IRQ_NUM_1;
-            /* code */
-            break;
-        case CSI_CONTROLLER_ID2:
-            irq_num = MIPI_CSI_IRQ_NUM_2;
-            /* code */
-            break;
-        case CSI_CONTROLLER_ID3:
-            irq_num = MIPI_CSI_IRQ_NUM_3;
-            /* code */
-            break;
-        case CSI_CONTROLLER_ID4:
-            irq_num = MIPI_CSI_IRQ_NUM_4;
-            /* code */
-            break;
-        case CSI_CONTROLLER_ID5:
-            irq_num = MIPI_CSI_IRQ_NUM_5;
-            /* code */
-            break;
-        default:
-            break;
-    }
-
-	eic770x_mipi_csi_enable_irq(csi2_hw);
-    // eic770x_metal_external_interrupt_register(irq_num, mipi_csi_irq_handler, INTERRUPT_ISP_PRIORITY, &csi_dev);///TODO
-    // eic770x_metal_interrupt_ext_irq_enable(irq_num);///TODO
-
-    eic770x_dw_mipi_csi_reset(csi2_hw);
-
-    // /* disabel pattern */
-    eic770x_dw_mipi_ppi_pg_pattern_enable(csi2_hw, 0);
-
-    eic770x_dw_mipi_csi_hw_cfg(csi2_hw);
-	return 0;
-}
-
-int eic770x_mipi_csi2_cfg(struct device* dev, struct csi2_hw *csi2_hw, uint32_t controller_id)
-{
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-	eic770x_mipi_csi2_init(csi2_hw, controller_id);
-
-	struct regmap *regmap;
-	regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,vi_top_csr");
-    if (IS_ERR(regmap)) {
-        dev_err(dev, "No syscrg_csr phandle specified\n");
-        return -ENODEV;
-    }
-	regmap_write(regmap, 0x40, 0xffffffff);///lsp_clk_en0 enable(sys_crg)
-	return 0;
-}
 
 static int csi2_hw_probe(struct platform_device *pdev)
 {
@@ -1709,9 +1811,26 @@ static int csi2_hw_probe(struct platform_device *pdev)
 	// 		dev_err(dev, "failed to get csi2 reset\n");
 	// 	csi2_hw->rsts_bulk = NULL;
 	// }
+	pr_info("%s:%d yfx ! pdev->name %s \n", __func__, __LINE__, pdev->name);
+
+	
+	irq = platform_get_irq_byname(pdev, "csi-intr1");
+	if (irq > 0) {
+		pr_info("%s:%d yfx mipicsi irq %d \n", __func__, __LINE__, irq);
+		ret = devm_request_irq(&pdev->dev, irq, eswin_csirx_irq1_handler,
+				       IRQF_SHARED, dev_driver_string(&pdev->dev),
+				       &pdev->dev);
+		if (ret < 0)
+			dev_err(&pdev->dev,
+				"request csi-intr1 irq failed: %d\n", ret);
+		csi2_hw->irq1 = irq;
+	} else {
+		dev_err(&pdev->dev, "No found irq csi-intr1\n");
+	}
+	pr_info("%s:%d yfx ! pdev->num_resource %d \n", __func__, __LINE__, pdev->num_resources);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
+	
 	pr_info("Resource name: %s\n", res->name ? res->name : "(null)");
 	csi2_hw->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(csi2_hw->base)) {
@@ -1730,23 +1849,13 @@ static int csi2_hw_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	eic770x_vi_init(dev);
+	// eic770x_vi_init(dev);
 
-	eic770x_mipi_csi2_cfg(dev, csi2_hw, CSI_CONTROLLER_ID);
+	// eic770x_mipi_csi2_cfg(dev, csi2_hw, CSI_CONTROLLER_ID);
 
-	// irq = platform_get_irq_byname(pdev, "csi-intr1");
-	// if (irq > 0) {
-	// 	irq_set_status_flags(irq, IRQ_NOAUTOEN);
-	// 	ret = devm_request_irq(&pdev->dev, irq, rk_csirx_irq1_handler,
-	// 			       0, dev_driver_string(&pdev->dev),
-	// 			       &pdev->dev);
-	// 	if (ret < 0)
-	// 		dev_err(&pdev->dev,
-	// 			"request csi-intr1 irq failed: %d\n", ret);
-	// 	csi2_hw->irq1 = irq;
-	// } else {
-	// 	dev_err(&pdev->dev, "No found irq csi-intr1\n");
-	// }
+	pr_info("%s:%d yfx!!!! \n", __func__, __LINE__);
+
+	
 
 	// irq = platform_get_irq_byname(pdev, "csi-intr2");
 	// if (irq > 0) {
@@ -1784,10 +1893,12 @@ static struct platform_driver csi2_hw_driver = {
 	.remove = csi2_hw_remove,
 };
 
-int rkcif_csi2_hw_plat_drv_init(void)
+int rkcif_csi2_hw_plat_drv_init_new(void)
 {
 	DPRINTK("t1 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-	return platform_driver_register(&csi2_hw_driver);
+	platform_driver_register(&csi2_hw_driver);
+	platform_driver_register(&csi2_driver);
+	return  0;
 }
 
 void rkcif_csi2_hw_plat_drv_exit(void)
@@ -1795,6 +1906,9 @@ void rkcif_csi2_hw_plat_drv_exit(void)
 	DPRINTK("t1 %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	platform_driver_unregister(&csi2_hw_driver);
 }
+
+module_init(rkcif_csi2_hw_plat_drv_init_new);
+module_exit(rkcif_csi2_hw_plat_drv_exit);
 
 MODULE_DESCRIPTION("Eswin MIPI CSI2 driver");
 MODULE_AUTHOR("lilijun@eswincomputing.com");

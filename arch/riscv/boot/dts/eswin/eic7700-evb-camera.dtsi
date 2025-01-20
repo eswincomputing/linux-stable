@@ -1,8 +1,8 @@
-//#include "eswin-win2030-die0-soc.dtsi"
+// #include "eswin-win2030-die0-soc.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
-&SOC
-{
+//&SOC {
+&vi_top {
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
@@ -17,7 +17,8 @@
 				#size-cells = <0>;
 				reg = <0>;
 				vvcam_isp_input_port: endpoint@0 {
-					remote-endpoint = <&mipi2_csi2_output>;
+					reg = <0>;
+					remote-endpoint = <&mipi2_csi2_output1>;
 				};
 			};
 
@@ -25,7 +26,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
-				vvcam_isp_port0_mp: endpoint@1 {
+				vvcam_isp_port0_mp: endpoint {
 					remote-endpoint = <&vvcam_video0>;
 				};
 			};
@@ -34,7 +35,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <2>;
-				vvcam_isp_port0_sp1: endpoint@2 {
+				vvcam_isp_port0_sp1: endpoint {
 					remote-endpoint = <&vvcam_video1>;
 				};
 			};
@@ -72,7 +73,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
-				vvcam_video0: endpoint@0 {
+				vvcam_video0: endpoint {
 					remote-endpoint = <&vvcam_isp_port0_mp>;
 				};
 			};
@@ -106,35 +107,176 @@
 		};
 	};
 };
+//};
 
-&mipi_csi2 {
+
+// &d0_i2c8 {
+// 	/* io extended for mipi csi */
+// 	status = "okay";
+// 	tca6416_0: gpio@20 {
+// 		compatible = "ti,tca6416";
+// 		reg = <0x20>;
+// 		gpio-controller; /* IRQ not connected */
+// 		#gpio-cells = <2>;
+// 		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
+// 				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
+// 				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
+// 				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
+// 	};
+// 	tca6416_1: gpio@21 {
+// 		compatible = "ti,tca6416";
+// 		reg = <0x21>;
+// 		gpio-controller;
+// 		#gpio-cells = <2>;
+// 		/* IRQ not connected */
+// 		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
+// 				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
+// 				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
+// 				"", "", "", "";
+// 	};
+// };
+
+&d0_i2c3 {
+	/* mipi csi0/csi1 */
 	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			mipi2_csi2_input: endpoint@1 {
-				reg = <1>;
-				remote-endpoint = <&csidphy0_out>;
+	
+	imx327_0: imx327@36 {
+			compatible = "sony,imx327";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			#reg = <0x0 0x36 0x0 0x0>;
+			reg = <0x36>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			clock-frequency = <37125000>;
+			#assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <37125000>;
+			clock-names = "xvclk";
+			/* Reset and power down GPIOs controlled by tca6416_0 */
+			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
+			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			//pinctrl-names = "default";
+			//pinctrl-0 = <&cif_clkout>;
+			
+			port {
+				imx327_out0: endpoint {
+					// remote-endpoint = <&mipi_in_ucam0>;
+					remote-endpoint = <&mipidphy0_in_ucam0>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <445500000>;
+				};
 			};
 		};
+};
 
-		port@1 {
-			reg = <1>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			mipi2_csi2_output: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&vvcam_isp_input_port>;
+&d0_i2c4 {
+	status="okay";
+	imx327_1: imx327-1@36 {
+			compatible = "sony,imx327";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			#reg = <0x0 0x36 0x0 0x0>;
+			reg = <0x36>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			clock-frequency = <37125000>;
+			#assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <37125000>;
+			clock-names = "xvclk";
+			/* Reset and power down GPIOs controlled by tca6416_0 */
+			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
+			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			//pinctrl-names = "default";
+			//pinctrl-0 = <&cif_clkout>;
+			
+			port {
+				imx327_out1: endpoint {
+					// remote-endpoint = <&mipi_in_ucam0>;
+					remote-endpoint = <&mipidphy1_in_ucam0>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <445500000>;
+				};
 			};
 		};
+};
+
+
+&d0_i2c5 {
+	status="okay";
+	imx327_2: imx327-2@36 {
+			compatible = "sony,imx327";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			#reg = <0x0 0x36 0x0 0x0>;
+			reg = <0x36>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			clock-frequency = <37125000>;
+			#assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <37125000>;
+			clock-names = "xvclk";
+			/* Reset and power down GPIOs controlled by tca6416_0 */
+			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
+			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			//pinctrl-names = "default";
+			//pinctrl-0 = <&cif_clkout>;
+			
+			port {
+				imx327_out2: endpoint {
+					// remote-endpoint = <&mipi_in_ucam0>;
+					remote-endpoint = <&mipidphy2_in_ucam0>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <445500000>;
+				};
+			};
+		};
+};
+
+
+
+
+&d0_i2c8 {
+	/* io extended for mipi csi */
+	status = "okay";
+	tca6416_0: gpio@20 {
+		compatible = "ti,tca6416";
+		clock-frequency = <100000>;
+		reg = <0x20>;
+		gpio-controller; /* IRQ not connected */
+		#gpio-cells = <2>;
+		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
+				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
+				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
+				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
+		//vcc = <&gpio_vcc0>;
+		status = "okay";
 	};
+	tca6416_1: gpio@21 {
+		compatible = "ti,tca6416";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* IRQ not connected */
+		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
+				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
+				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
+				"", "", "", "";
+		//vcc = <&gpio_vcc1>;
+		status = "okay";
+	};
+};
+
+&csi2_dphy_hw {
+	status = "okay";
 };
 
 &csi2_dphy0 {
@@ -148,86 +290,257 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipidphy0_in_ucam0: endpoint@1 {
-				reg = <1>;
+			mipidphy0_in_ucam0: endpoint {
 				remote-endpoint = <&imx327_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint {
+				remote-endpoint = <&mipi2_csi2_input>;
+			};
+		};
+
+	};
+};
+
+&csi2_dphy_hw1 {
+	status = "okay";
+};
+
+&csi2_dphy1 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy1_in_ucam0: endpoint {
+				remote-endpoint = <&imx327_out1>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy1_out: endpoint {
+				remote-endpoint = <&mipi2_csi2_1_input>;
+			};
+		};
+
+	};
+};
+
+&csi2_dphy_hw2 {
+	status = "okay";
+};
+
+&csi2_dphy2 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy2_in_ucam0: endpoint {
+				remote-endpoint = <&imx327_out2>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy2_out: endpoint {
+				remote-endpoint = <&mipi2_csi2_2_input>;
+			};
+		};
+
+	};
+};
+
+
+&mipi_csi2_0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;	
+			reg = <0>;
+			mipi2_csi2_input: endpoint {
+				remote-endpoint = <&csidphy0_out>;
 				data-lanes = <1 2>;
 			};
 		};
 
 		port@1 {
-			reg = <1>; //port
 			#address-cells = <1>;
 			#size-cells = <0>;
+			reg = <1>;
+			mipi2_csi2_output: endpoint {
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
 
-			csidphy0_out: endpoint@0 {
-				reg = <0>; //id
-				remote-endpoint = <&mipi2_csi2_input>;
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			mipi2_csi2_output1: endpoint {
+				remote-endpoint = <&vvcam_isp_input_port>;
 			};
 		};
 	};
 };
 
-&d0_i2c3 {
-	/* mipi csi0/csi1 */
+&mipi_csi2_1 {
 	status = "okay";
-	imx327: imx327@36 {
-			compatible = "sony,imx327";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			#reg = <0x0 0x36 0x0 0x0>;
-			reg = <0x36>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			clock-names = "xvclk";
-			/* Reset and power down GPIOs controlled by tca6416_0 */
-			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
-			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
-			//pinctrl-names = "default";
-			//pinctrl-0 = <&cif_clkout>;
-			rockchip,camera-module-index = <0>;
-			rockchip,camera-module-facing = "back";
-			rockchip,camera-module-name = "TongJu";
-			rockchip,camera-module-lens-name = "CHT842-MD";
-			port {
-				imx327_out0: endpoint {
-					remote-endpoint = <&mipidphy0_in_ucam0>;
-					data-lanes = <1 2>;
-				};
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;	
+			reg = <0>;
+			mipi2_csi2_1_input: endpoint {
+				remote-endpoint = <&csidphy1_out>;
+				data-lanes = <1 2>;
 			};
 		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi2_csi2_1_output: endpoint {
+				remote-endpoint = <&axi2dvp_mipi2_in1>;
+			};
+		};
+
+	};
 };
 
-&d0_i2c8 {
-	/* io extended for mipi csi */
+&mipi_csi2_2 {
 	status = "okay";
-	tca6416_0: gpio@20 {
-		compatible = "ti,tca6416";
-		reg = <0x20>;
-		gpio-controller; /* IRQ not connected */
-		#gpio-cells = <2>;
-		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
-				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
-				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
-				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
-	};
-	tca6416_1: gpio@21 {
-		compatible = "ti,tca6416";
-		reg = <0x21>;
-		gpio-controller;
-		#gpio-cells = <2>;
-		/* IRQ not connected */
-		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
-				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
-				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
-				"", "", "", "";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;	
+			reg = <0>;
+			mipi2_csi2_2_input: endpoint {
+				remote-endpoint = <&csidphy2_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi2_csi2_2_output: endpoint {
+				remote-endpoint = <&axi2dvp_mipi2_in2>;
+			};
+		};
+
 	};
 };
+
 
 &dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	ports{
+		#address-cells = <1>;
+        #size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+        	#size-cells = <0>;
+			reg = <0>;
+			axi2dvp_mipi2_in0: endpoint {
+				remote-endpoint = <&mipi2_csi2_output>;
+			};
+		};
+	};
+	
+};
+
+&dvp2axi_mipi_lvds1 {
+	status = "okay";
+	ports{
+		#address-cells = <1>;
+        #size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+        	#size-cells = <0>;
+			reg = <0>;
+			axi2dvp_mipi2_in1: endpoint {
+				remote-endpoint = <&mipi2_csi2_1_output>;
+			};
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds2 {
+	status = "okay";
+	ports{
+		#address-cells = <1>;
+        #size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+        	#size-cells = <0>;
+			reg = <0>;
+			axi2dvp_mipi2_in2: endpoint {
+				remote-endpoint = <&mipi2_csi2_2_output>;
+			};
+		};
+	};
+};
+
+
+
+
+&mipi_dphy_rx {
 	status = "disabled";
 };
 
-&csi2_dphy_hw {
-	status = "okay";
+&csi_dma0 {
+	status = "disabled";
 };
+
+&csi_dma1 {
+	status = "disabled";
+};
+
+&csi2_0 {
+	status = "disabled";
+};
+
+&csi2_1 {
+	status = "disabled";
+};
+
