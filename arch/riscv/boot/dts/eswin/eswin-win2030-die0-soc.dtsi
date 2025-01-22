@@ -53,7 +53,7 @@
 				};
 				*/
 				crit: trip-point2 {
-					temperature     = <88000>;
+					temperature     = <110000>;
 					hysteresis      = <0>;
 					type            = "critical";
 				};
