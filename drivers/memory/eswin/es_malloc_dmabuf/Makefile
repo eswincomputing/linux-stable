@@ -1,0 +1,1 @@
+obj-$(CONFIG_ESWIN_MALLOC_DMABUF) += es_malloc_dmabuf.o
