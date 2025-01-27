@@ -25,9 +25,8 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/clk.h>
-#include <dt-bindings/reset/eswin,win2030-syscrg.h>
 #include <dt-bindings/clock/win2030-clock.h>
-
+#include "clk_eic770x.h"
 #include "clk.h"
 
 /* clock parent list */

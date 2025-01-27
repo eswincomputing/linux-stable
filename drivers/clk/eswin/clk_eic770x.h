@@ -1,0 +1,204 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: HuangYiFeng<huangyifeng@eswincomputing.com>
+ */
+
+#ifndef __CLK_EIC770X_H__
+#define __CLK_EIC770X_H__
+
+/*REG OFFSET OF SYS-CRG*/
+#define WIN2030_REG_OFFSET_SPLL0_CFG_0                          0X0000
+#define WIN2030_REG_OFFSET_SPLL0_CFG_1                          0X0004
+#define WIN2030_REG_OFFSET_SPLL0_CFG_2                          0X0008
+#define WIN2030_REG_OFFSET_SPLL0_DSKEWCAL                       0X000C
+#define WIN2030_REG_OFFSET_SPLL0_SSC                            0X0010
+#define WIN2030_REG_OFFSET_SPLL1_CFG_0                          0X0014
+#define WIN2030_REG_OFFSET_SPLL1_CFG_1                          0X0018
+#define WIN2030_REG_OFFSET_SPLL1_CFG_2                          0X001C
+#define WIN2030_REG_OFFSET_SPLL1_DSKEWCAL                       0X0020
+#define WIN2030_REG_OFFSET_SPLL1_SSC                            0X0024
+#define WIN2030_REG_OFFSET_SPLL2_CFG_0                          0X0028
+#define WIN2030_REG_OFFSET_SPLL2_CFG_1                          0X002C
+#define WIN2030_REG_OFFSET_SPLL2_CFG_2                          0X0030
+#define WIN2030_REG_OFFSET_SPLL2_DSKEWCAL                       0X0034
+#define WIN2030_REG_OFFSET_SPLL2_SSC                            0X0038
+#define WIN2030_REG_OFFSET_VPLL_CFG_0                           0X003C
+#define WIN2030_REG_OFFSET_VPLL_CFG_1                           0X0040
+#define WIN2030_REG_OFFSET_VPLL_CFG_2                           0X0044
+#define WIN2030_REG_OFFSET_VPLL_DSKEWCAL                        0X0048
+#define WIN2030_REG_OFFSET_VPLL_SSC                             0X004C
+#define WIN2030_REG_OFFSET_APLL_CFG_0                           0X0050
+#define WIN2030_REG_OFFSET_APLL_CFG_1                           0X0054
+#define WIN2030_REG_OFFSET_APLL_CFG_2                           0X0058
+#define WIN2030_REG_OFFSET_APLL_DSKEWCAL                        0X005C
+#define WIN2030_REG_OFFSET_APLL_SSC                             0X0060
+#define WIN2030_REG_OFFSET_MCPUT_PLL_CFG_0                      0X0064
+#define WIN2030_REG_OFFSET_MCPUT_PLL_CFG_1                      0X0068
+#define WIN2030_REG_OFFSET_MCPUT_PLL_CFG_2                      0X006C
+#define WIN2030_REG_OFFSET_MCPUT_PLL_DSKEWCAL                   0X0070
+#define WIN2030_REG_OFFSET_MCPUT_PLL_SSC                        0X0074
+#define WIN2030_REG_OFFSET_DDRT_PLL_CFG_0                       0X0078
+#define WIN2030_REG_OFFSET_DDRT_PLL_CFG_1                       0X007C
+#define WIN2030_REG_OFFSET_DDRT_PLL_CFG_2                       0X0080
+#define WIN2030_REG_OFFSET_DDRT_PLL_DSKEWCAL                    0X0084
+#define WIN2030_REG_OFFSET_DDRT_PLL_SSC                         0X0088
+#define WIN2030_REG_OFFSET_PLL_STATUS                           0X00A4
+#define WIN2030_REG_OFFSET_NOC_CLK_CTRL                         0X100
+#define WIN2030_REG_OFFSET_BOOTSPI_CLK_CTRL                     0X104
+#define WIN2030_REG_OFFSET_BOOTSPI_CFGCLK_CTRL                  0X108
+#define WIN2030_REG_OFFSET_SCPU_CORECLK_CTRL                    0X10C
+#define WIN2030_REG_OFFSET_SCPU_BUSCLK_CTRL                     0X110
+#define WIN2030_REG_OFFSET_LPCPU_CORECLK_CTRL                   0X114
+#define WIN2030_REG_OFFSET_LPCPU_BUSCLK_CTRL                    0X118
+#define WIN2030_REG_OFFSET_TCU_ACLK_CTRL                        0X11C
+#define WIN2030_REG_OFFSET_TCU_CFG_CTRL                         0X120
+#define WIN2030_REG_OFFSET_DDR_CLK_CTRL                         0X124
+#define WIN2030_REG_OFFSET_DDR1_CLK_CTRL                        0X128
+#define WIN2030_REG_OFFSET_GPU_ACLK_CTRL                        0X12C
+#define WIN2030_REG_OFFSET_GPU_CFG_CTRL                         0X130
+#define WIN2030_REG_OFFSET_GPU_GRAY_CTRL                        0X134
+#define WIN2030_REG_OFFSET_DSP_ACLK_CTRL                        0X138
+#define WIN2030_REG_OFFSET_DSP_CFG_CTRL                         0X13C
+#define WIN2030_REG_OFFSET_D2D_ACLK_CTRL                        0X140
+#define WIN2030_REG_OFFSET_D2D_CFG_CTRL                         0X144
+#define WIN2030_REG_OFFSET_HSP_ACLK_CTRL                        0X148
+#define WIN2030_REG_OFFSET_HSP_CFG_CTRL                         0X14C
+#define WIN2030_REG_OFFSET_SATA_RBC_CTRL                        0X150
+#define WIN2030_REG_OFFSET_SATA_OOB_CTRL                        0X154
+#define WIN2030_REG_OFFSET_ETH0_CTRL                            0X158
+#define WIN2030_REG_OFFSET_ETH1_CTRL                            0X15C
+#define WIN2030_REG_OFFSET_MSHC0_CORECLK_CTRL                   0X160
+#define WIN2030_REG_OFFSET_MSHC1_CORECLK_CTRL                   0X164
+#define WIN2030_REG_OFFSET_MSHC2_CORECLK_CTRL                   0X168
+#define WIN2030_REG_OFFSET_MSHC_USB_SLWCLK                      0X16C
+#define WIN2030_REG_OFFSET_PCIE_ACLK_CTRL                       0X170
+#define WIN2030_REG_OFFSET_PCIE_CFG_CTRL                        0X174
+#define WIN2030_REG_OFFSET_NPU_ACLK_CTRL                        0X178
+#define WIN2030_REG_OFFSET_NPU_LLC_CTRL                         0X17C
+#define WIN2030_REG_OFFSET_NPU_CORE_CTRL                        0X180
+#define WIN2030_REG_OFFSET_VI_DWCLK_CTRL                        0X184
+#define WIN2030_REG_OFFSET_VI_ACLK_CTRL                         0X188
+#define WIN2030_REG_OFFSET_VI_DIG_ISP_CLK_CTRL                  0X18C
+#define WIN2030_REG_OFFSET_VI_DVP_CLK_CTRL                      0X190
+#define WIN2030_REG_OFFSET_VI_SHUTTER0                          0X194
+#define WIN2030_REG_OFFSET_VI_SHUTTER1                          0X198
+#define WIN2030_REG_OFFSET_VI_SHUTTER2                          0X19C
+#define WIN2030_REG_OFFSET_VI_SHUTTER3                          0X1A0
+#define WIN2030_REG_OFFSET_VI_SHUTTER4                          0X1A4
+#define WIN2030_REG_OFFSET_VI_SHUTTER5                          0X1A8
+#define WIN2030_REG_OFFSET_VI_PHY_CLKCTRL                       0X1AC
+#define WIN2030_REG_OFFSET_VO_ACLK_CTRL                         0X1B0
+#define WIN2030_REG_OFFSET_VO_IESMCLK_CTRL                      0X1B4
+#define WIN2030_REG_OFFSET_VO_PIXEL_CTRL                        0X1B8
+#define WIN2030_REG_OFFSET_VO_MCLK_CTRL                         0X1BC
+#define WIN2030_REG_OFFSET_VO_PHY_CLKCTRL                       0X1C0
+#define WIN2030_REG_OFFSET_VC_ACLK_CTRL                         0X1C4
+#define WIN2030_REG_OFFSET_VCDEC_ROOTCLK_CTRL                   0X1C8
+#define WIN2030_REG_OFFSET_G2D_CTRL                             0X1CC
+#define WIN2030_REG_OFFSET_VC_CLKEN_CTRL                        0X1D0
+#define WIN2030_REG_OFFSET_JE_CLK_CTRL                          0X1D4
+#define WIN2030_REG_OFFSET_JD_CLK_CTRL                          0X1D8
+#define WIN2030_REG_OFFSET_VD_CLK_CTRL                          0X1DC
+#define WIN2030_REG_OFFSET_VE_CLK_CTRL                          0X1E0
+#define WIN2030_REG_OFFSET_AON_DMA_CLK_CTRL                     0X1E4
+#define WIN2030_REG_OFFSET_TIMER_CLK_CTRL                       0X1E8
+#define WIN2030_REG_OFFSET_RTC_CLK_CTRL                         0X1EC
+#define WIN2030_REG_OFFSET_PKA_CLK_CTRL                         0X1F0
+#define WIN2030_REG_OFFSET_SPACC_CLK_CTRL                       0X1F4
+#define WIN2030_REG_OFFSET_TRNG_CLK_CTRL                        0X1F8
+#define WIN2030_REG_OFFSET_OTP_CLK_CTRL                         0X1FC
+#define WIN2030_REG_OFFSET_LSP_CLK_EN0                          0X200
+#define WIN2030_REG_OFFSET_LSP_CLK_EN1                          0X204
+#define WIN2030_REG_OFFSET_U84_CLK_CTRL                         0X208
+#define WIN2030_REG_OFFSET_SYSCFG_CLK_CTRL                      0X20C
+#define WIN2030_REG_OFFSET_I2C0_CLK_CTRL                        0X210
+#define WIN2030_REG_OFFSET_I2C1_CLK_CTRL                        0X214
+#define WIN2030_REG_OFFSET_DFT_CLK_CTRL                         0X280
+#define WIN2030_REG_OFFSET_SYS_SWRST_VALUE                      0X300
+#define WIN2030_REG_OFFSET_CLR_RST_STATUS                       0X304
+#define WIN2030_REG_OFFSET_DIE_STATUS                           0X308
+#define WIN2030_REG_OFFSET_CLR_BOOT_INFO                        0X30C
+#define WIN2030_REG_OFFSET_SCPU_BOOT_ADDRESS                    0X310
+#define WIN2030_REG_OFFSET_LPCPU_BOOT_ADDRESS                   0X314
+#define WIN2030_REG_OFFSET_NPUE31_BOOT_ADDRESS                  0X318
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS0_HI                 0X31C
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS0_LOW                0X320
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS1_HI                 0X324
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS1_LOW                0X328
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS2_HI                 0X32C
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS2_LOW                0X330
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS3_HI                 0X334
+#define WIN2030_REG_OFFSET_U84_BOOT_ADDRESS3_LOW                0X338
+#define WIN2030_REG_OFFSET_BOOT_SEL_STAT                        0X33C
+#define WIN2030_REG_OFFSET_BOOT_SPI_CFG                         0X340
+#define WIN2030_REG_OFFSET_SNOC_RST_CTRL                        0X400
+#define WIN2030_REG_OFFSET_GPU_RST_CTRL                         0X404
+#define WIN2030_REG_OFFSET_DSP_RST_CTRL                         0X408
+#define WIN2030_REG_OFFSET_D2D_RST_CTRL                         0X40C
+#define WIN2030_REG_OFFSET_DDR_RST_CTRL                         0X410
+#define WIN2030_REG_OFFSET_TCU_RST_CTRL                         0X414
+#define WIN2030_REG_OFFSET_NPU_RST_CTRL                         0X418
+#define WIN2030_REG_OFFSET_HSPDMA_RST_CTRL                      0X41C
+#define WIN2030_REG_OFFSET_PCIE_RST_CTRL                        0X420
+#define WIN2030_REG_OFFSET_I2C_RST_CTRL                         0X424
+#define WIN2030_REG_OFFSET_FAN_RST_CTRL                         0X428
+#define WIN2030_REG_OFFSET_PVT_RST_CTRL                         0X42C
+#define WIN2030_REG_OFFSET_MBOX_RST_CTRL                        0X430
+#define WIN2030_REG_OFFSET_UART_RST_CTRL                        0X434
+#define WIN2030_REG_OFFSET_GPIO_RST_CTRL                        0X438
+#define WIN2030_REG_OFFSET_TIMER_RST_CTRL                       0X43C
+#define WIN2030_REG_OFFSET_SSI_RST_CTRL                         0X440
+#define WIN2030_REG_OFFSET_WDT_RST_CTRL                         0X444
+#define WIN2030_REG_OFFSET_LSP_CFGRST_CTRL                      0X448
+#define WIN2030_REG_OFFSET_U84_RST_CTRL                         0X44C
+#define WIN2030_REG_OFFSET_SCPU_RST_CTRL                        0X450
+#define WIN2030_REG_OFFSET_LPCPU_RST_CTRL                       0X454
+#define WIN2030_REG_OFFSET_VC_RST_CTRL                          0X458
+#define WIN2030_REG_OFFSET_JD_RST_CTRL                          0X45C
+#define WIN2030_REG_OFFSET_JE_RST_CTRL                          0X460
+#define WIN2030_REG_OFFSET_VE_RST_CTRL                          0X468
+#define WIN2030_REG_OFFSET_G2D_RST_CTRL                         0X46C
+#define WIN2030_REG_OFFSET_VI_RST_CTRL                          0X470
+#define WIN2030_REG_OFFSET_DVP_RST_CTRL                         0X474
+#define WIN2030_REG_OFFSET_ISP0_RST_CTRL                        0X478
+#define WIN2030_REG_OFFSET_ISP1_RST_CTRL                        0X47C
+#define WIN2030_REG_OFFSET_SHUTTER_RST_CTRL                     0X480
+#define WIN2030_REG_OFFSET_VO_PHYRST_CTRL                       0X484
+#define WIN2030_REG_OFFSET_VO_I2SRST_CTRL                       0X488
+#define WIN2030_REG_OFFSET_VO_RST_CTRL                          0X48C
+#define WIN2030_REG_OFFSET_BOOTSPI_RST_CTRL                     0X490
+#define WIN2030_REG_OFFSET_I2C1_RST_CTRL                        0X494
+#define WIN2030_REG_OFFSET_I2C0_RST_CTRL                        0X498
+#define WIN2030_REG_OFFSET_DMA1_RST_CTRL                        0X49C
+#define WIN2030_REG_OFFSET_FPRT_RST_CTRL                        0X4A0
+#define WIN2030_REG_OFFSET_HBLOCK_RST_CTRL                      0X4A4
+#define WIN2030_REG_OFFSET_SECSR_RST_CTRL                       0X4A8
+#define WIN2030_REG_OFFSET_OTP_RST_CTRL                         0X4AC
+#define WIN2030_REG_OFFSET_PKA_RST_CTRL                         0X4B0
+#define WIN2030_REG_OFFSET_SPACC_RST_CTRL                       0X4B4
+#define WIN2030_REG_OFFSET_TRNG_RST_CTRL                        0X4B8
+#define WIN2030_REG_OFFSET_TIMER0_RST_CTRL                      0X4C0
+#define WIN2030_REG_OFFSET_TIMER1_RST_CTRL                      0X4C4
+#define WIN2030_REG_OFFSET_TIMER2_RST_CTRL                      0X4C8
+#define WIN2030_REG_OFFSET_TIMER3_RST_CTRL                      0X4CC
+#define WIN2030_REG_OFFSET_RTC_RST_CTRL                         0X4D0
+#define WIN2030_REG_OFFSET_MNOC_RST_CTRL                        0X4D4
+#define WIN2030_REG_OFFSET_RNOC_RST_CTRL                        0X4D8
+#define WIN2030_REG_OFFSET_CNOC_RST_CTRL                        0X4DC
+#define WIN2030_REG_OFFSET_LNOC_RST_CTRL                        0X4E0
+#endif
