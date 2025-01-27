@@ -320,11 +320,11 @@ config RESET_ZYNQ
 
 source "drivers/reset/starfive/Kconfig"
 
-config RESET_ESWIN_WIN2030
-	tristate "Eswin Win2030 Reset Driver"
+config RESET_ESWIN
+	bool "Reset controller driver for Eswin SoCs"
 	default n
 	help
-	  This enables the reset controller driver for Eswin Win2030 SoCs.
+	  This enables the reset controller driver for Eswin SoCs.
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"
 source "drivers/reset/tegra/Kconfig"

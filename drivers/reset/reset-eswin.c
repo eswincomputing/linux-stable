@@ -3,7 +3,6 @@
  * ESWIN Reset Driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -105,25 +104,14 @@ static int eswin_reset_reset(struct reset_controller_dev *rcdev,
 {
 	int ret;
 
-	//todo, check weather this should be removed
-	/*clear boot flag so u84 and scpu could be reseted by software*/
-	/*
-	struct eswin_reset_data *data = to_eswin_reset_data(rcdev);
-	printk("%s %d\r\n",__func__,__LINE__);
-	regmap_set_bits(data->regmap, SYSCRG_CLEAR_BOOT_INFO_OFFSET, CLEAR_BOOT_FLAG_BIT);
-	msleep(50);
-	regmap_clear_bits(data->regmap, SYSCRG_CLEAR_BOOT_INFO_OFFSET, CLEAR_BOOT_FLAG_BIT);
-	*/
-
 	ret = eswin_reset_set(rcdev, id, true);
-	if (0 != ret) {
+	if (ret != 0)
 		return ret;
-	}
+
 	usleep_range(10, 15);
 	ret = eswin_reset_set(rcdev, id, false);
-	if (0 != ret) {
+	if (ret != 0)
 		return ret;
-	}
 
 	return 0;
 }
@@ -151,12 +139,10 @@ static int eswin_reset_of_xlate_lookup_id(int id, void *p, void *data)
 	struct of_phandle_args *reset_spec = (struct of_phandle_args *)data;
 	struct eswin_reset_control *slot_control = (struct eswin_reset_control *)p;
 
-	if (reset_spec->args[0] == slot_control->dev_id
-		&& reset_spec->args[1] == slot_control->reset_bit) {
-			return id;
-	} else {
+	if (reset_spec->args[0] == slot_control->dev_id && reset_spec->args[1] == slot_control->reset_bit)
+		return id;
+	else
 		return 0;
-	}
 }
 
 /**
@@ -184,9 +170,8 @@ static int eswin_reset_of_xlate(struct reset_controller_dev *rcdev,
 		return -EINVAL;
 
 	ret = idr_for_each(&data->idr, eswin_reset_of_xlate_lookup_id, (void *)reset_spec);
-	if (0 != ret) {
+	if (ret != 0)
 		return ret;
-	}
 
 	control = devm_kzalloc(data->dev, sizeof(*control), GFP_KERNEL);
 	if (!control)
@@ -199,7 +184,7 @@ static int eswin_reset_of_xlate(struct reset_controller_dev *rcdev,
 }
 
 static const struct of_device_id eswin_reset_dt_ids[] = {
-	 { .compatible = "eswin,win2030-reset", },
+	 { .compatible = "eswin,eic770x-reset", },
 	 { /* sentinel */ },
 };
 
@@ -238,8 +223,6 @@ static int eswin_reset_probe(struct platform_device *pdev)
 	/*clear boot flag so u84 and scpu could be reseted by software*/
 	regmap_set_bits(data->regmap, SYSCRG_CLEAR_BOOT_INFO_OFFSET, CLEAR_BOOT_FLAG_BIT);
 	msleep(50);
-	//regmap_clear_bits(data->regmap, SYSCRG_CLEAR_BOOT_INFO_OFFSET, CLEAR_BOOT_FLAG_BIT);
-
 	platform_set_drvdata(pdev, data);
 
 	return devm_reset_controller_register(&pdev->dev, &data->rcdev);
@@ -263,8 +246,8 @@ static struct platform_driver eswin_reset_driver = {
 	},
 };
 
-static int __init win2030_reset_init(void)
+static int __init eswin_reset_init(void)
 {
 	return platform_driver_register(&eswin_reset_driver);
 }
-arch_initcall(win2030_reset_init);
+arch_initcall(eswin_reset_init);

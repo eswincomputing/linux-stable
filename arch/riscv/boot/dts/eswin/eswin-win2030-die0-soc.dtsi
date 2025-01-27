@@ -23,7 +23,7 @@
 
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <dt-bindings/mailbox/eswin-mailbox.h>
-#include <dt-bindings/reset/eswin,win2030-syscrg.h>
+#include <dt-bindings/reset/eswin,eic770x-reset.h>
 #include <dt-bindings/clock/win2030-clock.h>
 #include <dt-bindings/i2c/i2c.h>
 #include <dt-bindings/interconnect/eswin,win2030.h>
@@ -172,7 +172,7 @@
 			reg = <0x000000 0x51828000 0x000000 0x80000>;
 			numa-node-id = <0>;
 			d0_reset: reset-controller {
-				compatible = "eswin,win2030-reset";
+				compatible = "eswin,eic770x-reset";
 				#reset-cells = <2>;
 				numa-node-id = <0>;
 			};
