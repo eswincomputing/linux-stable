@@ -25,4 +25,11 @@ config EIC7X_D2D
     help
         This is interrputs status of D2D which includes error interrupts.
 
+config EIC770X_OTP
+    tristate "Eswin EIC770X OTP driver"
+	default y
+    help
+       This driver provides access to the One-Time Programmable (OTP)
+       memory on the Eswin EIC770X platform via debugfs.
+       If unsure, say N.
 endif
