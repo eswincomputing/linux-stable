@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "eswin-win2030-die0-soc.dtsi"
 
 &SOC {
 	panel_disp: panel_disp {
@@ -46,6 +45,9 @@
 
 &dsi_controller {
 	status = "okay";
+	dependencies = <&reg_display>;
+	dependencies = <&panel_disp>;
+	dependencies = <&toshiba_bridge>;
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
