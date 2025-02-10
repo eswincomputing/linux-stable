@@ -72,6 +72,10 @@ struct nvdla_device {
 	struct clk *mux_u_npu_core_3mux1_gfree;
 	struct clk *fixed_rate_clk_spll2_fout2;
 	struct clk *fixed_rate_clk_spll1_fout1;
+	struct clk *llc_aclk;
+	struct clk *mux_u_npu_llclk_3mux1_gfree;
+	struct clk *fixed_rate_clk_spll0_fout1;
+	struct clk *fixed_rate_clk_vpll_fout1;
 
 	struct clk *mbox_pclk_device;
 	struct clk *mbox_pclk;
@@ -88,6 +92,7 @@ struct nvdla_device {
 
 	uint16_t *pause_op_list;
 	struct regulator *npu_regulator;
+	u8 is_low_freq;
 };
 
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);

@@ -2276,13 +2276,17 @@ _AllocOSPage(PMR_OSPAGEARRAY_DATA *psPageArrayData,
 {
 	struct page *psPage;
 	IMG_UINT32 ui32Count;
+	struct device *psDev = NULL;
 
 	/* Parameter check. If it fails we write into the wrong places in the array. */
 	PVR_ASSERT(uiMinOrder == 0);
 
+	if (psPageArrayData->psDevNode && psPageArrayData->psDevNode->psDevConfig)
+		psDev = psPageArrayData->psDevNode->psDevConfig->pvOSDevice;
 	/* Allocate the page */
 	DisableOOMKiller();
-	psPage = alloc_pages(gfp_flags, uiAllocOrder);
+	psPage = alloc_pages_node(psDev ? dev_to_node(psDev) : NUMA_NO_NODE,
+				  gfp_flags, uiAllocOrder);
 	EnableOOMKiller();
 
 	if (psPage == NULL)

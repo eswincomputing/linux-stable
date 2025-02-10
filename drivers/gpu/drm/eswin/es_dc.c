@@ -426,7 +426,7 @@ static bool es_dc_mode_fixup(struct device *dev,
 	struct es_dc *dc = dev_get_drvdata(dev);
 	long clk_rate;
 
-	dev_dbg(dev, "adjust mode clock:%d\n", adjusted_mode->clock);
+	dev_dbg(dev, "before adjust mode clock:%d\n", adjusted_mode->clock);
 	if (adjusted_mode->clock == 513820)
 		return true;
 
@@ -434,6 +434,7 @@ static bool es_dc_mode_fixup(struct device *dev,
 		clk_rate = clk_round_rate(dc->pix_clk,
 					  adjusted_mode->clock * 1000);
 		adjusted_mode->clock = DIV_ROUND_UP(clk_rate, 1000);
+		dev_dbg(dev, "adjust mode clock:%d\n", adjusted_mode->clock);
 	}
 
 	return true;

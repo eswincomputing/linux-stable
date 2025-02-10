@@ -100,13 +100,6 @@
 	status = "disabled";
 };
 
-&dsi_panel {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio92_default>;
-	backlight0-gpios = <&porta 7 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&portc 28 GPIO_ACTIVE_HIGH>;
-};
-
 &d0_graphcard1 {
 	status = "okay";
 	label = "Analog Audio-0";

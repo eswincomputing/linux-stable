@@ -295,6 +295,7 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 	es_dsp_h2d_msg h2d_msg;
 	int i, io_cnt;
 	int dev_id = op_type - DLA_KMD_OP_DSP_0;
+	u32 dsp_addr = 0;
 
 	dsp_op = &op_desc->dsp_op;
 	surface = &surf_desc->dsp_surface;
@@ -339,10 +340,12 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 	for (i = 0; i < dsp_op->buffer_cnt_input; i++) {
 		if (dsp_tensor->src_is_io_tensor[i] == invalid_tensor_idx) {
 			if (surface->src_data[i].type == DLA_MEM_MC) {
-				dsp_buffer[dsp_buf_idx + i].addr =
-					npu_get_dsp_ddr(
-						executor, dev_id,
-						surface->src_data[i].address) +
+				dsp_addr = npu_get_dsp_ddr( executor, dev_id,
+						surface->src_data[i].address);
+				if(!dsp_addr) {
+					return -1;
+				}
+				dsp_buffer[dsp_buf_idx + i].addr = dsp_addr +
 					surface->src_data[i].offset;
 			} else if (surface->src_data[i].type == DLA_MEM_CV) {
 				dsp_buffer[dsp_buf_idx + i]
@@ -378,10 +381,12 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 					"%s, %d, output dst mc, address index=%d.\n",
 					__func__, __LINE__,
 					surface->dst_data[i].address);
-				dsp_buffer[dsp_buf_idx + i].addr =
-					npu_get_dsp_ddr(
-						executor, dev_id,
-						surface->dst_data[i].address) +
+				dsp_addr = npu_get_dsp_ddr( executor, dev_id,
+						surface->dst_data[i].address);
+				if(!dsp_addr) {
+					return -1;
+				}
+				dsp_buffer[dsp_buf_idx + i].addr = dsp_addr +
 					surface->dst_data[i].offset;
 				dla_debug("%s, %d, i=%d, addr=0x%x.\n",
 					  __func__, __LINE__, i,
@@ -770,8 +775,9 @@ int npu_set_dsp_iobuf(struct win_executor *executor, struct host_frame_desc *f)
 					"%s, %d, offset=0x%x, dma addr=0x%x.\n",
 					__func__, __LINE__, offset,
 					f->dsp_io_dmabuf[i][j]->dma_addr);
-				*tmp = offset +
+				*tmp = offset + address[j].devBuf.offset +
 				       f->dsp_io_dmabuf[i][j]->dma_addr;
+
 				dla_debug("tmp content=0x%x.\n", *tmp);
 			}
 		}

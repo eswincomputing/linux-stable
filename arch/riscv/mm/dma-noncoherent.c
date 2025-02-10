@@ -12,6 +12,7 @@
 #include <asm/cacheflush.h>
 #include <asm/dma-noncoherent.h>
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+#include <soc/sifive/sifive_ccache.h>
 #include <linux/iommu.h>
 #endif
 
@@ -253,4 +254,50 @@ err_pages_alloc:
 
 	return NULL;
 }
+#endif
+
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+void _do_arch_sync_cache_all(int nid, eic770x_memory_type_t mem_type)
+{
+	int cpuid, hartid;
+
+#ifdef CONFIG_NUMA
+	if (likely(mem_type == FLAT_DDR_MEM)) {
+		if (nid == 1) {
+			hartid = 4;
+		}
+		else {
+			hartid = 0;
+		}
+
+		cpuid = riscv_hartid_to_cpuid(hartid);
+		smp_call_function_single(cpuid, ccache_flush_all, &hartid, true);
+	}
+	else if (mem_type == INTERLEAVE_DDR_MEM) {
+		hartid = 0;
+		cpuid = riscv_hartid_to_cpuid(hartid);
+		smp_call_function_single(cpuid, ccache_flush_all, &hartid, true);
+
+		hartid = 4;
+		cpuid = riscv_hartid_to_cpuid(hartid);
+		smp_call_function_single(cpuid, ccache_flush_all, &hartid, true);
+	}
+#else
+	if (likely(mem_type == FLAT_DDR_MEM)) {
+		cpuid = smp_processor_id();
+		hartid = cpuid_to_hartid_map(cpuid);
+		ccache_flush_all(&hartid);
+	}
+#endif
+}
+
+void arch_sync_cache_all(phys_addr_t phys, size_t size)
+{
+	int nid;
+	eic770x_memory_type_t mem_type;
+
+	arch_get_mem_node_and_type(phys_to_pfn(phys), &nid, &mem_type);
+	_do_arch_sync_cache_all(nid, mem_type);
+}
+EXPORT_SYMBOL(arch_sync_cache_all);
 #endif

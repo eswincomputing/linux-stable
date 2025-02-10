@@ -49,6 +49,7 @@ struct dw_axi_dma_hcfg {
 	u32	priority[DMAC_MAX_CHANNELS];
 	/* maximum supported axi burst length */
 	u32	axi_rw_burst_len;
+	u32	max_msize;
 	/* Register map for DMAX_NUM_CHANNELS <= 8 */
 	bool	reg_map_8_channels;
 	bool	restrict_axi_burst_len;
@@ -92,6 +93,11 @@ struct axi_dma_chip {
 	struct dw_axi_dma	*dw;
 	struct dentry *debugfs_dir;
 	spinlock_t lock;
+};
+
+struct axi_dma_filter_data {
+	struct dw_axi_dma *dw_dma;
+	int request;
 };
 
 /* LLI == Linked List Item */
@@ -223,7 +229,7 @@ static inline struct axi_dma_chan *dchan_to_axi_dma_chan(struct dma_chan *dchan)
 #define UNUSED_CHANNEL		0x3F /* Set unused DMA channel to 0x3F */
 #define DMA_APB_HS_SEL_BIT_SIZE	0x08 /* HW handshake bits per channel */
 #define DMA_APB_HS_SEL_MASK	0xFF /* HW handshake select masks */
-#define MAX_BLOCK_SIZE		0x1000 /* 1024 blocks * 512 bytes data width */
+#define MAX_BLOCK_SIZE		0x200000 /* 1024 blocks * 512 bytes data width */
 #define DMA_REG_MAP_CH_REF	0x08 /* Channel count to choose register map */
 
 /* DMAC_CFG */
@@ -303,6 +309,8 @@ enum {
 #define CH_CTL_L_SRC_MAST		BIT(0)
 
 /* CH_CFG_H */
+#define CH_CFG_H_DST_OSR_LMT_POS	27
+#define CH_CFG_H_SRC_OSR_LMT_POS	23
 #define CH_CFG_H_PRIORITY_POS		17
 #define CH_CFG_H_DST_PER_POS		12
 #define CH_CFG_H_SRC_PER_POS		7
@@ -343,6 +351,8 @@ enum {
 #define CH_CFG2_H_HS_SEL_SRC_POS	3
 #define CH_CFG2_H_HS_SEL_DST_POS	4
 #define CH_CFG2_H_PRIORITY_POS		15
+#define CH_CFG2_H_SRC_OSR_LMT_POS	23
+#define CH_CFG2_H_DST_OSR_LMT_POS	27
 /**
  * DW AXI DMA channel interrupts
  *

@@ -291,6 +291,22 @@
 
 &dc {
 	status = "okay";
+	dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dc_out_dsi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&dsi_input>;
+		};
+		dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&vd_input>;
+		};
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&hdmi_in_dc>;
+		};
+	};
 };
 
 &dc_test {
@@ -299,6 +315,11 @@
 
 &virtual_display {
     status = "okay";
+	port {
+		vd_input: endpoint {
+			remote-endpoint = <&dc_out_dpi1>;
+		};
+	};
 };
 
 &dsi_output {
@@ -307,6 +328,38 @@
 
 &dsi_controller {
     status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
+			};
+		};
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+
+	dsi_panel:dsi_panel@0 {
+		compatible = "eswin,generic-panel";
+		reg = <0>;
+		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+		dsi,lanes = <4>;
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
 };
 
 &dsi_panel {
@@ -320,6 +373,14 @@
 &dw_hdmi {
 	status = "okay";
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&dc_out_hdmi>;
+			};
+		};
 		port@2 {
 			reg = <2>;
 			hdmi_in_i2s: endpoint@1 {

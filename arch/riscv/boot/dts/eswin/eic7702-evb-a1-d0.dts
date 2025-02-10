@@ -273,6 +273,22 @@
 
 &dc {
 	status = "okay";
+	dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dc_out_dsi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&dsi_input>;
+		};
+		dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&vd_input>;
+		};
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&hdmi_in_dc>;
+		};
+	};
 };
 
 &dc_test {
@@ -281,6 +297,11 @@
 
 &virtual_display {
     status = "okay";
+	port {
+		vd_input: endpoint {
+			remote-endpoint = <&dc_out_dpi1>;
+		};
+	};
 };
 
 &dsi_output {
@@ -289,6 +310,38 @@
 
 &dsi_controller {
     status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
+			};
+		};
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+
+	dsi_panel:dsi_panel@0 {
+		compatible = "eswin,generic-panel";
+		reg = <0>;
+		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+		dsi,lanes = <4>;
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
 };
 
 &dsi_panel {
@@ -302,6 +355,14 @@
 &dw_hdmi {
 	status = "okay";
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&dc_out_hdmi>;
+			};
+		};
 		port@2 {
 			reg = <2>;
 			hdmi_in_i2s: endpoint@1 {
@@ -429,7 +490,7 @@
 	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x23232323 0x800c8023 0x0c0c0c0c>;
+	dly-param-1000m = <0x23232323 0x0x5a0c6423 0x0c0c0c0c>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
@@ -441,7 +502,7 @@
 	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
+	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";

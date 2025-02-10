@@ -623,14 +623,18 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks,
 	struct clk *clk = NULL;
 	struct clk_init_data init;
 	int i;
-	struct gpio_desc *cpu_voltage_gpio;
+	static struct gpio_desc *cpu_voltage_gpio = NULL;
 
 	p_clk = devm_kzalloc(dev, sizeof(*p_clk) * nums, GFP_KERNEL);
 
 	if (!p_clk)
 		return;
-
-	cpu_voltage_gpio = devm_gpiod_get(dev, "cpu-voltage", GPIOD_OUT_HIGH);
+	/*
+	In the D2D system, the boost operation is performed using the GPIO on Die0.
+	However, the same GPIO pin cannot be acquired twice, so special handling is implemented:
+	  once the GPIO is acquired,the other driver simply uses it directly
+	*/
+	cpu_voltage_gpio = IS_ERR_OR_NULL(cpu_voltage_gpio) ? devm_gpiod_get(dev, "cpu-voltage", GPIOD_OUT_HIGH) : cpu_voltage_gpio;
 	if (IS_ERR_OR_NULL(cpu_voltage_gpio)) {
 		dev_warn(dev, "failed to get cpu volatge gpio\n");
 		cpu_voltage_gpio = NULL;

@@ -1,7 +1,22 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2022 ESWIN.  All rights reserved.
- * Author: Lin Min <linmin@eswin.com>
+ * APIs for ESWIN SMMU stream ID and TBU configuration
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Min Lin <linmin@eswincomputing.com>
  */
 
 #include <linux/init.h>
@@ -53,10 +68,17 @@ struct tbu_reg_cfg_info {
 	unsigned int qacceptn_pd_bit;
 };
 
+struct tbu_attachment {
+	struct device *dev;
+	struct list_head list;
+	atomic_t f_count;
+};
+
 struct tbu_priv {
 	atomic_t refcount;
 	int nid;
 	const struct win2030_tbu_client *tbu_client_p;
+	struct list_head attachments;
 	struct mutex tbu_priv_lock;
 };
 
@@ -66,7 +88,7 @@ struct win2030_tbu_client {
 	*/
 	u32 tbu_id;
 	struct tbu_reg_cfg_info tbu_reg_info;
-	int (*tbu_power_ctl_register) (int nid, struct tbu_priv *tbu_priv_p, bool is_powerUp);
+	int (*tbu_power_ctl_register) (struct tbu_priv *tbu_priv_p, bool is_powerUp, struct device *dev);
 };
 
 struct win2030_tbu_soc {
@@ -91,12 +113,14 @@ struct win2030_sid {
 };
 struct win2030_sid *syscon_sid_cfg[MAX_NUMNODES] = {NULL};
 
-static int win2030_tbu_power_ctl_register(int nid, struct tbu_priv *tbu_priv_p, bool is_powerUp);
+static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_powerUp, struct device *dev);
 
 static int win2030_tbu_powr_priv_init(struct tbu_power_soc **tbu_power_soc_pp, int nid);
-static int ioremap_tcu_resource(void);
-void print_tcu_node_status(const char *call_name, int call_line);
+static int ioremap_tcu_resource(int nid);
+void print_tcu_node_status(const char *call_name, int call_line, int nid);
 static int __init tcu_proc_init(void);
+
+static int g_nodes_cnt = 0;
 
 int win2030_dynm_sid_enable(int nid)
 {
@@ -439,6 +463,7 @@ static int __init win2030_init_streamID(void)
 			mutex_init(&mc->tbu_reg_lock);
 
 			syscon_sid_cfg[nid] = mc;
+			g_nodes_cnt++;
 			pr_debug("%s, syscon_sid_cfg[%d] addr is 0x%px\n", __func__, nid, syscon_sid_cfg[nid]);
 
 			/* sid configuration was moved into each driver, so skip win2030_program_sid*/
@@ -465,22 +490,22 @@ static const struct win2030_tbu_client win2030_tbu_clients[] = {
 	{
 		.tbu_id = WIN2030_TBUID_0x10, // tbu1_0 is only for video decoder
 		.tbu_reg_info = {0x3d4, 31, 30},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x11, // tbu1_1 is only video encoder
 		.tbu_reg_info = {0x3d4, 23, 22},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x12, // tbu1_2 is only Jpeg encoder
 		.tbu_reg_info = {0x3d4, 7, 6},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x13, // tbu1_3 is only Jpeg decoder
 		.tbu_reg_info = {0x3d4, 15, 14},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x2, // Ethernet, sata, usb, dma0, emmc, sd, sdio share the tbu2
@@ -490,7 +515,7 @@ static const struct win2030_tbu_client win2030_tbu_clients[] = {
 	{
 		.tbu_id = WIN2030_TBUID_0x3, // tbu3 is only for pcie
 		.tbu_reg_info = {0x3d8, 23, 22},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x4, // scpu, crypto, lpcpu, dma1 share the tbu4
@@ -500,27 +525,27 @@ static const struct win2030_tbu_client win2030_tbu_clients[] = {
 	{
 		.tbu_id = WIN2030_TBUID_0x5, // tbu5 is only NPU
 		.tbu_reg_info = {0x3d0, 15, 14},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x70, // tbu7_0 is only dsp0
 		.tbu_reg_info = {0x3f8, 7, 6},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x71, // tbu7_1 is only dsp1
 		.tbu_reg_info = {0x3f8, 15, 14},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x72, // tbu7_2 is only dsp2
 		.tbu_reg_info = {0x3f8, 23, 22},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x73, // tbu7_3 is only dsp3
 		.tbu_reg_info = {0x3f8, 31, 30},
-		.tbu_power_ctl_register = NULL,
+		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 };
 
@@ -599,9 +624,87 @@ static int tbu_power_down_ref_release(atomic_t *ref)
 	return ret;
 }
 
-static int win2030_tbu_power_ctl_register(int nid, struct tbu_priv *tbu_priv_p, bool is_powerUp)
+static int eic770x_tbu_attach(struct device *dev, struct tbu_priv *tbu_priv_p)
+{
+	struct tbu_attachment *a;
+	bool attached = false;
+
+	WARN_ON(!mutex_is_locked(&tbu_priv_p->tbu_priv_lock));
+
+	list_for_each_entry(a, &tbu_priv_p->attachments, list) {
+		if (a->dev == dev) {
+			attached = true;
+			break;
+		}
+	}
+
+	/* device already attached, then just add refcount */
+	if (attached) {
+		atomic_add(1, &a->f_count);
+		return 0;
+	}
+
+	/* allocate tbu_attachement and attach it to the tbu */
+	a = kzalloc(sizeof(*a), GFP_KERNEL);
+	if (!a) {
+		dev_WARN_ONCE(dev, true, "Failed to attach device to tbu %d, errno %d\n", tbu_priv_p->tbu_client_p->tbu_id, -ENOMEM);
+		return -ENOMEM;
+	}
+	a->dev = dev;
+	INIT_LIST_HEAD(&a->list);
+	list_add(&a->list, &tbu_priv_p->attachments);
+	atomic_add(1, &a->f_count);
+
+	return 0;
+}
+
+static int eic770x_tbu_detach(struct device *dev, struct tbu_priv *tbu_priv_p)
+{
+	struct tbu_attachment *a;
+	bool attached = false;
+
+	WARN_ON(!mutex_is_locked(&tbu_priv_p->tbu_priv_lock));
+
+	list_for_each_entry(a, &tbu_priv_p->attachments, list) {
+		if (a->dev == dev) {
+			attached = true;
+			break;
+		}
+	}
+
+	if (!attached) {
+		dev_WARN_ONCE(dev, true, "Failed to detach device from tbu %d, dev not in the tbu list!!!\n", tbu_priv_p->tbu_client_p->tbu_id);
+		return -ENOENT;
+	}
+
+	if (atomic_sub_return(1, &a->f_count) == 0) {
+		list_del(&a->list);
+		kfree(a);
+	}
+
+	return 0;
+}
+
+static void eic770x_tbu_dump_attachment(struct tbu_priv *tbu_priv_p)
+{
+	struct tbu_attachment *a;
+
+	WARN_ON(!mutex_is_locked(&tbu_priv_p->tbu_priv_lock));
+
+	pr_info("------Dump:(node %d) tbu 0x%02x total refcnt %d, attached device(s):------\n",
+		tbu_priv_p->nid, tbu_priv_p->tbu_client_p->tbu_id, atomic_read(&tbu_priv_p->refcount));
+	list_for_each_entry(a, &tbu_priv_p->attachments, list) {
+		pr_info("(node %d) %-32s refcnt %d\n", tbu_priv_p->nid, dev_name(a->dev), atomic_read(&a->f_count));
+	}
+	pr_info("------End of dump:(node %d) tbu 0x%02x------------------------------------\n",
+		tbu_priv_p->nid, tbu_priv_p->tbu_client_p->tbu_id);
+
+}
+
+static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_powerUp, struct device *dev)
 {
 	int ret = 0;
+	int nid = tbu_priv_p->nid;
 	const struct win2030_tbu_client *tbu_client_p = tbu_priv_p->tbu_client_p;
 	const struct tbu_reg_cfg_info *tbu_reg_info_p = &tbu_priv_p->tbu_client_p->tbu_reg_info;
 	unsigned int old_refcount;
@@ -613,28 +716,31 @@ static int win2030_tbu_power_ctl_register(int nid, struct tbu_priv *tbu_priv_p, 
 		__func__, nid, is_powerUp, tbu_priv_p);
 	if (is_powerUp == false) { //power down
 		if (unlikely(0 == old_refcount)) {
-			pr_debug("%s, tbu_id 0x%02x is down already!\n", __func__, tbu_client_p->tbu_id);
+			pr_info("%s, tbu_id 0x%02x is down already!\n", __func__, tbu_client_p->tbu_id);
 			goto tbu_finish;
 		}
 
+		eic770x_tbu_detach(dev, tbu_priv_p);
 		if (atomic_sub_return(1, &tbu_priv_p->refcount) == 0) {
 			ret = tbu_power_down_ref_release(&tbu_priv_p->refcount);
 		}
 		else {
-			pr_debug("Can't power down tbu 0x%02x, it's used by other modules right now!\n",
-				tbu_client_p->tbu_id);
+			pr_info("tbu 0x%02x(node %d) is used by other module(s) right now!\n",
+				tbu_client_p->tbu_id, tbu_priv_p->nid);
 		}
-
 	}
 	else { //power up
 		if (0 == old_refcount) {
 			ret = do_win2030_tbu_power_up(nid, tbu_reg_info_p);
 		}
 		else {
-			pr_debug("tbu 0x%02x is already power up!", tbu_client_p->tbu_id);
+			pr_info("tbu 0x%02x(node %d) is already power up!",
+				tbu_client_p->tbu_id, tbu_priv_p->nid);
 		}
 		atomic_add(1, &tbu_priv_p->refcount);
+		eic770x_tbu_attach(dev, tbu_priv_p);
 	}
+	eic770x_tbu_dump_attachment(tbu_priv_p);
 
 tbu_finish:
 	mutex_unlock(&tbu_priv_p->tbu_priv_lock);
@@ -673,6 +779,7 @@ static int win2030_tbu_powr_priv_init(struct tbu_power_soc **tbu_power_soc_pp, i
 		tbu_priv_p->nid = nid;
 		atomic_set(&tbu_priv_p->refcount, 0);
 		tbu_priv_p->tbu_client_p = &win2030_tbu_soc.tbu_clients[i];
+		INIT_LIST_HEAD(&tbu_priv_p->attachments);
 		mutex_init(&tbu_priv_p->tbu_priv_lock);
 		pr_debug("%s, nid %d, tbu 0x%02x, tbu_priv_p(0x%px), sizeof(struct tbu_priv)=0x%lx\n", __func__, nid, tbu_priv_p->tbu_client_p->tbu_id, tbu_priv_p, sizeof(struct tbu_priv));
 		tbu_priv_p++;
@@ -681,15 +788,15 @@ static int win2030_tbu_powr_priv_init(struct tbu_power_soc **tbu_power_soc_pp, i
 
 	*tbu_power_soc_pp = tbu_power_soc_p;
 
-	ret = ioremap_tcu_resource();
+	ret = ioremap_tcu_resource(nid);
 	if (ret) {
 		WARN_ON(1);
 	}
 	ret = tcu_proc_init();
 	if (ret) {
-		pr_err("failed to create proc for tcu!!!\n");
+		pr_err("failed to create proc for tcu node %d!!!\n", nid);
 	}
-	print_tcu_node_status(__func__, __LINE__);
+	print_tcu_node_status(__func__, __LINE__, nid);
 	pr_info("%s finished!\n", __func__);
 
 	return 0;
@@ -759,13 +866,13 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 	#endif
 	}
 
-	pr_debug("%s called!\n", __func__);
+	dev_info(dev, "%s %s!\n", __func__, (is_powerUp == true)? "up":"down");
 	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
 		pr_debug("tbus = <0x%02x>\n", tbu_id);
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;
 			if (tbu_client_p->tbu_power_ctl_register) {
-				ret = tbu_client_p->tbu_power_ctl_register(nid, tbu_priv_p, is_powerUp);
+				ret = tbu_client_p->tbu_power_ctl_register(tbu_priv_p, is_powerUp, dev);
 				if (ret)
 					return ret;
 			}
@@ -821,7 +928,7 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;
 			if (tbu_client_p->tbu_power_ctl_register) {
-				ret = tbu_client_p->tbu_power_ctl_register(nid, tbu_priv_p, is_powerUp);
+				ret = tbu_client_p->tbu_power_ctl_register(tbu_priv_p, is_powerUp, dev);
 				if (ret)
 					return ret;
 			}
@@ -872,26 +979,26 @@ void trigger_waveform_stop(void)
 }
 EXPORT_SYMBOL(trigger_waveform_stop);
 
-void *tcu_base;
+void *tcu_base[MAX_NUMNODES] = {NULL};
 #define TCU_NODE_STATUSn	0x9400
-static int ioremap_tcu_resource(void)
+static int ioremap_tcu_resource(int nid)
 {
-	tcu_base = ioremap(0x50c00000, 0x40000);
-	if (IS_ERR(tcu_base)) {
+	tcu_base[nid] = ioremap(0x50c00000 + nid*0x20000000, 0x40000);
+	if (IS_ERR(tcu_base[nid])) {
 		pr_err("failed to ioremap tcu reges\n");
-		return PTR_ERR(tcu_base);
+		return PTR_ERR(tcu_base[nid]);
 	}
 	return 0;
 }
 
-static int get_tcu_node_status(unsigned long *tcu_node_status_p)
+static int get_tcu_node_status(unsigned long *tcu_node_status_p, int nid)
 {
 	unsigned long reg_val;
 	unsigned long tcu_node_status = 0;
 	int i;
 
 	for (i = 0; i < 62; i++) {
-		reg_val = readl(tcu_base + TCU_NODE_STATUSn + (4*i));
+		reg_val = readl(tcu_base[nid] + TCU_NODE_STATUSn + (4*i));
 		tcu_node_status |= (reg_val & 0x1) << i;
 	}
 	*tcu_node_status_p = tcu_node_status;
@@ -899,35 +1006,88 @@ static int get_tcu_node_status(unsigned long *tcu_node_status_p)
 	return 0;
 }
 
-void print_tcu_node_status(const char *call_name, int call_line)
+void print_tcu_node_status(const char *call_name, int call_line, int nid)
 {
 	unsigned long tcu_node_status = 0;
 
-	get_tcu_node_status(&tcu_node_status);
-
-	pr_info("---%s:%d, TCU_NODE_STATUS=0x%016lx\n", call_name, call_line, tcu_node_status);
+	get_tcu_node_status(&tcu_node_status, nid);
+	pr_info("%s:%d, (node %d) TCU_NODE_STATUS=0x%016lx\n",
+		call_name, call_line, nid, tcu_node_status);
 }
 EXPORT_SYMBOL(print_tcu_node_status);
 
 static int tcu_proc_show(struct seq_file *m, void *v)
 {
 	unsigned long tcu_node_status = 0;
+	int nid,i;
+	struct win2030_sid *mc;
+	struct tbu_power_soc *tbu_power_soc_p;
+	struct tbu_priv *tbu_priv_p;
+	const struct win2030_tbu_client *tbu_client_p = NULL;
+	struct tbu_attachment *a;
 
-	get_tcu_node_status(&tcu_node_status);
-	seq_printf(m, "TCU Node Status:0x%016lx\n", tcu_node_status);
+	seq_printf(m, "--------------------------------------------------------------------------------------------------------------------------------------------\n");
+	seq_printf(m, "TCU bits(ID):|13(0x%02x)|12(0x%02x)|11(0x%2x)|10(0x%02x)|9(null) |8(0x%02x) |7(0x%02x) |6(0x%02x) |5(0x%02x) |4(0x%02x) |3(0x%02x) |2(0x%02x) |1(0x%02x) |0(0x%02x) |\n",
+			WIN2030_TBUID_DSP3, WIN2030_TBUID_DSP2, WIN2030_TBUID_DSP1, WIN2030_TBUID_DSP0, WIN2030_TBUID_NPU, WIN2030_TBUID_SCPU,
+			WIN2030_TBUID_PCIE, WIN2030_TBUID_DMA0, WIN2030_TBUID_JDEC, WIN2030_TBUID_JENC, WIN2030_TBUID_VENC, WIN2030_TBUID_VDEC, WIN2030_TBUID_ISP);
+	seq_printf(m, "  Device(s)  |  DSP3  |  DSP2  |  DSP1  |  DSP0  |  null  |  NPU   |  SCPU  |  PCIE  |hsp DMAC|  JDEC  |  JENC  |  VENC  |  VDEC  |  ISP   |\n");
+	seq_printf(m, "             |        |        |        |        |        |        |  CRYPT |        |  USB   |        |        |        |        |  DW    |\n");
+	seq_printf(m, "             |        |        |        |        |        |        |aon DMAC|        |  ETH   |        |        |        |        |        |\n");
+	seq_printf(m, "             |        |        |        |        |        |        |  LPCPU |        |  SATA  |        |        |        |        |        |\n");
+	seq_printf(m, "             |        |        |        |        |        |        |        |        |  EMMC  |        |        |        |        |        |\n");
+	seq_printf(m, "             |        |        |        |        |        |        |        |        |   SD   |        |        |        |        |        |\n");
+	seq_printf(m, "--------------------------------------------------------------------------------------------------------------------------------------------\n");
+	for (nid = 0; nid < g_nodes_cnt; nid++) {
+		get_tcu_node_status(&tcu_node_status, nid);
+		seq_printf(m, "(node %d) TCU:|", nid);
+		for (i = 13; i >= 0; i--) {
+			seq_printf(m, "   %d    |", (tcu_node_status&(1<<i))?1:0);
+		}
+		seq_printf(m, "\n");
+	}
+	seq_printf(m, "--------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+	for (nid = 0; nid < g_nodes_cnt; nid++) {
+		seq_printf(m, "------(node %d) TBU attached device(s) list info:------\n", nid);
+		mc = syscon_sid_cfg[nid];
+		tbu_power_soc_p = mc->tbu_power_soc;
+		tbu_priv_p = tbu_power_soc_p->tbu_priv_array;
+		for (i = 0; i < tbu_power_soc_p->num_tbuClients; i++) {
+			tbu_client_p = tbu_priv_p->tbu_client_p;
+			if (tbu_client_p->tbu_power_ctl_register) {
+				mutex_lock(&tbu_priv_p->tbu_priv_lock);
+				seq_printf(m, "tbu(0x%02x) total refcnt %d, attached device(s):\n",
+						tbu_priv_p->tbu_client_p->tbu_id, atomic_read(&tbu_priv_p->refcount));
+				list_for_each_entry(a, &tbu_priv_p->attachments, list) {
+					seq_printf(m, "  %-32s refcnt %d\n",dev_name(a->dev), atomic_read(&a->f_count));
+				}
+				seq_printf(m, "\n");
+				// seq_printf(m, "<(node %d) end of tbu 0x%02x\n",
+						// tbu_priv_p->nid, tbu_priv_p->tbu_client_p->tbu_id);
+				mutex_unlock(&tbu_priv_p->tbu_priv_lock);
+			}
+			tbu_priv_p++;
+		}
+		seq_printf(m, "----------(node %d) end of list info-------------------\n", nid);
+	}
 
 	return 0;
 }
 
+static bool tcp_proc_exist = false;
 static int __init tcu_proc_init(void)
 {
 	char proc_name[64];
 
-	// sprintf(proc_name, "%s_info", "tcu");
-	// pr_debug("%s, proc_name:%s\n", __func__, proc_name);
-	// if (NULL == proc_create_single_data(proc_name, 0, NULL, tcu_proc_show, NULL)) {
-	// 	return -1;
-	// }
+	if (tcp_proc_exist)
+		return 0;
+
+	tcp_proc_exist = true;
+	sprintf(proc_name, "%s_info", "tcu");
+	pr_debug("%s, proc_name:%s\n", __func__, proc_name);
+	if (NULL == proc_create_single_data(proc_name, 0, NULL, tcu_proc_show, NULL)) {
+		return -1;
+	}
 
 	return 0;
 }

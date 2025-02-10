@@ -376,6 +376,48 @@ err:
 	return ret;
 }
 
+static void print_dma_mapping_info(struct seq_file *m)
+{
+	struct es_dsp *dsp;
+	int die, dspid;
+	struct iommu_domain *domain;
+	dma_addr_t dma_addr,pre_dma_addr;
+	phys_addr_t phys_addr,pre_phys_addr;
+	u32 continue_size = 0;
+	pre_phys_addr = 0;
+	for (die = 0; die < 2; die++) {
+		for (dspid = 0; dspid < 4; dspid++) {
+			dsp = es_proc_get_dsp(die, dspid);
+			if(!dsp) return;
+			domain = iommu_get_domain_for_dev(dsp->dev);
+			if (!domain) {
+				seq_printf(m, "dsp(%d,%d) is not using an IOMMU\n", die, dspid);
+				return;
+			}
+			seq_printf(m, "dmabuf_mapped_cnt :%d\n",
+			           atomic_read(&dsp->dmabuf_mapped_cnt));
+			for (dma_addr = 0; dma_addr < 0xffffffff; dma_addr += PAGE_SIZE) {
+				phys_addr = iommu_iova_to_phys(domain, dma_addr);
+				if (phys_addr !=0 &&  pre_phys_addr==0) { //begin of map
+					pre_dma_addr = dma_addr;
+				}
+				if(phys_addr==0 && pre_phys_addr !=0) { // end of map
+					continue_size = dma_addr - pre_dma_addr;
+					seq_printf(m,  "die%d, dsp%d,IOVA %pa -> %pa, size:%x\n",
+					           die, dspid, &pre_dma_addr, &pre_phys_addr,
+							   continue_size);
+				}
+				if(phys_addr && (dma_addr += PAGE_SIZE) > 0xffffffff) {
+					continue_size = dma_addr - pre_dma_addr;
+					seq_printf(m, "die%d, dsp%d,end IOVA %pa -> %pa, size:%x\n",
+					          die,dspid,&pre_dma_addr, &pre_phys_addr,
+							  continue_size);
+				}
+				pre_phys_addr = phys_addr;
+			}
+		}
+	}
+}
 static int debug_show(struct seq_file *m, void *p)
 {
 	seq_printf(m, "\n");
@@ -386,6 +428,9 @@ static int debug_show(struct seq_file *m, void *p)
 	seq_printf(m, "%s        %d\n", dsp_log_level ? "ON" : "OFF",
 		   dsp_log_level);
 	seq_printf(m, "\n");
+
+
+	print_dma_mapping_info(m);
 
 	return 0;
 }

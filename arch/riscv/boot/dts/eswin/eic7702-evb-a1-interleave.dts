@@ -178,7 +178,10 @@
 		// 	reg = <0x2 0xfffff000 0x0 0x1000>;
 		// };
 
-
+		nid_1_zero_device_simu: nid_1_zero_device_simu@2040000000 {
+			no-map;
+			reg = <0x20 0x40000000 0x0 0x400000>;
+		};
 		// d1_g2d_4GB_boundary_reserved_4k {
 		// 	no-map;
 		// 	reg = <0x20 0xfffff000 0x0 0x1000>;
@@ -213,6 +216,15 @@
 		};
 	};
 
+};
+
+&D1CACHE {
+	status = "okay";
+	d1_zero_device: zero-device@3a000000 {
+		compatible = "l3,zero-device";
+		/*reg = <0x0 0x3a000000 0x0 0x400000>;*/
+		memory-region = <&nid_1_zero_device_simu>;
+	};
 };
 
 &d0_clock {
@@ -514,10 +526,42 @@
 
 &dc {
 	status = "okay";
+	dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dc_out_dsi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&dsi_input>;
+		};
+		dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&vd_input>;
+		};
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&hdmi_in_dc>;
+		};
+	};
 };
 
 &d1_dc {
 	status = "okay";
+	d1_dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		d1_dc_out_dsi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&d1_dsi_input>;
+		};
+		d1_dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&d1_vd_input>;
+		};
+		d1_dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&d1_hdmi_in_dc>;
+		};
+	};
 };
 
 &dc_test {
@@ -529,17 +573,90 @@
 
 &virtual_display {
 	status = "okay";
+	port {
+		vd_input: endpoint {
+			remote-endpoint = <&dc_out_dpi1>;
+		};
+	};
 };
 
 &d1_virtual_display {
 	status = "okay";
+	port {
+		d1_vd_input: endpoint {
+			remote-endpoint = <&d1_dc_out_dpi1>;
+		};
+	};
 };
 
 &dsi_controller {
     status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
+			};
+		};
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+
+	dsi_panel:dsi_panel@0 {
+		compatible = "eswin,generic-panel";
+		reg = <0>;
+		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+		dsi,lanes = <4>;
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
 };
 &d1_dsi_controller {
 	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			d1_dsi_input: endpoint {
+				remote-endpoint = <&d1_dc_out_dsi>;
+			};
+		};
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			d1_mipi_dsi_out: endpoint {
+				remote-endpoint = <&d1_panel_in>;
+			};
+		};
+	};
+	d1_dsi_panel:dsi_panel@0 {
+		compatible = "eswin,generic-panel";
+		reg = <0>;
+		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+		dsi,lanes = <4>;
+		port {
+			d1_panel_in: endpoint {
+				remote-endpoint = <&d1_mipi_dsi_out>;
+			};
+		};
+	};
 };
 
 &dsi_panel {
@@ -560,6 +677,14 @@
 &dw_hdmi {
 	status = "okay";
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&dc_out_hdmi>;
+			};
+		};
 		port@2 {
 			reg = <2>;
 			hdmi_in_i2s: endpoint@1 {
@@ -572,6 +697,14 @@
 &d1_dw_hdmi {
 	status = "okay";
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			d1_hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&d1_dc_out_hdmi>;
+			};
+		};
 		port@2 {
 			reg = <2>;
 			d1_hdmi_in_i2s: endpoint@1 {
@@ -819,7 +952,7 @@
 	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x23232323 0x800c8023 0x0c0c0c0c>;
+	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
@@ -831,7 +964,7 @@
 	rst-gpios = <&d1_porta 13 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x23232323 0x800c8023 0x0c0c0c0c>;
+	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
@@ -843,7 +976,7 @@
 	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
+	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
@@ -855,7 +988,7 @@
 	rst-gpios = <&d1_porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
+	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";

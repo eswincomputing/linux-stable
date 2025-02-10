@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * ESWIN LLC_SPRAM on-chip SRAM allocation driver
- * Copyright 2023, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,6 +16,10 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Min Lin <linmin@eswincomputing.com>
+ *          Huawei Dong <donghuawei@eswincomputing.com>
+ *          Wei Yang <yangwei1@eswincomputing.com>
  */
 
 #include <linux/clk.h>
@@ -782,22 +788,6 @@ static int llc_clk_set_parent(struct platform_device *pdev)
 			return ret;
 		}
 	}
-	if (0 == spram->is_low_freq)
-	{
-		ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree,
-							 spram->fixed_rate_clk_spll1_fout1);
-	}
-	else
-	{
-		ret = clk_set_parent(spram->mux_u_npu_core_3mux1_gfree,
-							 spram->fixed_rate_clk_spll2_fout2);
-	}
-	if (ret)
-	{
-		dev_err(&pdev->dev, "failed to set mux_u_npu_core_3mux1_gfree parent: %d\n",
-				ret);
-		return ret;
-	}
 	return 0;
 }
 static int llc_clk_set_frq(struct platform_device *pdev)
@@ -815,43 +805,6 @@ static int llc_clk_set_frq(struct platform_device *pdev)
 	{
 		dev_err(&pdev->dev, "failed to set aclk: %d\n", ret);
 		return ret;
-	}
-
-	if (0 == spram->is_low_freq)
-	{
-		rate = clk_round_rate(spram->llc_clk, NPU_LLC_CLK_1P5G_RATE);
-		ret = clk_set_rate(spram->llc_clk, rate);
-
-		if (ret != 0)
-		{
-			dev_err(&pdev->dev, "failed to set llc_clk: %d\n", ret);
-			return ret;
-		}
-		rate = clk_round_rate(spram->core_clk, NPU_CORE_CLK_1P5G_RATE);
-		ret = clk_set_rate(spram->core_clk, rate);
-		if (ret != 0)
-		{
-			dev_err(&pdev->dev, "failed to set core_clk: %d\n", ret);
-			return ret;
-		}
-	}
-	else
-	{
-		rate = clk_round_rate(spram->llc_clk, NPU_LLC_CLK_RATE);
-
-		ret = clk_set_rate(spram->llc_clk, rate);
-		if (ret != 0)
-		{
-			dev_err(&pdev->dev, "failed to set llc_clk: %d\n", ret);
-			return ret;
-		}
-		rate = clk_round_rate(spram->core_clk, NPU_CORE_CLK_RATE);
-		ret = clk_set_rate(spram->core_clk, rate);
-		if (ret != 0)
-		{
-			dev_err(&pdev->dev, "failed to set core_clk: %d\n", ret);
-			return ret;
-		}
 	}
 
 	return 0;

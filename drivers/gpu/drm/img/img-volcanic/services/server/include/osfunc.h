@@ -92,6 +92,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pmr.h"
 #endif
 
+#include <linux/dma-map-ops.h>
+#define MAP_UNCACHED_MEM 1
 /******************************************************************************
  * Static defines
  *****************************************************************************/
