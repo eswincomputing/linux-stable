@@ -29,6 +29,7 @@
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
+// #include "eic7700-dvb-dsi-panel.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -279,41 +280,59 @@
 	status = "okay";
 };
 
+&dc_test {
+	status = "disabled";
+};
+
 &video_output {
 	status = "okay";
 };
 
 &dc {
 	status = "okay";
-};
 
-&dc_test {
-    status = "disabled";
+	dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dc_out_dpi: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&vd_input>;
+		};
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&hdmi_in_dc>;
+		};
+	};
 };
 
 &virtual_display {
-    status = "okay";
+	status = "okay";
+	port {
+		vd_input: endpoint {
+			remote-endpoint = <&dc_out_dpi>;
+		};
+	};
 };
 
 &dsi_output {
-    status = "okay";
+	status = "okay";
 };
 
 &dsi_controller {
-    status = "okay";
-};
-
-&dsi_panel {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio82_default &pinctrl_gpio85_default>;
-	backlight0-gpios = <&portc 18 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&portc 21 GPIO_ACTIVE_HIGH>;
 };
 
 &dw_hdmi {
 	status = "okay";
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&dc_out_hdmi>;
+			};
+		};
 		port@2 {
 			reg = <2>;
 			hdmi_in_i2s: endpoint@1 {
@@ -857,7 +876,7 @@ GPIO USED ON CarrierBoard:
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 };
 
-&cpu_opp_table {
+&d0_cpu_opp_table {
 	opp-1500000000 {
 		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
 		opp-microvolt = <900000>;

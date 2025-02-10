@@ -42,10 +42,12 @@
 #if defined(SUPPORT_ION)
 #include "ion_support.h"
 #endif
+#include <asm/dma-noncoherent.h>
 
 #if defined(SUPPORT_VALIDATION) && defined(PDUMP)
 #include "validation_soc.h"
 #endif
+#define ES_MEM_THRESH_OF_FLUSH_CACHE_ALL 0x100000
 
 extern unsigned int _corefreq_div;
 
@@ -55,12 +57,30 @@ IMG_UINT64 *cpu_cache_flush_addr = NULL;
 extern void eswin_l2_flush64(phys_addr_t addr, size_t size);
 #else
 void eswin_l2_flush64(phys_addr_t addr, size_t size) {
-        arch_sync_dma_for_device(addr, size, DMA_TO_DEVICE);
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	int nid;
+	int cpuid;
+	eic770x_memory_type_t mem_type;
+
+	cpuid = smp_processor_id();
+	arch_get_mem_node_and_type(phys_to_pfn(addr), &nid, &mem_type);
+	if (likely(mem_type == FLAT_DDR_MEM)) {
+		if (cpu_to_node(cpuid) != nid) {
+			pr_debug("%s, pid %d addr 0x%llx, size 0x%lx mem_nid %d cur_cpu %d \n",
+				__func__, task_pid_nr(current), addr, size, nid, smp_processor_id());
+			sched_setaffinity(current->pid, cpumask_of_node(nid));
+		}
+	}
+#endif
+	if (unlikely(size > ES_MEM_THRESH_OF_FLUSH_CACHE_ALL))
+		arch_sync_cache_all(addr, size);
+	else
+		arch_sync_dma_for_device(addr, size, DMA_TO_DEVICE);
 };
 #endif
 void riscv_invalidate_addr(phys_addr_t addr, size_t size,IMG_BOOL virtual) {
 
- printk(KERN_ALERT "eswin:%s not implement now start 0x%x size=0x%x\n",__func__,addr,size);	
+ printk(KERN_ALERT "eswin:%s not implement now start 0x%llx size=0x%lx\n",__func__,addr,size);
 }
 void riscv_flush_addr(IMG_UINT64 cpuaddr,IMG_UINT64 bytes_size, IMG_BOOL virtual)
 {
@@ -180,7 +200,7 @@ static PHYS_HEAP_FUNCTIONS gsPhysHeapFuncs =
 	/* pfnDevPAddrToCpuPAddr */
 	UMAPhysHeapDevPAddrToCpuPAddr,
 	/* pfnGetRegionId */
-	NULL,
+	// NULL,
 };
 
 static PVRSRV_ERROR PhysHeapsCreate(PHYS_HEAP_CONFIG **ppasPhysHeapsOut,
@@ -310,7 +330,6 @@ void riscv_flush_cache_range(IMG_HANDLE hSysData,
 		break;
 	case PVRSRV_CACHE_OP_INVALIDATE:
 		riscv_flush_addr(bStart, (bEnd - bStart), IMG_FALSE);
-		//printk(KERN_ALERT "%s: ---eswin----warning-----PVRSRV_CACHE_OP_INVALIDATE not implement now ------- \n", __func__);
 		break;
 	case PVRSRV_CACHE_OP_CLEAN:
 		riscv_flush_addr(bStart, (bEnd - bStart), IMG_FALSE);

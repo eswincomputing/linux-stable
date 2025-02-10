@@ -69,6 +69,11 @@ struct esw_cmdq_task {
     struct completion dma_finished;
 };
 
+struct dma_filter_params {
+    unsigned int nid;
+    char dev_name[32];
+};
+
 #ifdef CONFIG_NUMA
 static int memcp_attach_dma_buf(struct device *dma_dev, struct esw_memcp_dma_buf_info *buf_info);
 static int memcp_detach_dma_buf(struct dma_buf_attachment *attach, struct sg_table *sgt);
@@ -115,40 +120,61 @@ static int esw_memcp_get_mem_nid(struct esw_memcp_dma_buf_info *buf_info)
 }
 #endif
 
-static bool filter(struct dma_chan *chan, void *param)
+static bool numa_filter(struct dma_chan *chan, unsigned int param)
 {
 #ifdef CONFIG_NUMA
-    if((*(int *)param) == 2)
-        return true;
-    else
-        return (*(int *)param) == dev_to_node(chan->device->dev);
+    return param == dev_to_node(chan->device->dev);
 #else
     return true;
 #endif
 }
 
+static bool device_name_filter(struct dma_chan *chan, char *param)
+{
+    if (param[0] == '\0')
+        return true;
+
+    const char *dev_name_trimmed = strchr(dev_name(chan->device->dev), '.');
+    if (dev_name_trimmed) {
+        dev_name_trimmed++;
+    } else {
+        return false;
+    }
+
+    return strcmp(dev_name_trimmed, param) == 0;
+}
+
+static bool filter(struct dma_chan *chan, void *param)
+{
+    struct dma_filter_params *params = param;
+    return numa_filter(chan, params->nid) && device_name_filter(chan, params->dev_name);
+}
 
 int esw_memcp_alloc_dma(struct esw_cmdq_task *task)
 {
     int ret = 0;
     dma_cap_mask_t mask;
     struct dma_chan *dma_ch = NULL;
+    struct dma_filter_params params;
 
     ret = esw_memcp_get_mem_nid(&task->src_buf);
     if(ret) {
         return ret;
     }
 
+    strcpy(params.dev_name, "dma-controller-aon");
+    params.nid = task->src_buf.mem_nid;
+
     dma_cap_zero(mask);
     dma_cap_set(DMA_MEMCPY, mask);
 
-    dma_ch = dma_request_channel(mask, filter, &task->src_buf.mem_nid);
-    if (IS_ERR(dma_ch)) {
+    dma_ch = dma_request_channel(mask, filter, &params);
+    if (!dma_ch) {
         pr_warn("dma request channel failed, Try using any of them.\n");
         dma_ch = dma_request_channel(mask, NULL, NULL);
     }
 
-    if (IS_ERR(dma_ch)) {
+    if (!dma_ch) {
         pr_err("dma request channel failed\n");
         return -ENODEV;
     }

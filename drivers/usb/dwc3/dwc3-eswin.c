@@ -4,7 +4,6 @@
  * eswin Specific Glue layer
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * Authors: Han Min <hanmin@eswincomputing.com>
+ * Authors: Yang Wei <yangwei1@eswincomputing.com
  */
 
 #include <linux/async.h>
@@ -86,6 +85,7 @@ struct dwc3_eswin {
 	struct reset_control *vaux_rst;
 	struct device *child_dev;
 	enum usb_role new_usb_role;
+	struct gpio_desc *hub_gpio;
 };
 
 static ssize_t dwc3_mode_show(struct device *device,
@@ -140,8 +140,40 @@ static ssize_t dwc3_mode_store(struct device *device,
 
 static DEVICE_ATTR_RW(dwc3_mode);
 
+
+static ssize_t dwc3_hub_rst_show(struct device *device,
+			      struct device_attribute *attr, char *buf)
+{
+	struct dwc3_eswin *eswin = dev_get_drvdata(device);
+
+	if (!IS_ERR(eswin->hub_gpio)) {
+		return sprintf(buf,"%d",gpiod_get_raw_value(eswin->hub_gpio));
+	}
+
+	return sprintf(buf,"UNKONWN");
+}
+
+static ssize_t dwc3_hub_rst_store(struct device *device,
+			       struct device_attribute *attr, const char *buf,
+			       size_t count)
+{
+	struct dwc3_eswin *eswin = dev_get_drvdata(device);
+	if (!IS_ERR(eswin->hub_gpio)) {
+		if (!strncmp(buf, "0", 1)) {
+			gpiod_set_raw_value(eswin->hub_gpio, 0);
+		} else {
+			gpiod_set_raw_value(eswin->hub_gpio, 1);
+		}
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(dwc3_hub_rst);
+
 static struct attribute *dwc3_eswin_attrs[] = {
 	&dev_attr_dwc3_mode.attr,
+	&dev_attr_dwc3_hub_rst.attr,
 	NULL,
 };
 
@@ -364,18 +396,17 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 	int ret;
 	int i;
 	int err_desc = 0;
-	struct gpio_desc *hub_gpio;
-
-	hub_gpio = devm_gpiod_get(dev, "hub-rst", GPIOD_OUT_HIGH);
-	err_desc = IS_ERR(hub_gpio);
-
-	if (!err_desc) {
-		gpiod_set_raw_value(hub_gpio, 1);
-	}
 
 	eswin = devm_kzalloc(dev, sizeof(*eswin), GFP_KERNEL);
 	if (!eswin)
 		return -ENOMEM;
+	eswin->hub_gpio = devm_gpiod_get(dev, "hub-rst", GPIOD_OUT_HIGH);
+	err_desc = IS_ERR(eswin->hub_gpio);
+
+	if (!err_desc) {
+		gpiod_set_raw_value(eswin->hub_gpio, 1);
+	}
+
 
 	count = of_clk_get_parent_count(np);
 	if (!count)
@@ -658,6 +689,6 @@ static struct platform_driver dwc3_eswin_driver = {
 module_platform_driver(dwc3_eswin_driver);
 
 MODULE_ALIAS("platform:eswin-dwc3");
-MODULE_AUTHOR("Han Min <hanmin@eswin.com>");
+MODULE_AUTHOR("Yang Wei <yangwei1@eswincomputing.com");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DesignWare USB3 ESWIN Glue Layer");

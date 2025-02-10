@@ -43,6 +43,7 @@
 	};
 };
 
+/*
 &dsi_panel {
 	status = "okay";
 	pinctrl-names = "default";
@@ -50,6 +51,7 @@
 	backlight0-gpios = <&portc 18 GPIO_ACTIVE_HIGH>;
 	rst-gpios = <&portc 21 GPIO_ACTIVE_HIGH>;
 };
+*/
 
 &d0_i2s1 {
 	status = "okay";

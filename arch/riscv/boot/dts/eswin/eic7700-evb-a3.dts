@@ -32,7 +32,7 @@
 	cpu-default-frequency = <CLK_FREQ_1600M>;
 };
 
-&cpu_opp_table {
+&d0_cpu_opp_table {
 	opp-1500000000 {
 		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
 		opp-microvolt = <900000>;

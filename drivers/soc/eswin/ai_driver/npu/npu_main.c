@@ -332,14 +332,139 @@ struct nvdla_device *get_nvdla_dev(int i)
 	return static_nvdla_dev[i];
 }
 
+static int npu_set_higher_vol_and_freq(struct nvdla_device *nvdla_dev, unsigned long npu_freq)
+{
+	struct clk *llc_parent;
+	struct clk *npu_parent;
+	unsigned long llc_rate, npu_rate;
+	unsigned long rate;
+	int ret;
+
+	llc_parent = clk_get_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
+	if (!llc_parent) {
+		dev_err(&nvdla_dev->pdev->dev, "get npu llc clock pareent err.\n");
+		return -EINVAL;
+	}
+	npu_parent = clk_get_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree);
+	if (!npu_parent) {
+		dev_err(&nvdla_dev->pdev->dev, "get npu core clock pareent err.\n");
+		return -EINVAL;
+	}
+	
+	llc_rate = clk_get_rate(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
+	npu_rate = clk_get_rate(nvdla_dev->mux_u_npu_core_3mux1_gfree);
+
+	ret = clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, nvdla_dev->fixed_rate_clk_vpll_fout1);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "set npu llc clock parent err = %d.\n", ret);
+		return -EINVAL;
+	}
+
+	ret = clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, nvdla_dev->fixed_rate_clk_spll1_fout1);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "Cannot set target rate %lu parent, (%d)\n", npu_freq, ret);
+		goto err_npu_core;
+	}
+	mdelay(10);
+	rate = clk_round_rate(nvdla_dev->llc_aclk, NPU_LLC_CLK_1P5G_RATE);
+	ret = clk_set_rate(nvdla_dev->llc_aclk, rate);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "failed to set npu llc clock rate: %lu, ret = %d.\n", rate, ret);
+		goto err_llc_rate;
+	}
+
+	rate = clk_round_rate(nvdla_dev->core_clk, npu_freq);
+	ret = clk_set_rate(nvdla_dev->core_clk, rate);
+       	if (ret != 0)
+        {
+		dev_err(&nvdla_dev->pdev->dev, "failed to set npu core_clk=%lu, ret = %d\n", rate, ret);
+		goto err_npu_rate;
+
+        }
+	return 0;
+
+err_npu_rate:
+	clk_set_rate(nvdla_dev->llc_aclk, llc_rate);
+err_llc_rate:
+	clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, npu_parent);
+err_npu_core:
+	clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, llc_parent);
+	return ret;
+}
+
+static int npu_set_lower_vol_and_freq(struct nvdla_device *nvdla_dev, unsigned long npu_freq)
+{
+	struct clk *llc_parent;
+	struct clk *npu_parent;
+	unsigned long llc_rate, npu_rate;
+	unsigned long rate;
+	int ret;
+
+	llc_parent = clk_get_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
+	if (!llc_parent) {
+		dev_err(&nvdla_dev->pdev->dev, "get npu llc clock pareent err.\n");
+		return -EINVAL;
+	}
+	npu_parent = clk_get_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree);
+	if (!npu_parent) {
+		dev_err(&nvdla_dev->pdev->dev, "get npu core clock pareent err.\n");
+		return -EINVAL;
+	}
+	
+	llc_rate = clk_get_rate(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
+	npu_rate = clk_get_rate(nvdla_dev->mux_u_npu_core_3mux1_gfree);
+
+	ret = clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, nvdla_dev->fixed_rate_clk_spll0_fout1);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "set npu llc clock parent err = %d.\n", ret);
+		return -EINVAL;
+	}
+
+	ret = clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, nvdla_dev->fixed_rate_clk_spll2_fout2);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "Cannot set target rate %lu parent, (%d)\n", npu_freq, ret);
+		goto err_npu_core;
+	}
+
+	mdelay(10);
+	rate = clk_round_rate(nvdla_dev->llc_aclk, NPU_LLC_CLK_RATE);
+	ret = clk_set_rate(nvdla_dev->llc_aclk, rate);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "failed to set npu llc clock rate: %lu, ret = %d.\n", rate, ret);
+		goto err_llc_rate;
+	}
+
+	rate = clk_round_rate(nvdla_dev->core_clk, npu_freq);
+	ret = clk_set_rate(nvdla_dev->core_clk, rate);
+       	if (ret != 0)
+        {
+		dev_err(&nvdla_dev->pdev->dev, "failed to set npu core_clk=%lu, ret = %d\n", rate, ret);
+		goto err_npu_rate;
+
+        }
+	return 0;
+
+err_npu_rate:
+	clk_set_rate(nvdla_dev->llc_aclk, llc_rate);
+err_llc_rate:
+	clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, npu_parent);
+err_npu_core:
+	clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, llc_parent);
+	return ret;
+}
+
 #if defined(CONFIG_PM_DEVFREQ)
 static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(dev);
 	struct dev_pm_opp *opp;
 	unsigned long target_volt, target_rate;
-	unsigned long rate;
 	int ret;
+	
+	if (nvdla_dev->is_low_freq) {
+		dev_err(dev, "Prohibit set voltage and freq, because dts set 'apply_npu_1G_freq' property.\n");
+		return 0;
+	}
 
 	opp = devfreq_recommended_opp(dev, freq, flags);
 	if (IS_ERR(opp)) {
@@ -360,38 +485,21 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 			dev_err(dev, "Cannot set voltage %lu uV\n", target_volt);
 			goto out;
 		}
+		ret = npu_set_higher_vol_and_freq(nvdla_dev, target_rate);
 
-		ret = clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, nvdla_dev->fixed_rate_clk_spll1_fout1);
-		if (ret) {
-			dev_err(dev, "Cannot set target voltage %lu parent, (%d)\n", target_rate, ret);
+		if (ret != 0) {
+			dev_err(dev, "failed to change core_clk: %d\n", ret);
 			goto err_parent;
-		}
-		mdelay(10);
-		rate = clk_round_rate(nvdla_dev->core_clk, target_rate);
-		ret = clk_set_rate(nvdla_dev->core_clk, rate);
-        	if (ret != 0)
-	        {
-			dev_err(dev, "failed to set core_clk: %d\n", ret);
-			goto err_rate;
-
 	        }
 
 	} else { // lower freq
-		ret = clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, nvdla_dev->fixed_rate_clk_spll2_fout2);
+		
+		ret = npu_set_lower_vol_and_freq(nvdla_dev, target_rate);
+
 		if (ret) {
 			dev_err(dev, "Cannot set target voltage %lu parent, (%d)\n", target_rate, ret);
 			goto out;
 		}
-
-		rate = clk_round_rate(nvdla_dev->core_clk, target_rate);
-		ret = clk_set_rate(nvdla_dev->core_clk, rate);
-        	if (ret != 0)
-	        {
-			dev_err(dev, "failed to set core_clk: %d\n", ret);
-			goto err_rate;
-
-	        }
-
 
 		ret = regulator_set_voltage(nvdla_dev->npu_regulator, target_volt, target_volt);
 		if (ret) {
@@ -415,6 +523,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 
 err_rate:
 	clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, nvdla_dev->fixed_rate_clk_spll1_fout1);
+	clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, nvdla_dev->fixed_rate_clk_vpll_fout1);
 err_parent:
 	regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->volt, nvdla_dev->volt);
 out:
@@ -450,7 +559,6 @@ static int32_t edla_probe(struct platform_device *pdev)
 	uint32_t version;
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df = NULL;
-	struct dev_pm_opp *opp;
 #endif
 
 	dla_debug("%s enter.\n", __FUNCTION__);
@@ -474,15 +582,20 @@ static int32_t edla_probe(struct platform_device *pdev)
 	mutex_init(&nvdla_dev->devfreq_lock);
 
 	nvdla_dev->npu_regulator = devm_regulator_get(dev, "npu");
+	if (nvdla_dev->npu_regulator == NULL) {
+		dla_error("cannot get npu regulator, error.\n");
+		return -EINVAL;
+	}
+	nvdla_dev->is_low_freq = of_property_read_bool(pdev->dev.of_node, "apply_npu_1G_freq");
+
 	err = regulator_enable(nvdla_dev->npu_regulator);
 	if (err < 0)
 	{
 		dla_error("npu_regulator enble error:%d\n\r", err);
-		regulator_put(nvdla_dev->npu_regulator);
 		nvdla_dev->npu_regulator = NULL;
 		return err;
 	}
-
+	
 	err = npu_dt_node_resources(nvdla_dev);
 	if (err) {
 		dla_error("error, get hw resource, ret=%d\n", err);
@@ -498,6 +611,29 @@ static int32_t edla_probe(struct platform_device *pdev)
 		goto err_mem0;
 	}
 
+	if (nvdla_dev->is_low_freq == 0) {
+                err = regulator_set_voltage(nvdla_dev->npu_regulator, NPU_1P5G_VOLTAGE, NPU_1P5G_VOLTAGE);
+                if (err != 0) {
+                        dla_error("error npu regulator volt:%duV ret:%d.\n", NPU_1P5G_VOLTAGE, err);
+                        goto err_mem0;
+                }
+                mdelay(10);
+		err = npu_set_higher_vol_and_freq(nvdla_dev, NPU_CORE_CLK_1P5G_RATE);
+
+        } else {
+                err = regulator_set_voltage(nvdla_dev->npu_regulator, NPU_DEFAULT_VOLTAGE, NPU_DEFAULT_VOLTAGE);
+                dla_debug("name:%s, volt:%d, ret:%d\n", pdev->name, NPU_DEFAULT_VOLTAGE, err);
+                mdelay(10);
+		err = npu_set_lower_vol_and_freq(nvdla_dev, NPU_CORE_CLK_RATE);
+        }
+
+	if (err) {
+		dev_err(&pdev->dev, "failed to set mux_u_npu_core_3mux1_gfree parent: %d\n", err);
+		goto err_mem0;
+	}
+
+	nvdla_dev->rate = clk_get_rate(nvdla_dev->core_clk);
+	nvdla_dev->volt = regulator_get_voltage(nvdla_dev->npu_regulator);
 
 	//npu configuration space, start from 0x51c00000
 	nvdla_dev->base = devm_ioremap_resource(&pdev->dev, res);
@@ -555,20 +691,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 		dev_err(dev, "%s, %d, Failed to add OPP table, ret = %d.\n", __func__, __LINE__, err);
 		goto err_init_reset;
 	}
-	nvdla_dev->rate = clk_get_rate(nvdla_dev->core_clk);
-	opp = devfreq_recommended_opp(dev, &nvdla_dev->rate, 0);
-	if (IS_ERR(opp)) {
-		err = PTR_ERR(opp);
-		goto err_init_reset;
-	}
-
-	nvdla_dev->rate = dev_pm_opp_get_freq(opp);
-	nvdla_dev->volt = dev_pm_opp_get_voltage(opp);
-
-	regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->volt, nvdla_dev->volt);
-
-	dev_pm_opp_put(opp);
-
+	
 	df = devm_devfreq_add_device(dev, &npu_devfreq_profile, "userspace", NULL);
 	if (IS_ERR(df)) {
 		err = PTR_ERR(df);

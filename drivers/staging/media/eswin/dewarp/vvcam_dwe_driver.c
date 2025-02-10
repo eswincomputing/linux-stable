@@ -1,4 +1,25 @@
-/****************************************************************************
+// SPDX-License-Identifier: GPL-2.0
+/******************************************************************************
+ *
+ * ESWIN dewarp driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: lilijun <lilijun@eswincomputing.com>
+ *
+ ***************************************************************************
  *
  * The MIT License (MIT)
  *
@@ -183,6 +204,7 @@ static unsigned int dewarp_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
+#ifdef CONFIG_PM_SLEEP
 static int obtain_dewarp_mis(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
@@ -217,6 +239,7 @@ static int obtain_dewarp_mis(struct device *dev)
 	}
 	return ret;
 }
+#endif
 
 #ifdef ES_DW200_SDK
 static int triggerDwe(struct es_dw200_private *pes_dw200_priv)
@@ -1054,7 +1077,7 @@ int dewarp_set_aclk_rate(dw_clk_rst_t *dw_crg, unsigned long *rate)
 			dev_err(dw_crg->dev, "failed to set aclk: %d\n", ret);
 			return ret;
 		}
-		dev_info(dw_crg->dev, "set dev rate to %ldHZ\n", *rate);
+		dev_dbg(dw_crg->dev, "set dev rate to %ldHZ\n", *rate);
 	}
 	return 0;
 }
@@ -1062,13 +1085,15 @@ int dewarp_set_aclk_rate(dw_clk_rst_t *dw_crg, unsigned long *rate)
 int dewarp_get_aclk_rate(dw_clk_rst_t *dw_crg)
 {
 	unsigned long rate;
-	rate =  clk_get_rate(dw_crg->aclk);
-	dev_info(dw_crg->dev, "get dev rate %ldHZ\n", rate);
+	rate = clk_get_rate(dw_crg->aclk);
+	dev_dbg(dw_crg->dev, "get dev rate %ldHZ\n", rate);
 	return rate;
 }
 
+#if defined(CONFIG_PM_DEVFREQ)
 /* devfreq target function to set frequency */
-static int dewarp_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
+static int dewarp_devfreq_target(struct device *dev, unsigned long *freq,
+				 u32 flags)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
@@ -1102,6 +1127,7 @@ static struct devfreq_dev_profile dewarp_devfreq_profile = {
 	.target = dewarp_devfreq_target,
 	.get_cur_freq = dewarp_devfreq_get_cur_freq,
 };
+#endif
 
 static int vvcam_sys_clk_config(dw_clk_rst_t *dw_crg)
 {
@@ -1274,7 +1300,9 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	struct es_dewarp_driver_dev *pdriver_dev;
 	struct dw200_subdev *pdwe_dev;
 	char debug_dw200_reset[64] = "dw200_reset";
+#if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df;
+#endif
 	int id = 0;
 
 	if (pdev->id >= NUM_DEVICES) {
@@ -1308,7 +1336,7 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		pr_err("%s: DW clk prepare failed\n", __func__);
 		return ret;
 	}
-
+#if defined(CONFIG_PM_DEVFREQ)
 	/* Add OPP table from device tree */
 	ret = dev_pm_opp_of_add_table(&pdev->dev);
 	if (ret) {
@@ -1316,12 +1344,13 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	df = devm_devfreq_add_device(&pdev->dev, &dewarp_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(&pdev->dev, &dewarp_devfreq_profile,
+				     "userspace", NULL);
 	if (IS_ERR(df)) {
 		pr_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
 		return ret;
 	}
-
+#endif
 	pdwe_dev->dw_crg.dev = &pdev->dev;
 	ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
 	if (ret) {
@@ -1332,7 +1361,7 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	ret = vvcam_sys_reset_release(&pdwe_dev->dw_crg);
 	if (ret) {
 		pr_err("%s: DW reset release failed\n", __func__);
-		return ret;
+		goto failed0;
 	}
 
 	(void)vvcam_dw200_smmu_sid_cfg(&pdev->dev);
@@ -1341,13 +1370,13 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	pdwe_dev->dwe_base =
 		devm_platform_ioremap_resource(pdev, DWE_REG_INDEX);
 	if (IS_ERR(pdwe_dev->dwe_base))
-		return PTR_ERR(pdwe_dev->dwe_base);
+		goto failed0;
 
 	/* VSE ioremap */
 	pdwe_dev->vse_base =
 		devm_platform_ioremap_resource(pdev, VSE_REG_INDEX);
 	if (IS_ERR(pdwe_dev->vse_base)) {
-		return PTR_ERR(pdwe_dev->vse_base);
+		goto failed0;
 	}
 
 #ifdef DWE_REG_RESET
@@ -1368,7 +1397,7 @@ static int es_dewarp_probe(struct platform_device *pdev)
 			       "vivdw200-dwe", (void *)pdriver_dev);
 	if (ret != 0) {
 		pr_err("%s:request irq error\n", __func__);
-		return ret;
+		goto failed0;
 	}
 
 	pdriver_dev->irq_num_vse = platform_get_irq(pdev, 1);
@@ -1378,15 +1407,16 @@ static int es_dewarp_probe(struct platform_device *pdev)
 			       "vivdw200-vse", (void *)pdriver_dev);
 	if (ret != 0) {
 		pr_err("%s:request irq error\n", __func__);
-		return ret;
+		goto failed0;
 	}
 
-    ret = of_property_read_u32(pdev->dev.of_node, "numa-node-id", &id);
-    if (ret) {
-        dev_err(&pdev->dev, "Failed to read index property, ret = %d\n", ret);
-        return ret;
-    }
-    pr_info("dewarp dev is on die%d\n", id);
+	ret = of_property_read_u32(pdev->dev.of_node, "numa-node-id", &id);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to read index property, ret = %d\n",
+			ret);
+		goto failed0;
+	}
+	pr_info("dewarp dev is on die%d\n", id);
 
 	cdev_init(&pdriver_dev->cdev, &es_dewarp_fops);
 	pdriver_dev->cdev.owner = THIS_MODULE;
@@ -1394,13 +1424,13 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	ret = cdev_add(&pdriver_dev->cdev, devt + id, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to add cdev\n");
-		return ret;
+		goto failed0;
 	}
 	pdriver_dev->device = device_create(es_dewarp_class, &pdev->dev,
 					    devt + id, NULL, "es_dewarp%d", id);
 	if (IS_ERR(pdriver_dev->device)) {
 		cdev_del(&pdriver_dev->cdev);
-		return PTR_ERR(pdriver_dev->device);
+		goto failed0;
 	}
 	platform_set_drvdata(pdev, pdriver_dev);
 
@@ -1437,6 +1467,13 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	atomic_set(&pdriver_dev->trigger_atom, 0);
 	init_waitqueue_head(&pdriver_dev->trigger_wq);
 
+	return ret;
+failed0:
+	vvcam_sys_clk_unprepare(&pdwe_dev->dw_crg);
+#if defined(CONFIG_PM_DEVFREQ)
+	if(df)
+		devm_devfreq_remove_device(&pdev->dev, df);
+#endif
 	return ret;
 }
 

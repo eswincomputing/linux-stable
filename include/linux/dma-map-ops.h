@@ -366,6 +366,10 @@ static inline pgprot_t dma_pgprot(struct device *dev, pgprot_t prot,
 #ifdef CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE
 void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
 		enum dma_data_direction dir);
+
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+void arch_sync_cache_all(phys_addr_t phys, size_t size);
+#endif
 #else
 static inline void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
 		enum dma_data_direction dir)

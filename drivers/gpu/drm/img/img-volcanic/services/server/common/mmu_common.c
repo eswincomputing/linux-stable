@@ -840,8 +840,10 @@ static PVRSRV_ERROR _MMU_PhysMem_RAImportAlloc(RA_PERARENA_HANDLE hArenaHandle,
 	psImport->base = (RA_BASE_T)psMapping->sDevPAddr.uiAddr;
 	psImport->uSize = uiSize;
 
+	#if (MAP_UNCACHED_MEM)
+		arch_sync_dma_for_device(page_to_phys((struct page*)psMapping->sMemHandle.u.pvHandle), PAGE_ALIGN(uiSize), DMA_TO_DEVICE);
+	#endif
 	return PVRSRV_OK;
-
 e1:
 	OSFreeMem(psMapping);
 e0:

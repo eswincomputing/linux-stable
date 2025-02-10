@@ -940,6 +940,7 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 					    sizeof(struct es_dsp_stats));
 	dsp->dev = &pdev->dev;
 	dsp->rate = DSP_SUBSYS_HILOAD_CLK;
+	atomic_set(&dsp->dmabuf_mapped_cnt,0);
 	mutex_init(&dsp->lock);
 
 	ret = dsp_alloc_hw(pdev, dsp);

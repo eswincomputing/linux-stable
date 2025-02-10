@@ -74,8 +74,18 @@ config DW_HDMI_HDCP2
       Designware HDMI block.
 
 config ESWIN_MIPI_DSI
-    tristate "Eswin mipi dsi and 1080p panel driver"
-    select DRM_ESWIN
+    bool "Eswin mipi dsi and 1080p panel driver"
+    depends on DRM_ESWIN
     select DRM_DW_MIPI_DSI
     help
       Support mipi dsi 4-lanes panel output
+
+config ESWIN_RASPBERRYPI_7INCH_PANEL
+    bool "Support for Raspberry Pi 7-inch DSI panel"
+    depends on ESWIN_MIPI_DSI
+    select PM
+    select REGULATOR_RASPBERRYPI_TOUCHSCREEN_ATTINY
+    select DRM_PANEL_SIMPLE
+    select DRM_TOSHIBA_TC358762
+    help
+      Enable support for the Raspberry Pi 7-inch DSI panel

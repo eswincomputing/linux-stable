@@ -175,7 +175,9 @@ PVRSRV_ERROR DevPhysMemAlloc(PVRSRV_DEVICE_NODE	*psDevNode,
 
 		/*Fill the memory with given content */
 		OSDeviceMemSet(pvCpuVAddr, u8Value, ui32MemSize);
-
+		#if (MAP_UNCACHED_MEM)
+			arch_sync_dma_for_device(page_to_phys((struct page*)psMemHandle->u.pvHandle), PAGE_ALIGN(ui32MemSize), DMA_TO_DEVICE);
+		#endif
 		/*Map the page to the CPU VA space */
 		eError = PhysHeapPagesClean(psDevNode->psMMUPhysHeap,
 		                            psMemHandle,

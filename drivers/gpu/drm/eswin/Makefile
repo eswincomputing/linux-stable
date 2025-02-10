@@ -24,4 +24,4 @@ dw_hdcp2-$(CONFIG_DW_HDMI_HDCP2) += dw_hdmi_hdcp2.o
 obj-$(CONFIG_DRM_ESWIN) += es_drm.o
 obj-$(CONFIG_DW_HDMI_HDCP2) += dw_hdcp2.o
 
-obj-$(CONFIG_ESWIN_MIPI_DSI)+= es_mipi_dsi.o es_panel.o
+es_drm-$(CONFIG_ESWIN_MIPI_DSI)+= es_mipi_dsi.o es_panel.o

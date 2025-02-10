@@ -45,6 +45,8 @@
 #include <uapi/linux/es_vb_user.h>
 #include <uapi/linux/mmz_vb.h>
 #include "include/linux/mmz_vb.h"
+#include <asm/dma-noncoherent.h>
+
 
 MODULE_IMPORT_NS(DMA_BUF);
 
@@ -101,7 +103,7 @@ static int vb_blk_to_pool(struct esVB_BLOCK_TO_POOL_CMD_S *blkToPoolCmd);
 static int vb_get_blk_offset(struct esVB_GET_BLOCKOFFSET_CMD_S *getBlkOffsetCmd);
 static int vb_split_dmabuf(struct esVB_SPLIT_DMABUF_CMD_S *splitDmabufCmd);
 static int vb_get_dmabuf_refcnt(struct esVB_DMABUF_REFCOUNT_CMD_S *getDmabufRefCntCmd);
-static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd);
+static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, eic770x_memory_type_t *p_mem_type);
 static int vb_get_dmabuf_size(struct esVB_DMABUF_SIZE_CMD_S *getDmabufSizeCmd);
 static int mmz_vb_pool_exit(void);
 static int mmz_vb_init_memory_region(void);
@@ -854,6 +856,7 @@ out_free:
 static int vb_ioctl_retrieve_mem_node(void __user *user_retrieveMemNodeCmd)
 {
 	int ret = 0;
+	eic770x_memory_type_t mem_type;
 	struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd;
 
 	retrieveMemNodeCmd = kzalloc(sizeof(*retrieveMemNodeCmd), GFP_KERNEL);
@@ -865,7 +868,7 @@ static int vb_ioctl_retrieve_mem_node(void __user *user_retrieveMemNodeCmd)
 		goto out_free;
 	}
 
-	ret = vb_retrieve_mem_node(retrieveMemNodeCmd);
+	ret = vb_retrieve_mem_node(retrieveMemNodeCmd, &mem_type);
 	if (ret)
 		goto out_free;
 
@@ -1466,6 +1469,25 @@ static int vb_ioctl_uninit_config(void __user *user_cmd)
 	return 0;
 }
 
+static int vb_ioctl_flush_all(void __user *user_cmd)
+{
+	eic770x_memory_type_t mem_type;
+	struct esVB_RETRIEVE_MEM_NODE_CMD_S retrieveMemNodeCmd;
+	int ret = 0;
+
+	if (copy_from_user(&retrieveMemNodeCmd.fd, user_cmd, sizeof(int))) {
+		return -EFAULT;
+	}
+	retrieveMemNodeCmd.cpu_vaddr = NULL;
+	ret = vb_retrieve_mem_node(&retrieveMemNodeCmd, &mem_type);
+	if (ret)
+		return ret;
+
+	_do_arch_sync_cache_all(retrieveMemNodeCmd.numa_node, mem_type);
+
+	return 0;
+}
+
 static long mmz_vb_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -1505,6 +1527,8 @@ static long mmz_vb_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned 
 		return vb_ioctl_retrieve_mem_node(argp);
 	case MMZ_VB_IOCTL_DMABUF_SIZE:
 		return vb_ioctl_get_dmabuf_size(argp);
+	case MMZ_VB_IOCTL_FLUSH_ALL:
+		return vb_ioctl_flush_all(argp);
 	default:
 		pr_debug("Invalid IOCTL CMD!!!\n");
 		return -EINVAL;
@@ -1629,8 +1653,8 @@ static int mmz_vb_idr_iterate_show(int id, void *p, void *data)
 
 	spin_lock(&pool->lock);
 	pool_cfg = &pool->poolCfg;
-	es_seq_printf(s, "\t Uid %d, PoolId %d, blkSize 0x%llx, blkCnt %d, "
-		"RemapMode %d, mmzName %s, allocated blkCnt %d\n\r", pool->enVbUid,
+	es_seq_printf(s, "\t Uid %-2d, PoolId %-4d, blkSize 0x%08llx, blkCnt %-8d, "
+		"RemapMode %d, mmzName %s, allocated blkCnt %-8d\n\r", pool->enVbUid,
 		pool->poolId, pool_cfg->blkSize, pool_cfg->blkCnt,
 		pool_cfg->enRemapMode, pool_cfg->mmzName,
 		pool_cfg->blkCnt - vb_pool_get_free_block_cnt_unlock(pool));
@@ -2249,14 +2273,13 @@ static int vb_get_dmabuf_refcnt(struct esVB_DMABUF_REFCOUNT_CMD_S *getDmabufRefC
 	return ret;
 }
 
-#define PAGE_IN_SPRAM_DIE0(page) ((page_to_phys(page)>=0x59000000) && (page_to_phys(page)<0x59400000))
-#define PAGE_IN_SPRAM_DIE1(page) ((page_to_phys(page)>=0x79000000) && (page_to_phys(page)<0x79400000))
-static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, int *nid)
+static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, int *p_nid, eic770x_memory_type_t *p_mem_type)
 {
 	int ret = 0;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct page *page = NULL;
+	unsigned long pfn;
 
 	get_dma_buf(dmabuf);
 	attach = dma_buf_attach(dmabuf, mmz_vb_dev);
@@ -2276,14 +2299,8 @@ static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, int *nid)
 	}
 
 	page = sg_page(sgt->sgl);
-	if (unlikely(PAGE_IN_SPRAM_DIE0(page))) {
-		*nid = 0;
-	}
-	else if(unlikely(PAGE_IN_SPRAM_DIE1(page))) {
-		*nid = 1;
-	}
-	else
-		*nid = page_to_nid(page);
+	pfn = page_to_pfn(page);
+	arch_get_mem_node_and_type(pfn, p_nid, p_mem_type);
 
 	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 	/* detach */
@@ -2291,11 +2308,11 @@ static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, int *nid)
 	/* put dmabuf back */
 	dma_buf_put(dmabuf);
 
-	pr_debug("%s, mem node is %d\n", __func__, *nid);
+	pr_debug("%s, mem node is %d\n", __func__, *p_nid);
 	return ret;
 }
 
-static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd)
+static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, eic770x_memory_type_t *p_mem_type)
 {
 	int ret = 0;
 	struct dma_buf *dmabuf;
@@ -2312,7 +2329,7 @@ static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMem
 			return PTR_ERR(dmabuf);
 		}
 
-		ret = do_vb_retrive_mem_node(dmabuf, &retrieveMemNodeCmd->numa_node);
+		ret = do_vb_retrive_mem_node(dmabuf, &retrieveMemNodeCmd->numa_node, p_mem_type);
 		/* put dmabuf back */
 		dma_buf_put(dmabuf);
 	}
@@ -2332,7 +2349,7 @@ static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMem
 			return -EFAULT;
 		}
 		dmabuf = vma->vm_private_data;
-		ret = do_vb_retrive_mem_node(dmabuf, &retrieveMemNodeCmd->numa_node);
+		ret = do_vb_retrive_mem_node(dmabuf, &retrieveMemNodeCmd->numa_node, p_mem_type);
 	}
 
 	return ret;

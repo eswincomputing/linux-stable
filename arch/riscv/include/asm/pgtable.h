@@ -305,6 +305,8 @@ extern struct pt_alloc_ops pt_ops __initdata;
 
 #define CHECK_MEMORY_RANGE_OPFUNC(pfn, range, die)	((pfn & _##range##_PORT_##die##_ADDR_RANGE_BITMASK) == _##range##_PORT_##die##_ADDR_RANGE_VAL)
 
+#define PFN_IN_SPRAM_DIE0(pfn) ((pfn_to_phys(pfn)>=0x59000000) && (pfn_to_phys(pfn)<0x59400000))
+#define PFN_IN_SPRAM_DIE1(pfn) ((pfn_to_phys(pfn)>=0x79000000) && (pfn_to_phys(pfn)<0x79400000))
 /* pha conversion between mem port and sys port or sysllc_port */
 static inline unsigned long convert_pfn_from_mem_to_sys_port(unsigned long pfn)
 {

@@ -1106,7 +1106,7 @@ static int i2s_probe(struct platform_device *pdev)
 	} else {
 		ret = esw_pcm_dma_dai_register(i2s_drvdata);
 		if (ret) {
-			dev_err(&pdev->dev, "could not register pcm: %d\n", ret);
+			dev_warn(&pdev->dev, "could not register pcm: %d\n", ret);
 			goto err_probe;
 		}
 	}

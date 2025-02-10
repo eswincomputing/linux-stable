@@ -347,12 +347,41 @@
 			};
 		};
 
+		d0_aon_dmac: dma-controller-aon@0x518c0000 {
+			compatible = "eswin,eic770x-axi-dma";
+			reg = <0x0 0x518c0000 0x0 0x10000>;
+			interrupt-parent = <&plic0>;
+			interrupts = <289>;
+			#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
+			clocks = <&d0_clock WIN2030_CLK_AONDMA_ACLK>,
+				 <&d0_clock WIN2030_CLK_AONDMA_CFG>;
+			clock-names = "core-clk", "cfgr-clk";
+			resets = <&d0_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
+				<&d0_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
+			reset-names = "arst", "prst";
+			dma-channels = <16>;
+			snps,dma-masters = <2>;
+			snps,priority = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+			snps,data-width = <3>;
+			snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
+			snps,axi-max-burst-len = <32>;
+			snps,max-msize = <64>;
+			#size-cells = <2>;
+			#address-cells = <2>;
+			dma-ranges = <0x0 0x80000000 0x0 0x80000000 0x100 0x0>;
+			iommus = <&smmu0 WIN2030_SID_DMA1>;
+			tbus = <WIN2030_TBUID_DMA1>;
+			eswin,syscfg = <&d0_sys_con DMA1_SID_REG_OFFSET 0x370>;
+			numa-node-id = <0>;
+			dma-noncoherent;
+		};
+
 		d0_dmac0: dma-controller-hsp@0x50430000 {
 			compatible = "eswin,eic770x-axi-dma";
 			reg = <0x0 0x50430000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupts = <57>;
-			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
+			#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
 			clocks = <&d0_clock WIN2030_CLK_HSP_DMA0_CLK>,
 					 <&d0_clock WIN2030_CLK_HSP_DMA0_CLK_TEST>;
 			clock-names = "core-clk", "cfgr-clk";
@@ -369,35 +398,6 @@
 			iommus = <&smmu0 WIN2030_SID_DMA0>;
 			tbus = <WIN2030_TBUID_DMA0>;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x104c>;
-			eswin,syscfg = <&d0_sys_con DMA1_SID_REG_OFFSET 0x370>;
-			numa-node-id = <0>;
-			dma-noncoherent;
-		};
-
-		d0_aon_dmac: dma-controller-aon@0x518c0000 {
-			compatible = "eswin,eic770x-axi-dma";
-			reg = <0x0 0x518c0000 0x0 0x10000>;
-			interrupt-parent = <&plic0>;
-			interrupts = <289>;
-			#dma-cells = <2>; // change dma-cells value <1> to <2>, to support peripheral selection dma-controller,See the parameter dmas for details;
-			clocks = <&d0_clock WIN2030_CLK_AONDMA_ACLK>,
-				 <&d0_clock WIN2030_CLK_AONDMA_CFG>;
-			clock-names = "core-clk", "cfgr-clk";
-			resets = <&d0_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
-				<&d0_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
-			reset-names = "arst", "prst";
-			dma-channels = <16>;
-			snps,dma-masters = <2>;
-			snps,priority = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
-			snps,data-width = <3>;
-			snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
-			snps,axi-max-burst-len = <32>;
-			// snps,max-msize = <64>;
-			#size-cells = <2>;
-			#address-cells = <2>;
-			dma-ranges = <0x0 0x80000000 0x0 0x80000000 0x100 0x0>;
-			iommus = <&smmu0 WIN2030_SID_DMA1>;
-			tbus = <WIN2030_TBUID_DMA1>;
 			eswin,syscfg = <&d0_sys_con DMA1_SID_REG_OFFSET 0x370>;
 			numa-node-id = <0>;
 			dma-noncoherent;
@@ -489,13 +489,19 @@
 			clocks = <&d0_clock WIN2030_CLK_NPU_ACLK>,
 					<&d0_clock WIN2030_CLK_NPU_CFG_CLK>,
 					<&d0_clock WIN2030_CLK_NPU_CLK>,
+					<&d0_clock WIN2030_CLK_NPU_LLC_ACLK>,
 					<&d0_clock WIN2030_CLK_NPU_E31_CLK>,
 					<&d0_clock WIN2030_MUX_U_NPU_CORE_3MUX1_GFREE>,
+					<&d0_clock WIN2030_MUX_U_NPU_LLCLK_3MUX1_GFREE>,
 					<&d0_clock WIN2030_SPLL2_FOUT2>,
-					<&d0_clock WIN2030_SPLL1_FOUT1>;
+					<&d0_clock WIN2030_SPLL1_FOUT1>,
+					<&d0_clock WIN2030_CLK_CLK_NPU_LLC_SRC0>,
+					<&d0_clock WIN2030_VPLL_FOUT1>;
 
-			clock-names = "aclk", "cfg_clk", "core_clk", "e31_core_clk", "mux_u_npu_core_3mux1_gfree", "fixed_rate_clk_spll2_fout2",
-					"fixed_rate_clk_spll1_fout1";
+			clock-names = 	"aclk", "cfg_clk", "core_clk", "clk_npu_llc_aclk", "e31_core_clk",
+					"mux_u_npu_core_3mux1_gfree", "mux_u_npu_llclk_3mux1_gfree",
+					"fixed_rate_clk_spll2_fout2", "fixed_rate_clk_spll1_fout1", "clk_clk_npu_llc_src0",
+					"fixed_rate_clk_vpll_fout1";
 
 			resets = <&d0_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
 			reset-names = "e31_core";
@@ -1486,7 +1492,7 @@
 				* 41 : i2c0 aon dma handshake number
 				* 0xff : no need to select to dma controller
 				*/
-				dmas = <&d0_aon_dmac 41 0xff>, <&d0_aon_dmac 42 0xff>;
+				dmas = <&d0_aon_dmac 10 41 0xff>, <&d0_aon_dmac 11 42 0xff>;
 				numa-node-id = <0>;
 		};
 		d0_aon_i2c1: i2c@51838000 {
@@ -1751,7 +1757,7 @@
 			#sound-dai-cells = <0x00000000>;
 			reg = <0x0 0x50200000 0x0 0x10000>;
 			dma-names = "rx", "tx";
-			dmas = <&d0_aon_dmac 4 0>, <&d0_aon_dmac 5 0>;
+			dmas = <&d0_aon_dmac 4 4 0>, <&d0_aon_dmac 5 5 0>;
 			vo_mclk_sel,syscrg = <&d0_sys_crg 0x1bc>;
 			resets = <&d0_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d0_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
@@ -1771,7 +1777,7 @@
 			#sound-dai-cells = <0x00000000>;
 			reg = <0x0 0x50210000 0x0 0x10000>;
 			dma-names = "rx", "tx";
-			dmas = <&d0_aon_dmac 2 1>, <&d0_aon_dmac 3 1>;
+			dmas = <&d0_aon_dmac 6 2 1>, <&d0_aon_dmac 7 3 1>;
 			vo_mclk_sel,syscrg = <&d0_sys_crg 0x1bc>;
 			resets = <&d0_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d0_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
@@ -1791,7 +1797,7 @@
 			#sound-dai-cells = <0x00000000>;
 			reg = <0x0 0x50220000 0x0 0x10000>;
 			dma-names = "rx", "tx";
-			dmas = <&d0_aon_dmac 0 2>, <&d0_aon_dmac 1 2>;
+			dmas = <&d0_aon_dmac 8 0 2>, <&d0_aon_dmac 9 1 2>;
 			vo_mclk_sel,syscrg = <&d0_sys_crg 0x1bc>;
 			resets = <&d0_reset VO_I2SRST_CTRL SW_VO_I2S_RSTN>,
 				<&d0_reset VO_I2SRST_CTRL SW_VO_I2S_PRSTN>,
@@ -1824,8 +1830,8 @@
 
 		video_output: display-subsystem@0 {
 			compatible = "eswin,display-subsystem";
-			ports = <&dc_out>;
 			numa-node-id = <0>;
+			ports = <&dc_out>;
 			dma-noncoherent;
 		};
 
@@ -1862,21 +1868,6 @@
 			dc_out: port {
 				#address-cells = <1>;
 				#size-cells = <0>;
-
-				dc_out_dsi: endpoint@0 {
-					reg = <0>;
-					remote-endpoint = <&dsi_input>;
-				};
-
-				dc_out_dpi1: endpoint@1 {
-					reg = <1>;
-					remote-endpoint = <&vd_input>;
-				};
-
-				dc_out_hdmi: endpoint@2 {
-					reg = <2>;
-					remote-endpoint = <&hdmi_in_dc>;
-				};
 			};
 		};
 
@@ -1884,12 +1875,6 @@
 			compatible = "eswin,virtual_display";
 			bpp = /bits/ 8 <8>;
 			numa-node-id = <0>;
-
-			port {
-				vd_input: endpoint {
-					remote-endpoint = <&dc_out_dpi1>;
-				};
-			};
 		};
 
 		dsi_output: dsi-output@0 {
@@ -1908,47 +1893,10 @@
 			resets = <&d0_reset VO_PHYRST_CTRL SW_VO_MIPI_PRSTN>;
 			reset-names ="phyrstn";
 			numa-node-id = <0>;
-
 			/*
 			phys = <&dphy>;
 			phy-names = "dphy";
 			*/
-
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				port@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-					dsi_input: endpoint {
-						remote-endpoint = <&dc_out_dsi>;
-					};
-				};
-
-				port@1 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <1>;
-
-					mipi_dsi_out: endpoint {
-						remote-endpoint = <&panel_in>;
-					};
-				};
-			};
-
-			dsi_panel:dsi_panel@0 {
-				compatible = "eswin,generic-panel";
-				reg = <0>;
-				dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
-				dsi,lanes = <4>;
-				port {
-					panel_in: endpoint {
-						remote-endpoint = <&mipi_dsi_out>;
-					};
-				};
-			};
 		};
 
 		dc_test: dctest@502c0000 {
@@ -1979,17 +1927,6 @@
 					 <&d0_reset VO_PHYRST_CTRL SW_VO_HDMI_RSTN>;
 			reset-names = "prstn", "phyrstn", "rstn";
 			numa-node-id = <0>;
-
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@0 {
-					reg = <0>;
-					hdmi_in_dc: endpoint@0 {
-						remote-endpoint = <&dc_out_hdmi>;
-					};
-				};
-			};
 		};
 
 		dw_hdmi_hdcp2: hdmi-hdcp2@50290000 {
@@ -2124,6 +2061,7 @@
 			#size-cells = <2>;
 			reg = <0x0 0x51030000 0x0 0x10000>;
 			numa-node-id = <0>;
+			tbus = <WIN2030_TBUID_ISP>;
 		};
 
 

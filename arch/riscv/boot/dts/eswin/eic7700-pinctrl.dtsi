@@ -625,6 +625,11 @@
 					groups = "gpio23_group";
 					function = "gpio23_func";
 				};
+				conf {
+					groups = "gpio23_group";
+					input-enable = <1>;
+					bias-pull-down = <1>;
+				};
 			};
             pinctrl_gpio24_default: gpio24-default{
 				mux {

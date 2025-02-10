@@ -1,12 +1,24 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Performance test APIs for ESWIN memory
  *
- * Copyright 2024 Beijing ESWIN Computing Technology Co., Ltd.
- *   Authors:
- *    LinMin<linmin@eswincomputing.com>
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Min Lin <linmin@eswincomputing.com>
  */
+
 #ifndef __MEM_PERF_API_H__
 #define __MEM_PERF_API_H__
 
@@ -83,6 +95,8 @@ static inline int memperf_record_cycle_end(struct mem_perf_info *m_perf_i)
 }
 
 #if defined(CONFIG_RISCV)
+// #define RTCCLK 32768
+#define RTCCLK 1000000
 static inline int memperf_print_records(struct list_head *mem_perf_list_head)
 {
     struct mem_perf_info *m_perf_i;
@@ -92,7 +106,7 @@ static inline int memperf_print_records(struct list_head *mem_perf_list_head)
         m_perf_i->cycles_elapased = m_perf_i->cycles_end - m_perf_i->cycles_start;
         total_cycles += m_perf_i->cycles_elapased;
     }
-    PRINT_INFO("Total cycles:%lld, %lld us\n", total_cycles, total_cycles*1000*1000/32768);
+    PRINT_INFO("Total cycles:%lld, %lld us\n", total_cycles, total_cycles*1000*1000/RTCCLK);
     list_for_each_entry(m_perf_i, mem_perf_list_head, node) {
         PRINT_INFO("cycle_elapsed:%lld---%%\%lld.%2lld, %s\n",
             m_perf_i->cycles_elapased, (100*m_perf_i->cycles_elapased)/total_cycles,

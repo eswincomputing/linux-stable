@@ -799,7 +799,12 @@ config REGULATOR_MPQ8785
 	tristate "mps,mpq8785"
 	help
 	  This driver provides support for the voltage regulators on the
-	  eswin evb.
+	  eswin board.
+config REGULATOR_TPS549D22
+	tristate "ti,tps549d22"
+	help
+	  This driver provides support for the voltage regulators on the
+	  eswin board.
 config REGULATOR_ES5340
 	tristate "einno,es5340"
 	depends on I2C && OF

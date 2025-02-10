@@ -129,6 +129,8 @@ static inline void axi_chan_config_write(struct axi_dma_chan *chan,
 			 config->hs_sel_dst << CH_CFG_H_HS_SEL_DST_POS |
 			 config->src_per << CH_CFG_H_SRC_PER_POS |
 			 config->dst_per << CH_CFG_H_DST_PER_POS |
+			 0xF <<CH_CFG_H_SRC_OSR_LMT_POS |
+			 0xF <<CH_CFG_H_DST_OSR_LMT_POS |
 			 config->prior << CH_CFG_H_PRIORITY_POS;
 	} else {
 		cfg_lo |= config->src_per << CH_CFG2_L_SRC_PER_POS |
@@ -136,6 +138,8 @@ static inline void axi_chan_config_write(struct axi_dma_chan *chan,
 		cfg_hi = config->tt_fc << CH_CFG2_H_TT_FC_POS |
 			 config->hs_sel_src << CH_CFG2_H_HS_SEL_SRC_POS |
 			 config->hs_sel_dst << CH_CFG2_H_HS_SEL_DST_POS |
+			 0xF <<CH_CFG2_H_SRC_OSR_LMT_POS |
+			 0xF <<CH_CFG2_H_DST_OSR_LMT_POS |
 			 config->prior << CH_CFG2_H_PRIORITY_POS;
 	}
 	axi_chan_iowrite32(chan, CH_CFG_L, cfg_lo);
@@ -687,6 +691,8 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 	size_t block_ts;
 	u32 ctllo, ctlhi;
 	u32 burst_len;
+	u32 src_maxburst;
+	u32 dst_maxburst;
 
 	axi_block_ts = chan->chip->dw->hdata->block_size[chan->id];
 
@@ -699,6 +705,8 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 		return -EINVAL;
 	}
 
+	src_maxburst = chan->chip->dw->hdata->max_msize;
+	dst_maxburst  = chan->chip->dw->hdata->max_msize;
 	switch (chan->direction) {
 	case DMA_MEM_TO_DEV:
 		reg_width = __ffs(chan->config.dst_addr_width);
@@ -707,6 +715,7 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 			mem_width << CH_CTL_L_SRC_WIDTH_POS |
 			DWAXIDMAC_CH_CTL_L_NOINC << CH_CTL_L_DST_INC_POS |
 			DWAXIDMAC_CH_CTL_L_INC << CH_CTL_L_SRC_INC_POS;
+		dst_maxburst = chan->config.dst_maxburst;
 		block_ts = len >> mem_width;
 		break;
 	case DMA_DEV_TO_MEM:
@@ -716,6 +725,7 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 			mem_width << CH_CTL_L_DST_WIDTH_POS |
 			DWAXIDMAC_CH_CTL_L_INC << CH_CTL_L_DST_INC_POS |
 			DWAXIDMAC_CH_CTL_L_NOINC << CH_CTL_L_SRC_INC_POS;
+		src_maxburst = chan->config.src_maxburst;
 		block_ts = len >> reg_width;
 		break;
 	default:
@@ -752,6 +762,14 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 
 	ctllo |= DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_DST_MSIZE_POS |
 		 DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS;
+	if(is_power_of_2(dst_maxburst) && is_power_of_2(src_maxburst))
+	{
+		dst_maxburst = order_base_2(dst_maxburst)? order_base_2(dst_maxburst) - 1 : 0;
+		src_maxburst = order_base_2(src_maxburst)? order_base_2(src_maxburst) - 1 : 0;
+	}else
+		dev_err(chan->chip->dev, "dst_burst or src_burst error!\n");
+	ctllo |= dst_maxburst << CH_CTL_L_DST_MSIZE_POS |
+		 src_maxburst << CH_CTL_L_SRC_MSIZE_POS;
 	hw_desc->lli->ctl_lo = cpu_to_le32(ctllo);
 
 	set_desc_src_master(hw_desc, chan);
@@ -954,7 +972,7 @@ dma_chan_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst_adr,
 	size_t block_ts, max_block_ts, xfer_len;
 	struct axi_dma_hw_desc *hw_desc = NULL;
 	struct axi_dma_desc *desc = NULL;
-	u32 xfer_width, reg, num;
+	u32 xfer_width, reg, num, max_burst_len;
 	u64 llp = 0;
 	u8 lms = 0; /* Select AXI0 master for LLI fetching */
 
@@ -962,6 +980,9 @@ dma_chan_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst_adr,
 		axi_chan_name(chan), &src_adr, &dst_adr, len, flags);
 
 	max_block_ts = chan->chip->dw->hdata->block_size[chan->id];
+	max_burst_len = chan->chip->dw->hdata->max_msize;
+	max_burst_len = order_base_2(max_burst_len)? order_base_2(max_burst_len) - 1 : 0;
+
 	xfer_width = axi_chan_get_xfer_width(chan, src_adr, dst_adr, len);
 	num = DIV_ROUND_UP(len, max_block_ts << xfer_width);
 	desc = axi_desc_alloc(num);
@@ -1012,8 +1033,8 @@ dma_chan_prep_dma_memcpy(struct dma_chan *dchan, dma_addr_t dst_adr,
 		}
 		hw_desc->lli->ctl_hi = cpu_to_le32(reg);
 
-		reg = (DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_DST_MSIZE_POS |
-		       DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS |
+		reg = (max_burst_len << CH_CTL_L_DST_MSIZE_POS |
+		       max_burst_len << CH_CTL_L_SRC_MSIZE_POS |
 		       xfer_width << CH_CTL_L_DST_WIDTH_POS |
 		       xfer_width << CH_CTL_L_SRC_WIDTH_POS |
 		       DWAXIDMAC_CH_CTL_L_INC << CH_CTL_L_DST_INC_POS |
@@ -1396,23 +1417,42 @@ int win2030_dma_sel_cfg(struct axi_dma_chan *chan, u32 val)
 	return 0;
 }
 
+static bool axi_dma_filter_fn(struct dma_chan *dchan, void *param)
+{
+	struct axi_dma_filter_data *fdata = param;
+
+	if (dchan->device->dev != fdata->dw_dma->dma.dev)
+		return false;
+
+	if (fdata->request != dchan->chan_id)
+		return false;
+
+	return true;
+}
+
 static struct dma_chan *dw_axi_dma_of_xlate(struct of_phandle_args *dma_spec,
 					    struct of_dma *ofdma)
 {
 	struct dw_axi_dma *dw = ofdma->of_dma_data;
 	struct axi_dma_chan *chan;
 	struct dma_chan *dchan;
+	struct axi_dma_filter_data fdata;
 
-	dchan = dma_get_any_slave_channel(&dw->dma);
-	if (!dchan)
+	fdata.dw_dma = dw,
+	fdata.request = dma_spec->args[0];
+
+	dchan = dma_request_channel(dw->dma.cap_mask, axi_dma_filter_fn, &fdata);
+	if (!dchan) {
+		dev_err(dw->dma.dev, "request chan failed\n");
 		return NULL;
+	}
 
 	chan = dchan_to_axi_dma_chan(dchan);
-	chan->hw_handshake_num = dma_spec->args[0];
+	chan->hw_handshake_num = dma_spec->args[1];
 	int flags = (uintptr_t)of_device_get_match_data(chan->chip->dev);
 	if (flags & AXI_DMA_FLAG_HAS_EIC7700) {
 		if (dma_spec->args_count > 1)
-			win2030_dma_sel_cfg(chan, dma_spec->args[1]);
+			win2030_dma_sel_cfg(chan, dma_spec->args[2]);
 	}
 	return dchan;
 }
@@ -1484,6 +1524,18 @@ static int parse_device_properties(struct axi_dma_chip *chip)
 		chip->dw->hdata->axi_rw_burst_len = tmp;
 	}
 
+	/* axi-max-burst-len is optional property */
+	ret = device_property_read_u32(dev, "snps,max-msize", &tmp);
+	if (!ret) {
+		if (tmp > 1024)
+			return -EINVAL;
+		if (tmp < 1)
+			return -EINVAL;
+
+		chip->dw->hdata->max_msize = tmp;
+	}else
+		chip->dw->hdata->max_msize = 4;
+	
 	return 0;
 }
 

@@ -2743,6 +2743,7 @@ static void dw_hdmi_update_power(struct dw_hdmi *hdmi)
 			struct edid *edid;
 			edid = dw_hdmi_get_edid(hdmi, &hdmi->connector);
 			dw_hdmi_poweron(hdmi);
+			kfree(edid);
 		}
 	}
 }
@@ -3369,13 +3370,6 @@ dw_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return MODE_NO_INTERLACE;
-
-	if (mode->clock != 594000 && mode->clock != 297000 &&
-	    mode->clock != 148500 && mode->clock != 108000 &&
-	    mode->clock != 74250 && mode->clock != 54000 &&
-	    mode->clock != 27000 && mode->clock != 513820) {
-		return MODE_NOCLOCK;
-	}
 
 	if (pdata->mode_valid)
 		mode_status = pdata->mode_valid(hdmi, pdata->priv_data, info,

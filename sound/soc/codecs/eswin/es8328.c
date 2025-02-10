@@ -700,8 +700,12 @@ static const struct snd_soc_dapm_route es8328_dapm_routes[] = {
 
 static int es8328_mute(struct snd_soc_dai *dai, int mute, int direction)
 {
-	if ((mute == 1) && (direction == 0)) {
-		snd_soc_component_write(dai->component, ES8328_DACPOWER, 0xc0);
+	if (direction == 0) {
+		if (mute == 1) {
+			snd_soc_component_write(dai->component, ES8328_DACPOWER, 0xC0);
+		} else {
+			snd_soc_component_write(dai->component, ES8328_DACPOWER, 0x3C);
+		}
 	}
 
 	return snd_soc_component_update_bits(dai->component, ES8328_DACCONTROL3,

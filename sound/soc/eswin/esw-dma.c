@@ -26,6 +26,10 @@
 #include "esw-i2s.h"
 #include "esw-dai.h"
 
+#define MAX_PERIOD_SIZE 4096
+#define MIN_PERIOD_SIZE 512
+#define MAX_PERIOD_CNT 16
+#define MIN_PERIOD_CNT 2
 
 static void esw_pcm_dma_complete(void *arg)
 {
@@ -134,7 +138,6 @@ int esw_pcm_dma_open(struct snd_soc_component *component,
 	struct i2s_dev *chip = dev_get_drvdata(component->dev);
 	struct snd_pcm_hardware hw;
 	struct dma_chan *chan = chip->chan[substream->stream];
-	struct device *dma_dev = chan->device->dev;
 	struct esw_i2s_dma_data *dma_data;
 
 	dev_dbg(chip->dev, "%s\n", __func__);
@@ -144,13 +147,11 @@ int esw_pcm_dma_open(struct snd_soc_component *component,
 	memset(&hw, 0, sizeof(hw));
 	hw.info = SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID |
 			SNDRV_PCM_INFO_INTERLEAVED;
-	hw.periods_min = 2;
-	hw.periods_max = 16;
-	hw.period_bytes_min = dma_data->max_burst * DMA_SLAVE_BUSWIDTH_8_BYTES;
-	if (!hw.period_bytes_min)
-		hw.period_bytes_min = 256;
-	hw.period_bytes_max = dma_get_max_seg_size(dma_dev);
-	hw.buffer_bytes_max = hw.period_bytes_max * 16;
+	hw.periods_min = MIN_PERIOD_CNT;
+	hw.periods_max = MAX_PERIOD_CNT;
+	hw.period_bytes_min = MIN_PERIOD_SIZE;
+	hw.period_bytes_max = MAX_PERIOD_SIZE;
+	hw.buffer_bytes_max = hw.period_bytes_max * MAX_PERIOD_CNT;
 	hw.fifo_size = dma_data->fifo_size;
 	hw.info |= SNDRV_PCM_INFO_BATCH;
 
@@ -426,10 +427,11 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 	chan0 = dma_request_chan(chip->dev, channel_names0);
 	if (IS_ERR(chan0)) {
 		if (PTR_ERR(chan0) == -EPROBE_DEFER) {
-			dev_err(chip->dev, "request dma channel[%s] failed\n", channel_names0);
+			dev_warn(chip->dev, "request dma channel[%s] failed\n", channel_names0);
 			return -EPROBE_DEFER;
 		}
-		dev_err(chip->dev, "dma channel[%s] is NULL\n", channel_names0);
+		chip->chan[SNDRV_PCM_STREAM_PLAYBACK] = NULL;
+		dev_warn(chip->dev, "dma channel[%s] is NULL\n", channel_names0);
 	} else {
 		chip->chan[SNDRV_PCM_STREAM_PLAYBACK] = chan0;
 		period_bytes_max = dma_get_max_seg_size(chan0->device->dev);
@@ -444,11 +446,12 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 	chan1 = dma_request_chan(chip->dev, channel_names1);
 	if (IS_ERR(chan1)) {
 		if (PTR_ERR(chan1) == -EPROBE_DEFER) {
-			dev_err(chip->dev, "request dma channel[%s] failed\n", channel_names1);
+			dev_warn(chip->dev, "request dma channel[%s] failed\n", channel_names1);
 			ret = -EPROBE_DEFER;
 			goto release_buf0;
 		}
-		dev_err(chip->dev, "dma channel[%s] is NULL\n", channel_names1);
+		chip->chan[SNDRV_PCM_STREAM_CAPTURE] = NULL;
+		dev_warn(chip->dev, "dma channel[%s] is NULL\n", channel_names1);
 	} else {
 		chip->chan[SNDRV_PCM_STREAM_CAPTURE] = chan1;
 		period_bytes_max = dma_get_max_seg_size(chan1->device->dev);
@@ -475,11 +478,13 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 release_buf1:
 	kfree(chip->conv_buf[1]);
 release_chan1:
-	dma_release_channel(chip->chan[1]);
+	if (chip->chan[1])
+		dma_release_channel(chip->chan[1]);
 release_buf0:
 	kfree(chip->conv_buf[0]);
 release_chan0:
-	dma_release_channel(chip->chan[0]);
+	if (chip->chan[0])
+		dma_release_channel(chip->chan[0]);
 
 	return ret;
 }
