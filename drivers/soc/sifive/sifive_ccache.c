@@ -45,20 +45,7 @@ enum {
 	CACHE_NODE_1,
 	SHARE_CACHE_NODE_NUM,
 };
-
-struct ccache_flush_mem_info {
-	int nid;
-	int cpuid;
-	eic770x_memory_type_t mem_type;
-	phys_addr_t paddr;
-	size_t size;
-	unsigned long line;
-};
 static void __iomem *ccache_base[SHARE_CACHE_NODE_NUM];
-DEFINE_PER_CPU(void __iomem* [SHARE_CACHE_NODE_NUM], per_cpu_ccache_base);
-
-DEFINE_PER_CPU(struct ccache_flush_mem_info, per_cpu_ccache_flush_mem_info);
-
 static void __iomem *zero_device_base[SHARE_CACHE_NODE_NUM] = {NULL};
 static int g_irq[SHARE_CACHE_NODE_NUM][SIFIVE_CCACHE_MAX_ECCINTR];
 static struct riscv_cacheinfo_ops ccache_cache_ops;
@@ -115,72 +102,37 @@ static void ccache_way_enable(int node_id)
 	val = FIELD_GET(SIFIVE_CCACHE_CONFIG_WAYS_MASK, cfg);
 	writel(val -1 , ccache_base[node_id] + SIFIVE_CCACHE_WAYENABLE);
 }
-
-#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
-static inline void _do_ccache_flush64_range(void *arg)
-{
-	struct ccache_flush_mem_info *p_mem = (struct ccache_flush_mem_info *)arg;
-
-	p_mem->size = p_mem->size + (p_mem->paddr % SIFIVE_CCACHE_FLUSH64_LINE_LEN);
-	p_mem->paddr = ALIGN_DOWN(p_mem->paddr, SIFIVE_CCACHE_FLUSH64_LINE_LEN);
-
-	// pr_debug("%s, mem_nid %d, cpuid %d(smp_processor_id %d)", __func__,
-	// 	 nid, cpudid, smp_processor_id());
-	mb();	/* sync */
-	if (p_mem->mem_type == FLAT_DDR_MEM) {
-		for (p_mem->line = p_mem->paddr; p_mem->line < p_mem->paddr + p_mem->size;
-		p_mem->line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
-			writeq_cpu(p_mem->line, (per_cpu(per_cpu_ccache_base, p_mem->cpuid)[p_mem->nid] + SIFIVE_CCACHE_FLUSH64));
-		}
-	}
-	else {
-		for (p_mem->line = p_mem->paddr; p_mem->line < p_mem->paddr + p_mem->size;
-		p_mem->line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
-			if((!(!(p_mem->line & 0x40000)))^(!(!(p_mem->line & 0x100)))) {
-				writeq_cpu(p_mem->line, (per_cpu(per_cpu_ccache_base, p_mem->cpuid)[CACHE_NODE_1] + SIFIVE_CCACHE_FLUSH64));
-			}
-			else {
-				writeq_cpu(p_mem->line, (per_cpu(per_cpu_ccache_base, p_mem->cpuid)[CACHE_NODE_0] + SIFIVE_CCACHE_FLUSH64));
-			}
-		}
-	}
-	mb();
-}
-static void ccache_flush64_range(phys_addr_t paddr, size_t size)
-{
-	int nid;
-	int cpuid;
-	eic770x_memory_type_t mem_type;
-	struct ccache_flush_mem_info *p_flush_mem_info;
-
-	cpuid = smp_processor_id();
-	arch_get_mem_node_and_type(phys_to_pfn(paddr), &nid, &mem_type);
-	if (likely(mem_type == FLAT_DDR_MEM) || (mem_type == INTERLEAVE_DDR_MEM)) {
-		p_flush_mem_info = &per_cpu(per_cpu_ccache_flush_mem_info, cpuid);
-		p_flush_mem_info->nid = nid;
-		p_flush_mem_info->cpuid = cpuid;
-		p_flush_mem_info->mem_type = mem_type;
-		p_flush_mem_info->paddr = paddr;
-		p_flush_mem_info->size = size;
-		_do_ccache_flush64_range(p_flush_mem_info);
-	}
-	else {
-		WARN(1, "Sifive ccache: flush64 out of range: %llx(%lx), skip flush\n",
-		     paddr, size);
-		return;
-	}
-}
-#else
 static void ccache_flush64_range(phys_addr_t paddr, size_t size)
 {
 	unsigned long line;
 	size = size + (paddr % SIFIVE_CCACHE_FLUSH64_LINE_LEN);
 	paddr = ALIGN_DOWN(paddr, SIFIVE_CCACHE_FLUSH64_LINE_LEN);
 	mb();	/* sync */
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
 	if (paddr >= CONFIG_RISCV_DIE0_CACHED_OFFSET && (paddr + size) <= (CONFIG_RISCV_DIE0_CACHED_OFFSET + CONFIG_RISCV_DIE0_MEM_MAX_SIZE)) {
+	#endif
 		for (line = paddr; line < paddr + size;
 		line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
 			writeq_cpu(line, (ccache_base[CACHE_NODE_0] + SIFIVE_CCACHE_FLUSH64));
+		}
+		mb();
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	}else if (paddr >= CONFIG_RISCV_DIE1_CACHED_OFFSET && (paddr + size) <= (CONFIG_RISCV_DIE1_CACHED_OFFSET + CONFIG_RISCV_DIE1_MEM_MAX_SIZE)) {
+		for (line = paddr; line < paddr + size;
+		line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
+			writeq_cpu(line, (ccache_base[CACHE_NODE_1] + SIFIVE_CCACHE_FLUSH64));
+		}
+		mb();
+	}
+	else if (paddr >= CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET && (paddr + size) <= (CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET + CONFIG_RISCV_INTERLEAVE_MEM_MAX_SIZE)){
+		for (line = paddr; line < paddr + size;
+		line += SIFIVE_CCACHE_FLUSH64_LINE_LEN) {
+			if((!(!(line & 0x40000)))^(!(!(line & 0x100)))) {
+				writeq_cpu(line, (ccache_base[CACHE_NODE_1] + SIFIVE_CCACHE_FLUSH64));
+			}
+			else {
+				writeq_cpu(line, ccache_base[CACHE_NODE_0] + SIFIVE_CCACHE_FLUSH64);
+			}
 		}
 		mb();
 	}
@@ -189,15 +141,14 @@ static void ccache_flush64_range(phys_addr_t paddr, size_t size)
 		     paddr, size);
 		return;
 	}
+	#endif
 }
-#endif
-
 static const struct riscv_nonstd_cache_ops ccache_cmo_ops __initdata = {
 	.wback = &ccache_flush64_range,
 	.inv = &ccache_flush64_range,
 	.wback_inv = &ccache_flush64_range,
 };
-#endif //IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+#endif
 static const struct of_device_id sifive_ccache_ids[] = {
 	{ .compatible = "sifive,fu540-c000-ccache" },
 	{ .compatible = "sifive,fu740-c000-ccache" },
@@ -403,18 +354,6 @@ void ccache_flush_all(void *arg)
 }
 #endif
 
-static void ccache_per_cpu_data_init(int nid)
-{
-	int i;
-
-	for_each_online_cpu(i) {
-		per_cpu(per_cpu_ccache_base, i)[nid] = ccache_base[nid];
-		pr_debug("---%s, cpu %d, per_cpu_ccache_base[%d] addr 0x%llx\n",
-			__func__, i, nid,
-			(u64)__pa(&per_cpu(per_cpu_ccache_base, i)[nid]));
-	}
-}
-
 static int node_index = 0;
 static int __init sifive_ccache_init(void)
 {
@@ -474,7 +413,6 @@ static int __init sifive_ccache_init(void)
 	#ifdef CONFIG_DEBUG_FS
 		setup_sifive_debug();
 	#endif
-		ccache_per_cpu_data_init(node_index);
 	}
 	return 0;
 err_free_irq:
