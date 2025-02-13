@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/******************************************************************************
+ *
+ * ESWIN hae driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: zhilin lei <leizhilin@eswincomputing.com>
+ *
+ ***************************************************************************/
+
 /****************************************************************************
 *
 *    The MIT License (MIT)
@@ -1479,7 +1502,6 @@ static int __devexit viv_dev_remove(struct platform_device *pdev)
 #endif
 
         drv_exit();
-
         if (platform->ops->putPower)
             platform->ops->putPower(platform);
 
@@ -1498,7 +1520,14 @@ static int __devexit viv_dev_remove(struct platform_device *pdev)
 
 static void viv_dev_shutdown(struct platform_device *pdev)
 {
-    galDevice->gotoShutdown = gcvTRUE;
+    gckGALDEVICE gal_device;
+
+    gal_device = platform_get_drvdata(pdev);
+    if (!gal_device) {
+        return;
+    }
+
+    gal_device->gotoShutdown = gcvTRUE;
 
     viv_dev_remove(pdev);
 }
@@ -1636,7 +1665,6 @@ static struct platform_driver viv_dev_driver = {
 static int __init viv_dev_init(void)
 {
     int ret = 0;
-
     ret = gckPLATFORM_Init(&viv_dev_driver, &platform);
 
     if (ret || !platform) {
@@ -1659,9 +1687,10 @@ static int __init viv_dev_init(void)
 
 static void __exit viv_dev_exit(void)
 {
+    gckPLATFORM_Terminate(platform);
+
     platform_driver_unregister(&viv_dev_driver);
 
-    gckPLATFORM_Terminate(platform);
     platform = NULL;
 }
 
