@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Include file for pin control of Eswin EIC770x family SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+#include "eswin-win2030-die0-soc.dtsi"
+
+&SOC {
+	panel_disp: panel_disp {
+		compatible = "raspberrypi,7inch-dsi";
+		status = "okay";
+		backlight = <&reg_display>;
+		power-supply = <&reg_display>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&bridge_out>;
+			};
+		};
+	};
+};
+
+&dc {
+	status = "okay";
+	dc_out: port {
+		dc_out_dsi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&dsi_input>;
+		};
+	};
+};
+
+&dsi_controller {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&bridge_in>;
+			};
+		};
+	};
+
+	toshiba_bridge: bridge@0 {
+		reg = <0>;
+		compatible = "toshiba,tc358762";
+		status = "okay";
+		vddc-supply = <&reg_display>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				bridge_in: endpoint {
+					remote-endpoint = <&mipi_dsi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				bridge_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+};
+
+&video_output {
+	status = "okay";
+	power-supply = <&reg_display>;
+};
+
+&d0_i2c1 {
+	status = "okay";
+	reg_display: regulator@45 {
+		compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
