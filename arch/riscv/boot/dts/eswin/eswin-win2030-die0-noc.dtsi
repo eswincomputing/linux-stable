@@ -301,7 +301,7 @@ d0_llc_noc:d0_llc_noc@52081400 {
 	llcnoc_packet_ddr0_p0_req_probe@52080000 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52080000 0 0x4000>;
-		clocks = <&d0_clock WIN2030_CLK_DDRT0_P0_ACLK>;
+		clocks = <&d0_clock EIC7700_CLK_DDRT0_P0_ACLK>;
 		clock-names = "clk";
 		interrupts = <445>;
 		interrupt-names = "stat";
@@ -313,7 +313,7 @@ d0_llc_noc:d0_llc_noc@52081400 {
 	llcnoc_packet_ddr1_p0_req_probe@52080800 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52080800 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT1_P0_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT1_P0_ACLK>;
 		clock-names = "clk";
 		interrupts = <443>;
 		interrupt-names = "stat";
@@ -328,7 +328,7 @@ d0_llc_noc:d0_llc_noc@52081400 {
 		ranges;
 		compatible = "eswin,win2xxx-noc-trans-probe";
 		reg = <0 0x52081000 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_NOC_NSP_CLK>;
+		clocks =<&d0_clock EIC7700_CLK_NOC_NSP_CLK>;
 		clock-names = "clk";
 		interrupts = <441>;
 		interrupt-names = "stat";
@@ -677,7 +677,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 	sysnoc_packet_ddr0_p1_req_probe@52000000 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52000000 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT0_P1_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT0_P1_ACLK>;
 		clock-names = "clk";
 		interrupts = <439>;
 		interrupt-names = "stat";
@@ -689,7 +689,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 	sysnoc_packet_ddr0_p2_req_probe@52000800 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52000800 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT0_P2_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT0_P2_ACLK>;
 		clock-names = "clk";
 		interrupts = <437>;
 		interrupt-names = "stat";
@@ -701,7 +701,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 	sysnoc_packet_ddr1_p1_req_probe@52001000 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52001000 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT1_P1_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT1_P1_ACLK>;
 		clock-names = "clk";
 		interrupts = <435>;
 		interrupt-names = "stat";
@@ -713,7 +713,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 	sysnoc_packet_ddr1_p2_req_probe@52001800 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52001800 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT1_P2_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT1_P2_ACLK>;
 		clock-names = "clk";
 		interrupts = <433>;
 		interrupt-names = "stat";
@@ -728,7 +728,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 		ranges;
 		compatible = "eswin,win2xxx-noc-trans-probe";
 		reg = <0 0x52002000 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_NOC_NSP_CLK>;
+		clocks =<&d0_clock EIC7700_CLK_NOC_NSP_CLK>;
 		clock-names = "clk";
 		interrupts = <430>;
 		interrupt-names = "stat";
@@ -758,7 +758,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 		ranges;
 		compatible = "eswin,win2xxx-noc-trans-probe";
 		reg = <0 0x52002400 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_NOC_NSP_CLK>;
+		clocks =<&d0_clock EIC7700_CLK_NOC_NSP_CLK>;
 		clock-names = "clk";
 		interrupts = <429>;
 		interrupt-names = "stat";
@@ -793,7 +793,7 @@ d0_sys_noc:d0_sys_noc@52002C00 {
 		ranges;
 		compatible = "eswin,win2xxx-noc-trans-probe";
 		reg = <0 0x52002800 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_NOC_NSP_CLK>;
+		clocks =<&d0_clock EIC7700_CLK_NOC_NSP_CLK>;
 		clock-names = "clk";
 		interrupts = <428>;
 		interrupt-names = "stat";
@@ -2276,7 +2276,7 @@ d0_media_noc:d0_media_noc@52021400 {
 	mnoc_packet_ddr0_p3_req_probe@52020000 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52020000 0 0x4000>;
-		clocks = <&d0_clock WIN2030_CLK_DDRT0_P3_ACLK>;
+		clocks = <&d0_clock EIC7700_CLK_DDRT0_P3_ACLK>;
 		clock-names = "clk";
 		interrupts = <458>;
 		interrupt-names = "stat";
@@ -2288,7 +2288,7 @@ d0_media_noc:d0_media_noc@52021400 {
 	mnoc_packet_ddr1_p3_req_probe@52020800 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52020800 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT1_P3_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT1_P3_ACLK>;
 		clock-names = "clk";
 		interrupts = <456>;
 		interrupt-names = "stat";
@@ -2303,7 +2303,7 @@ d0_media_noc:d0_media_noc@52021400 {
 		ranges;
 		compatible = "eswin,win2xxx-noc-trans-probe";
 		reg = <0 0x52021000 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_NOC_NSP_CLK>;
+		clocks =<&d0_clock EIC7700_CLK_NOC_NSP_CLK>;
 		clock-names = "clk";
 		interrupts = <453>;
 		interrupt-names = "stat";
@@ -2577,7 +2577,7 @@ d0_realtime_noc:d0_realtime_noc@52041400 {
 	rnoc_packet_ddr0_p4_req_probe@52040000 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52040000 0 0x4000>;
-		clocks = <&d0_clock WIN2030_CLK_DDRT0_P4_ACLK>;
+		clocks = <&d0_clock EIC7700_CLK_DDRT0_P4_ACLK>;
 		clock-names = "clk";
 		interrupts = <452>;
 		interrupt-names = "stat";
@@ -2589,7 +2589,7 @@ d0_realtime_noc:d0_realtime_noc@52041400 {
 	rnoc_packet_ddr1_p4_req_probe@52040800 {
 		compatible = "eswin,win2xxx-noc-packet-probe";
 		reg = <0 0x52040800 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_DDRT1_P4_ACLK>;
+		clocks =<&d0_clock EIC7700_CLK_DDRT1_P4_ACLK>;
 		clock-names = "clk";
 		interrupts = <450>;
 		interrupt-names = "stat";
@@ -2604,7 +2604,7 @@ d0_realtime_noc:d0_realtime_noc@52041400 {
 		ranges;
 		compatible = "eswin,win2xxx-noc-trans-probe";
 		reg = <0 0x52041000 0 0x4000>;
-		clocks =<&d0_clock WIN2030_CLK_NOC_NSP_CLK>;
+		clocks =<&d0_clock EIC7700_CLK_NOC_NSP_CLK>;
 		clock-names = "clk";
 		interrupts = <447>;
 		interrupt-names = "stat";

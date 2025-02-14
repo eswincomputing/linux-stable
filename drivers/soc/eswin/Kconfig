@@ -1,6 +1,6 @@
 source "drivers/soc/eswin/ai_driver/Kconfig"
 
-if SOC_SIFIVE || SOC_STARFIVE
+if SOC_ESWIN
 
 config ESWIN_KHANDLE
     bool "eswin kernel khandle functions"

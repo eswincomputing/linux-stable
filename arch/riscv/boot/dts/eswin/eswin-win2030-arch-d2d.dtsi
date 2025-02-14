@@ -107,7 +107,7 @@
 		timebase-frequency = <RTCCLK_FREQ>;
 		tlb-split;
 		numa-node-id = <1>;
-		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_0>;
+		clocks = <&d1_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_0>;
 		operating-points-v2 = <&d1_cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu4_intc: interrupt-controller {
@@ -155,7 +155,7 @@
 		timebase-frequency = <RTCCLK_FREQ>;
 		tlb-split;
 		numa-node-id = <1>;
-		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_1>;
+		clocks = <&d1_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_1>;
 		operating-points-v2 = <&d1_cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu5_intc: interrupt-controller {
@@ -202,7 +202,7 @@
 		timebase-frequency = <RTCCLK_FREQ>;
 		tlb-split;
 		numa-node-id = <1>;
-		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_2>;
+		clocks = <&d1_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_2>;
 		operating-points-v2 = <&d1_cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu6_intc: interrupt-controller {
@@ -249,7 +249,7 @@
 		timebase-frequency = <RTCCLK_FREQ>;
 		tlb-split;
 		numa-node-id = <1>;
-		clocks = <&d1_clock WIN2030_CLK_CPU_EXT_SRC_CORE_CLK_3>;
+		clocks = <&d1_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_3>;
 		operating-points-v2 = <&d1_cpu_opp_table>;
 		cpu-idle-states = <&CPU_RET>;
 		cpu7_intc: interrupt-controller {

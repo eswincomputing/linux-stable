@@ -322,9 +322,12 @@ source "drivers/reset/starfive/Kconfig"
 
 config RESET_ESWIN
 	bool "Reset controller driver for Eswin SoCs"
-	default n
+	default ARCH_ESWIN
 	help
-	  This enables the reset controller driver for Eswin SoCs.
+ 	  This enables the reset controller driver for Eswin SoCs. This driver is
+ 	  specific to Eswin SoCs and should only be enabled if using such hardware.
+ 	  The driver supports eic7700 series chips and provides functionality for
+ 	  asserting and deasserting resets on the chip.
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"
 source "drivers/reset/tegra/Kconfig"

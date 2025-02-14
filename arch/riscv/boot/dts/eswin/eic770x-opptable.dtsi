@@ -18,7 +18,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <dt-bindings/clock/win2030-clock.h>
+#include <dt-bindings/clock/eswin,eic7700-clock.h>
+
+#define CLK_FREQ_1800M					1800000000
+#define CLK_FREQ_1700M					1700000000
+#define CLK_FREQ_1600M					1600000000
+#define CLK_FREQ_1500M					1500000000
+#define CLK_FREQ_1400M					1400000000
+#define CLK_FREQ_1300M					1300000000
+#define CLK_FREQ_1200M					1200000000
+#define CLK_FREQ_1000M					1000000000
+#define CLK_FREQ_900M					900000000
+#define CLK_FREQ_800M					800000000
+#define CLK_FREQ_700M					700000000
+#define CLK_FREQ_600M					600000000
+#define CLK_FREQ_500M					500000000
+#define CLK_FREQ_400M					400000000
+#define CLK_FREQ_200M					200000000
+#define CLK_FREQ_100M					100000000
+#define CLK_FREQ_24M					24000000
+
 / {
 	d0_cpu_opp_table: opp-table-d0@cpu {
 		compatible = "operating-points-v2";

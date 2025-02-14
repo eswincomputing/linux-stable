@@ -1,10 +1,12 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-2.0
 
-config COMMON_CLK_WIN2030
-	bool "Win2030 Clock Driver"
+config COMMON_CLK_EIC7700
+	bool "EIC7700 Clock Driver"
 	help
-	  Build the Eswin Win2030 clock driver based on the common clock framework.
+	  Build the Eswin EIC7700 SOC clock driver based on the common clock framework.
+	  This driver provides support for the clock control on the Eswin EIC7700 SoC,
+	  which is essential for managing clock rates and power management.
 
-if COMMON_CLK_WIN2030
+if COMMON_CLK_EIC7700
 	source "drivers/clk/eswin/test/Kconfig"
 endif

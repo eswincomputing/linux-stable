@@ -49,6 +49,15 @@ config ARCH_THEAD
 	help
 	  This enables support for the RISC-V based T-HEAD SoCs.
 
+config ARCH_ESWIN
+	def_bool SOC_ESWIN
+
+config SOC_ESWIN
+	bool "Eswin SoCs"
+	select ERRATA_SIFIVE if !XIP_KERNEL
+	help
+	  This enables support for Eswin SoC platform hardware.
+
 config ARCH_VIRT
 	def_bool SOC_VIRT
 

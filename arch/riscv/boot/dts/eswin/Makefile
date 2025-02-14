@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-dtb-$(CONFIG_SOC_SIFIVE) += eswin-win2030.dtb \
+dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7700-evb.dtb \
 							eic7700-evb-a2.dtb \
 							eic7700-evb-a3.dtb \

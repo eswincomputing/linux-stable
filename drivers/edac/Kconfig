@@ -563,7 +563,7 @@ config EDAC_NPCM
 
 config EDAC_ESWIN
 	tristate "Synopsys DDR Memory Controller for Eswin"
-	depends on SOC_SIFIVE
+	depends on SOC_ESWIN
 	help
 	  Support for error detection and correction on the Synopsys DDR
 	  memory controller.

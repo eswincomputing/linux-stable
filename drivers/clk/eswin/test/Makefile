@@ -3,4 +3,4 @@
 # Eswin Clock test specific Makefile
 #
 
-obj-$(CONFIG_COMMON_CLK_WIN2030_TEST)	+= clk_test_kmd.o
+obj-$(CONFIG_COMMON_CLK_EIC7700_TEST)	+= clk_test_kmd.o

@@ -23,8 +23,8 @@
 
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <dt-bindings/mailbox/eswin-mailbox.h>
-#include <dt-bindings/reset/eswin,eic770x-reset.h>
-#include <dt-bindings/clock/win2030-clock.h>
+#include <dt-bindings/reset/eswin,eic7700-reset.h>
+#include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include <dt-bindings/i2c/i2c.h>
 #include <dt-bindings/interconnect/eswin,win2030.h>
 #include <dt-bindings/power/eswin,eic770x-pmu.h>
@@ -167,16 +167,16 @@
 		};
 
 		d1_sys_crg: sys-crg@71828000 {
-			compatible = "eswin,win2030-sys-crg", "syscon", "simple-mfd";
+			compatible = "syscon", "simple-mfd";
 			reg = <0x000000 0x71828000 0x000000 0x80000>;
 			numa-node-id = <1>;
 			d1_reset: reset-controller {
-				compatible = "eswin,eic770x-reset";
+				compatible = "eswin,eic7700-reset";
 				#reset-cells = <2>;
 				numa-node-id = <1>;
 			};
 			d1_clock: clock-controller {
-				compatible = "eswin,win2030-clock";
+				compatible = "eswin,eic7700-clock";
 				#clock-cells = <1>;
 				numa-node-id = <1>;
 			};
@@ -324,8 +324,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <289>;
 			#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
-			clocks = <&d1_clock WIN2030_CLK_AONDMA_ACLK>,
-				 <&d1_clock WIN2030_CLK_AONDMA_CFG>;
+			clocks = <&d1_clock EIC7700_CLK_AONDMA_ACLK>,
+				 <&d1_clock EIC7700_CLK_AONDMA_CFG>;
 			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d1_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
 				<&d1_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
@@ -353,8 +353,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <57>;
 			#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
-			clocks = <&d1_clock WIN2030_CLK_HSP_DMA0_CLK>,
-					 <&d1_clock WIN2030_CLK_HSP_DMA0_CLK_TEST>;
+			clocks = <&d1_clock EIC7700_CLK_HSP_DMA0_CLK>,
+					 <&d1_clock EIC7700_CLK_HSP_DMA0_CLK_TEST>;
 			clock-names = "core-clk", "cfgr-clk";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_DMA0_RSTN>,
 				<&d1_reset HSPDMA_RST_CTRL SW_HSP_DMA_PRSTN>;
@@ -384,16 +384,16 @@
 		};
 		vdec1: video-decoder1@70100000 {
 			compatible = "eswin,video-decoder1";
-			clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
-					 <&d1_clock WIN2030_CLK_VC_CFG_CLK>,
-					 <&d1_clock WIN2030_CLK_VC_JD_CLK>,
-					 <&d1_clock WIN2030_CLK_VC_VD_CLK>,
-					 <&d1_clock WIN2030_MUX_U_VCACLK_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_SPLL0_FOUT1>,
-					 <&d1_clock WIN2030_SPLL2_FOUT1>,
-					 <&d1_clock WIN2030_CLK_VC_JD_PCLK>,
-					 <&d1_clock WIN2030_CLK_VC_VD_PCLK>,
-					 <&d1_clock WIN2030_CLK_VC_MON_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_VC_ACLK>,
+					 <&d1_clock EIC7700_CLK_VC_CFG_CLK>,
+					 <&d1_clock EIC7700_CLK_VC_JD_CLK>,
+					 <&d1_clock EIC7700_CLK_VC_VD_CLK>,
+					 <&d1_clock EIC7700_MUX_U_VCACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_SPLL0_FOUT1>,
+					 <&d1_clock EIC7700_SPLL2_FOUT1>,
+					 <&d1_clock EIC7700_CLK_VC_JD_PCLK>,
+					 <&d1_clock EIC7700_CLK_VC_VD_PCLK>,
+					 <&d1_clock EIC7700_CLK_VC_MON_PCLK>;
 			clock-names = "aclk", "cfg_clk", "jd_clk", "vd_clk", "vc_mux", "spll0_fout1", "spll2_fout1", "jd_pclk", "vd_pclk", "mon_pclk";
 			resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
 					 <&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
@@ -432,16 +432,16 @@
 
 		venc1: video-encoder@70110000 {
 			compatible = "eswin,video-encoder1";
-			clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
-					 <&d1_clock WIN2030_CLK_VC_CFG_CLK>,
-					 <&d1_clock WIN2030_CLK_VC_JE_CLK>,
-					 <&d1_clock WIN2030_CLK_VC_VE_CLK>,
-					 <&d1_clock WIN2030_MUX_U_VCACLK_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_SPLL0_FOUT1>,
-					 <&d1_clock WIN2030_SPLL2_FOUT1>,
-					 <&d1_clock WIN2030_CLK_VC_JE_PCLK>,
-					 <&d1_clock WIN2030_CLK_VC_VE_PCLK>,
-					 <&d1_clock WIN2030_CLK_VC_MON_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_VC_ACLK>,
+					 <&d1_clock EIC7700_CLK_VC_CFG_CLK>,
+					 <&d1_clock EIC7700_CLK_VC_JE_CLK>,
+					 <&d1_clock EIC7700_CLK_VC_VE_CLK>,
+					 <&d1_clock EIC7700_MUX_U_VCACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_SPLL0_FOUT1>,
+					 <&d1_clock EIC7700_SPLL2_FOUT1>,
+					 <&d1_clock EIC7700_CLK_VC_JE_PCLK>,
+					 <&d1_clock EIC7700_CLK_VC_VE_PCLK>,
+					 <&d1_clock EIC7700_CLK_VC_MON_PCLK>;
 			clock-names = "aclk", "cfg_clk", "je_clk", "ve_clk", "vc_mux", "spll0_fout1", "spll2_fout1", "je_pclk", "ve_pclk", "mon_pclk";
 			resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
 					 <&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
@@ -486,8 +486,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <117>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_0>,
-				<&d1_clock WIN2030_CLK_MAILBOX_1>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_0>,
+				<&d1_clock EIC7700_CLK_MAILBOX_1>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_0>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_1>;
@@ -506,8 +506,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <119>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_2>,
-				<&d1_clock WIN2030_CLK_MAILBOX_3>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_2>,
+				<&d1_clock EIC7700_CLK_MAILBOX_3>;
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_2>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_3>;
 			reset-names = "rst", "rst_device";
@@ -526,8 +526,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <121>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_4>,
-				<&d1_clock WIN2030_CLK_MAILBOX_5>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_4>,
+				<&d1_clock EIC7700_CLK_MAILBOX_5>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_4>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_5>;
@@ -546,8 +546,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <123>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_6>,
-				<&d1_clock WIN2030_CLK_MAILBOX_7>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_6>,
+				<&d1_clock EIC7700_CLK_MAILBOX_7>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_6>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_7>;
@@ -566,8 +566,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <125>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_8>,
-				<&d1_clock WIN2030_CLK_MAILBOX_9>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_8>,
+				<&d1_clock EIC7700_CLK_MAILBOX_9>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_8>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_9>;
@@ -586,8 +586,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <127>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_10>,
-				<&d1_clock WIN2030_CLK_MAILBOX_11>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_10>,
+				<&d1_clock EIC7700_CLK_MAILBOX_11>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_10>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_11>;
@@ -606,8 +606,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <129>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_12>,
-				<&d1_clock WIN2030_CLK_MAILBOX_13>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_12>,
+				<&d1_clock EIC7700_CLK_MAILBOX_13>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_12>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_13>;
@@ -626,8 +626,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <131>;
 			#mbox-cells = <1>;
-			clocks = <&d1_clock WIN2030_CLK_MAILBOX_14>,
-				<&d1_clock WIN2030_CLK_MAILBOX_15>;
+			clocks = <&d1_clock EIC7700_CLK_MAILBOX_14>,
+				<&d1_clock EIC7700_CLK_MAILBOX_15>;
 			clock-names = "pclk_mailbox_host", "pclk_mailbox_device";
 			resets = <&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_14>,
 				<&d1_reset MBOX_RST_CTRL SW_MBOX_RST_N_15>;
@@ -655,8 +655,8 @@
 		d1_lpcpu:lpcpu@1 {
 			compatible = "eswin,win2030-lpcpu";
 			/* fw-region = <&lpcpu1_reserved>; */
-			clocks = <&d1_clock WIN2030_CLK_CLK_LPCPU_CORE>,
-					<&d1_clock WIN2030_CLK_CLK_LPCPU_BUS>;
+			clocks = <&d1_clock EIC7700_CLK_CLK_LPCPU_CORE>,
+					<&d1_clock EIC7700_CLK_CLK_LPCPU_BUS>;
 			clock-names = "core_clk", "bus_clk";
 
 			reset-names = "core_rst", "bus_rst", "dbg_rst";
@@ -678,7 +678,7 @@
 
 		d1_pvt0: pvt@0x70b00000 {
 			compatible = "eswin,eswin-pvt-cpu";
-			clocks = <&d1_clock WIN2030_CLK_PVT_CLK_0>;
+			clocks = <&d1_clock EIC7700_CLK_PVT_CLK_0>;
 			clock-names = "pvt_clk";
 			resets = <&d1_reset PVT_RST_CTRL SW_PVT_RST_N_0>;
 			reset-names = "pvt_rst";
@@ -694,7 +694,7 @@
 		};
 		d1_pvt1: pvt@0x72360000 {
 			compatible = "eswin,eswin-pvt-ddr";
-			clocks = <&d1_clock WIN2030_CLK_PVT_CLK_1>;
+			clocks = <&d1_clock EIC7700_CLK_PVT_CLK_1>;
 			clock-names = "pvt_clk";
 			resets = <&d1_reset PVT_RST_CTRL SW_PVT_RST_N_1>;
 			reset-names = "pvt_rst";
@@ -711,7 +711,7 @@
 		d1_fan_control: fan_control@70b50000 {
 			compatible = "eswin-fan-control";
 			reg = <0x0 0x70b50000 0x0 0x10000>;
-			clocks = <&d1_clock WIN2030_CLK_LSP_FAN_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_LSP_FAN_PCLK>;
 			clock-names = "pclk";
 			resets = <&d1_reset FAN_RST_CTRL SW_FAN_RST_N>;
 			reset-names = "fan_rst";
@@ -729,7 +729,7 @@
 		d1_i2c0: i2c@70950000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C0_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C0_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_0>;
 				reset-names = "rst";
@@ -753,7 +753,7 @@
 		d1_i2c1: i2c@70960000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C1_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C1_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_1>;
 				reset-names = "rst";
@@ -768,7 +768,7 @@
 		d1_i2c2: i2c@70970000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C2_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C2_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_2>;
 				reset-names = "rst";
@@ -783,7 +783,7 @@
 		d1_i2c3: i2c@70980000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C3_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C3_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_3>;
 				reset-names = "rst";
@@ -798,7 +798,7 @@
 		d1_i2c4: i2c@70990000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C4_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C4_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_4>;
 				reset-names = "rst";
@@ -813,7 +813,7 @@
 		d1_i2c5: i2c@709a0000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C5_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C5_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_5>;
 				reset-names = "rst";
@@ -828,7 +828,7 @@
 		d1_i2c6: i2c@709b0000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C6_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C6_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_6>;
 				reset-names = "rst";
@@ -843,7 +843,7 @@
 		d1_i2c7: i2c@709c0000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C7_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C7_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_7>;
 				reset-names = "rst";
@@ -858,7 +858,7 @@
 		d1_i2c8: i2c@709d0000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C8_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C8_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_8>;
 				reset-names = "rst";
@@ -873,7 +873,7 @@
 		d1_i2c9: i2c@709e0000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_LSP_I2C9_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_LSP_I2C9_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C_RST_CTRL SW_I2C_RST_N_9>;
 				reset-names = "rst";
@@ -889,7 +889,7 @@
 		d1_aon_i2c0: i2c@71830000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_AON_I2C0_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_AON_I2C0_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C0_RST_CTRL SW_I2C0_PRSTN>;
 				reset-names = "rst";
@@ -912,7 +912,7 @@
 		d1_aon_i2c1: i2c@71838000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
-				clocks = <&d1_clock WIN2030_CLK_AON_I2C1_PCLK>;
+				clocks = <&d1_clock EIC7700_CLK_AON_I2C1_PCLK>;
 				clock-names = "pclk";
 				resets = <&d1_reset I2C1_RST_CTRL SW_I2C1_PRSTN>;
 				reset-names = "rst";
@@ -937,17 +937,17 @@
 			dsp-avail-num = <1>;
 			spram-size = <0x400000>;
 			npu_mbox = <&d1_mbox2>;
-			clocks = <&d1_clock WIN2030_CLK_NPU_ACLK>,
-					<&d1_clock WIN2030_CLK_NPU_CFG_CLK>,
-					<&d1_clock WIN2030_CLK_NPU_CLK>,
-					<&d1_clock WIN2030_CLK_NPU_LLC_ACLK>,
-					<&d1_clock WIN2030_CLK_NPU_E31_CLK>,
-					<&d1_clock WIN2030_MUX_U_NPU_CORE_3MUX1_GFREE>,
-					<&d1_clock WIN2030_MUX_U_NPU_LLCLK_3MUX1_GFREE>,
-					<&d1_clock WIN2030_SPLL2_FOUT2>,
-					<&d1_clock WIN2030_SPLL1_FOUT1>,
-					<&d1_clock WIN2030_CLK_CLK_NPU_LLC_SRC0>,
-					<&d1_clock WIN2030_VPLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_NPU_ACLK>,
+					<&d1_clock EIC7700_CLK_NPU_CFG_CLK>,
+					<&d1_clock EIC7700_CLK_NPU_CLK>,
+					<&d1_clock EIC7700_CLK_NPU_LLC_ACLK>,
+					<&d1_clock EIC7700_CLK_NPU_E31_CLK>,
+					<&d1_clock EIC7700_MUX_U_NPU_CORE_3MUX1_GFREE>,
+					<&d1_clock EIC7700_MUX_U_NPU_LLCLK_3MUX1_GFREE>,
+					<&d1_clock EIC7700_SPLL2_FOUT2>,
+					<&d1_clock EIC7700_SPLL1_FOUT1>,
+					<&d1_clock EIC7700_CLK_CLK_NPU_LLC_SRC0>,
+					<&d1_clock EIC7700_VPLL_FOUT1>;
 
 
 			clock-names = "aclk", "cfg_clk", "core_clk", "clk_npu_llc_aclk", "e31_core_clk",
@@ -973,13 +973,13 @@
 			reg = <0x0 0x71c00000 0x0 0x400000>;
 			eswin,syscfg = <&d1_sys_con 0x324>;
 			eswin,syscrg_csr = <&d1_sys_crg>;
-			clocks = <&d1_clock WIN2030_CLK_NPU_ACLK>,
-				 <&d1_clock WIN2030_CLK_NPU_CFG_CLK>,
-				 <&d1_clock WIN2030_CLK_NPU_LLC_ACLK>,
-				 <&d1_clock WIN2030_CLK_NPU_CLK>,
-				 <&d1_clock WIN2030_MUX_U_NPU_CORE_3MUX1_GFREE>,
-				 <&d1_clock WIN2030_SPLL2_FOUT2>,
-				 <&d1_clock WIN2030_SPLL1_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_NPU_ACLK>,
+				 <&d1_clock EIC7700_CLK_NPU_CFG_CLK>,
+				 <&d1_clock EIC7700_CLK_NPU_LLC_ACLK>,
+				 <&d1_clock EIC7700_CLK_NPU_CLK>,
+				 <&d1_clock EIC7700_MUX_U_NPU_CORE_3MUX1_GFREE>,
+				 <&d1_clock EIC7700_SPLL2_FOUT2>,
+				 <&d1_clock EIC7700_SPLL1_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "llc_clk", "core_clk",
 					"mux_u_npu_core_3mux1_gfree", "fixed_rate_clk_spll2_fout2",
 					"fixed_rate_clk_spll1_fout1";
@@ -997,9 +997,9 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x71400000 0x0 0xFFFFF>;
-			clocks = <&d1_clock WIN2030_CLK_GPU_ACLK>,
-					<&d1_clock WIN2030_CLK_GPU_GRAY_CLK>,
-					<&d1_clock WIN2030_CLK_GPU_CFG_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_GPU_ACLK>,
+					<&d1_clock EIC7700_CLK_GPU_GRAY_CLK>,
+					<&d1_clock EIC7700_CLK_GPU_CFG_CLK>;
 			clock-names = "aclk", "gray_clk", "cfg_clk";
 			resets =<&d1_reset GPU_RST_CTRL SW_GPU_AXI_RSTN>,
 					<&d1_reset GPU_RST_CTRL SW_GPU_CFG_RSTN>,
@@ -1133,8 +1133,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <345>;
 			clock-names = "pclk","timer_aclk";
-			clocks = <&d1_clock WIN2030_CLK_TIMER_PCLK_0>,
-					 <&d1_clock WIN2030_CLK_TIMER_CLK_0>;
+			clocks = <&d1_clock EIC7700_CLK_TIMER_PCLK_0>,
+					 <&d1_clock EIC7700_CLK_TIMER_CLK_0>;
 			resets = <&d1_reset TIMER0_RST_CTRL SW_TIMER0_RSTN_0>,
 				<&d1_reset TIMER0_RST_CTRL SW_TIMER0_RSTN_1>,
 				<&d1_reset TIMER0_RST_CTRL SW_TIMER0_RSTN_2>,
@@ -1156,8 +1156,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <346>;
 			clock-names = "pclk","timer_aclk";
-			clocks = <&d1_clock WIN2030_CLK_TIMER_PCLK_1>,
-					 <&d1_clock WIN2030_CLK_TIMER_CLK_1>;
+			clocks = <&d1_clock EIC7700_CLK_TIMER_PCLK_1>,
+					 <&d1_clock EIC7700_CLK_TIMER_CLK_1>;
 			resets = <&d1_reset TIMER1_RST_CTRL SW_TIMER1_RSTN_0>,
 				<&d1_reset TIMER1_RST_CTRL SW_TIMER1_RSTN_1>,
 				<&d1_reset TIMER1_RST_CTRL SW_TIMER1_RSTN_2>,
@@ -1180,8 +1180,8 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <347>;
 			clock-names = "pclk","timer_aclk";
-			clocks = <&d1_clock WIN2030_CLK_TIMER_PCLK_2>,
-					 <&d1_clock WIN2030_CLK_TIMER_CLK_2>;
+			clocks = <&d1_clock EIC7700_CLK_TIMER_PCLK_2>,
+					 <&d1_clock EIC7700_CLK_TIMER_CLK_2>;
 			resets = <&d1_reset TIMER2_RST_CTRL SW_TIMER2_RSTN_0>,
 				<&d1_reset TIMER2_RST_CTRL SW_TIMER2_RSTN_1>,
 				<&d1_reset TIMER2_RST_CTRL SW_TIMER2_RSTN_2>,
@@ -1203,9 +1203,9 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <348>;
 			clock-names = "pclk","timer_aclk","timer3_clk8";
-			clocks = <&d1_clock WIN2030_CLK_TIMER_PCLK_3>,
-					 <&d1_clock WIN2030_CLK_TIMER_CLK_3>,
-					 <&d1_clock WIN2030_CLK_TIMER3_CLK8>;
+			clocks = <&d1_clock EIC7700_CLK_TIMER_PCLK_3>,
+					 <&d1_clock EIC7700_CLK_TIMER_CLK_3>,
+					 <&d1_clock EIC7700_CLK_TIMER3_CLK8>;
 			resets = <&d1_reset TIMER3_RST_CTRL SW_TIMER3_RSTN_0>,
 				<&d1_reset TIMER3_RST_CTRL SW_TIMER3_RSTN_1>,
 				<&d1_reset TIMER3_RST_CTRL SW_TIMER3_RSTN_2>,
@@ -1222,7 +1222,7 @@
 			compatible = "eswin,pwm-eswin";
 			reg = <0x0 0x70818000 0x0 0x4000>;
 			clock-names = "pwm","pclk";
-			clocks = <&d1_clock WIN2030_CLK_LSP_TIMER_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_LSP_TIMER_PCLK>;
 			clock-frequency = <200000000>;
 			resets = <&d1_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
 			reset-names = "pwmrst";
@@ -1235,8 +1235,8 @@
 
 		d1_i2s0: i2s0@70200000 {
 			compatible = "snps,i2s";
-			clocks = <&d1_clock WIN2030_CLK_VO_I2S_MCLK>,
-					<&d1_clock WIN2030_APLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_VO_I2S_MCLK>,
+					<&d1_clock EIC7700_APLL_FOUT1>;
 			clock-names = "mclk", "apll";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1255,8 +1255,8 @@
 
 		d1_i2s1: i2s1@70210000 {
 			compatible = "snps,i2s";
-			clocks = <&d1_clock WIN2030_CLK_VO_I2S_MCLK>,
-					<&d1_clock WIN2030_APLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_VO_I2S_MCLK>,
+					<&d1_clock EIC7700_APLL_FOUT1>;
 			clock-names = "mclk", "apll";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1275,8 +1275,8 @@
 
 		d1_i2s2: i2s@70220000 {
 			compatible = "snps,i2s";
-			clocks = <&d1_clock WIN2030_CLK_VO_I2S_MCLK>,
-					<&d1_clock WIN2030_APLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_VO_I2S_MCLK>,
+					<&d1_clock EIC7700_APLL_FOUT1>;
 			clock-names = "mclk", "apll";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1316,7 +1316,7 @@
 			ranges;
 			dma-ranges = <0x0 0x30000000 0x0 0xc0000000 0x0 0xce000000>;
 			compatible = "es-dsp-subsys", "simple-bus";
-			clocks = <&d1_clock WIN2030_CLK_DSPT_CFG_CLK>,  <&d1_clock WIN2030_CLK_DSPT_ACLK>;
+			clocks = <&d1_clock EIC7700_CLK_DSPT_CFG_CLK>,  <&d1_clock EIC7700_CLK_DSPT_ACLK>;
 			clock-names = "cfg_clk", "aclk";
 			resets = <&d1_reset DSP_RST_CTRL SW_DSP_AXI_RSTN>,
 				<&d1_reset DSP_RST_CTRL SW_DSP_CFG_RSTN>,
@@ -1334,7 +1334,7 @@
 				ranges = <0x28000000 0 0x7b000000 0x8000
 					0x28100000 0 0x7b100000 0x20000
 					0x28120000 0 0x7b120000 0x20000>;
-				clocks = <&d1_clock WIN2030_CLK_DSP_ACLK_0>;
+				clocks = <&d1_clock EIC7700_CLK_DSP_ACLK_0>;
 				clock-names = "aclk";
 				dsp_mbox = <&d1_mbox4>;
 				device-irq = <11
@@ -1363,7 +1363,7 @@
 				ranges = <0x28000000 0 0x7b008000 0x8000
 					0x28100000 0 0x7b140000 0x20000
 					0x28120000 0 0x7b160000 0x20000>;
-				clocks = <&d1_clock WIN2030_CLK_DSP_ACLK_1>;
+				clocks = <&d1_clock EIC7700_CLK_DSP_ACLK_1>;
 				clock-names = "aclk";
 				dsp_mbox = <&d1_mbox5>;
 				device-irq = <13
@@ -1392,7 +1392,7 @@
 				ranges = <0x28000000 0 0x7b010000 0x8000
 					0x28100000 0 0x7b180000 0x20000
 					0x28120000 0 0x7b1a0000 0x20000>;
-				clocks = <&d1_clock WIN2030_CLK_DSP_ACLK_2>;
+				clocks = <&d1_clock EIC7700_CLK_DSP_ACLK_2>;
 				clock-names = "aclk";
 				dsp_mbox = <&d1_mbox6>;
 				device-irq = <15
@@ -1421,7 +1421,7 @@
 				ranges = <0x28000000 0 0x7b018000 0x8000
 					0x28100000 0 0x7b1c0000 0x20000
 					0x28120000 0 0x7b1e0000 0x20000>;
-				clocks = <&d1_clock WIN2030_CLK_DSP_ACLK_3>;
+				clocks = <&d1_clock EIC7700_CLK_DSP_ACLK_3>;
 				clock-names = "aclk";
 				dsp_mbox = <&d1_mbox7>;
 				device-irq = <17
@@ -1450,7 +1450,7 @@
 			eswin,syscfg = <&d1_sys_con 0x3c0>;
 			interrupt-parent = <&plic1>;
 			interrupts = <292>;
-			clocks = <&d1_clock WIN2030_CLK_CLK_RTC>;
+			clocks = <&d1_clock EIC7700_CLK_CLK_RTC>;
 			clock-names = "rtcclk";
 			clock-frequency = <15625>;
 			resets = <&d1_reset RTC_RST_CTRL SW_RTC_RSTN>;
@@ -1461,10 +1461,10 @@
 
 		d1_pcie: pcie@0x74000000 {
 			compatible = "eswin,win2030-pcie";
-			clocks = <&d1_clock WIN2030_CLK_PCIET_ACLK>,
-				 <&d1_clock WIN2030_CLK_PCIET_CFG_CLK>,
-				 <&d1_clock WIN2030_CLK_PCIET_CR_CLK>,
-				 <&d1_clock WIN2030_CLK_PCIET_AUX_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_PCIET_ACLK>,
+				 <&d1_clock EIC7700_CLK_PCIET_CFG_CLK>,
+				 <&d1_clock EIC7700_CLK_PCIET_CR_CLK>,
+				 <&d1_clock EIC7700_CLK_PCIET_AUX_CLK>;
 			clock-names = "pcie_aclk", "pcie_cfg_clk", "pcie_cr_clk", "pcie_aux_clk";
 
 			reset-names = "pcie_cfg", "pcie_powerup", "pcie_pwren";
@@ -1518,9 +1518,9 @@
 			numa-node-id = <1>;
 			id = <2>;
 			status = "disabled";
-			clocks = <&d1_clock WIN2030_CLK_HSP_ETH_APP_CLK>,
-					 <&d1_clock WIN2030_CLK_HSP_ETH_CSR_CLK>,
-					 <&d1_clock WIN2030_CLK_HSP_ETH0_CORE_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_HSP_ETH_APP_CLK>,
+					 <&d1_clock EIC7700_CLK_HSP_ETH_CSR_CLK>,
+					 <&d1_clock EIC7700_CLK_HSP_ETH0_CORE_CLK>;
 			clock-names = "app", "stmmaceth","tx";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_ETH0_ARSTN>;
 			reset-names = "ethrst";
@@ -1549,9 +1549,9 @@
 			numa-node-id = <1>;
 			id = <3>;
 			status = "disabled";
-			clocks = <&d1_clock WIN2030_CLK_HSP_ETH_APP_CLK>,
-					 <&d1_clock WIN2030_CLK_HSP_ETH_CSR_CLK>,
-					 <&d1_clock WIN2030_CLK_HSP_ETH1_CORE_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_HSP_ETH_APP_CLK>,
+					 <&d1_clock EIC7700_CLK_HSP_ETH_CSR_CLK>,
+					 <&d1_clock EIC7700_CLK_HSP_ETH1_CORE_CLK>;
 			clock-names = "app", "stmmaceth","tx";
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_HSP_ETH1_ARSTN>;
 			reset-names = "ethrst";
@@ -1575,9 +1575,9 @@
 			reg = <0x0 0x70450000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <79>;
-			assigned-clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>;
+			assigned-clocks = <&d1_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>;
 			assigned-clock-rates = <200000000>;
-			clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>, <&d1_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>, <&d1_clock EIC7700_CLK_HSP_CFG_CLK>;
 			clock-names = "clk_xin", "clk_ahb";
 			clock-output-names = "d1_emmc_cardclock";
 			#clock-cells = <0>;
@@ -1612,10 +1612,10 @@
 			reg = <0x0 0x70460000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <81>;
-			clocks =<&d1_clock WIN2030_CLK_HSP_MSHC1_CORE_CLK>,
-				<&d1_clock WIN2030_CLK_HSP_CFG_CLK>,
-				<&d1_clock WIN2030_SPLL2_FOUT3>,
-				<&d1_clock WIN2030_MUX_U_MSHCORE_ROOT_3MUX1_1>;
+			clocks =<&d1_clock EIC7700_CLK_HSP_MSHC1_CORE_CLK>,
+				<&d1_clock EIC7700_CLK_HSP_CFG_CLK>,
+				<&d1_clock EIC7700_SPLL2_FOUT3>,
+				<&d1_clock EIC7700_MUX_U_MSHCORE_ROOT_3MUX1_1>;
 			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1";
 			clock-output-names = "sdio_cardclock";
 			#clock-cells = <0>;
@@ -1646,10 +1646,10 @@
 			reg = <0x0 0x70470000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <83>;
-			clocks =<&d1_clock WIN2030_CLK_HSP_MSHC2_CORE_CLK>,
-				<&d1_clock WIN2030_CLK_HSP_CFG_CLK>,
-				<&d1_clock WIN2030_SPLL2_FOUT3>,
-				<&d1_clock WIN2030_MUX_U_MSHCORE_ROOT_3MUX1_1>;
+			clocks =<&d1_clock EIC7700_CLK_HSP_MSHC2_CORE_CLK>,
+				<&d1_clock EIC7700_CLK_HSP_CFG_CLK>,
+				<&d1_clock EIC7700_SPLL2_FOUT3>,
+				<&d1_clock EIC7700_MUX_U_MSHCORE_ROOT_3MUX1_1>;
 			clock-names ="clk_xin","clk_ahb","clk_spll2_fout3","clk_mux1_1";
 			clock-output-names = "sdio_cardclock";
 			#clock-cells = <0>;
@@ -1681,7 +1681,7 @@
 			#size-cells = <0>;
 			reg = <0x0 0x70810000 0x0 0x4000>;
 			spi-max-frequency = <4800000>;
-			clocks = <&d1_clock WIN2030_CLK_LSP_SSI0_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_LSP_SSI0_PCLK>;
 			clock-names = "clk";
 			interrupt-parent = <&plic1>;
 			interrupts = <91>;
@@ -1698,7 +1698,7 @@
 			#size-cells = <0>;
 			reg = <0x0 0x70814000 0x0 0x4000>;
 			spi-max-frequency = <4800000>;
-			clocks = <&d1_clock WIN2030_CLK_LSP_SSI1_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_LSP_SSI1_PCLK>;
 			clock-names = "clk";
 			interrupt-parent = <&plic1>;
 			interrupts = <92>;
@@ -1716,8 +1716,8 @@
 				<0x0 0x7c000000 0x0 0x8000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clocks = <&d1_clock WIN2030_CLK_CLK_BOOTSPI_CFG>,
-					<&d1_clock WIN2030_CLK_CLK_BOOTSPI>;
+			clocks = <&d1_clock EIC7700_CLK_CLK_BOOTSPI_CFG>,
+					<&d1_clock EIC7700_CLK_CLK_BOOTSPI>;
 			clock-names = "cfg_clk", "clk";
 			resets = <&d1_reset BOOTSPI_RST_CTRL SW_BOOTSPI_RSTN>;
 			reset-names = "rst";
@@ -1740,14 +1740,14 @@
 			interrupt-parent = <&plic1>;
 			interrupts = <238>;
 
-			clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>,
-					 <&d1_clock WIN2030_CLK_VO_PIXEL_CLK>,
-					 <&d1_clock WIN2030_CLK_VO_ACLK>,
-					 <&d1_clock WIN2030_SPLL0_FOUT1>,
-					 <&d1_clock WIN2030_MUX_U_VO_ACLK_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_MUX_U_VO_PIXEL_ROOT_2MUX1>,
-					 <&d1_clock WIN2030_SPLL2_FOUT2>,
-					 <&d1_clock WIN2030_VPLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_VO_CFG_CLK>,
+					 <&d1_clock EIC7700_CLK_VO_PIXEL_CLK>,
+					 <&d1_clock EIC7700_CLK_VO_ACLK>,
+					 <&d1_clock EIC7700_SPLL0_FOUT1>,
+					 <&d1_clock EIC7700_MUX_U_VO_ACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_MUX_U_VO_PIXEL_ROOT_2MUX1>,
+					 <&d1_clock EIC7700_SPLL2_FOUT2>,
+					 <&d1_clock EIC7700_VPLL_FOUT1>;
 			clock-names = "cfg_clk", "pix_clk", "axi_clk", "spll0_fout1", "vo_mux",
 						  "pix_mux", "spll2_fout2", "vpll_fout1";
 			resets = <&d1_reset VO_RST_CTRL SW_VO_AXI_RSTN>,
@@ -1781,7 +1781,7 @@
 			#size-cells = <0>;
 			compatible = "eswin,dsi";
 			reg = <0x0 0x70270000 0x0 0x10000>;
-			clocks = <&d1_clock WIN2030_CLK_CLK_MIPI_TXESC>;
+			clocks = <&d1_clock EIC7700_CLK_CLK_MIPI_TXESC>;
 			clock-names = "pclk";
 			resets = <&d1_reset VO_PHYRST_CTRL SW_VO_MIPI_PRSTN>;
 			reset-names ="phyrstn";
@@ -1807,8 +1807,8 @@
 			//pinctrl-0 = <&hdmi_i2c_xfer>;
 			interrupt-parent = <&plic1>;
 			interrupts = <274>;
-			clocks = <&d1_clock WIN2030_CLK_VO_CFG_CLK>, <&d1_clock WIN2030_CLK_VO_CEC_CLK>,
-					 <&d1_clock WIN2030_CLK_VO_CR_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_VO_CFG_CLK>, <&d1_clock EIC7700_CLK_VO_CEC_CLK>,
+					 <&d1_clock EIC7700_CLK_VO_CR_CLK>;
 			clock-names = "iahb", "cec", "isfr";
 			//power-domains = <&power WIN2030_PD_HDCP>;
 			reg-io-width = <4>;
@@ -1827,8 +1827,8 @@
 			reg = <0x0 0x70290000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <275>;
-			clocks = <&d1_clock WIN2030_CLK_VO_ACLK>,
-				 <&d1_clock WIN2030_CLK_VO_HDMI_IESMCLK>;
+			clocks = <&d1_clock EIC7700_CLK_VO_ACLK>,
+				 <&d1_clock EIC7700_CLK_VO_HDMI_IESMCLK>;
 			clock-names ="aclk", "iesmclk";
 			dma-noncoherent;
 			numa-node-id = <1>;
@@ -1837,7 +1837,7 @@
 		d1_wdt0: watchdog@0x70800000 {
 			compatible = "snps,dw-wdt";
 			reg = <0x0 0x70800000 0x0 0x4000>;
-			clocks =<&d1_clock WIN2030_CLK_LSP_WDT0_PCLK>;
+			clocks =<&d1_clock EIC7700_CLK_LSP_WDT0_PCLK>;
 			clock-names = "pclk";
 			resets = <&d1_reset WDT_RST_CTRL SW_WDT_RST_N_0>;
 			reset-names = "rst";
@@ -1850,7 +1850,7 @@
 		d1_wdt1: watchdog@0x70804000 {
 			compatible = "snps,dw-wdt";
 			reg = <0x0 0x70804000 0x0 0x4000>;
-			clocks =<&d1_clock WIN2030_CLK_LSP_WDT1_PCLK>;
+			clocks =<&d1_clock EIC7700_CLK_LSP_WDT1_PCLK>;
 			clock-names = "pclk";
 			resets = <&d1_reset WDT_RST_CTRL SW_WDT_RST_N_1>;
 			reset-names = "rst";
@@ -1863,7 +1863,7 @@
 		d1_wdt2: watchdog@0x70808000 {
 			compatible = "snps,dw-wdt";
 			reg = <0x0 0x70808000 0x0 0x4000>;
-			clocks =<&d1_clock WIN2030_CLK_LSP_WDT2_PCLK>;
+			clocks =<&d1_clock EIC7700_CLK_LSP_WDT2_PCLK>;
 			clock-names = "pclk";
 			resets = <&d1_reset WDT_RST_CTRL SW_WDT_RST_N_2>;
 			reset-names = "rst";
@@ -1876,7 +1876,7 @@
 		d1_wdt3: watchdog@0x7080c000 {
 			compatible = "snps,dw-wdt";
 			reg = <0x0 0x7080c000 0x0 0x4000>;
-			clocks =<&d1_clock WIN2030_CLK_LSP_WDT3_PCLK>;
+			clocks =<&d1_clock EIC7700_CLK_LSP_WDT3_PCLK>;
 			clock-names = "pclk";
 			resets = <&d1_reset WDT_RST_CTRL SW_WDT_RST_N_3>;
 			reset-names = "rst";
@@ -1888,13 +1888,13 @@
 
 		d1_gc820: g2d@70140000 {
 			compatible = "eswin,galcore_d1";
-			clocks = <&d1_clock WIN2030_CLK_VC_ACLK>,
-					<&d1_clock WIN2030_CLK_VC_CFG_CLK>,
-					<&d1_clock WIN2030_CLK_G2D_CFG_CLK>,
-					<&d1_clock WIN2030_CLK_CLK_G2D_ST2>,
-					<&d1_clock WIN2030_CLK_G2D_CLK>,
-					<&d1_clock WIN2030_CLK_G2D_ACLK>,
-					<&d1_clock WIN2030_CLK_VC_MON_PCLK>;
+			clocks = <&d1_clock EIC7700_CLK_VC_ACLK>,
+					<&d1_clock EIC7700_CLK_VC_CFG_CLK>,
+					<&d1_clock EIC7700_CLK_G2D_CFG_CLK>,
+					<&d1_clock EIC7700_CLK_CLK_G2D_ST2>,
+					<&d1_clock EIC7700_CLK_G2D_CLK>,
+					<&d1_clock EIC7700_CLK_G2D_ACLK>,
+					<&d1_clock EIC7700_CLK_VC_MON_PCLK>;
 			clock-names = "vc_aclk", "vc_cfg", "g2d_cfg", "g2d_st2", "g2d_clk", "g2d_aclk","mon_pclk";
 			resets = <&d1_reset VC_RST_CTRL SW_VC_AXI_RSTN>,
 					<&d1_reset VC_RST_CTRL SW_VC_CFG_RSTN>,
@@ -1921,9 +1921,9 @@
 			reg = <0x0 0x70450000 0x0 0x10000>;
 			interrupt-parent = <&plic1>;
 			interrupts = <79>;
-			assigned-clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>;
+			assigned-clocks = <&d1_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>;
 			assigned-clock-rates = <200000000>;
-			clocks = <&d1_clock WIN2030_CLK_HSP_MSHC0_CORE_CLK>, <&d1_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clocks = <&d1_clock EIC7700_CLK_HSP_MSHC0_CORE_CLK>, <&d1_clock EIC7700_CLK_HSP_CFG_CLK>;
 			clock-names = "clk_xin", "clk_ahb";
 			clock-output-names = "d1_emmc_cardclock";
 			#clock-cells = <0>;
@@ -1962,9 +1962,9 @@
 			compatible = "eswin,win2030-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			clocks =<&d1_clock WIN2030_GATE_HSP_USB0_SUSPEND_CLK>,
-					<&d1_clock WIN2030_CLK_HSP_ACLK>,
-					<&d1_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clocks =<&d1_clock EIC7700_GATE_HSP_USB0_SUSPEND_CLK>,
+					<&d1_clock EIC7700_CLK_HSP_ACLK>,
+					<&d1_clock EIC7700_CLK_HSP_CFG_CLK>;
 			clock-names = "suspend","aclk", "cfg_clk";
 			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x800 0x808 0x83c 0x840>;
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_USB0_VAUX_RSTN>;
@@ -2002,9 +2002,9 @@
 			compatible = "eswin,win2030-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			clocks =<&d1_clock WIN2030_GATE_HSP_USB1_SUSPEND_CLK>,
-					<&d1_clock WIN2030_CLK_HSP_ACLK>,
-					<&d1_clock WIN2030_CLK_HSP_CFG_CLK>;
+			clocks =<&d1_clock EIC7700_GATE_HSP_USB1_SUSPEND_CLK>,
+					<&d1_clock EIC7700_CLK_HSP_ACLK>,
+					<&d1_clock EIC7700_CLK_HSP_CFG_CLK>;
 			clock-names = "suspend","aclk", "cfg_clk";
 			eswin,hsp_sp_csr = <&d1_hsp_sp_csr 0x900 0x908 0x93c 0x940>;
 			resets = <&d1_reset HSPDMA_RST_CTRL SW_USB1_VAUX_RSTN>;
@@ -2040,23 +2040,23 @@
 
 		d1_vi_top_csr: vi_common_top_csr@0x71030000 {
 			compatible = "esw,vi-common-csr", "syscon";
-			clocks = <&d1_clock WIN2030_CLK_VI_ACLK>,
-					 <&d1_clock WIN2030_CLK_VI_CFG_CLK>,
-					 <&d1_clock WIN2030_CLK_VI_DIG_ISP_CLK>,
-					 <&d1_clock WIN2030_CLK_VI_DVP_CLK>,
-					 <&d1_clock WIN2030_CLK_VI_PHY_CFG>,
-					 <&d1_clock WIN2030_CLK_VI_PHY_TXCLKESC>,
-					 <&d1_clock WIN2030_CLK_VI_SHUTTER_0>,
-					 <&d1_clock WIN2030_CLK_VI_SHUTTER_1>,
-					 <&d1_clock WIN2030_CLK_VI_SHUTTER_2>,
-					 <&d1_clock WIN2030_CLK_VI_SHUTTER_3>,
-					 <&d1_clock WIN2030_CLK_VI_SHUTTER_4>,
-					 <&d1_clock WIN2030_CLK_VI_SHUTTER_5>,
-					 <&d1_clock WIN2030_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_SPLL0_FOUT1>,
-					 <&d1_clock WIN2030_VPLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_VI_ACLK>,
+					 <&d1_clock EIC7700_CLK_VI_CFG_CLK>,
+					 <&d1_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
+					 <&d1_clock EIC7700_CLK_VI_DVP_CLK>,
+					 <&d1_clock EIC7700_CLK_VI_PHY_CFG>,
+					 <&d1_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
+					 <&d1_clock EIC7700_CLK_VI_SHUTTER_0>,
+					 <&d1_clock EIC7700_CLK_VI_SHUTTER_1>,
+					 <&d1_clock EIC7700_CLK_VI_SHUTTER_2>,
+					 <&d1_clock EIC7700_CLK_VI_SHUTTER_3>,
+					 <&d1_clock EIC7700_CLK_VI_SHUTTER_4>,
+					 <&d1_clock EIC7700_CLK_VI_SHUTTER_5>,
+					 <&d1_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_SPLL0_FOUT1>,
+					 <&d1_clock EIC7700_VPLL_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
 						  "phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
 						  "sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
@@ -2109,13 +2109,13 @@
 
 		d1_dewarp: dewarp@71020000 {
 			compatible = "eswin,dewarp";
-			clocks = <&d1_clock WIN2030_CLK_VI_ACLK>,
-					 <&d1_clock WIN2030_CLK_VI_CFG_CLK>,
-					 <&d1_clock WIN2030_CLK_VI_DIG_DW_CLK>,
-					 <&d1_clock WIN2030_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-					 <&d1_clock WIN2030_MUX_U_VI_DW_ROOT_2MUX1>,
-					 <&d1_clock WIN2030_SPLL0_FOUT1>,
-					 <&d1_clock WIN2030_VPLL_FOUT1>;
+			clocks = <&d1_clock EIC7700_CLK_VI_ACLK>,
+					 <&d1_clock EIC7700_CLK_VI_CFG_CLK>,
+					 <&d1_clock EIC7700_CLK_VI_DIG_DW_CLK>,
+					 <&d1_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+					 <&d1_clock EIC7700_MUX_U_VI_DW_ROOT_2MUX1>,
+					 <&d1_clock EIC7700_SPLL0_FOUT1>,
+					 <&d1_clock EIC7700_VPLL_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
 			resets = <&d1_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
 					 <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
