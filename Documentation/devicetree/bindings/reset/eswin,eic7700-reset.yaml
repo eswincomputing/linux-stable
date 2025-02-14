@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reset/eswin,eic7700-reset.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Eswin EIC7700 SOC Reset Controller
+
+maintainers:
+  - huangyifeng <huangyifeng@eswincomputing.com>
+
+description: |
+  Please also refer to reset.txt in this directory for common reset
+  controller binding usage.
+  The reset controller registers are part of the syscrg block on
+  the EIC7700 SoC.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: eswin,eic7700-reset
+
+  '#reset-cells':
+    description: |
+      Specifies the number of cells needed to encode a reset source.
+      Cell #1 : module id of the reset consumer
+      Cell #2 : bit position of the reset in each reset consumer module
+    const: 2
+
+required:
+  - compatible
+  - '#reset-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/reset/eswin,eic7700-reset.h>
+
+    d0_sys_crg: sys-crg@51828000 {
+        compatible = "syscon", "simple-mfd";
+        reg = <0x000000 0x51828000 0x000000 0x80000>;
+        numa-node-id = <0>;
+        d0_reset: reset-controller {
+            compatible = "eswin,eic7700-reset";
+            #reset-cells = <2>;
+        };
+    };
+    d0_i2c9: i2c@509e0000 {
+        compatible = "snps,designware-i2c";
+        resets = <&d0_reset I2C_RST_CTRL SW_I2C_RST_N_9>;
+        reset-names = "rst";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        reg = <0x0 0x509e0000 0x0 0x8000>;
+        interrupts = <114>;
+        interrupt-parent = <&plic0>;
+        numa-node-id = <0>;
+    };

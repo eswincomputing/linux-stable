@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 
-if SOC_SIFIVE || SOC_STARFIVE
+if SOC_SIFIVE || SOC_STARFIVE || SOC_ESWIN
 
 config SIFIVE_CCACHE
 	bool "Sifive Composable Cache controller"
@@ -9,7 +9,7 @@ config SIFIVE_CCACHE
 
 config ARCH_ESWIN_EIC770X_SOC_FAMILY
 	bool "ESWIN EIC770X SoC Family"
-	depends on SOC_SIFIVE
+	depends on SOC_ESWIN
 	select SIFIVE_CCACHE
 	select RISCV_NONSTANDARD_CACHE_OPS
 	select DMA_DIRECT_REMAP

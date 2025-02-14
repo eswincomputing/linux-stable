@@ -1,23 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * ESWIN Clk Provider Driver
- *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, version 2.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * Authors: HuangYiFeng<huangyifeng@eswincomputing.com>
+ * Authors: huangyifeng<huangyifeng@eswincomputing.com>
  */
 
 #include <linux/clkdev.h>
@@ -31,28 +16,28 @@
 #include <linux/delay.h>
 #include <linux/util_macros.h>
 #include <linux/gpio/consumer.h>
-#include <dt-bindings/clock/win2030-clock.h>
+#include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "clk.h"
 
-struct clk_hw *eswin_clk_find_parent(struct eswin_clock_data *data, char *parent_name)
+struct clk_hw *eswin_clk_find_parent(struct eswin_clock_data *data,
+				     char *parent_name)
 {
 	int i;
 	struct clk *clks;
 
 	for (i = 0; i < data->clk_data.clk_num; i++) {
 		clks = data->clk_data.clks[i];
-		if (NULL == clks) {
+		if (clks == NULL)
 			continue;
-		}
-		if (!strcmp(__clk_get_name(clks), parent_name)) {
+
+		if (!strcmp(__clk_get_name(clks), parent_name))
 			return __clk_get_hw(clks);
-		}
 	}
 	return NULL;
 }
 
 struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev,
-					     int nr_clks)
+					int nr_clks)
 {
 	struct eswin_clock_data *clk_data;
 	struct clk **clk_table;
@@ -67,7 +52,7 @@ struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev,
 
 	base = of_iomap(parent->of_node, 0);
 	if (!base) {
-		dev_err(&pdev->dev,"failed to map clock registers\n");
+		dev_err(&pdev->dev, "failed to map clock registers\n");
 		goto err;
 	}
 	clk_data = kzalloc(sizeof(*clk_data), GFP_KERNEL);
@@ -84,7 +69,8 @@ struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev,
 	clk_data->numa_id = dev_to_node(parent);
 	spin_lock_init(&clk_data->lock);
 
-	of_clk_add_provider(pdev->dev.of_node, of_clk_src_onecell_get, &clk_data->clk_data);
+	of_clk_add_provider(pdev->dev.of_node, of_clk_src_onecell_get,
+			    &clk_data->clk_data);
 	return clk_data;
 
 err_data:
@@ -95,23 +81,26 @@ err:
 EXPORT_SYMBOL_GPL(eswin_clk_init);
 
 int eswin_clk_register_fixed_rate(const struct eswin_fixed_rate_clock *clks,
-					 int nums, struct eswin_clock_data *data)
+				  int nums, struct eswin_clock_data *data)
 {
 	struct clk *clk;
 	int i;
 
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) + sizeof(int),
-			GFP_KERNEL );
-		if (data->numa_id < 0) {
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+		if (data->numa_id < 0)
 			sprintf(name, "%s", clks[i].name);
-		} else {
+		else
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
-		}
+
 		clk = clk_register_fixed_rate(NULL, name, clks[i].parent_name,
-				clks[i].flags, clks[i].fixed_rate);
+					      clks[i].flags,
+					      clks[i].fixed_rate);
 		if (IS_ERR(clk)) {
-			pr_err("%s: failed to register clock %s\n", __func__, name);
+			pr_err("%s: failed to register clock %s\n", __func__,
+			       name);
 			kfree(name);
 			goto err;
 		}
@@ -129,159 +118,161 @@ err:
 EXPORT_SYMBOL_GPL(eswin_clk_register_fixed_rate);
 
 static int eswin_clk_set_cpu_volatge(struct gpio_desc *cpu_voltage_gpio,
-	enum voltage_level target_volatge)
+				     enum voltage_level target_volatge)
 {
-	if (!cpu_voltage_gpio) {
+	if (!cpu_voltage_gpio)
 		return -EINVAL;
-	}
+
 	switch (target_volatge) {
-		case VOLTAGE_0_9V:
-			gpiod_set_value(cpu_voltage_gpio, 1);
-			break;
-		case VOLTAGE_0_8V:
-			gpiod_set_value(cpu_voltage_gpio, 0);
-			break;
-		default:
-			pr_err("%s %d: unsupport  volatge %d\n", __func__,__LINE__, target_volatge);
-			return -EINVAL;
+	case VOLTAGE_0_9V:
+		gpiod_set_value(cpu_voltage_gpio, 1);
+		break;
+	case VOLTAGE_0_8V:
+		gpiod_set_value(cpu_voltage_gpio, 0);
+		break;
+	default:
+		pr_err("%s %d: unsupport  volatge %d\n", __func__, __LINE__,
+		       target_volatge);
+		return -EINVAL;
 	}
 	return 0;
 }
 
-static int eswin_calc_pll(u32 *frac_val, u32 *postdiv1_val,
-				 u32 *fbdiv_val, u32 *refdiv_val, u64 rate,
-				 const struct eswin_clk_pll *clk)
+static int eswin_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *fbdiv_val,
+			  u32 *refdiv_val, u64 rate,
+			  const struct eswin_clk_pll *clk)
 {
 	int ret = 0;
 
 	switch (clk->id) {
-		case WIN2030_APLL_FOUT1:
-			switch (rate) {
-				case APLL_LOW_FREQ:
-					*frac_val = 10603200;
-					*postdiv1_val = 0;
-					*fbdiv_val = 37;
-					*refdiv_val = 1;
-					break;
-				case APLL_HIGH_FREQ:
-				default:
-					*frac_val = 14092861;
-					*postdiv1_val = 0;
-					*fbdiv_val = 163;
-					*refdiv_val = 1;
-					break;
-			}
+	case EIC7700_APLL_FOUT1:
+		switch (rate) {
+		case APLL_LOW_FREQ:
+			*frac_val = 10603200;
+			*postdiv1_val = 0;
+			*fbdiv_val = 37;
+			*refdiv_val = 1;
 			break;
-		case WIN2030_PLL_CPU:
-			switch (rate) {
-				case CLK_FREQ_1800M:
-					*frac_val = 0;
-					*postdiv1_val = 0;
-					*fbdiv_val = 300;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1700M:
-					*frac_val = 5592405;
-					*postdiv1_val = 0;
-					*fbdiv_val = 283;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1600M:
-					*frac_val = 11184810;
-					*postdiv1_val = 0;
-					*fbdiv_val = 266;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1500M:
-					*frac_val = 0;
-					*postdiv1_val = 0;
-					*fbdiv_val = 250;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1300M:
-					*frac_val = 11184810;
-					*postdiv1_val = 0;
-					*fbdiv_val = 216;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1200M:
-					*frac_val = 0;
-					*postdiv1_val = 0;
-					*fbdiv_val = 200;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1000M:
-					*frac_val = 11184810;
-					*postdiv1_val = 0;
-					*fbdiv_val = 166;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_900M:
-					*frac_val = 0;
-					*postdiv1_val = 0;
-					*fbdiv_val = 150;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_800M:
-					*frac_val = 5592405;
-					*postdiv1_val = 0;
-					*fbdiv_val = 133;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_700M:
-					*frac_val = 11184810;
-					*postdiv1_val = 0;
-					*fbdiv_val = 116;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_600M:
-					*frac_val = 0;
-					*postdiv1_val = 0;
-					*fbdiv_val = 100;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_500M:
-					*frac_val = 5592405;
-					*postdiv1_val = 0;
-					*fbdiv_val = 83;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_400M:
-					*frac_val = 11184810;
-					*postdiv1_val = 0;
-					*fbdiv_val = 66;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_200M:
-					*frac_val = 5592405;
-					*postdiv1_val = 0;
-					*fbdiv_val = 33;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_100M:
-					*frac_val = 11184810;
-					*postdiv1_val = 0;
-					*fbdiv_val = 16;
-					*refdiv_val = 1;
-					break;
-				case CLK_FREQ_1400M:
-				default:
-					*frac_val = 5592405;
-					*postdiv1_val = 0;
-					*fbdiv_val = 233;
-					*refdiv_val = 1;
-					break;
-			}
-			break;
+		case APLL_HIGH_FREQ:
 		default:
-			ret = -EINVAL;
-			pr_err("%s %d, Invalid pll set req, rate %lld, clk id %d\n", __func__, __LINE__, rate, clk->id);
+			*frac_val = 14092861;
+			*postdiv1_val = 0;
+			*fbdiv_val = 163;
+			*refdiv_val = 1;
 			break;
+		}
+		break;
+	case EIC7700_PLL_CPU:
+		switch (rate) {
+		case CLK_FREQ_1800M:
+			*frac_val = 0;
+			*postdiv1_val = 0;
+			*fbdiv_val = 300;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1700M:
+			*frac_val = 5592405;
+			*postdiv1_val = 0;
+			*fbdiv_val = 283;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1600M:
+			*frac_val = 11184810;
+			*postdiv1_val = 0;
+			*fbdiv_val = 266;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1500M:
+			*frac_val = 0;
+			*postdiv1_val = 0;
+			*fbdiv_val = 250;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1300M:
+			*frac_val = 11184810;
+			*postdiv1_val = 0;
+			*fbdiv_val = 216;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1200M:
+			*frac_val = 0;
+			*postdiv1_val = 0;
+			*fbdiv_val = 200;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1000M:
+			*frac_val = 11184810;
+			*postdiv1_val = 0;
+			*fbdiv_val = 166;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_900M:
+			*frac_val = 0;
+			*postdiv1_val = 0;
+			*fbdiv_val = 150;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_800M:
+			*frac_val = 5592405;
+			*postdiv1_val = 0;
+			*fbdiv_val = 133;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_700M:
+			*frac_val = 11184810;
+			*postdiv1_val = 0;
+			*fbdiv_val = 116;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_600M:
+			*frac_val = 0;
+			*postdiv1_val = 0;
+			*fbdiv_val = 100;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_500M:
+			*frac_val = 5592405;
+			*postdiv1_val = 0;
+			*fbdiv_val = 83;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_400M:
+			*frac_val = 11184810;
+			*postdiv1_val = 0;
+			*fbdiv_val = 66;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_200M:
+			*frac_val = 5592405;
+			*postdiv1_val = 0;
+			*fbdiv_val = 33;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_100M:
+			*frac_val = 11184810;
+			*postdiv1_val = 0;
+			*fbdiv_val = 16;
+			*refdiv_val = 1;
+			break;
+		case CLK_FREQ_1400M:
+		default:
+			*frac_val = 5592405;
+			*postdiv1_val = 0;
+			*fbdiv_val = 233;
+			*refdiv_val = 1;
+			break;
+		}
+		break;
+	default:
+		ret = -EINVAL;
+		pr_err("%s %d, Invalid pll set req, rate %lld, clk id %d\n",
+		       __func__, __LINE__, rate, clk->id);
+		break;
 	}
 	return ret;
 }
 
-static bool cpu_no_boost_1_6ghz = false;
+static bool cpu_no_boost_1_6ghz;
 static int __init cpu_no_boost_1_6ghz_setup(char *__unused)
 {
 	cpu_no_boost_1_6ghz = true;
@@ -290,8 +281,7 @@ static int __init cpu_no_boost_1_6ghz_setup(char *__unused)
 __setup("cpu_no_boost_1_6ghz", cpu_no_boost_1_6ghz_setup);
 
 #define to_pll_clk(_hw) container_of(_hw, struct eswin_clk_pll, hw)
-static int clk_pll_set_rate(struct clk_hw *hw,
-			    unsigned long rate,
+static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			    unsigned long parent_rate)
 {
 	struct eswin_clk_pll *clk = to_pll_clk(hw);
@@ -303,112 +293,133 @@ static int clk_pll_set_rate(struct clk_hw *hw,
 	struct clk *clk_cpu_pll = NULL;
 	int try_count = 0;
 	bool lock_flag = false;
-	char clk_cpu_mux_name[50] = {0};
-	char clk_cpu_lp_pll_name[50] = {0};
-	char clk_cpu_pll_name[50] = {0};
+	char clk_cpu_mux_name[50] = { 0 };
+	char clk_cpu_lp_pll_name[50] = { 0 };
+	char clk_cpu_pll_name[50] = { 0 };
 	enum voltage_level cpu_target_volatge;
 
-	ret = eswin_calc_pll(&frac_val, &postdiv1_val, &fbdiv_val, &refdiv_val, (u64)rate, clk);
-	if (ret) {
+	ret = eswin_calc_pll(&frac_val, &postdiv1_val, &fbdiv_val, &refdiv_val,
+			     (u64)rate, clk);
+	if (ret)
 		return ret;
-	}
 
 	/*
-	  we must switch the cpu to other clk before we change the cpu pll
-	*/
-	if (WIN2030_PLL_CPU == clk->id) {
+	 * we must switch the cpu to other clk before we change the cpu pll
+	 */
+	if (clk->id == EIC7700_PLL_CPU) {
 		if (clk->numa_id < 0) {
-			sprintf(clk_cpu_mux_name, "%s", "mux_u_cpu_root_3mux1_gfree");
-			sprintf(clk_cpu_lp_pll_name, "%s", "clk_clk_u84_core_lp");
+			sprintf(clk_cpu_mux_name, "%s",
+				"mux_u_cpu_root_3mux1_gfree");
+			sprintf(clk_cpu_lp_pll_name, "%s",
+				"clk_clk_u84_core_lp");
 			sprintf(clk_cpu_pll_name, "%s", "clk_pll_cpu");
 		} else {
-			sprintf(clk_cpu_mux_name, "d%d_%s", clk->numa_id, "mux_u_cpu_root_3mux1_gfree");
-			sprintf(clk_cpu_lp_pll_name, "d%d_%s", clk->numa_id, "clk_clk_u84_core_lp");
-			sprintf(clk_cpu_pll_name, "d%d_%s", clk->numa_id, "clk_pll_cpu");
+			sprintf(clk_cpu_mux_name, "d%d_%s", clk->numa_id,
+				"mux_u_cpu_root_3mux1_gfree");
+			sprintf(clk_cpu_lp_pll_name, "d%d_%s", clk->numa_id,
+				"clk_clk_u84_core_lp");
+			sprintf(clk_cpu_pll_name, "d%d_%s", clk->numa_id,
+				"clk_pll_cpu");
 		}
 
 		clk_cpu_mux = __clk_lookup(clk_cpu_mux_name);
 		if (!clk_cpu_mux) {
-			pr_err("%s %d, failed to get %s\n",__func__,__LINE__, clk_cpu_mux_name);
+			pr_err("%s %d, failed to get %s\n", __func__, __LINE__,
+			       clk_cpu_mux_name);
 			return -EINVAL;
 		}
 		clk_cpu_lp_pll = __clk_lookup(clk_cpu_lp_pll_name);
 		if (!clk_cpu_lp_pll) {
-			pr_err("%s %d, failed to get %s\n",__func__,__LINE__, clk_cpu_lp_pll_name);
+			pr_err("%s %d, failed to get %s\n", __func__, __LINE__,
+			       clk_cpu_lp_pll_name);
 			return -EINVAL;
 		}
 		ret = clk_prepare_enable(clk_cpu_lp_pll);
 		if (ret) {
-			pr_err("%s %d, failed to enable %s, ret %d\n",__func__,__LINE__,
-				clk_cpu_lp_pll_name, ret);
+			pr_err("%s %d, failed to enable %s, ret %d\n", __func__,
+			       __LINE__, clk_cpu_lp_pll_name, ret);
 			return ret;
 		}
 		clk_cpu_pll = __clk_lookup(clk_cpu_pll_name);
 		if (!clk_cpu_pll) {
-			pr_err("%s %d, failed to get %s\n",__func__,__LINE__, clk_cpu_pll_name);
+			pr_err("%s %d, failed to get %s\n", __func__, __LINE__,
+			       clk_cpu_pll_name);
 			clk_disable_unprepare(clk_cpu_lp_pll);
 			return -EINVAL;
 		}
 
 		ret = clk_set_parent(clk_cpu_mux, clk_cpu_lp_pll);
 		if (ret) {
-			pr_err("%s %d, faild to switch %s to %s, ret %d\n",__func__,__LINE__, clk_cpu_mux_name,
-				clk_cpu_lp_pll_name, ret);
+			pr_err("%s %d, failed to switch %s to %s, ret %d\n",
+			       __func__, __LINE__, clk_cpu_mux_name,
+			       clk_cpu_lp_pll_name, ret);
 			clk_disable_unprepare(clk_cpu_lp_pll);
 			return -EPERM;
 		}
 		/*
-		  The CPU clock has now switched to the LP_PLL, so we can adjust the CPU's supply voltage
-		  If the board cpu voltage does not support boosting to 0.9V, then the frequency cannot exceed 1.6GHz.
-		*/
+		 * The CPU clock has now switched to the LP_PLL,
+		 * so we can adjust the CPU's supply voltage
+		 * If the board cpu voltage does not support boosting to 0.9V,
+		 * then the frequency cannot exceed 1.6GHz.
+		 */
 		switch (rate) {
-			case CLK_FREQ_1800M:
-			case CLK_FREQ_1700M:
-				cpu_target_volatge = VOLTAGE_0_9V;
-				ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio, cpu_target_volatge);
-				if (ret) {
-					pr_warn("failed to change cpu volatge to %d mV, not support rate %ld\n",
+		case CLK_FREQ_1800M:
+		case CLK_FREQ_1700M:
+			cpu_target_volatge = VOLTAGE_0_9V;
+			ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio,
+							cpu_target_volatge);
+			if (ret) {
+				pr_warn("failed to change cpu volatge to %d mV, not support rate %ld\n",
+					cpu_target_volatge, rate);
+				goto switch_back;
+			} else {
+				if (clk->cpu_current_volatge !=
+				    cpu_target_volatge) {
+					pr_info("cpu volatge change to %d mV, target rate %ld\n",
 						cpu_target_volatge, rate);
-					goto switch_back;
-				} else {
-					if (clk->cpu_current_volatge != cpu_target_volatge) {
-						pr_info("cpu volatge change to %d mV, target rate %ld\n",
-							cpu_target_volatge, rate);
-						clk->cpu_current_volatge = cpu_target_volatge;
-					}
+					clk->cpu_current_volatge =
+						cpu_target_volatge;
 				}
-				break;
-			case CLK_FREQ_1600M:
-			case CLK_FREQ_1500M:
-				cpu_target_volatge = true == cpu_no_boost_1_6ghz ? VOLTAGE_0_8V : VOLTAGE_0_9V;
-				ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio, cpu_target_volatge);
-				if (ret) {
-					pr_warn("failed to change cpu volatge to %d mV, not support rate %ld\n",
-						cpu_target_volatge , rate);
-					goto switch_back;
-				} else {
-					if (clk->cpu_current_volatge != cpu_target_volatge) {
-						pr_info("cpu volatge change to %d mV, target rate %ld\n",
-							cpu_target_volatge, rate);
-						clk->cpu_current_volatge = cpu_target_volatge;
-					}
+			}
+			break;
+		case CLK_FREQ_1600M:
+		case CLK_FREQ_1500M:
+			cpu_target_volatge = true == cpu_no_boost_1_6ghz ?
+						     VOLTAGE_0_8V :
+						     VOLTAGE_0_9V;
+			ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio,
+							cpu_target_volatge);
+			if (ret) {
+				pr_warn("failed to change cpu volatge to %d mV, not support rate %ld\n",
+					cpu_target_volatge, rate);
+				goto switch_back;
+			} else {
+				if (clk->cpu_current_volatge !=
+				    cpu_target_volatge) {
+					pr_info("cpu volatge change to %d mV, target rate %ld\n",
+						cpu_target_volatge, rate);
+					clk->cpu_current_volatge =
+						cpu_target_volatge;
 				}
-				break;
-			default:
-				ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio, VOLTAGE_0_8V);
-				if (!ret) {
-					if (clk->cpu_current_volatge != VOLTAGE_0_8V) {
-						pr_info("cpu volatge change to %d mV, target rate %ld\n",
-							VOLTAGE_0_8V, rate);
-						clk->cpu_current_volatge = VOLTAGE_0_8V;
-					}
+			}
+			break;
+		default:
+			ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio,
+							VOLTAGE_0_8V);
+			if (!ret) {
+				if (clk->cpu_current_volatge != VOLTAGE_0_8V) {
+					pr_info("cpu volatge change to %d mV, target rate %ld\n",
+						VOLTAGE_0_8V, rate);
+					clk->cpu_current_volatge = VOLTAGE_0_8V;
 				}
-				/*
-				  For boards that do not support voltage switching, the voltage is maintained at 0.8V.
-				  Therefore, this is also considered successful.
-				*/
-				ret = 0;
-				break;
+			}
+			/*
+			 * For boards that do not support voltage switching,
+			 * the voltage is maintained at 0.8V.
+			 * Therefore, this is also considered successful.
+			 */
+			ret = 0;
+			break;
 		}
 	}
 
@@ -442,8 +453,8 @@ static int clk_pll_set_rate(struct clk_hw *hw,
 	writel_relaxed(val, clk->ctrl_reg0);
 
 	/*
-	  usually the pll wil lock in 50us
-	*/
+	 * usually the pll wil lock in 50us
+	 */
 	do {
 		usleep_range(refdiv_val * 80, refdiv_val * 80 * 2);
 		val = readl_relaxed(clk->status_reg);
@@ -454,16 +465,18 @@ static int clk_pll_set_rate(struct clk_hw *hw,
 	} while (try_count++ < 10);
 
 	if (false == lock_flag) {
-		pr_err("%s %d, faild to lock the cpu pll, cpu will work on low power pll\n",__func__,__LINE__);
+		pr_err("%s %d, failed to lock the cpu pll, cpu will work on low power pll\n",
+		       __func__, __LINE__);
 		return -EBUSY;
 	}
 
 switch_back:
-	if (WIN2030_PLL_CPU == clk->id) {
+	if (clk->id == EIC7700_PLL_CPU) {
 		ret = clk_set_parent(clk_cpu_mux, clk_cpu_pll);
 		if (ret) {
-			pr_err("%s %d, faild to switch %s to %s, ret %d\n",__func__,__LINE__,
-				 clk_cpu_mux_name, clk_cpu_pll_name, ret);
+			pr_err("%s %d, failed to switch %s to %s, ret %d\n",
+			       __func__, __LINE__, clk_cpu_mux_name,
+			       clk_cpu_pll_name, ret);
 			return -EPERM;
 		}
 		clk_disable_unprepare(clk_cpu_lp_pll);
@@ -472,7 +485,7 @@ switch_back:
 }
 
 static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
-		unsigned long parent_rate)
+					 unsigned long parent_rate)
 {
 	struct eswin_clk_pll *clk = to_pll_clk(hw);
 	u64 frac_val, fbdiv_val, refdiv_val;
@@ -501,110 +514,118 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 	postdiv1_val = val;
 
 	switch (clk->id) {
-		case WIN2030_APLL_FOUT1:
-			switch (frac_val) {
-				case 14092861:
-					rate = APLL_HIGH_FREQ;
-					break;
-				case 10603200:
-					rate = APLL_LOW_FREQ;
-					break;
-				default:
-					pr_err("%s %d, clk id %d, unknow frac_val %llu\n", __func__, __LINE__, clk->id, frac_val);
-					rate = 0;
-					break;
-			}
+	case EIC7700_APLL_FOUT1:
+		switch (frac_val) {
+		case 14092861:
+			rate = APLL_HIGH_FREQ;
 			break;
-		case WIN2030_PLL_CPU:
-			switch (fbdiv_val) {
-				case 300:
-					rate = CLK_FREQ_1800M;
-					break;
-				case 283:
-					rate = CLK_FREQ_1700M;
-					break;
-				case 266:
-					rate = CLK_FREQ_1600M;
-					break;
-				case 250:
-					rate = CLK_FREQ_1500M;
-					break;
-				case 216:
-					rate = CLK_FREQ_1300M;
-					break;
-				case 200:
-					rate = CLK_FREQ_1200M;
-					break;
-				case 166:
-					rate = CLK_FREQ_1000M;
-					break;
-				case 150:
-					rate = CLK_FREQ_900M;
-					break;
-				case 133:
-					rate = CLK_FREQ_800M;
-					break;
-				case 116:
-					rate = CLK_FREQ_700M;
-					break;
-				case 100:
-					rate = CLK_FREQ_600M;
-					break;
-				case 83:
-					rate = CLK_FREQ_500M;
-					break;
-				case 66:
-					rate = CLK_FREQ_400M;
-					break;
-				case 33:
-					rate = CLK_FREQ_200M;
-					break;
-				case 16:
-					rate = CLK_FREQ_100M;
-					break;
-				case 233:
-					rate = CLK_FREQ_1400M;
-					break;
-				default:
-					pr_err("%s %d, clk id %d, unknow fbdiv_val %llu\n", __func__, __LINE__, clk->id, fbdiv_val);
-					rate = 0;
-					break;
-			}
+		case 10603200:
+			rate = APLL_LOW_FREQ;
 			break;
 		default:
-			pr_err("%s %d, unknow clk id %d\n", __func__, __LINE__, clk->id);
+			pr_err("%s %d, clk id %d, unknown frac_val %llu\n",
+			       __func__, __LINE__, clk->id, frac_val);
 			rate = 0;
 			break;
+		}
+		break;
+	case EIC7700_PLL_CPU:
+		switch (fbdiv_val) {
+		case 300:
+			rate = CLK_FREQ_1800M;
+			break;
+		case 283:
+			rate = CLK_FREQ_1700M;
+			break;
+		case 266:
+			rate = CLK_FREQ_1600M;
+			break;
+		case 250:
+			rate = CLK_FREQ_1500M;
+			break;
+		case 216:
+			rate = CLK_FREQ_1300M;
+			break;
+		case 200:
+			rate = CLK_FREQ_1200M;
+			break;
+		case 166:
+			rate = CLK_FREQ_1000M;
+			break;
+		case 150:
+			rate = CLK_FREQ_900M;
+			break;
+		case 133:
+			rate = CLK_FREQ_800M;
+			break;
+		case 116:
+			rate = CLK_FREQ_700M;
+			break;
+		case 100:
+			rate = CLK_FREQ_600M;
+			break;
+		case 83:
+			rate = CLK_FREQ_500M;
+			break;
+		case 66:
+			rate = CLK_FREQ_400M;
+			break;
+		case 33:
+			rate = CLK_FREQ_200M;
+			break;
+		case 16:
+			rate = CLK_FREQ_100M;
+			break;
+		case 233:
+			rate = CLK_FREQ_1400M;
+			break;
+		default:
+			pr_err("%s %d, clk id %d, unknown fbdiv_val %llu\n",
+			       __func__, __LINE__, clk->id, fbdiv_val);
+			rate = 0;
+			break;
+		}
+		break;
+	default:
+		pr_err("%s %d, unknown clk id %d\n", __func__, __LINE__,
+		       clk->id);
+		rate = 0;
+		break;
 	}
 	return rate;
 }
 
 static long clk_pll_round_rate(struct clk_hw *hw, unsigned long rate,
-					unsigned long *parent_rate)
+			       unsigned long *parent_rate)
 {
 	struct eswin_clk_pll *clk = to_pll_clk(hw);
 	int index;
 	u64 round_rate = 0;
 
 	/*Must be sorted in ascending order*/
-	u64 apll_clk[] = {APLL_LOW_FREQ, APLL_HIGH_FREQ};
-	u64 cpu_pll_clk[] = {CLK_FREQ_100M, CLK_FREQ_200M, CLK_FREQ_400M, CLK_FREQ_500M, CLK_FREQ_600M, CLK_FREQ_700M,
-				CLK_FREQ_800M, CLK_FREQ_900M, CLK_FREQ_1000M, CLK_FREQ_1200M, CLK_FREQ_1300M,
-				CLK_FREQ_1400M, CLK_FREQ_1500M, CLK_FREQ_1600M, CLK_FREQ_1700M, CLK_FREQ_1800M};
+	u64 apll_clk[] = { APLL_LOW_FREQ, APLL_HIGH_FREQ };
+	u64 cpu_pll_clk[] = { CLK_FREQ_100M,  CLK_FREQ_200M,  CLK_FREQ_400M,
+			      CLK_FREQ_500M,  CLK_FREQ_600M,  CLK_FREQ_700M,
+			      CLK_FREQ_800M,  CLK_FREQ_900M,  CLK_FREQ_1000M,
+			      CLK_FREQ_1200M, CLK_FREQ_1300M, CLK_FREQ_1400M,
+			      CLK_FREQ_1500M, CLK_FREQ_1600M, CLK_FREQ_1700M,
+			      CLK_FREQ_1800M };
 
 	switch (clk->id) {
-		case WIN2030_APLL_FOUT1:
-			index = find_closest(rate, apll_clk, ARRAY_SIZE(apll_clk));
-			round_rate = apll_clk[index];
-			break;
-		case WIN2030_PLL_CPU:
-			index = find_closest(rate, cpu_pll_clk, ARRAY_SIZE(cpu_pll_clk));
-			round_rate = cpu_pll_clk[index];
-			break;
-		default:
-			pr_err("%s %d, unknow clk id %d\n", __func__, __LINE__, clk->id);
-			round_rate = 0;
-			break;
+	case EIC7700_APLL_FOUT1:
+		index = find_closest(rate, apll_clk, ARRAY_SIZE(apll_clk));
+		round_rate = apll_clk[index];
+		break;
+	case EIC7700_PLL_CPU:
+		index = find_closest(rate, cpu_pll_clk,
+				     ARRAY_SIZE(cpu_pll_clk));
+		round_rate = cpu_pll_clk[index];
+		break;
+	default:
+		pr_err("%s %d, unknown clk id %d\n", __func__, __LINE__,
+		       clk->id);
+		round_rate = 0;
+		break;
 	}
 	return round_rate;
 }
@@ -615,26 +636,29 @@ static const struct clk_ops eswin_clk_pll_ops = {
 	.round_rate = clk_pll_round_rate,
 };
 
-void eswin_clk_register_pll(struct eswin_pll_clock *clks,
-		int nums, struct eswin_clock_data *data, struct device *dev)
+void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
+			    struct eswin_clock_data *data, struct device *dev)
 {
 	void __iomem *base = data->base;
 	struct eswin_clk_pll *p_clk = NULL;
 	struct clk *clk = NULL;
 	struct clk_init_data init;
 	int i;
-	static struct gpio_desc *cpu_voltage_gpio = NULL;
+	static struct gpio_desc *cpu_voltage_gpio;
 
 	p_clk = devm_kzalloc(dev, sizeof(*p_clk) * nums, GFP_KERNEL);
 
 	if (!p_clk)
 		return;
 	/*
-	In the D2D system, the boost operation is performed using the GPIO on Die0.
-	However, the same GPIO pin cannot be acquired twice, so special handling is implemented:
-	  once the GPIO is acquired,the other driver simply uses it directly
-	*/
-	cpu_voltage_gpio = IS_ERR_OR_NULL(cpu_voltage_gpio) ? devm_gpiod_get(dev, "cpu-voltage", GPIOD_OUT_HIGH) : cpu_voltage_gpio;
+	 *In the D2D system, the boost operation is performed using the GPIO on Die0.
+	 *However, the same GPIO pin cannot be acquired twice, so special handling is implemented:
+	 *Once the GPIO is acquired,the other driver simply uses it directly
+	 */
+	cpu_voltage_gpio =
+		IS_ERR_OR_NULL(cpu_voltage_gpio) ?
+			devm_gpiod_get(dev, "cpu-voltage", GPIOD_OUT_HIGH) :
+			cpu_voltage_gpio;
 	if (IS_ERR_OR_NULL(cpu_voltage_gpio)) {
 		dev_warn(dev, "failed to get cpu volatge gpio\n");
 		cpu_voltage_gpio = NULL;
@@ -643,19 +667,26 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks,
 		eswin_clk_set_cpu_volatge(cpu_voltage_gpio, VOLTAGE_0_8V);
 	}
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL);
-		const char *parent_name = clks[i].parent_name ? kzalloc(strlen(clks[i].parent_name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL) : NULL;
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+		const char *parent_name =
+			clks[i].parent_name ?
+				kzalloc(strlen(clks[i].parent_name) +
+						2 * sizeof(char) + sizeof(int),
+					GFP_KERNEL) :
+				NULL;
 		if (data->numa_id < 0) {
 			sprintf(name, "%s", clks[i].name);
 			if (parent_name) {
-				sprintf((char *)parent_name, "%s", clks[i].parent_name);
+				sprintf((char *)parent_name, "%s",
+					clks[i].parent_name);
 			}
 		} else {
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
 			if (parent_name) {
-				sprintf((char *)parent_name, "d%d_%s", data->numa_id, clks[i].parent_name);
+				sprintf((char *)parent_name, "d%d_%s",
+					data->numa_id, clks[i].parent_name);
 			}
 		}
 
@@ -695,7 +726,8 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks,
 		clk = clk_register(dev, &p_clk->hw);
 		if (IS_ERR(clk)) {
 			devm_kfree(dev, p_clk);
-			dev_err(dev, "%s: failed to register clock %s\n", __func__, clks[i].name);
+			dev_err(dev, "%s: failed to register clock %s\n",
+				__func__, clks[i].name);
 			continue;
 		}
 
@@ -703,39 +735,41 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks,
 		p_clk++;
 
 		kfree(name);
-		if (parent_name) {
+		if (parent_name)
 			kfree(parent_name);
-		}
 	}
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_pll);
 
 int eswin_clk_register_fixed_factor(const struct eswin_fixed_factor_clock *clks,
-					   int nums,
-					   struct eswin_clock_data *data)
+				    int nums, struct eswin_clock_data *data)
 {
 	struct clk *clk;
 	int i;
 
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
-		char *parent_name = kzalloc(strlen(clks[i].parent_name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+		char *parent_name =
+			kzalloc(strlen(clks[i].parent_name) + 2 * sizeof(char) +
+					sizeof(int),
+				GFP_KERNEL);
 		if (data->numa_id < 0) {
 			sprintf(name, "%s", clks[i].name);
 			sprintf(parent_name, "%s", clks[i].parent_name);
 		} else {
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
-			sprintf(parent_name, "d%d_%s", data->numa_id, clks[i].parent_name);
+			sprintf(parent_name, "d%d_%s", data->numa_id,
+				clks[i].parent_name);
 		}
 
-		clk = clk_register_fixed_factor(NULL, name,
-						parent_name,
+		clk = clk_register_fixed_factor(NULL, name, parent_name,
 						clks[i].flags, clks[i].mult,
 						clks[i].div);
 		if (IS_ERR(clk)) {
-			pr_err("%s: failed to register clock %s\n", __func__, name);
+			pr_err("%s: failed to register clock %s\n", __func__,
+			       name);
 			kfree(name);
 			kfree(parent_name);
 			goto err;
@@ -756,8 +790,8 @@ err:
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_fixed_factor);
 
-int eswin_clk_register_mux(const struct eswin_mux_clock *clks,
-				  int nums, struct eswin_clock_data *data)
+int eswin_clk_register_mux(const struct eswin_mux_clock *clks, int nums,
+			   struct eswin_clock_data *data)
 {
 	struct clk *clk;
 	void __iomem *base = data->base;
@@ -765,38 +799,42 @@ int eswin_clk_register_mux(const struct eswin_mux_clock *clks,
 	int j;
 
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
 
-		char **parent_names = kzalloc(sizeof(char *) * clks[i].num_parents,
-			GFP_KERNEL );
-		if (data->numa_id < 0) {
+		char **parent_names = kzalloc(
+			sizeof(char *) * clks[i].num_parents, GFP_KERNEL);
+		if (data->numa_id < 0)
 			sprintf(name, "%s", clks[i].name);
-		} else {
+		else
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
-		}
+
 		for (j = 0; j < clks[i].num_parents; j++) {
-			parent_names[j] = kzalloc(strlen(clks[i].parent_names[j])
-				+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
+			parent_names[j] =
+				kzalloc(strlen(clks[i].parent_names[j]) +
+						2 * sizeof(char) + sizeof(int),
+					GFP_KERNEL);
 			if (data->numa_id < 0) {
-				sprintf(parent_names[j], "%s", clks[i].parent_names[j]);
+				sprintf(parent_names[j], "%s",
+					clks[i].parent_names[j]);
 			} else {
 				sprintf(parent_names[j], "d%d_%s",
 					data->numa_id, clks[i].parent_names[j]);
 			}
 		}
-		clk = clk_register_mux_table(NULL, name,
-				(const char * const*)parent_names,
-				clks[i].num_parents, clks[i].flags,
-				base + clks[i].offset, clks[i].shift,
-				clks[i].mask, clks[i].mux_flags,
-				clks[i].table, &data->lock);
+		clk = clk_register_mux_table(
+			NULL, name, (const char *const *)parent_names,
+			clks[i].num_parents, clks[i].flags,
+			base + clks[i].offset, clks[i].shift, clks[i].mask,
+			clks[i].mux_flags, clks[i].table, &data->lock);
 		if (IS_ERR(clk)) {
-			pr_err("%s: failed to register clock %s\n", __func__, clks[i].name);
+			pr_err("%s: failed to register clock %s\n", __func__,
+			       clks[i].name);
 			kfree(name);
-			for (j = 0; j < clks[i].num_parents; j++) {
+			for (j = 0; j < clks[i].num_parents; j++)
 				kfree(parent_names[j]);
-			}
+
 			kfree(parent_names);
 			goto err;
 		}
@@ -807,9 +845,9 @@ int eswin_clk_register_mux(const struct eswin_mux_clock *clks,
 		data->clk_data.clks[clks[i].id] = clk;
 
 		kfree(name);
-		for (j = 0; j < clks[i].num_parents; j++) {
+		for (j = 0; j < clks[i].num_parents; j++)
 			kfree(parent_names[j]);
-		}
+
 		kfree(parent_names);
 	}
 	return 0;
@@ -822,42 +860,43 @@ err:
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_mux);
 
-int eswin_clk_register_divider(const struct eswin_divider_clock *clks,
-				      int nums, struct eswin_clock_data *data)
+int eswin_clk_register_divider(const struct eswin_divider_clock *clks, int nums,
+			       struct eswin_clock_data *data)
 {
 	struct clk *clk;
 	void __iomem *base = data->base;
 	int i;
 	struct clk_hw *clk_hw;
 	struct clk_hw *parent_hw;
-	struct clk_parent_data	parent_data;
+	struct clk_parent_data parent_data;
 
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
-		char *parent_name = kzalloc(strlen(clks[i].parent_name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+		char *parent_name =
+			kzalloc(strlen(clks[i].parent_name) + 2 * sizeof(char) +
+					sizeof(int),
+				GFP_KERNEL);
 		if (data->numa_id < 0) {
 			sprintf(name, "%s", clks[i].name);
 			sprintf(parent_name, "%s", clks[i].parent_name);
 		} else {
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
-			sprintf(parent_name, "d%d_%s", data->numa_id, clks[i].parent_name);
+			sprintf(parent_name, "d%d_%s", data->numa_id,
+				clks[i].parent_name);
 		}
 		parent_hw = eswin_clk_find_parent(data, parent_name);
 		parent_data.name = parent_name;
 		parent_data.hw = parent_hw;
 		parent_data.fw_name = NULL;
-		clk_hw = clk_hw_register_divider_table_parent_data(NULL, name,
-						&parent_data,
-						clks[i].flags,
-						base + clks[i].offset,
-						clks[i].shift, clks[i].width,
-						clks[i].div_flags,
-						clks[i].table,
-						&data->lock);
+		clk_hw = clk_hw_register_divider_table_parent_data(
+			NULL, name, &parent_data, clks[i].flags,
+			base + clks[i].offset, clks[i].shift, clks[i].width,
+			clks[i].div_flags, clks[i].table, &data->lock);
 		if (IS_ERR(clk_hw)) {
-			pr_err("%s: failed to register clock %s\n", __func__, clks[i].name);
+			pr_err("%s: failed to register clock %s\n", __func__,
+			       clks[i].name);
 			kfree(name);
 			kfree(parent_name);
 			goto err;
@@ -880,41 +919,43 @@ err:
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_divider);
 
-int eswin_clk_register_gate(const struct eswin_gate_clock *clks,
-				       int nums, struct eswin_clock_data *data)
+int eswin_clk_register_gate(const struct eswin_gate_clock *clks, int nums,
+			    struct eswin_clock_data *data)
 {
 	struct clk *clk;
 	void __iomem *base = data->base;
 	int i;
 	struct clk_hw *clk_hw;
 	struct clk_hw *parent_hw;
-	struct clk_parent_data	parent_data;
+	struct clk_parent_data parent_data;
 
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL);
-		char *parent_name = kzalloc(strlen(clks[i].parent_name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL);
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+		char *parent_name =
+			kzalloc(strlen(clks[i].parent_name) + 2 * sizeof(char) +
+					sizeof(int),
+				GFP_KERNEL);
 		if (data->numa_id < 0) {
 			sprintf(name, "%s", clks[i].name);
 			sprintf(parent_name, "%s", clks[i].parent_name);
 		} else {
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
-			sprintf(parent_name, "d%d_%s", data->numa_id, clks[i].parent_name);
+			sprintf(parent_name, "d%d_%s", data->numa_id,
+				clks[i].parent_name);
 		}
 		parent_hw = eswin_clk_find_parent(data, parent_name);
 		parent_data.name = parent_name;
 		parent_data.hw = parent_hw;
 		parent_data.fw_name = NULL;
-		clk_hw = clk_hw_register_gate_parent_data(NULL, name,
-				&parent_data,
-				clks[i].flags,
-				base + clks[i].offset,
-				clks[i].bit_idx,
-				clks[i].gate_flags,
-				&data->lock);
+		clk_hw = clk_hw_register_gate_parent_data(
+			NULL, name, &parent_data, clks[i].flags,
+			base + clks[i].offset, clks[i].bit_idx,
+			clks[i].gate_flags, &data->lock);
 		if (IS_ERR(clk_hw)) {
-			pr_err("%s: failed to register clock %s\n",__func__, clks[i].name);
+			pr_err("%s: failed to register clock %s\n", __func__,
+			       clks[i].name);
 			kfree(name);
 			kfree(parent_name);
 			goto err;
@@ -942,18 +983,17 @@ static const struct clk_ops clk_dummpy_ops = {
 };
 
 struct clk *eswin_register_clk(struct eswin_clock_data *data,
-				     struct device *dev, const char *name,
-				      const char *parent_name,
-				      unsigned long flags,
-				      spinlock_t *lock)
+			       struct device *dev, const char *name,
+			       const char *parent_name, unsigned long flags,
+			       spinlock_t *lock)
 {
 	struct eswin_clock *eclk;
 	struct clk *clk;
 	struct clk_init_data init;
-	struct clk_parent_data	parent_data;
-	struct clk_hw 		*parent_hw;
+	struct clk_parent_data parent_data;
+	struct clk_hw *parent_hw;
 
-	eclk = kzalloc(sizeof(*eclk), GFP_KERNEL );
+	eclk = kzalloc(sizeof(*eclk), GFP_KERNEL);
 	if (!eclk)
 		return ERR_PTR(-ENOMEM);
 
@@ -979,28 +1019,33 @@ struct clk *eswin_register_clk(struct eswin_clock_data *data,
 	return clk;
 }
 
-int eswin_clk_register_clk(const struct eswin_clock *clks,
-				       int nums, struct eswin_clock_data *data)
+int eswin_clk_register_clk(const struct eswin_clock *clks, int nums,
+			   struct eswin_clock_data *data)
 {
 	struct clk *clk;
-	int 	i;
+	int i;
 
 	for (i = 0; i < nums; i++) {
-		char *name = kzalloc(strlen(clks[i].name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
-		char *parent_name = kzalloc(strlen(clks[i].parent_name)
-			+ 2 * sizeof(char) + sizeof(int), GFP_KERNEL );
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+		char *parent_name =
+			kzalloc(strlen(clks[i].parent_name) + 2 * sizeof(char) +
+					sizeof(int),
+				GFP_KERNEL);
 		if (data->numa_id < 0) {
 			sprintf(name, "%s", clks[i].name);
 			sprintf(parent_name, "%s", clks[i].parent_name);
 		} else {
 			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
-			sprintf(parent_name, "d%d_%s", data->numa_id, clks[i].parent_name);
+			sprintf(parent_name, "d%d_%s", data->numa_id,
+				clks[i].parent_name);
 		}
 		clk = eswin_register_clk(data, NULL, name, parent_name,
-					clks[i].flags, &data->lock);
+					 clks[i].flags, &data->lock);
 		if (IS_ERR(clk)) {
-			pr_err("%s: failed to register clock %s\n", __func__, clks[i].name);
+			pr_err("%s: failed to register clock %s\n", __func__,
+			       clks[i].name);
 			kfree(name);
 			kfree(parent_name);
 			goto err;

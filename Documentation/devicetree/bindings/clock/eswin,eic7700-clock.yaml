@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/eswin,eic7700-clock.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Eswin EIC7700 SOC Clock Controller
+
+maintainers:
+  - huangyifeng <huangyifeng@eswincomputing.com>
+
+description: |
+  The clock controller registers are part of the syscrg block on
+  	eic7700 SoC.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: eswin,eic7700-clock
+
+  '#clock-cells':
+    const: 1
+
+required:
+  - compatible
+  - '#clock-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/eswin,eic7700-clock.h>
+
+    d0_sys_crg: sys-crg@51828000 {
+        compatible = "syscon", "simple-mfd";
+        reg = <0x000000 0x51828000 0x000000 0x80000>;
+        numa-node-id = <0>;
+        d0_clock: clock-controller {
+            compatible = "eswin,eic7700-clock";
+            #clock-cells = <1>;
+        };
+    };
+    d0_i2c9: i2c@509e0000 {
+        compatible = "snps,designware-i2c";
+        clocks = <&d0_clock EIC7700_CLK_LSP_I2C9_PCLK>;
+        clock-names = "pclk";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        reg = <0x0 0x509e0000 0x0 0x8000>;
+        interrupts = <114>;
+        interrupt-parent = <&plic0>;
+        numa-node-id = <0>;
+    };
+...

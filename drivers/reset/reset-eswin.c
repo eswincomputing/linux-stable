@@ -1,22 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * ESWIN Reset Driver
- *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, version 2.
+ * ESWIN Reset Driver
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * Authors: HuangYiFeng<huangyifeng@eswincomputing.com>
+ * Authors: huangyifeng<huangyifeng@eswincomputing.com>
  */
 
 #include <linux/err.h>
@@ -29,10 +17,10 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 
-#define SYSCRG_CLEAR_BOOT_INFO_OFFSET		(0x30C)
-#define CLEAR_BOOT_FLAG_BIT			BIT_ULL(0)
+#define SYSCRG_CLEAR_BOOT_INFO_OFFSET (0x30C)
+#define CLEAR_BOOT_FLAG_BIT BIT_ULL(0)
 
-#define SYSCRG_RESET_OFFSET			(0x400)
+#define SYSCRG_RESET_OFFSET (0x400)
 
 /**
  * struct eswin_reset_data - reset controller information structure
@@ -57,9 +45,7 @@ struct eswin_reset_control {
 	u32 reset_bit;
 };
 
-
-#define to_eswin_reset_data(p)	\
-	container_of((p), struct eswin_reset_data, rcdev)
+#define to_eswin_reset_data(p) container_of((p), struct eswin_reset_data, rcdev)
 
 /**
  * eswin_reset_set() - program a device's reset
@@ -73,8 +59,8 @@ struct eswin_reset_control {
  *
  * Return: 0 for successful request, else a corresponding error value
  */
-static int eswin_reset_set(struct reset_controller_dev *rcdev,
-			    unsigned long id, bool assert)
+static int eswin_reset_set(struct reset_controller_dev *rcdev, unsigned long id,
+			   bool assert)
 {
 	struct eswin_reset_data *data = to_eswin_reset_data(rcdev);
 	struct eswin_reset_control *control;
@@ -89,18 +75,22 @@ static int eswin_reset_set(struct reset_controller_dev *rcdev,
 		return -EINVAL;
 
 	if (assert) {
-		ret = regmap_clear_bits(data->regmap, SYSCRG_RESET_OFFSET + control->dev_id * sizeof(u32),
-			control->reset_bit);
+		ret = regmap_clear_bits(data->regmap,
+					SYSCRG_RESET_OFFSET +
+						control->dev_id * sizeof(u32),
+					control->reset_bit);
 	} else {
-		ret = regmap_set_bits(data->regmap, SYSCRG_RESET_OFFSET + control->dev_id * sizeof(u32),
-			control->reset_bit);
+		ret = regmap_set_bits(data->regmap,
+				      SYSCRG_RESET_OFFSET +
+					      control->dev_id * sizeof(u32),
+				      control->reset_bit);
 	}
 
 	return ret;
 }
 
 static int eswin_reset_reset(struct reset_controller_dev *rcdev,
-			      unsigned long id)
+			     unsigned long id)
 {
 	int ret;
 
@@ -129,17 +119,19 @@ static int eswin_reset_deassert(struct reset_controller_dev *rcdev,
 }
 
 static const struct reset_control_ops eswin_reset_ops = {
-	.reset		= eswin_reset_reset,
-	.assert		= eswin_reset_assert,
-	.deassert	= eswin_reset_deassert,
+	.reset = eswin_reset_reset,
+	.assert = eswin_reset_assert,
+	.deassert = eswin_reset_deassert,
 };
 
 static int eswin_reset_of_xlate_lookup_id(int id, void *p, void *data)
 {
 	struct of_phandle_args *reset_spec = (struct of_phandle_args *)data;
-	struct eswin_reset_control *slot_control = (struct eswin_reset_control *)p;
+	struct eswin_reset_control *slot_control =
+		(struct eswin_reset_control *)p;
 
-	if (reset_spec->args[0] == slot_control->dev_id && reset_spec->args[1] == slot_control->reset_bit)
+	if (reset_spec->args[0] == slot_control->dev_id &&
+	    reset_spec->args[1] == slot_control->reset_bit)
 		return id;
 	else
 		return 0;
@@ -160,7 +152,7 @@ static int eswin_reset_of_xlate_lookup_id(int id, void *p, void *data)
  * Return: 0 for successful request, else a corresponding error value
  */
 static int eswin_reset_of_xlate(struct reset_controller_dev *rcdev,
-				 const struct of_phandle_args *reset_spec)
+				const struct of_phandle_args *reset_spec)
 {
 	struct eswin_reset_data *data = to_eswin_reset_data(rcdev);
 	struct eswin_reset_control *control;
@@ -169,7 +161,8 @@ static int eswin_reset_of_xlate(struct reset_controller_dev *rcdev,
 	if (WARN_ON(reset_spec->args_count != rcdev->of_reset_n_cells))
 		return -EINVAL;
 
-	ret = idr_for_each(&data->idr, eswin_reset_of_xlate_lookup_id, (void *)reset_spec);
+	ret = idr_for_each(&data->idr, eswin_reset_of_xlate_lookup_id,
+			   (void *)reset_spec);
 	if (ret != 0)
 		return ret;
 
@@ -184,8 +177,10 @@ static int eswin_reset_of_xlate(struct reset_controller_dev *rcdev,
 }
 
 static const struct of_device_id eswin_reset_dt_ids[] = {
-	 { .compatible = "eswin,eic770x-reset", },
-	 { /* sentinel */ },
+	{
+		.compatible = "eswin,eic7700-reset",
+	},
+	{ /* sentinel */ },
 };
 
 static int eswin_reset_probe(struct platform_device *pdev)
@@ -221,7 +216,8 @@ static int eswin_reset_probe(struct platform_device *pdev)
 	idr_init(&data->idr);
 
 	/*clear boot flag so u84 and scpu could be reseted by software*/
-	regmap_set_bits(data->regmap, SYSCRG_CLEAR_BOOT_INFO_OFFSET, CLEAR_BOOT_FLAG_BIT);
+	regmap_set_bits(data->regmap, SYSCRG_CLEAR_BOOT_INFO_OFFSET,
+			CLEAR_BOOT_FLAG_BIT);
 	msleep(50);
 	platform_set_drvdata(pdev, data);
 
