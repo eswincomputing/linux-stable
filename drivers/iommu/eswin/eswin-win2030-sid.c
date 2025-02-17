@@ -121,6 +121,7 @@ void print_tcu_node_status(const char *call_name, int call_line, int nid);
 static int __init tcu_proc_init(void);
 
 static int g_nodes_cnt = 0;
+static int win2030_tbu_power_all(int nid, bool is_powerUp);
 
 int win2030_dynm_sid_enable(int nid)
 {
@@ -465,7 +466,9 @@ static int __init win2030_init_streamID(void)
 			syscon_sid_cfg[nid] = mc;
 			g_nodes_cnt++;
 			pr_debug("%s, syscon_sid_cfg[%d] addr is 0x%px\n", __func__, nid, syscon_sid_cfg[nid]);
-
+			pr_info("power down all tbus of node %d at start up\n", nid);
+			win2030_tbu_power_all(nid, false);
+			print_tcu_node_status(__func__, __LINE__, nid);
 			/* sid configuration was moved into each driver, so skip win2030_program_sid*/
 			// win2030_program_sid(nid);
 
@@ -831,6 +834,24 @@ static int win2030_get_tbu_priv(int nid, u32 tbu_id, struct tbu_priv **tbu_priv_
 	return -1;
 }
 
+static int win2030_tbu_power_all(int nid, bool is_powerUp)
+{
+
+	int i;
+	struct win2030_sid *mc = syscon_sid_cfg[nid];
+	struct tbu_power_soc *tbu_power_soc_p = mc->tbu_power_soc;
+	struct tbu_priv *tbu_priv_p = tbu_power_soc_p->tbu_priv_array;
+	const struct win2030_tbu_client *tbu_client_p = NULL;
+
+	for (i = 0; i < tbu_power_soc_p->num_tbuClients; i++) {
+		tbu_client_p = tbu_priv_p->tbu_client_p;
+		pr_debug("%s, tbu 0x%x %s\n", __func__, tbu_client_p->tbu_id, is_powerUp?"power up":"power down");
+		__do_win2030_tbu_power_ctl(nid, is_powerUp, &tbu_client_p->tbu_reg_info);
+		tbu_priv_p++;
+	}
+
+	return 0;
+}
 /***********************************************************************************************
    win2030_tbu_power(struct device *dev, bool is_powerUp) is for powering up or down
    the tbus of the device module which is under smmu.
