@@ -771,6 +771,12 @@ static int llc_clk_set_parent(struct platform_device *pdev)
 		return -EINVAL;
 	np = of_node_get(dev->of_node);
 	spram->npu_regulator = devm_regulator_get(dev, "npu");
+
+	if (!spram->npu_regulator) {
+		dev_err(dev, "failed to get npu regulator.\n");
+		return -ENODEV;
+	}
+
 	ret = regulator_get_voltage(spram->npu_regulator);
 	if (ret < 0)
 	{

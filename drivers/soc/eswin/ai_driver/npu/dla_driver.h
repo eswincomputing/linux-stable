@@ -64,6 +64,7 @@ struct nvdla_device {
 	uint32_t spram_size;
 	void *edma;
 	bool perf_stat;
+	u32 npu_def_high_vol;
 
 	struct reset_control *rstc_e31_core;
 	struct clk *e31_core_clk;
