@@ -480,6 +480,9 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	mutex_lock(&nvdla_dev->devfreq_lock);
 
 	if (target_rate > nvdla_dev->rate) { // rise freq
+		if (nvdla_dev->npu_def_high_vol) {
+			target_volt = nvdla_dev->npu_def_high_vol;
+		}
 		ret = regulator_set_voltage(nvdla_dev->npu_regulator, target_volt, target_volt);
 		if (ret) {
 			dev_err(dev, "Cannot set voltage %lu uV\n", target_volt);
@@ -588,6 +591,12 @@ static int32_t edla_probe(struct platform_device *pdev)
 	}
 	nvdla_dev->is_low_freq = of_property_read_bool(pdev->dev.of_node, "apply_npu_1G_freq");
 
+	err = of_property_read_u32(pdev->dev.of_node, "npu_def_high_vol", &nvdla_dev->npu_def_high_vol);
+	if (err) {
+		nvdla_dev->npu_def_high_vol = 0;
+		err = 0;
+	}
+
 	err = regulator_enable(nvdla_dev->npu_regulator);
 	if (err < 0)
 	{
@@ -612,9 +621,14 @@ static int32_t edla_probe(struct platform_device *pdev)
 	}
 
 	if (nvdla_dev->is_low_freq == 0) {
-                err = regulator_set_voltage(nvdla_dev->npu_regulator, NPU_1P5G_VOLTAGE, NPU_1P5G_VOLTAGE);
+		if (nvdla_dev->npu_def_high_vol) {
+			err = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->npu_def_high_vol, nvdla_dev->npu_def_high_vol);
+		} else {
+			err = regulator_set_voltage(nvdla_dev->npu_regulator, NPU_1P5G_VOLTAGE, NPU_1P5G_VOLTAGE);
+		}
+
                 if (err != 0) {
-                        dla_error("error npu regulator volt:%duV ret:%d.\n", NPU_1P5G_VOLTAGE, err);
+                        dla_error("error npu regulator volt:%duV ret:%d.\n", nvdla_dev->npu_def_high_vol ? : NPU_1P5G_VOLTAGE, err);
                         goto err_mem0;
                 }
                 mdelay(10);
