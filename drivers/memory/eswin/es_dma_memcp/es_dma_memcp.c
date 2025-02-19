@@ -37,6 +37,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/workqueue.h>
+#include <linux/poll.h>
 #include <uapi/linux/dma_memcp.h>
 
 #define DRIVER_NAME 		"es_memcp"
@@ -57,6 +58,8 @@ struct cmdq {
     struct mutex lock;
     atomic_t total_tasks;
     atomic_t completed_tasks;
+    atomic_t last_error;
+    wait_queue_head_t wait;
 };
 
 struct esw_cmdq_task {
@@ -356,6 +359,7 @@ static int esw_memcp_start_dma_f2f_trans(struct esw_cmdq_task  *cmdq_task)
         pr_err("DMA transfer timeout.\n");
         ret = -ETIMEDOUT;
         dmaengine_terminate_sync(dma_ch);
+        complete(&cmdq_task->dma_finished);
         goto release_cmdq_task;
     }
 
@@ -380,7 +384,9 @@ static void cmdq_task_worker(struct work_struct *work) {
 
     if (ret) {
         pr_err("cmdq_task_worker: DMA transfer failed with error code %d\n", ret);
+        atomic_set(&q->last_error, ret);
     }
+    wake_up_interruptible(&q->wait);
     atomic_inc(&q->completed_tasks);
 
 }
@@ -445,6 +451,7 @@ static int esw_cmdq_add_task(struct file *filp, void __user *user_arg) {
         return -EINVAL;
     }
 
+    atomic_set(&q->last_error, 0);
     INIT_WORK(&cmdq_task->work, cmdq_task_worker);
     ret = queue_work(cmdq_task->cmdq->wq, &cmdq_task->work);
     if (!ret) {
@@ -452,6 +459,11 @@ static int esw_cmdq_add_task(struct file *filp, void __user *user_arg) {
         dma_buf_put(cmdq_task->src_buf.dma_buf);
         dma_buf_put(cmdq_task->dst_buf.dma_buf);
         kfree(cmdq_task);
+        return -EFAULT;
+    }
+
+    if (atomic_read(&q->last_error)) {
+        pr_err("Task failed with error code %d\n", atomic_read(&q->last_error));
         return -EFAULT;
     }
 
@@ -469,6 +481,11 @@ static int esw_cmdq_sync(struct file *filp) {
     }
 
     flush_workqueue(q->wq);
+
+    if (atomic_read(&q->last_error) != 0) {
+        pr_err("Last task error: %d\n", atomic_read(&q->last_error));
+        return atomic_read(&q->last_error);
+    }
 
     return 0;
 }
@@ -496,6 +513,7 @@ static int esw_cmdq_query(struct file *file, void __user *user_arg)
 
     query.status = (total == completed) ? 0 : 1; // 0 FREE，1 BUSY
     query.task_count = total - completed;
+    query.last_error = atomic_read(&q->last_error);
 
     if (copy_to_user(user_arg, &query, sizeof(query))) {
         pr_err("esw_cmdq_query: Failed to copy data to user space\n");
@@ -547,6 +565,8 @@ static int esw_memcp_open(struct inode *inode, struct file *filp)
         return -ENOMEM;
     }
 
+    init_waitqueue_head(&q->wait);
+
     q->wq = alloc_workqueue("cmdq_wq", WQ_UNBOUND | WQ_FREEZABLE | WQ_MEM_RECLAIM, 0);
     if (!q->wq) {
         pr_err("Failed to allocate workqueue\n");
@@ -579,6 +599,22 @@ static int esw_memcp_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
+static unsigned int esw_memcp_poll(struct file *filp, poll_table *wait)
+{
+    struct cmdq *q = filp->private_data;
+    unsigned int mask = 0;
+    int total = atomic_read(&q->total_tasks);
+    int completed = atomic_read(&q->completed_tasks);
+
+    poll_wait(filp, &q->wait, wait);
+
+    if (atomic_read(&q->last_error) != 0 || total == completed) {
+        mask |= POLLIN | POLLRDNORM;
+    }
+
+    return mask;
+}
+
 
 static struct file_operations esw_memcp_fops = {
     .owner          = THIS_MODULE,
@@ -587,6 +623,7 @@ static struct file_operations esw_memcp_fops = {
     .unlocked_ioctl = esw_memcp_ioctl,
     .open           = esw_memcp_open,
     .release        = esw_memcp_release,
+    .poll           = esw_memcp_poll,
 };
 
 static struct miscdevice esw_memcp_miscdev = {

@@ -48,10 +48,12 @@ struct esw_memcp_f2f_cmd {
  *
  * @status: Status of the queue, 0 indicates idle, 1 indicates busy.
  * @task_count: Current number of tasks in the queue.
+ * @last_error: Error code of the last failed task (0 if no error).
  */
 struct esw_cmdq_query {
     int status;
     int task_count;
+    int last_error;
 };
 
 #define ESW_MEMCP_MAGIC 			'M'
