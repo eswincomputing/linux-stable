@@ -17,4 +17,13 @@ config ESWIN_SND_ES8388_CODEC
 		es8388 codec,
 		this codec is internal
 
+config ESWIN_SND_TLV320AIC3106_CODEC
+	bool "ESWIN Audio tlv320aic3106 codec"
+	depends on ESWIN_SND_SOC_CODECS
+	default n
+	help
+		ESWIN Audio codec,
+		tlv320aic3106 codec,
+		this codec is internal
+
 #endif #ESWIN_SND_SOC_CODECS
