@@ -460,11 +460,11 @@
 &d0_npu{
 	status = "okay";
 	npu-supply=<&d0_npu_vcc>;
+	npu_def_high_vol = <1100000>;
 };
 &d1_npu {
 	status = "okay";
 	npu-supply=<&d1_npu_vcc>;
-	npu_def_high_vol = <1100000>;
 };
 
 &d0_dsp_subsys {
@@ -1340,7 +1340,7 @@
 			d0_npu_vcc:npu_svcc{
 				regulator-name="NPU_SVCC";
 				regulator-min-microvolt=<700000>;
-				regulator-max-microvolt=<1100000>;
+				regulator-max-microvolt=<1120000>;
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
@@ -1360,7 +1360,7 @@
 			d1_npu_vcc:npu_svcc{
 				regulator-name="NPU_SVCC2";
 				regulator-min-microvolt=<700000>;
-				regulator-max-microvolt=<1100000>;
+				regulator-max-microvolt=<1120000>;
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
