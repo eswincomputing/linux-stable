@@ -358,6 +358,7 @@ typedef struct _npu_dep_info {
     union {
         u64 lut_address;
         u64 dsp_eval_param;
+        u64 peer_type;
     };
 } __attribute__((aligned(CDMA_SRC_BYTE_ALIGN))) npu_dep_info_t;
 
