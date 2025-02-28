@@ -181,7 +181,7 @@ struct csi_data {
 	u32 phy_mode:1;
 
     u32 vc:5;
-    u32 dt:6;	
+    u32 dt:6;
 	u32 emb:1;
 	u32 frame_det:1;
 

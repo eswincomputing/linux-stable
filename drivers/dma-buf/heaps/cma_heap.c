@@ -289,8 +289,6 @@ static struct dma_buf *cma_heap_allocate(struct dma_heap *heap,
 	int ret = -ENOMEM;
 	pgoff_t pg;
 
-	printk("yulin %s %s %d \n", __FILE__, __func__, __LINE__);
-	printk("##### yulin pagecount = 0x%x \n", pagecount);
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
 		return ERR_PTR(-ENOMEM);

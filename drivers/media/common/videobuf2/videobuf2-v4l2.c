@@ -654,7 +654,7 @@ int vb2_querybuf(struct vb2_queue *q, struct v4l2_buffer *b)
 {
 	struct vb2_buffer *vb;
 	int ret;
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
+
 	if (b->type != q->type) {
 		dprintk(q, 1, "wrong buffer type\n");
 		return -EINVAL;
@@ -696,7 +696,6 @@ static void validate_memory_flags(struct vb2_queue *q,
 				  u32 *flags)
 {
 	if (!q->allow_cache_hints || memory != V4L2_MEMORY_MMAP) {
-		printk("yulin %s %s %d \n", __FILE__, __func__, __LINE__);
 		/*
 		 * This needs to clear V4L2_MEMORY_FLAG_NON_COHERENT only,
 		 * but in order to avoid bugs we zero out all bits.
@@ -704,7 +703,6 @@ static void validate_memory_flags(struct vb2_queue *q,
 		*flags = 0;
 	} else {
 		/* Clear all unknown flags. */
-		printk("yulin %s %s %d \n", __FILE__, __func__, __LINE__);
 		*flags &= V4L2_MEMORY_FLAG_NON_COHERENT;
 	}
 }
@@ -983,12 +981,6 @@ EXPORT_SYMBOL_GPL(vb2_poll);
 int vb2_ioctl_reqbufs(struct file *file, void *priv,
 			  struct v4l2_requestbuffers *p)
 {
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
-printk("***** p->count = 0x%x *****\n", p->count);
-printk("***** p->type = 0x%x *****\n", p->type);
-printk("***** p->memory = 0x%x *****\n", p->memory);
-printk("***** p->capabilities = 0x%x *****\n", p->capabilities);
-printk("***** p->flags1 = 0x%x *****\n", p->flags);
 	struct video_device *vdev = video_devdata(file);
 	int res = vb2_verify_memory_type(vdev->queue, p->memory, p->type);
 	u32 flags = p->flags;
@@ -996,7 +988,6 @@ printk("***** p->flags1 = 0x%x *****\n", p->flags);
 	fill_buf_caps(vdev->queue, &p->capabilities);
 	validate_memory_flags(vdev->queue, p->memory, &flags);
 	p->flags = flags;
-	printk("*** p->flags2 = 0x%x ***\n", p->flags);
 	if (res)
 		return res;
 	if (vb2_queue_is_busy(vdev->queue, file))
@@ -1013,7 +1004,6 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_reqbufs);
 int vb2_ioctl_create_bufs(struct file *file, void *priv,
 			  struct v4l2_create_buffers *p)
 {
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct video_device *vdev = video_devdata(file);
 	int res = vb2_verify_memory_type(vdev->queue, p->memory,
 			p->format.type);
@@ -1053,6 +1043,7 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_prepare_buf);
 int vb2_ioctl_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct video_device *vdev = video_devdata(file);
+
 	/* No need to call vb2_queue_is_busy(), anyone can query buffers. */
 	return vb2_querybuf(vdev->queue, p);
 }
@@ -1061,6 +1052,7 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_querybuf);
 int vb2_ioctl_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct video_device *vdev = video_devdata(file);
+
 	if (vb2_queue_is_busy(vdev->queue, file))
 		return -EBUSY;
 	return vb2_qbuf(vdev->queue, vdev->v4l2_dev->mdev, p);
@@ -1070,6 +1062,7 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_qbuf);
 int vb2_ioctl_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct video_device *vdev = video_devdata(file);
+
 	if (vb2_queue_is_busy(vdev->queue, file))
 		return -EBUSY;
 	return vb2_dqbuf(vdev->queue, p, file->f_flags & O_NONBLOCK);
@@ -1089,6 +1082,7 @@ EXPORT_SYMBOL_GPL(vb2_ioctl_streamon);
 int vb2_ioctl_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct video_device *vdev = video_devdata(file);
+
 	if (vb2_queue_is_busy(vdev->queue, file))
 		return -EBUSY;
 	return vb2_streamoff(vdev->queue, i);

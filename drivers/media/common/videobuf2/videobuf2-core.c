@@ -757,7 +757,6 @@ int vb2_core_reqbufs(struct vb2_queue *q, enum vb2_memory memory,
 	unsigned int i;
 	int ret;
 
-printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (q->streaming) {
 		dprintk(q, 1, "streaming active\n");
 		return -EBUSY;

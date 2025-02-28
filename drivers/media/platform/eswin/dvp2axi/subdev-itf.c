@@ -129,7 +129,6 @@ static int sditf_get_set_fmt(struct v4l2_subdev *sd,
 		sditf_get_hdr_mode(priv);
 		fmt->which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		fmt->pad = 0;
-		printk("yulin %s, %s, %d \n", __FILE__, __func__, __LINE__);
 		ret = v4l2_subdev_call(cif_dev->terminal_sensor.sd, pad,
 				       get_fmt, NULL, fmt);
 		if (ret) {
@@ -1122,7 +1121,7 @@ static int sditf_fwnode_parse(struct sditf_priv *sditf)
 		if (ret)
 			goto err_parse;
 
-		printk("lijun %s, %d, port:%d\n", __func__, __LINE__,
+		printk("t1 %s, %d, port:%d\n", __func__, __LINE__,
 		       vep.base.port);
 
 		/* only add fwnode form port 0 to notifier list */
@@ -1131,7 +1130,7 @@ static int sditf_fwnode_parse(struct sditf_priv *sditf)
 
 		remote_ep = fwnode_graph_get_remote_port_parent(ep);
 
-		printk("lijun %s, %d remote_ep:%s\n", __func__, __LINE__,
+		printk("t1 %s, %d remote_ep:%s\n", __func__, __LINE__,
 		       fwnode_get_name(remote_ep));
 
 		/* skip device dts status is disabled */
@@ -1164,11 +1163,11 @@ static int sditf_fwnode_parse(struct sditf_priv *sditf)
 		// 	return -EINVAL;
 		// }
 	}
-	printk("lijun %s, %d \n", __func__, __LINE__);
+	printk("t1 %s, %d \n", __func__, __LINE__);
 	return 0;
 
 err_parse:
-	printk("lijun %s, %d \n", __func__, __LINE__);
+	printk("t1 %s, %d \n", __func__, __LINE__);
 	fwnode_handle_put(ep);
 	return ret;
 }
