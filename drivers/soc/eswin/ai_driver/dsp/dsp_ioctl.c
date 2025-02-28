@@ -1035,6 +1035,7 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 	struct dsp_user_req_async **user_req;
 	int i, ret;
 	unsigned long flags;
+	int vm_vmalloc = 0;
 
 	if (copy_from_user(&req, arg, sizeof(dsp_ioctl_task_s))) {
 		dsp_err("%s, %d, copy_from_user err.\n", __func__, __LINE__);
@@ -1053,22 +1054,30 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 	}
 	tasks = kzalloc(req.task_num * (sizeof(dsp_ioctl_task_s) +
 					sizeof(struct dsp_user_req_async *)),
-			GFP_KERNEL);
+			GFP_KERNEL | __GFP_NOWARN);
+	if (tasks == NULL) {
+		tasks = vzalloc(req.task_num * (sizeof(dsp_ioctl_task_s) +
+					sizeof(struct dsp_user_req_async *)));
+		vm_vmalloc = 1;
+
+	}
+
 	if (tasks == NULL) {
 		dsp_err("", __func__, __LINE__);
 		return -ENOMEM;
 	}
+
 	if (copy_from_user(tasks, arg,
 			   req.task_num * sizeof(dsp_ioctl_task_s))) {
 		dsp_err("%s, %d, copy_from_user for multi tasks err.\n",
 			__func__, __LINE__);
-		kfree(tasks);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err0;
 	}
 	if (!try_module_get(THIS_MODULE)) {
 		dsp_err("%s, %d, cannot get module.\n", __func__, __LINE__);
-		kfree(tasks);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err0;
 	}
 	user_req = (struct dsp_user_req_async **)(tasks + req.task_num);
 
@@ -1082,7 +1091,6 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 		tasks[i].task.taskHandle = user_req[i]->handle.fd;
 	}
 	user_req[req.task_num - 1]->need_notify = true;
-
 
 	spin_lock_irqsave(&dsp->send_lock, flags);
 	for (i = 0; i < req.task_num; i++) {
@@ -1099,8 +1107,11 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 		dsp_err("copy to user err.\n");
 		ret = -EINVAL;
 	}
-
-	kfree(tasks);
+	if (vm_vmalloc) {
+		vfree(tasks);
+	} else {
+		kfree(tasks);
+	}
 	return 0;
 
 free_task:
@@ -1108,8 +1119,14 @@ free_task:
 		if (user_req[i] != NULL)
 			dsp_free_task(dsp_file, user_req[i]);
 	}
-	kfree(tasks);
+
 	module_put(THIS_MODULE);
+err0:
+	if (vm_vmalloc) {
+		vfree(tasks);
+	} else {
+		kfree(tasks);
+	}
 	return ret;
 }
 static long dsp_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
