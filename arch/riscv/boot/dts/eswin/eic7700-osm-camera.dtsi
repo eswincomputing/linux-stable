@@ -2,53 +2,6 @@
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
-	vvcam_isp_0: vvcam_isp@0 {
-		compatible = "verisilicon,isp-v4l2";
-		id = <0>;
-		status = "okay";
-		dma-noncoherent;
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0>;
-				vvcam_isp_input_port: endpoint@0 {
-					remote-endpoint = <&mipi_csi2_output1>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				vvcam_isp_port0_mp: endpoint {
-					remote-endpoint = <&vvcam_video0>;
-				};
-			};
-
-			port@2 {
-				reg = <2>;
-				vvcam_isp_port0_sp1: endpoint {
-					remote-endpoint = <&vvcam_video1>;
-				};
-			};
-
-			port@3 {
-				reg = <3>;
-				vvcam_isp_port0_sp2: endpoint {
-					remote-endpoint = <&vvcam_video2>;
-				};
-			};
-
-			port@4 {
-				reg = <4>;
-				vvcam_isp_port0_raw: endpoint {
-					remote-endpoint = <&vvcam_video3>;
-				};
-			};
-		};
-	};
 
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
@@ -294,6 +247,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio72_default>;
 		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 		port {
 			imx219_out0: endpoint {
@@ -321,12 +275,57 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio78_default>;
 		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 		port {
 			imx219_out2: endpoint {
 				remote-endpoint = <&mipidphy2_in_ucam0>;
 				data-lanes = <1 2 3 4>;
 				link-frequencies = /bits/ 64 <364000000>;
+			};
+		};
+	};
+};
+
+&vvcam_isp_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			vvcam_isp_input_port: endpoint@0 {
+				remote-endpoint = <&mipi_csi2_output1>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			vvcam_isp_port0_mp: endpoint {
+				remote-endpoint = <&vvcam_video0>;
+			};
+		};
+
+		port@2 {
+			reg = <2>;
+			vvcam_isp_port0_sp1: endpoint {
+				remote-endpoint = <&vvcam_video1>;
+			};
+		};
+
+		port@3 {
+			reg = <3>;
+			vvcam_isp_port0_sp2: endpoint {
+				remote-endpoint = <&vvcam_video2>;
+			};
+		};
+
+		port@4 {
+			reg = <4>;
+			vvcam_isp_port0_raw: endpoint {
+				remote-endpoint = <&vvcam_video3>;
 			};
 		};
 	};
