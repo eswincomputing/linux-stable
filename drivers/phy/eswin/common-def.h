@@ -1,7 +1,7 @@
 #ifndef __COMMON_DEF_HEADER__
 #define __COMMON_DEF_HEADER__
 
-// #define ENABLE_DEBUG_MSG
+#define ENABLE_DEBUG_MSG
 
 #ifdef ENABLE_DEBUG_MSG
 #define DPRINTK(args...)		printk(KERN_INFO args);

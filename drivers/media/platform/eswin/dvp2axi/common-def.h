@@ -1,7 +1,7 @@
 #ifndef __COMMON_DEF_HEADER__
 #define __COMMON_DEF_HEADER__
 
-// #define ENABLE_DEBUG_MSG
+#define ENABLE_DEBUG_MSG
 
 #ifdef ENABLE_DEBUG_MSG
 #define DPRINTK(args...)		printk(KERN_INFO args);
@@ -27,8 +27,10 @@
 // #define SENSOR_OUT_V 240
 
 // Stagger2 480P crop from 1080P
-#define SENSOR_OUT_H  1920//3280
-#define SENSOR_OUT_V 1080//2464
+// #define SENSOR_OUT_H  1920//3280
+// #define SENSOR_OUT_V 1080//2464
+#define SENSOR_OUT_H 3280
+#define SENSOR_OUT_V 2464
 
 // #define SENSOR_OUT_H 1600
 // #define SENSOR_OUT_V 1080
