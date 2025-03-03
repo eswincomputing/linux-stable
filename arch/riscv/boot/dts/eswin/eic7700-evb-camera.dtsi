@@ -178,7 +178,7 @@
 			size-cells = <0>;
 			#reg = <0x0 0x36 0x0 0x0>;
 			reg = <0x36>;
-			clocks = <&d0_clock WIN2030_CLK_VI_SHUTTER_0>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			clock-names = "xvclk";
 			/* Reset and power down GPIOs controlled by tca6416_0 */
 			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
