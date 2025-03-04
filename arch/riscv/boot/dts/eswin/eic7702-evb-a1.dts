@@ -452,7 +452,7 @@
 	status = "okay";
 };
 &d1_gpu {
-	status = "disabled";
+	status = "okay";
 };
 
 &gc820 {
