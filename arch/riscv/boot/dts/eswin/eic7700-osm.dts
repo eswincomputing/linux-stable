@@ -24,7 +24,7 @@
 #define LSPCLK_FREQ		200000000
 
 /* If wanna enable ECC capability of DDR, should reserve highest zone of 1/8 all space for it */
-#define MEMORY_SIZE_H		0x1
+#define MEMORY_SIZE_H		0x4
 #define MEMORY_SIZE_L		0x0
 #define CMA_SIZE		0x20000000
 
@@ -751,6 +751,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	pwm-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &pvt0 {
