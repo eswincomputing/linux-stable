@@ -34,53 +34,59 @@
     compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000","sifive,fu740";
 	thermal-zones {
 		thermal0 {
-			polling-delay-passive = <500>; /*ms*/
-			polling-delay = <5000>; /*ms*/
-			sustainable-power = <1200>; /*mW*/
+			polling-delay-passive = <100>; /*ms*/
+			polling-delay = <1000>; /*ms*/
+			sustainable-power = <30000>; /*mW*/
 			thermal-sensors = <&pvt0>;
 
 			trips {
-				/*
+				
 				threshold: trip-point0 {
-					temperature = <60000>;
+					temperature = <90000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
 				target: trip-point1 {
-					temperature = <70000>;
+					temperature = <100000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
-				*/
+				
 				crit: trip-point2 {
-					temperature     = <105000>;
+					temperature     = <110000>;
 					hysteresis      = <0>;
 					type            = "critical";
 				};
 			};
 
-			cooling-maps {
-				/*
+			cooling-maps {				
 				map0 {
 					trip = <&target>;
 					contribution = <1024>;
 					cooling-device =
-						<&cpu_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&cpu_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&cpu_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&cpu_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+						<&cpu_0 0 10>,
+						<&cpu_1 0 10>,
+						<&cpu_2 0 10>,
+						<&cpu_3 0 10>;
 				};
 				map1 {
 					trip = <&target>;
-					contribution = <1024>;
+					contribution = <4096>;
 					cooling-device = <&d0_npu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map2 {
 					trip = <&target>;
 					contribution = <1024>;
+					cooling-device = <&d0_dsp0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+									<&d0_dsp1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+									<&d0_dsp2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+									<&d0_dsp3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&target>;
+					contribution = <1024>;
 					cooling-device = <&gpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
-				*/
 			};
 		};
 	};
@@ -506,13 +512,11 @@
 			resets = <&d0_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
 			reset-names = "e31_core";
 			operating-points-v2 = <&npu_opp_table>;
-
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <16000>; /*TBD*/
 			numa-node-id = <0>;
 			firmware-name = "eic7700_die0_e31_fw";
 			dma-noncoherent;
-
-			#cooling-cells = <2>;
-			dynamic-power-coefficient = <0>; /*TBD*/
 		};
 
 		dev_llc_d0: llc@51c00000 {
@@ -568,6 +572,8 @@
 				clocks = <&d0_clock EIC7700_CLK_DSP_ACLK_0>;
 				clock-names = "aclk";
 				operating-points-v2 = <&dsp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				dsp_mbox = <&d0_mbox4>;
 				device-irq = <11
 					ESWIN_MAILBOX_DSP_0_TO_U84_REG_BASE
@@ -599,6 +605,8 @@
 				clocks = <&d0_clock EIC7700_CLK_DSP_ACLK_1>;
 				clock-names = "aclk";
 				operating-points-v2 = <&dsp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				dsp_mbox = <&d0_mbox5>;
 				device-irq = <13
 					ESWIN_MAILBOX_DSP_1_TO_U84_REG_BASE
@@ -629,6 +637,8 @@
 				clocks = <&d0_clock EIC7700_CLK_DSP_ACLK_2>;
 				clock-names = "aclk";
 				operating-points-v2 = <&dsp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				dsp_mbox = <&d0_mbox6>;
 				device-irq = <15
 					ESWIN_MAILBOX_DSP_2_TO_U84_REG_BASE
@@ -659,6 +669,8 @@
 				clocks = <&d0_clock EIC7700_CLK_DSP_ACLK_3>;
 				clock-names = "aclk";
 				operating-points-v2 = <&dsp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				dsp_mbox = <&d0_mbox7>;
 				device-irq = <17
 					ESWIN_MAILBOX_DSP_3_TO_U84_REG_BASE
@@ -730,6 +742,8 @@
 			recovery = <0>;
 			dma-noncoherent;
 			operating-points-v2 = <&g2d_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <1000>; /*TBD*/
 			numa-node-id = <0>;
 		};
 
@@ -753,8 +767,9 @@
 			dma-noncoherent;
 			numa-node-id = <0>;
 
+			operating-points-v2 = <&gpu_opp_table>;
 			#cooling-cells = <2>;
-			dynamic-power-coefficient = <0>; /*TBD*/
+			dynamic-power-coefficient = <4000>; /*TBD*/
 		};
 
 		d0_sata: sata@0x50420000{
@@ -1006,7 +1021,8 @@
 			reset-names = "axi", "cfg", "moncfg", "jd_cfg", "jd_axi", "vd_cfg", "vd_axi";
 			eswin,syscfg = <&d0_sys_con 0x0 0x4>;
 			operating-points-v2 = <&vdec_opp_table>;
-
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <1000>; /*TBD*/
 			vcmd-core = <0 0x6c>;
 			axife-core = <0x200 0x100>;
 			vdec-core = <0x800 0xc00>;
@@ -1055,7 +1071,8 @@
 			reset-names = "axi", "cfg", "moncfg", "je_cfg", "je_axi", "ve_cfg", "ve_axi";
 			eswin,syscfg = <&d0_sys_con 0x0 0x4>;
 			operating-points-v2 = <&venc_opp_table>;
-
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <1000>; /*TBD*/
 			vcmd-core = <0 0x6c>;
 			axife-core = <0x2000 0x7d0>;
 			venc-core = <0x1000 0x87c>;
@@ -2113,6 +2130,8 @@
 			reset-names = "axi", "cfg", "dwe";
 
 			operating-points-v2 = <&vi_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <1000>; /*TBD*/
 			interrupt-parent = <&plic0>;
 			interrupts = <26 25>;
 			#size-cells = <2>;

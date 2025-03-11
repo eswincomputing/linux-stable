@@ -3,7 +3,6 @@
  * ESWIN AI driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -336,7 +335,7 @@ int es_dsp_set_rate(struct es_dsp_hw *hw, unsigned long *rate)
 			return ret;
 		}
 	}
-	dev_info(dsp->dev, "set dev rate to %ldHZ\n", *rate);
+	dev_dbg(dsp->dev, "set dev rate to %ldHZ\n", *rate);
 	return 0;
 }
 

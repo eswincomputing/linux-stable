@@ -3,7 +3,6 @@
  * ESWIN AI driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -541,13 +540,37 @@ static int npu_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 	*freq = nvdla_dev->rate;
 	return 0;
 }
+static void eswin_exit(struct device *dev)
+{
+
+}
+
+static int eswin_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	struct nvdla_device *nvdla_dev = dev_get_drvdata(dev);
+	unsigned long rate;
+	stat->busy_time = 1024;	
+	stat->total_time = 1024;
+	stat->current_frequency = nvdla_dev->rate;
+
+	return 0;
+}
 
 static struct devfreq_dev_profile npu_devfreq_profile = {
 	.initial_freq = NPU_CORE_CLK_HIGHEST,
 	.timer = DEVFREQ_TIMER_DELAYED,
-	.polling_ms = 1000,
+	.polling_ms = 100,
 	.target = npu_devfreq_target,
 	.get_cur_freq = npu_devfreq_get_cur_freq,
+	.get_dev_status = eswin_get_dev_status,
+	.exit = eswin_exit,
+	.is_cooling_device = true,
+};
+static struct devfreq_simple_ondemand_data ondemand_data =
+{
+	.upthreshold =80,
+	.downdifferential=10,
 };
 #endif
 
@@ -706,11 +729,17 @@ static int32_t edla_probe(struct platform_device *pdev)
 		goto err_init_reset;
 	}
 	
-	df = devm_devfreq_add_device(dev, &npu_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(dev, &npu_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
 	if (IS_ERR(df)) {
 		err = PTR_ERR(df);
 		dev_err(dev, "%s, %d, Failed to add devfreq device, ret=%d.\n", __func__, __LINE__, err);
 		goto err_init_reset;
+	}
+	/* Register opp_notifier to catch the change of OPP  ????*/
+	err = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to register opp notifier\n");
+		return err;
 	}
 #endif
 

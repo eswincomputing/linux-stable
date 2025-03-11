@@ -3,7 +3,6 @@
  * ESWIN AI driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -907,13 +906,39 @@ static int dsp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
+static void eswin_exit(struct device *dev)
+{
+	;
+}
+
+static int eswin_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	struct es_dsp *dsp = dev_get_drvdata(dev);
+	unsigned long rate;
+
+	stat->busy_time = 1024;	
+	stat->total_time = 1024;
+	stat->current_frequency = dsp_get_rate(dsp);
+
+	return 0;
+}
+
 /* devfreq profile */
 static struct devfreq_dev_profile dsp_devfreq_profile = {
 	.initial_freq = DSP_SUBSYS_HILOAD_CLK,
 	.timer = DEVFREQ_TIMER_DELAYED,
-	.polling_ms = 1000, /* Poll every 1000ms to monitor load */
+	.polling_ms = 100, /* Poll every 1000ms to monitor load */
 	.target = dsp_devfreq_target,
 	.get_cur_freq = dsp_devfreq_get_cur_freq,
+	.get_dev_status = eswin_get_dev_status,
+	.exit = eswin_exit,
+	.is_cooling_device = true,
+};
+static struct devfreq_simple_ondemand_data ondemand_data =
+{
+	.upthreshold =80,
+	.downdifferential=10,
 };
 #endif
 
@@ -1002,11 +1027,18 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 		goto err_dsp_devfreq;
 	}
 
-	df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
 	if (IS_ERR(df)) {
 		dsp_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
 		ret = PTR_ERR(df);
 		goto err_dsp_devfreq;
+	};
+
+	/* Register opp_notifier to catch the change of OPP  ????*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to register opp notifier\n");
+		return ret;
 	}
 #endif
 

@@ -225,6 +225,22 @@
 		};
 	};
 
+	gpu_opp_table: opp-table@gpu {
+		compatible = "operating-points-v2";
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
 	vi_opp_table: opp-table@vi {
 		compatible = "operating-points-v2";
 		opp@800000000 {

@@ -16,6 +16,8 @@
 #include "config_kernel.h"
 #endif
 //#define RGX_ESWIN_PROJECT_V91
+#include "pvrsrv_device.h"
+#include "pvrsrv.h"
 
 #define SYS_RGX_DEV_NAME    "pvrsrvkm"
 #define EVENT_OBJECT_TIMEOUT_US                  (100000)
@@ -76,6 +78,7 @@
 #define WAIT_TRY_COUNT                           (10000)
 
 #define SYS_RGX_OF_COMPATIBLE "img,gpu"
-
+int igpu_devfreq_get_cur_freq(struct device *dev, unsigned long *freq);
+int igpu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags);
 #endif	/* !defined(__SYSINFO_H__) */
 
