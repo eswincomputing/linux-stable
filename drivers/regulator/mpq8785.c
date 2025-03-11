@@ -3,8 +3,7 @@
 /*
  * eswin Specific Glue layer
  *
- * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights
- * reserved. SPDX-License-Identifier: GPL-2.0
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -524,12 +523,12 @@ static int mpq8785_read(struct device *dev, enum hwmon_sensor_types type,
 		case hwmon_curr_crit:
 			*val = mpq8785_read_mask_word(data, MPQ8785_CMD_IOUT_OC_FAULT_LIMIT,
 										  MPQ8785_MASK_IOUT_LIMIT);
-
+			*val *=1000;
 			break;
 		case hwmon_curr_max:
 			*val = mpq8785_read_mask_word(data, MPQ8785_CMD_IOUT_OC_WARN_LIMIT,
 										  MPQ8785_MASK_IOUT_LIMIT);
-
+			*val *=1000;
 			break;
 		}
 		break;
@@ -665,11 +664,11 @@ static int mpq8785_write(struct device *dev, enum hwmon_sensor_types type,
 		{
 		case hwmon_curr_crit:
 			ret = mpq8785_update_word(data, MPQ8785_CMD_IOUT_OC_FAULT_LIMIT,
-									  MPQ8785_MASK_IOUT_LIMIT, (u16)val);
+									  MPQ8785_MASK_IOUT_LIMIT, (u16)(val / 1000));
 			break;
 		case hwmon_curr_max:
 			ret = mpq8785_update_word(data, MPQ8785_CMD_IOUT_OC_WARN_LIMIT,
-									  MPQ8785_MASK_IOUT_LIMIT, (u16)val);
+									  MPQ8785_MASK_IOUT_LIMIT, (u16)val/1000);
 			break;
 		}
 		break;
