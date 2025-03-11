@@ -203,10 +203,11 @@ static int  d2d_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev,"registered irq %s, base %d, num %ld\n", d2d_irq_src[i],
 			platform_get_irq(pdev, 0), D2D_IRQ_NUMBER);
 	}
-	INIT_DELAYED_WORK(&d2d_dev->delay_work, adaptation_delay_work_fn);
-	schedule_delayed_work(&d2d_dev->delay_work, msecs_to_jiffies(2 * MSEC_PER_SEC));
+	// TODO: Not need cca in kernel, it executed by lpcpu firmware
+	// INIT_DELAYED_WORK(&d2d_dev->delay_work, adaptation_delay_work_fn);
+	// schedule_delayed_work(&d2d_dev->delay_work, msecs_to_jiffies(2 * MSEC_PER_SEC));
 
-	dev_info(dev, "D2D-%d init OK\n",d2d_dev->numa_id);
+	dev_info(dev, "D2D-%d init OK (without cca)\n",d2d_dev->numa_id);
 	return 0;
 
 free_d2d_err_dev:

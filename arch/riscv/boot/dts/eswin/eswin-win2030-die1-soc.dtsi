@@ -2289,6 +2289,7 @@
 			iommus = <&smmu1 WIN2030_SID_SCPU>;
 			numa-node-id = <1>;
 			dma-noncoherent;
+			status = "disabled";
 		};
 
 		d1_ddr0: ddr-controller@72300000 {

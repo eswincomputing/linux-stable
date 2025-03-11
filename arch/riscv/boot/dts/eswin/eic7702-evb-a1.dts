@@ -1503,10 +1503,10 @@
 };
 
 &pvt0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_pvt0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &pvt1 {
@@ -1559,10 +1559,10 @@
 };
 
 &timer1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_timer1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer2 {
