@@ -280,6 +280,30 @@ static int stat_open(struct inode *inode, struct file *flip)
 	return single_open(flip, npu_stat_show, NULL);
 }
 
+static int npu_conf_show(struct seq_file *m, void *p)
+{
+	int i = 0;
+	unsigned long rate = 0, volt = 0;
+	struct nvdla_device *ndev = NULL;
+
+	for (i = 0; i < 2; i++)	{
+		ndev = get_nvdla_dev(i);
+		if (!ndev) {
+			continue;
+		}
+		volt = regulator_get_voltage(ndev->npu_regulator);
+		rate = clk_get_rate(ndev->core_clk);
+
+		seq_printf(m, "npu%d %lu %lu\n", i, volt, rate);
+	}
+	return 0;
+}
+
+static int conf_open(struct inode *inode, struct file *flip)
+{
+	return single_open(flip, npu_conf_show, NULL);
+}
+
 static int perf_show(struct seq_file *m, void *p)
 {
 	struct nvdla_device *ndev;
@@ -363,6 +387,12 @@ static struct proc_ops proc_perf_fops = {
 	.proc_write = perf_write,
 };
 
+static struct proc_ops proc_conf_fops = {
+	.proc_open = conf_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
+};
+
 static void *tmp = NULL;
 
 int npu_create_procfs(void)
@@ -380,13 +410,19 @@ int npu_create_procfs(void)
 
 	if (!proc_create("stat", 0444, proc_esnpu, &proc_stat_fops)) {
 		dla_error("error create proc npu stat file.\n");
-		goto err_info;
+		goto err_stat;
 	}
 
 	if (!proc_create("perf", 0644, proc_esnpu, &proc_perf_fops)) {
 		dla_error("error create proc npu perf file.\n");
 		goto err_perf;
 	}
+
+	if (!proc_create("conf", 0444, proc_esnpu, &proc_conf_fops)) {
+		dla_error("error create proc npu conf file.\n");
+		goto err_conf;
+	}
+
 	spin_lock_init(&proc_lock[0]);
 	spin_lock_init(&proc_lock[1]);
 	init_waitqueue_head(&g_perf_wait_list[0]);
@@ -401,8 +437,12 @@ int npu_create_procfs(void)
 	return 0;
 
 err_mem:
+	remove_proc_entry("conf", proc_esnpu);
+err_conf:
 	remove_proc_entry("perf", proc_esnpu);
 err_perf:
+	remove_proc_entry("stat", proc_esnpu);
+err_stat:
 	remove_proc_entry("info", proc_esnpu);
 err_info:
 	remove_proc_entry("esnpu", NULL);
@@ -416,5 +456,7 @@ void npu_remove_procfs(void)
 	}
 	remove_proc_entry("info", proc_esnpu);
 	remove_proc_entry("perf", proc_esnpu);
+	remove_proc_entry("conf", proc_esnpu);
+	remove_proc_entry("stat", proc_esnpu);
 	remove_proc_entry("esnpu", NULL);
 }
