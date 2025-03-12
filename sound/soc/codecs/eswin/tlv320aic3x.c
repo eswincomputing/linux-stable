@@ -1425,7 +1425,6 @@ static int aic3x_set_bias_level(struct snd_soc_component *component,
 				enum snd_soc_bias_level level)
 {
 	struct aic3x_priv *aic3x = snd_soc_component_get_drvdata(component);
-
 	switch (level) {
 	case SND_SOC_BIAS_ON:
 		break;
@@ -1523,8 +1522,8 @@ static int aic3x_init(struct snd_soc_component *component)
 	snd_soc_component_write(component, RDAC_VOL, DEFAULT_VOL | MUTE_ON);
 
 	/* DAC to HP default volume and route to Output mixer */
-	snd_soc_component_write(component, DACL1_2_HPLOUT_VOL, DEFAULT_VOL | ROUTE_ON);
-	snd_soc_component_write(component, DACR1_2_HPROUT_VOL, DEFAULT_VOL | ROUTE_ON);
+	snd_soc_component_write(component, DACL1_2_HPLOUT_VOL, ROUTE_ON);
+	snd_soc_component_write(component, DACR1_2_HPROUT_VOL, ROUTE_ON);
 	snd_soc_component_write(component, DACL1_2_HPLCOM_VOL, DEFAULT_VOL | ROUTE_ON);
 	snd_soc_component_write(component, DACR1_2_HPRCOM_VOL, DEFAULT_VOL | ROUTE_ON);
 	/* DAC to Line Out default volume and route to Output mixer */
@@ -1542,9 +1541,11 @@ static int aic3x_init(struct snd_soc_component *component)
 	/* ADC default volume and unmute */
 	snd_soc_component_write(component, LADC_VOL, DEFAULT_GAIN);
 	snd_soc_component_write(component, RADC_VOL, DEFAULT_GAIN);
-	/* By default route Line1 to ADC PGA mixer */
-	snd_soc_component_write(component, LINE1L_2_LADC_CTRL, 0x0);
-	snd_soc_component_write(component, LINE1R_2_RADC_CTRL, 0x0);
+	/* By default route MIC3 to ADC PGA mixer */
+	snd_soc_component_write(component, MIC3LR_2_LADC_CTRL, 0xF0);
+	snd_soc_component_write(component, MIC3LR_2_RADC_CTRL, 0xF0);
+	snd_soc_component_write(component, LINE1L_2_LADC_CTRL, 0x7C);
+	snd_soc_component_write(component, LINE1R_2_RADC_CTRL, 0x7C);
 
 	/* PGA to HP Bypass default volume, disconnect from Output Mixer */
 	snd_soc_component_write(component, PGAL_2_HPLOUT_VOL, DEFAULT_VOL);
@@ -1648,6 +1649,25 @@ static int aic3x_component_probe(struct snd_soc_component *component)
 	return 0;
 }
 
+static int aic3x_open(struct snd_soc_component *component,
+	struct snd_pcm_substream *substream)
+{
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		/* DAC to HP and route to Output mixer */
+		snd_soc_component_write(component, DACL1_2_HPLOUT_VOL, ROUTE_ON);
+		snd_soc_component_write(component, DACR1_2_HPROUT_VOL, ROUTE_ON);
+    } else {
+		/* route Line1 to ADC PGA mixer */
+		snd_soc_component_write(component, MIC3LR_2_LADC_CTRL, 0xF0);
+		snd_soc_component_write(component, MIC3LR_2_RADC_CTRL, 0xF0);
+
+		snd_soc_component_write(component, LINE1L_2_LADC_CTRL, 0x7C);
+		snd_soc_component_write(component, LINE1R_2_RADC_CTRL, 0x7C);
+	}
+
+	return 0;
+}
+
 static const struct snd_soc_component_driver soc_component_dev_aic3x = {
 	.set_bias_level		= aic3x_set_bias_level,
 	.probe			= aic3x_component_probe,
@@ -1659,6 +1679,7 @@ static const struct snd_soc_component_driver soc_component_dev_aic3x = {
 	.num_dapm_routes	= ARRAY_SIZE(intercon),
 	.use_pmdown_time	= 1,
 	.endianness		= 1,
+	.open			= aic3x_open,
 };
 
 static void aic3x_configure_ocmv(struct device *dev, struct aic3x_priv *aic3x)
