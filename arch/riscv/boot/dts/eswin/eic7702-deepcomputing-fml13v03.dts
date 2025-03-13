@@ -675,14 +675,19 @@
 };
 
 &d0_i2s1 {
-	status = "disabled";
-//	numa-node-id = <0>;
-//	d0_i2s1_port: port {
-//		d0_i2s1_endpoint: endpoint {
-//			remote-endpoint = <&d0_codec0_endpoint>;
-//			dai-format = "i2s";
-//		};
-//	};
+    status = "okay";
+    numa-node-id = <0>;
+    #sound-dai-cells = <0>;
+    clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>, <&d0_clock WIN2030_APLL_FOUT1>;
+    clock-names = "mclk", "apll";
+    pinctrl-names = "default";
+    pinctrl-0 = <&pinctrl_die0_i2s1_default>;
+    d0_i2s1_port: port {
+        d0_i2s1_endpoint: endpoint {
+            remote-endpoint = <&es8326_endpoint>;
+            dai-format = "i2s";
+        };
+    };
 };
 
 &d1_i2s1 {
@@ -704,9 +709,10 @@
 };
 
 &d0_graphcard1 {
-	status = "disabled";
-//	label = "Analog Audio-0";
-//	dais = <&d0_i2s1_port>;
+	status = "okay";
+	label = "ES8326 Audio";
+//	mclk-fs = <128>;
+	dais = <&d0_i2s1_port>;
 };
 
 &d0_graphcard2 {
@@ -1162,57 +1168,45 @@
 };
 
 &d0_i2c0 {
-	/* codec es8388 */
-	status = "disabled";
-//	d0_es8388_0: es8388-0@10 {
-//		compatible = "eswin,es8388";
-//		reg = <0x10>;
-//		#sound-dai-cells = <0>;
-//		port {
-//			d0_codec0_endpoint: endpoint {
-//				system-clock-frequency = <12288000>;
-//				remote-endpoint = <&d0_i2s1_endpoint>;
-//			};
-//		};
-//	};
-//	d0_es8388_1: es8388-1@11 {
-//		compatible = "eswin,es8388";
-//		reg = <0x11>;
-//		#sound-dai-cells = <0>;
-//		port {
-//			d0_codec1_endpoint: endpoint {
-//				system-clock-frequency = <12288000>;
-//				remote-endpoint = <&d0_i2s2_endpoint>;
-//			};
-//		};
-//	};
+	status = "okay";
+
+	/* codec es8326 */
+	d0_es8326_0: es8326@19 {
+		#sound-dai-cells = <0>;
+		compatible = "everest,es8326";
+		reg = <0x19>;
+		status = "okay";
+
+        clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>;
+        clock-names = "mclk";
+
+		interrupt-parent = <&porta>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio28_default
+					 &pinctrl_die0_gpio111_default>;
+
+		spk-ctl-gpio = <&portd 15 GPIO_ACTIVE_HIGH>;
+
+//		everest,jack-detect-inverted;
+		everest,jack-pol = [0e];
+		everest,mic1-src = [00];
+		everest,mic2-src = [44];
+		everest,interrupt-src = [08];
+        everest,interrupt-clk = [45];
+
+		port {
+			es8326_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
 };
 
 &d1_i2c0 {
-	/* codec es8388 */
 	status = "disabled";
-//	d1_es8388_0: es8388-0@10 {
-//		compatible = "eswin,es8388";
-//		reg = <0x10>;
-//		#sound-dai-cells = <0>;
-//		port {
-//			d1_codec0_endpoint: endpoint {
-//				system-clock-frequency = <12288000>;
-//				remote-endpoint = <&d1_i2s1_endpoint>;
-//			};
-//		};
-//	};
-//	d1_es8388_1: es8388-1@11 {
-//		compatible = "eswin,es8388";
-//		reg = <0x11>;
-//		#sound-dai-cells = <0>;
-//		port {
-//			d1_codec1_endpoint: endpoint {
-//				system-clock-frequency = <12288000>;
-//				remote-endpoint = <&d1_i2s2_endpoint>;
-//			};
-//		};
-//	};
 };
 
 &d0_i2c1 {

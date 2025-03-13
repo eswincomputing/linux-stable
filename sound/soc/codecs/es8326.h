@@ -193,4 +193,8 @@
 #define ES8326_VERSION (1 << 0)
 #define ES8326_VERSION_B (3 << 0)
 
+#if IS_ENABLED(CONFIG_SND_SOC_ES8326)
+#define ESWIN_CONFIG_CODEC_ES8326 1
+#endif
+
 #endif

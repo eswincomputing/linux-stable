@@ -16,6 +16,8 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include "es8326.h"
 
 struct es8326_priv {
@@ -43,6 +45,10 @@ struct es8326_priv {
 	int version;
 	int hp;
 	int jack_remove_retry;
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+	int spk_ctl_gpio;
+	bool mute_en;
+#endif
 };
 
 static const SNDRV_CTL_TLVD_DECLARE_DB_SCALE(dac_vol_tlv, -9550, 50, 0);
@@ -159,6 +165,14 @@ static const struct snd_soc_dapm_route es8326_dapm_routes[] = {
 	{"HPOL", NULL, "LHPMIX"},
 	{"HPOR", NULL, "RHPMIX"},
 };
+
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+static void es8326_enable_spk(struct es8326_priv *es8326, bool enable)
+{
+	if (es8326->spk_ctl_gpio >= 0)
+		gpio_set_value(es8326->spk_ctl_gpio, enable);
+}
+#endif
 
 static bool es8326_volatile_register(struct device *dev, unsigned int reg)
 {
@@ -397,6 +411,11 @@ static int es8326_mute(struct snd_soc_dai *dai, int mute, int direction)
 		regmap_update_bits(es8326->regmap, ES8326_DAC_MUTE,
 				ES8326_MUTE_MASK, ES8326_MUTE);
 		regmap_write(es8326->regmap, ES8326_HP_DRIVER, 0xf0);
+
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+		es8326_enable_spk(es8326, false);
+		es8326->mute_en = true;
+#endif
 	} else {
 		if (!es8326->calibrated) {
 			regmap_write(es8326->regmap, ES8326_HP_CAL, ES8326_HP_FORCE_CAL);
@@ -414,6 +433,12 @@ static int es8326_mute(struct snd_soc_dai *dai, int mute, int direction)
 		regmap_write(es8326->regmap, ES8326_HP_CAL, ES8326_HP_ON);
 		regmap_update_bits(es8326->regmap, ES8326_DAC_MUTE,
 				ES8326_MUTE_MASK, ~(ES8326_MUTE));
+
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+		if (!es8326->hp)
+			es8326_enable_spk(es8326, true);
+		es8326->mute_en = false;
+#endif
 	}
 	return 0;
 }
@@ -614,8 +639,12 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 	if ((iface & ES8326_HPINSERT_FLAG) == 0) {
 		/* Jack unplugged or spurious IRQ */
 		dev_dbg(comp->dev, "No headset detected\n");
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+		if (!es8326->mute_en)
+			es8326_enable_spk(es8326, true);
+#endif
 		es8326_disable_micbias(es8326->component);
-		if (es8326->jack->status & SND_JACK_HEADPHONE) {
+		//if (es8326->jack->status & SND_JACK_HEADPHONE) {
 			dev_dbg(comp->dev, "Report hp remove event\n");
 			snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
 			/* mute adc when mic path switch */
@@ -623,7 +652,7 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 			regmap_write(es8326->regmap, ES8326_ADC1_SRC, 0x44);
 			regmap_write(es8326->regmap, ES8326_ADC2_SRC, 0x66);
 			es8326->hp = 0;
-		}
+		//}
 		regmap_update_bits(es8326->regmap, ES8326_HPDET_TYPE, 0x03, 0x01);
 		/*
 		 * Inverted HPJACK_POL bit to trigger one IRQ to double check HP Removal event
@@ -663,10 +692,16 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 		}
 		if ((iface & ES8326_HPBUTTON_FLAG) == 0x01) {
 			dev_dbg(comp->dev, "Headphone detected\n");
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+			es8326_enable_spk(es8326, false);
+#endif
 			snd_soc_jack_report(es8326->jack,
 					SND_JACK_HEADPHONE, SND_JACK_HEADSET);
 		} else {
 			dev_dbg(comp->dev, "Headset detected\n");
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+			es8326_enable_spk(es8326, false);
+#endif
 			snd_soc_jack_report(es8326->jack,
 					SND_JACK_HEADSET, SND_JACK_HEADSET);
 
@@ -854,14 +889,34 @@ static int es8326_suspend(struct snd_soc_component *component)
 	return 0;
 }
 
+#define ES8326_JACK_MASK (SND_JACK_HEADSET)
+
 static int es8326_probe(struct snd_soc_component *component)
 {
 	struct es8326_priv *es8326 = snd_soc_component_get_drvdata(component);
 	int ret;
+	struct snd_soc_card *card = component->card;
 
 	es8326->component = component;
 	es8326->jd_inverted = device_property_read_bool(component->dev,
 							"everest,jack-detect-inverted");
+	if (!es8326->jack) {
+		es8326->jack = devm_kzalloc(component->dev,
+					    sizeof(struct snd_soc_jack),
+					    GFP_KERNEL);
+		if (!es8326->jack) {
+			dev_err(component->dev,
+				"Failed to allocate memory for jack\n");
+			return -ENOMEM;
+		}
+	}
+	ret = snd_soc_card_jack_new(card, "Headphone", ES8326_JACK_MASK,
+				    es8326->jack);
+	if (ret < 0) {
+		dev_err(component->dev, "Cannot create jack\n");
+		devm_kfree(component->dev, es8326->jack);
+		es8326->jack = NULL;
+	}
 
 	ret = device_property_read_u8(component->dev, "everest,mic1-src", &es8326->mic1_src);
 	if (ret != 0) {
@@ -901,6 +956,14 @@ static int es8326_probe(struct snd_soc_component *component)
 	dev_dbg(component->dev, "interrupt-clk %x", es8326->interrupt_clk);
 
 	es8326_resume(component);
+
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+	es8326_enable_spk(es8326, false);
+	es8326->mute_en = true;
+	regmap_write(es8326->regmap, ES8326_ADC_MUTE, 0x0f);
+	regmap_write(es8326->regmap, ES8326_ADC1_SRC, 0x44);
+	regmap_write(es8326->regmap, ES8326_ADC2_SRC, 0x66);
+#endif
 	return 0;
 }
 
@@ -980,6 +1043,13 @@ static int es8326_i2c_probe(struct i2c_client *i2c)
 	if (!es8326)
 		return -ENOMEM;
 
+#ifdef STARFIVE_CONFIG_CODEC_ES8326
+	es8326->jack = devm_kzalloc(&i2c->dev, sizeof(struct snd_soc_jack),
+				    GFP_KERNEL);
+	if (!es8326->jack)
+		return -ENOMEM;
+#endif
+
 	i2c_set_clientdata(i2c, es8326);
 	es8326->i2c = i2c;
 	mutex_init(&es8326->lock);
@@ -1004,6 +1074,23 @@ static int es8326_i2c_probe(struct i2c_client *i2c)
 		es8326->irq, ret);
 		es8326->irq = -ENXIO;
 	}
+
+#ifdef ESWIN_CONFIG_CODEC_ES8326
+	es8326->spk_ctl_gpio = of_get_named_gpio(i2c->dev.of_node, "spk-ctl-gpio", 0);
+	if (es8326->spk_ctl_gpio < 0) {
+		dev_info(&i2c->dev, "Can not read property spk_ctl_gpio\n");
+		es8326->spk_ctl_gpio = -1;
+	}
+	else {
+		ret = devm_gpio_request_one(&i2c->dev, es8326->spk_ctl_gpio,
+					    GPIOF_DIR_OUT, NULL);
+		if (ret) {
+			dev_err(&i2c->dev, "Failed to request spk_ctl_gpio\n");
+			return ret;
+		}
+		es8326_enable_spk(es8326, false);
+	}
+#endif
 
 	es8326->mclk = devm_clk_get_optional(&i2c->dev, "mclk");
 	if (IS_ERR(es8326->mclk)) {
