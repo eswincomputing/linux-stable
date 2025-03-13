@@ -19,3 +19,4 @@ config NPU_PERF
     bool "NPU PERF"
     default n
     depends on ESWIN_NPU
+
