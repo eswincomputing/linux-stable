@@ -1266,7 +1266,7 @@
 		hid-descr-addr = <0x0020>;
 		post-power-on-delay-ms = <200>;
 		interrupt-parent = <&porta>;
-		interrupts = <20 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <20 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_die0_gpio20_default>;
 		irq-gpios = <&porta 20 GPIO_ACTIVE_LOW>;
