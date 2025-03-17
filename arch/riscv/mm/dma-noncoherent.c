@@ -72,7 +72,7 @@ static inline bool arch_sync_dma_cpu_needs_post_dma_flush(void)
 }
 
 void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
-			      enum dma_data_direction dir)
+				  enum dma_data_direction dir)
 {
 	switch (dir) {
 	case DMA_TO_DEVICE:
@@ -89,7 +89,7 @@ void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
 	case DMA_BIDIRECTIONAL:
 		/* Skip the invalidate here if it's done later */
 		if (IS_ENABLED(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU) &&
-		    arch_sync_dma_cpu_needs_post_dma_flush())
+			arch_sync_dma_cpu_needs_post_dma_flush())
 			arch_dma_cache_wback(paddr, size);
 		else
 			arch_dma_cache_wback_inv(paddr, size);
@@ -170,7 +170,7 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 void riscv_noncoherent_supported(void)
 {
 	WARN(!riscv_cbom_block_size,
-	     "Non-coherent DMA support enabled without a block size\n");
+		 "Non-coherent DMA support enabled without a block size\n");
 	noncoherent_supported = true;
 }
 
@@ -257,47 +257,59 @@ err_pages_alloc:
 #endif
 
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-void _do_arch_sync_cache_all(int nid, eic770x_memory_type_t mem_type)
-{
-	int cpuid, hartid;
-
 #ifdef CONFIG_NUMA
-	if (likely(mem_type == FLAT_DDR_MEM)) {
-		if (nid == 1) {
-			hartid = 4;
-		}
-		else {
-			hartid = 0;
-		}
-
-		cpuid = riscv_hartid_to_cpuid(hartid);
-		smp_call_function_single(cpuid, ccache_flush_all, &hartid, true);
+static inline void _do_arch_sync_cache_all_by_hartid(int hartid) {
+	int cpuid;
+	int hardid_mask = BIT(hartid);
+	cpuid = riscv_hartid_to_cpuid(hartid);
+	smp_call_function_single(cpuid, ccache_flush_all, &hardid_mask, true);
+}
+#endif
+void _do_arch_sync_cache_all(EIC770X_LOGICAL_MEM_NODE_E nid)
+{
+#ifdef CONFIG_NUMA
+switch (nid) {
+	case EIC770X_LOGICAL_FLAT_MEM_NODE_0: {
+		_do_arch_sync_cache_all_by_hartid(0);
+		break;
 	}
-	else if (mem_type == INTERLEAVE_DDR_MEM) {
-		hartid = 0;
-		cpuid = riscv_hartid_to_cpuid(hartid);
-		smp_call_function_single(cpuid, ccache_flush_all, &hartid, true);
-
-		hartid = 4;
-		cpuid = riscv_hartid_to_cpuid(hartid);
-		smp_call_function_single(cpuid, ccache_flush_all, &hartid, true);
+	case EIC770X_LOGICAL_FLAT_MEM_NODE_1: {
+		_do_arch_sync_cache_all_by_hartid(4);
+		break;
 	}
+	case EIC770X_LOGICAL_INTERLEAVE_MEM_NODE: {
+		struct cpumask cpus = {0};
+		int hartids = BIT(0) | BIT(4);
+
+		cpumask_set_cpu(riscv_hartid_to_cpuid(0), &cpus);
+		cpumask_set_cpu(riscv_hartid_to_cpuid(4), &cpus);
+		smp_call_function_many(&cpus, ccache_flush_all, &hartids, true);
+		break;
+	}
+	default: {
+		break;
+	}
+}
 #else
-	if (likely(mem_type == FLAT_DDR_MEM)) {
-		cpuid = smp_processor_id();
-		hartid = cpuid_to_hartid_map(cpuid);
-		ccache_flush_all(&hartid);
-	}
+	int cpuid, hartid_mask;
+
+	cpuid = smp_processor_id();
+	hartid_mask = BIT(cpuid_to_hartid_map(cpuid));
+	ccache_flush_all(&hartid_mask);
 #endif
 }
 
 void arch_sync_cache_all(phys_addr_t phys, size_t size)
 {
-	int nid;
+	EIC770X_LOGICAL_MEM_NODE_E nid;
 	eic770x_memory_type_t mem_type;
 
 	arch_get_mem_node_and_type(phys_to_pfn(phys), &nid, &mem_type);
-	_do_arch_sync_cache_all(nid, mem_type);
+	if (mem_type == EIC770X_LOGICAL_SPRAM_NODE_0 ||
+		mem_type == EIC770X_LOGICAL_SPRAM_NODE_1)
+		return;
+
+	_do_arch_sync_cache_all(nid);
 }
 EXPORT_SYMBOL(arch_sync_cache_all);
 #endif

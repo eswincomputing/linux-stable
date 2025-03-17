@@ -307,22 +307,20 @@ static int zero_device_init(struct device_node *root, int nid)
 #define SIFIVE_CCACHE_TAG_SHIFT	(18)
 void ccache_flush_all(void *arg)
 {
-	int hartid, masterid;
+	int hartid, masterid, hartid_mask;
 	int nid, wayIdx, i;
 	void __iomem *zero_dev_vaddr;
 	void __iomem *waymaskN_addr;
 	u64 zero_val;
-#if 0
-	int cpuid;
-	cpuid = smp_processor_id();
-	hartid = cpuid_to_hartid_map(cpuid);
-	if (hartid != *(int *)arg) {
-		pr_err("%s:%d, invalid para!!!, hartid:%d, arg:%d\n", __func__, __LINE__,
-			hartid, *(int *)arg);
+
+	hartid_mask = *(int *)arg;
+	hartid = cpuid_to_hartid_map(smp_processor_id());
+	if ((BIT(hartid) &  hartid_mask) == 0) {
+		pr_err("%s:%d, invalid para!!!, current hartid_to_mask:%d, hartid_mask:%d\n", __func__, __LINE__,
+			BIT(hartid), hartid_mask);
+		return;
 	}
-#else
-	hartid = *(int *)arg;
-#endif
+
 	if (hartid > 3) {
 		masterid = hartid - 4 + 1;
 		nid = 1;
@@ -331,7 +329,8 @@ void ccache_flush_all(void *arg)
 		masterid = hartid + 1 ;
 		nid = 0;
 	}
-	pr_debug("nid %d, hartid %d, masterid %d\n", nid, hartid, masterid);
+
+	pr_debug("nid %d, hartid %d, masterid %d flush all cache.\n", nid, hartid, masterid);
 	if (NULL !=zero_device_base[nid]) {
 		waymaskN_addr = ccache_base[nid] + SIFIVE_CCACHE_WAYMASK_OFFSET + (masterid << 3);
 		for (wayIdx = 0; wayIdx < 16; wayIdx++) {

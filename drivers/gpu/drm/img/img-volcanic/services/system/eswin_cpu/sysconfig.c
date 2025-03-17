@@ -58,7 +58,7 @@ extern void eswin_l2_flush64(phys_addr_t addr, size_t size);
 #else
 void eswin_l2_flush64(phys_addr_t addr, size_t size) {
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-	int nid;
+	EIC770X_LOGICAL_MEM_NODE_E nid;
 	int cpuid;
 	eic770x_memory_type_t mem_type;
 
@@ -71,10 +71,11 @@ void eswin_l2_flush64(phys_addr_t addr, size_t size) {
 			sched_setaffinity(current->pid, cpumask_of_node(nid));
 		}
 	}
-#endif
+
 	if (unlikely(size > ES_MEM_THRESH_OF_FLUSH_CACHE_ALL))
 		arch_sync_cache_all(addr, size);
 	else
+#endif
 		arch_sync_dma_for_device(addr, size, DMA_TO_DEVICE);
 };
 #endif
@@ -131,7 +132,7 @@ PVRSRV_ERROR SysInstallDeviceLISR(IMG_HANDLE hSysData,
     PVR_UNREFERENCED_PARAMETER(hSysData);
 
     #ifndef NO_HARDWARE
-    eError = OSInstallSystemLISR(phLISRData, ui32IRQ, pszName, pfnLISR, pvData, SYS_IRQ_FLAG_TRIGGER_DEFAULT | SYS_IRQ_FLAG_SHARED);	
+    eError = OSInstallSystemLISR(phLISRData, ui32IRQ, pszName, pfnLISR, pvData, SYS_IRQ_FLAG_TRIGGER_DEFAULT | SYS_IRQ_FLAG_SHARED);
     if (eError != PVRSRV_OK)
 		PVR_DPF((PVR_DBG_ERROR, "%s: install error %d != PVRSRV_OK", __func__, eError));
     #endif
@@ -210,7 +211,7 @@ static PVRSRV_ERROR PhysHeapsCreate(PHYS_HEAP_CONFIG **ppasPhysHeapsOut,
 	PHYS_HEAP_CONFIG *pasPhysHeaps;
 	IMG_UINT32 ui32NextHeapID = 0;
 	IMG_UINT32 uiHeapCount = 1;
-    
+
 
 	uiHeapCount += !PVRSRV_VZ_MODE_IS(NATIVE, DEVCFG, psDevConfig) ? 1:0;
 
@@ -355,7 +356,7 @@ static PVRSRV_ERROR DeviceConfigCreate(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **
 	int ret;
 	struct platform_device *pdev = to_platform_device((struct device *)pvOSDevice);
 	struct device *dev = (struct device *)pvOSDevice;
-#endif //CONFIG_SPARSE_IRQ 
+#endif //CONFIG_SPARSE_IRQ
 
 	psDevConfig = OSAllocZMem(sizeof(*psDevConfig) +
 							  sizeof(*psRGXData) +

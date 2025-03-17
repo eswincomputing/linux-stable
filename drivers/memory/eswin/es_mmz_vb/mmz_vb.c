@@ -103,7 +103,8 @@ static int vb_blk_to_pool(struct esVB_BLOCK_TO_POOL_CMD_S *blkToPoolCmd);
 static int vb_get_blk_offset(struct esVB_GET_BLOCKOFFSET_CMD_S *getBlkOffsetCmd);
 static int vb_split_dmabuf(struct esVB_SPLIT_DMABUF_CMD_S *splitDmabufCmd);
 static int vb_get_dmabuf_refcnt(struct esVB_DMABUF_REFCOUNT_CMD_S *getDmabufRefCntCmd);
-static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, eic770x_memory_type_t *p_mem_type);
+static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, 
+	eic770x_memory_type_t *p_mem_type);
 static int vb_get_dmabuf_size(struct esVB_DMABUF_SIZE_CMD_S *getDmabufSizeCmd);
 static int mmz_vb_pool_exit(void);
 static int mmz_vb_init_memory_region(void);
@@ -1471,19 +1472,13 @@ static int vb_ioctl_uninit_config(void __user *user_cmd)
 
 static int vb_ioctl_flush_all(void __user *user_cmd)
 {
-	eic770x_memory_type_t mem_type;
-	struct esVB_RETRIEVE_MEM_NODE_CMD_S retrieveMemNodeCmd;
-	int ret = 0;
-
-	if (copy_from_user(&retrieveMemNodeCmd.fd, user_cmd, sizeof(int))) {
+	EIC770X_LOGICAL_MEM_NODE_E nid;
+	
+	if (copy_from_user(&nid, user_cmd, sizeof(EIC770X_LOGICAL_MEM_NODE_E))) {
 		return -EFAULT;
 	}
-	retrieveMemNodeCmd.cpu_vaddr = NULL;
-	ret = vb_retrieve_mem_node(&retrieveMemNodeCmd, &mem_type);
-	if (ret)
-		return ret;
 
-	_do_arch_sync_cache_all(retrieveMemNodeCmd.numa_node, mem_type);
+	_do_arch_sync_cache_all(nid);
 
 	return 0;
 }
@@ -2273,7 +2268,8 @@ static int vb_get_dmabuf_refcnt(struct esVB_DMABUF_REFCOUNT_CMD_S *getDmabufRefC
 	return ret;
 }
 
-static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, int *p_nid, eic770x_memory_type_t *p_mem_type)
+static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, 
+	EIC770X_LOGICAL_MEM_NODE_E *p_nid, eic770x_memory_type_t *p_mem_type)
 {
 	int ret = 0;
 	struct dma_buf_attachment *attach;
@@ -2312,7 +2308,8 @@ static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, int *p_nid, eic770x_me
 	return ret;
 }
 
-static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, eic770x_memory_type_t *p_mem_type)
+static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, 
+	eic770x_memory_type_t *p_mem_type)
 {
 	int ret = 0;
 	struct dma_buf *dmabuf;
