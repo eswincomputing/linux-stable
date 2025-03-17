@@ -104,7 +104,7 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 				     struct pwm_device *pwm,
 				     const struct pwm_state *state)
 {
-	u64 tmp;
+	u64 tmp, duty = state->duty_cycle;
 	u32 ctrl;
 	u32 high;
 	u32 low;
@@ -114,12 +114,14 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 	 * periods and check are the result within HW limits between 1 and
 	 * 2^32 periods.
 	 */
-	tmp = DIV_ROUND_CLOSEST_ULL(state->duty_cycle, DWC_CLK_PERIOD_NS);
+	if (duty == 0 && state->enabled)
+		duty = state->period / 2;
+	tmp = DIV_ROUND_CLOSEST_ULL(duty, DWC_CLK_PERIOD_NS);
 	if (tmp < 1 || tmp > (1ULL << 32))
 		return -ERANGE;
 	low = tmp - 1;
 
-	tmp = DIV_ROUND_CLOSEST_ULL(state->period - state->duty_cycle,
+	tmp = DIV_ROUND_CLOSEST_ULL(state->period - duty,
 				    DWC_CLK_PERIOD_NS);
 	if (tmp < 1 || tmp > (1ULL << 32))
 		return -ERANGE;
