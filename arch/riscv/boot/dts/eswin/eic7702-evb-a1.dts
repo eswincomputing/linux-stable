@@ -1290,7 +1290,6 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};
@@ -1311,7 +1310,6 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};
