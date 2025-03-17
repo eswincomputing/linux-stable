@@ -598,7 +598,7 @@
 
 &fan_control {
 	status = "okay";
-	eswin,pwm_inverted;
+	pwms = <&pwm0 0 100000 PWM_POLARITY_INVERTED>;
 };
 
 &d0_i2c0 {

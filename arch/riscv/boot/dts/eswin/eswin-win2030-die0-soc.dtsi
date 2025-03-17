@@ -29,7 +29,7 @@
 #include <dt-bindings/interconnect/eswin,win2030.h>
 #include <dt-bindings/power/eswin,eic770x-pmu.h>
 #include <dt-bindings/thermal/thermal.h>
-
+#include <dt-bindings/pwm/pwm.h>
 / {
     compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000","sifive,fu740";
 	thermal-zones {
@@ -1324,7 +1324,7 @@
 			interrupts = <354>;
 			pulses-per-revolution = <2>;
 			pwm-minimum-period = <1000>;
-			pwms = <&pwm0 0 100000>;
+			pwms = <&pwm0 0 100000 0>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_die0_fan_tach_default &pinctrl_die0_pwm0_default>;
 			status = "disabled";
@@ -1575,7 +1575,7 @@
 
 		pwm0: pwm@0x50818000 {
 			compatible = "eswin,pwm-eswin";
-			#pwm-cells = <2>;
+			#pwm-cells = <3>;
 			reg = <0x0 0x50818000 0x0 0x4000>;
 			clock-names = "pclk";
 			clocks = <&d0_clock EIC7700_CLK_LSP_TIMER_PCLK>;
