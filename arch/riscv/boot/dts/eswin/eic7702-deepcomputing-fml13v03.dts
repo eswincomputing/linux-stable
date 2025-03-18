@@ -708,7 +708,7 @@
     status = "okay";
     numa-node-id = <0>;
     #sound-dai-cells = <0>;
-    clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>, <&d0_clock WIN2030_APLL_FOUT1>;
+    clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>, <&d0_clock EIC7700_APLL_FOUT1>;
     clock-names = "mclk", "apll";
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_die0_i2s1_default>;
@@ -1207,7 +1207,7 @@
 		reg = <0x19>;
 		status = "okay";
 
-        clocks = <&d0_clock WIN2030_CLK_VO_I2S_MCLK>;
+        clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>;
         clock-names = "mclk";
 
 		interrupt-parent = <&porta>;
@@ -1467,7 +1467,7 @@
 &d1_pwm0 {
     status = "okay";
     clock-names = "pclk";
-    clocks = <&d1_clock WIN2030_CLK_LSP_TIMER_PCLK>;
+    clocks = <&d1_clock EIC7700_CLK_LSP_TIMER_PCLK>;
     pinctrl-names = "default";
     pinctrl-0 = <&d1_pinctrl_pwm0_default>;
 };
