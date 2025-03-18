@@ -769,28 +769,25 @@ static int llc_clk_set_parent(struct platform_device *pdev)
 	spram->is_low_freq = 0;
 	if (spram == NULL)
 		return -EINVAL;
-	np = of_node_get(dev->of_node);
-	spram->npu_regulator = devm_regulator_get(dev, "npu");
 
-	if (!spram->npu_regulator) {
-		dev_err(dev, "failed to get npu regulator.\n");
+	np = of_node_get(dev->of_node);
+
+	spram->npu_regulator = devm_regulator_get(dev, "npu");
+	if (IS_ERR_OR_NULL(spram->npu_regulator)) {
+		dev_err(dev, "failed to get npu regulator!\n");
 		return -ENODEV;
 	}
 
 	ret = regulator_get_voltage(spram->npu_regulator);
-	if (ret < 0)
-	{
+	if (ret < 0) {
 		dev_warn(dev, "failed to get npu regulator,the npu freq will set to 1G\n");
 		spram->is_low_freq = 1;
-	}
-	else
-	{
+	} else {
 		spram->is_low_freq = (of_property_read_bool(np, "apply_npu_1G_freq"));
 		dev_dbg(dev, "success to get npu regulator,apply_npu_1G_freq:%d\n",
 				 spram->is_low_freq);
 		ret = regulator_enable(spram->npu_regulator);
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			return ret;
 		}
 	}
@@ -1395,7 +1392,7 @@ static int spram_contiguous_alloc(struct spram_dev *spram, size_t len, struct sg
 	sg = table->sgl;
 	for(i = 0; i < npages; i++) {
 		page = phys_to_page(phys_addr);
-		/* page->virtual is used for recording the gen pool vaddr which is needed when 
+		/* page->virtual is used for recording the gen pool vaddr which is needed when
 		* releasing spram memory
 		*/
 		#ifdef WANT_PAGE_VIRTUAL
@@ -1440,27 +1437,23 @@ static int __maybe_unused llc_resume(struct device *dev)
 	int is_enable = 0;
 	struct spram_dev *spram = dev_get_drvdata(dev);
 
-	if ((NULL != spram->npu_regulator) && (!IS_ERR(spram->npu_regulator)))
-	{
+	if (!IS_ERR_OR_NULL(spram->npu_regulator)) {
 		is_enable = regulator_is_enabled(spram->npu_regulator);
-		if(0 == is_enable)
-		{
+		if (0 == is_enable) {
 			mdelay(20);
 		}
 		ret = regulator_enable(spram->npu_regulator);
-		if (ret < 0)
-		{
+		if (ret < 0) {
 			dev_err(spram->dev, "regulator_enable error: %d\n", ret);
 			return ret;
 		}
-		if(0 == is_enable)
-		{
+		if (0 == is_enable) {
 			mdelay(20);
 		}
 	}
 
 	ret = llc_clk_enable(spram);
-	if(ret != 0){
+	if (ret != 0) {
 		dev_err(spram->dev, "llc_clk_enable error: %d\n", ret);
 		return ret;
 	}

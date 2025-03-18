@@ -38,6 +38,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
+#include <linux/delay.h>
 
 #define MPQ8785_CMD_PAGE 0x0
 #define MPQ8785_CMD_OPERATION 0x1
@@ -985,10 +986,41 @@ int mpq8785_regulator_enable(struct regulator_dev *rdev)
 {
 	struct i2c_client *client = to_i2c_client(rdev->dev.parent);
 	struct MPQ8785_DRIVER_DATA *data = i2c_get_clientdata(client);
+	u32 set_value = 0;
+	u32 get_value = 0;
+	int count = 0;
+	int ret;
+
 	dev_dbg(&rdev->dev, "%s.%d\n", __FUNCTION__, __LINE__);
-	return mpq8785_update_byte(data, MPQ8785_CMD_OPERATION,
-							   MPQ8785_MASK_OPERATION_ENABLE,
-							   MPQ8785_MASK_OPERATION_ENABLE);
+
+	do {
+		ret = mpq8785_update_byte(data, MPQ8785_CMD_OPERATION,
+						  MPQ8785_MASK_OPERATION_ENABLE,
+						  MPQ8785_MASK_OPERATION_ENABLE);
+		if (ret < 0) {
+			dev_err(&rdev->dev, "failed to enable output, ret %d\n", ret);
+			return ret;
+		}
+		/* regulator need some time to set up stable output*/
+		msleep(10);
+
+		/*
+		 * The reason for this checking is that,
+		 * it was found that repeatedly toggling the MPQ8785 output voltage
+		 * may cause the voltage to suddenly drop to 0.7V.
+		 * Enabling it a second time may ensures normal output voltage.
+		 */
+		set_value = mpq8785_get_vout(data);
+		get_value= mpq8785_reg2volt(mpq8785_read_word(data, MPQ8785_CMD_READ_VOUT), data->volt_numerator);
+		if (abs((s32)set_value -(s32)get_value) < 20) {
+			return 0;
+		}
+		count++;
+		dev_info(&rdev->dev, "set value(%d )not equal to get value (%d), retry count %d\n", set_value, get_value, count);
+	} while(count < 5);
+
+	dev_err(&rdev->dev, "failed to enable output, set value %d, get value %d\n", set_value, get_value);
+	return -EIO;
 }
 
 int mpq8785_regulator_disable(struct regulator_dev *rdev)
