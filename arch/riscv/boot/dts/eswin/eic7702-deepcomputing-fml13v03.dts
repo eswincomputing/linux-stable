@@ -202,6 +202,19 @@
             250 251 252 253 254>;
         default-brightness-level = <128>;
 	};
+
+    camera_light_power: regulator-gpio69 {
+        compatible = "regulator-fixed";
+        regulator-name = "camera-light-power";
+        regulator-min-microvolt = <1800000>;
+        regulator-max-microvolt = <1800000>;
+        gpio = <&d1_portc 5 GPIO_ACTIVE_HIGH>;
+        enable-active-high;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_die1_gpio69_default>;
+        regulator-always-on;
+        status = "okay";
+    };
 };
 
 &D1CACHE {
@@ -1282,20 +1295,33 @@
 };
 
 &d0_i2c2 {
-	/* touch pad*/
-	status = "ok";
-	d0_touchpad: hid@2c {
-		compatible = "hid-over-i2c";
-		reg = <0x2c>;
-		hid-descr-addr = <0x0020>;
-		post-power-on-delay-ms = <200>;
-		interrupt-parent = <&porta>;
-		interrupts = <20 IRQ_TYPE_LEVEL_LOW>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die0_gpio20_default>;
-		irq-gpios = <&porta 20 GPIO_ACTIVE_LOW>;
-		status = "okay";
-        };
+    status = "ok";
+
+    d0_touchpad: hid@2c {
+        /* touch pad*/
+        compatible = "hid-over-i2c";
+        reg = <0x2c>;
+        hid-descr-addr = <0x0020>;
+        post-power-on-delay-ms = <200>;
+        interrupt-parent = <&porta>;
+        interrupts = <20 IRQ_TYPE_LEVEL_LOW>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_die0_gpio20_default>;
+        irq-gpios = <&porta 20 GPIO_ACTIVE_LOW>;
+        status = "okay";
+    };
+
+    cm32181_sensor: cm32181@10 {
+        compatible = "capella,cm32181";
+        reg = <0x10>;
+        status = "okay";
+    };
+
+    cm32183_sensor: cm32183@29 {
+        compatible = "capella,cm32183";
+        reg = <0x29>;
+        status = "okay";
+    };
 };
 
 &d1_i2c2 {
@@ -1565,6 +1591,20 @@
 
 &d1_d2d {
 	status = "okay";
+};
+
+&pinctrl_die1_gpio69_default {
+    mux {
+        groups = "gpio69_group";
+        function = "gpio69_func";
+    };
+    conf {
+        groups = "gpio69_group";
+        drive-strength = <2>;
+        output-high;
+        bias-pull-up = <1>;
+        bias-pull-down = <0>;
+    };
 };
 
 /* die0 GPIO Function Description
