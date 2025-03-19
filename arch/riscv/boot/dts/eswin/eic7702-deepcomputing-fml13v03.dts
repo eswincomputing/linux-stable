@@ -494,7 +494,12 @@
 &pcie {
 	/* m.2 ssd key m */
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio27_default
+				 &pinctrl_die1_gpio16_default
+				 &pinctrl_die1_gpio18_default>;
 };
+
 &d1_pcie {
 	/* wifi key e */
 	status = "okay";

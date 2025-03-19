@@ -799,6 +799,11 @@
 					groups = "gpio27_group";
 					function = "gpio27_func";
 				};
+				conf {
+					groups = "gpio27_group";
+					input-enable = <0>;
+					bias-pull-up = <1>;
+				};
 			};
             pinctrl_die0_gpio28_default: gpio28-default{
 				mux {
