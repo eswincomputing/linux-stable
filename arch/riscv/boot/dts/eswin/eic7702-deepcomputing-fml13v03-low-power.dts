@@ -160,47 +160,60 @@
 				<1 1 10>;
 	};
 
-    backlight_regulator: regulator-backlight {
-        compatible = "regulator-fixed";
-        regulator-name = "backlight-power";
-        regulator-min-microvolt = <1800000>;  /* 1.8V */
-        regulator-max-microvolt = <1800000>;  /* 1.8V */
-        regulator-always-on;
-    };
+	backlight_regulator: regulator-backlight {
+		compatible = "regulator-fixed";
+		regulator-name = "backlight-power";
+		regulator-min-microvolt = <1800000>;  /* 1.8V */
+		regulator-max-microvolt = <1800000>;  /* 1.8V */
+		regulator-always-on;
+	};
 
 	backlight: backlight {
-        compatible = "pwm-backlight";
-        pwms = <&d1_pwm0 0 200000 PWM_POLARITY_INVERTED>;
-        power-supply = <&backlight_regulator>;
-        status = "okay";
-        brightness-levels = <
-             0   1   2   3   4   5   6   7   8   9
-            10  11  12  13  14  15  16  17  18  19
-            20  21  22  23  24  25  26  27  28  29
-            30  31  32  33  34  35  36  37  38  39
-            40  41  42  43  44  45  46  47  48  49
-            50  51  52  53  54  55  56  57  58  59
-            60  61  62  63  64  65  66  67  68  69
-            70  71  72  73  74  75  76  77  78  79
-            80  81  82  83  84  85  86  87  88  89
-            90  91  92  93  94  95  96  97  98  99
-            100 101 102 103 104 105 106 107 108 109
-            110 111 112 113 114 115 116 117 118 119
-            120 121 122 123 124 125 126 127 128 129
-            130 131 132 133 134 135 136 137 138 139
-            140 141 142 143 144 145 146 147 148 149
-            150 151 152 153 154 155 156 157 158 159
-            160 161 162 163 164 165 166 167 168 169
-            170 171 172 173 174 175 176 177 178 179
-            180 181 182 183 184 185 186 187 188 189
-            190 191 192 193 194 195 196 197 198 199
-            200 201 202 203 204 205 206 207 208 209
-            210 211 212 213 214 215 216 217 218 219
-            220 221 222 223 224 225 226 227 228 229
-            230 231 232 233 234 235 236 237 238 239
-            240 241 242 243 244 245 246 247 248 249
-            250 251 252 253 254>;
-        default-brightness-level = <128>;
+		compatible = "pwm-backlight";
+		pwms = <&d1_pwm0 0 200000 PWM_POLARITY_INVERTED>;
+		power-supply = <&backlight_regulator>;
+		status = "okay";
+		brightness-levels = <
+			 0   1   2   3   4   5   6   7   8   9
+			10  11  12  13  14  15  16  17  18  19
+			20  21  22  23  24  25  26  27  28  29
+			30  31  32  33  34  35  36  37  38  39
+			40  41  42  43  44  45  46  47  48  49
+			50  51  52  53  54  55  56  57  58  59
+			60  61  62  63  64  65  66  67  68  69
+			70  71  72  73  74  75  76  77  78  79
+			80  81  82  83  84  85  86  87  88  89
+			90  91  92  93  94  95  96  97  98  99
+			100 101 102 103 104 105 106 107 108 109
+			110 111 112 113 114 115 116 117 118 119
+			120 121 122 123 124 125 126 127 128 129
+			130 131 132 133 134 135 136 137 138 139
+			140 141 142 143 144 145 146 147 148 149
+			150 151 152 153 154 155 156 157 158 159
+			160 161 162 163 164 165 166 167 168 169
+			170 171 172 173 174 175 176 177 178 179
+			180 181 182 183 184 185 186 187 188 189
+			190 191 192 193 194 195 196 197 198 199
+			200 201 202 203 204 205 206 207 208 209
+			210 211 212 213 214 215 216 217 218 219
+			220 221 222 223 224 225 226 227 228 229
+			230 231 232 233 234 235 236 237 238 239
+			240 241 242 243 244 245 246 247 248 249
+			250 251 252 253 254>;
+			default-brightness-level = <128>;
+	};
+
+	camera_light_power: regulator-gpio69 {
+		compatible = "regulator-fixed";
+		regulator-name = "camera-light-power";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&d1_portc 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die1_gpio69_default>;
+		regulator-always-on;
+		status = "okay";
 	};
 };
 
@@ -495,7 +508,6 @@
 &d1_npu {
 	status = "disabled";
 	npu-supply=<&d1_npu_vcc>;
-	npu_def_high_vol = <1100000>;
 };
 
 &d0_dsp_subsys {
@@ -627,7 +639,7 @@
 };
 
 &dsi_controller {
-    status = "disabled";
+	status = "disabled";
 };
 &d1_dsi_controller {
 	status = "disabled";
@@ -705,19 +717,19 @@
 };
 
 &d0_i2s1 {
-    status = "okay";
-    numa-node-id = <0>;
-    #sound-dai-cells = <0>;
-    clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>, <&d0_clock EIC7700_APLL_FOUT1>;
-    clock-names = "mclk", "apll";
-    pinctrl-names = "default";
-    pinctrl-0 = <&pinctrl_die0_i2s1_default>;
-    d0_i2s1_port: port {
-        d0_i2s1_endpoint: endpoint {
-            remote-endpoint = <&es8326_endpoint>;
-            dai-format = "i2s";
-        };
-    };
+	status = "okay";
+	numa-node-id = <0>;
+	#sound-dai-cells = <0>;
+	clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>, <&d0_clock EIC7700_APLL_FOUT1>;
+	clock-names = "mclk", "apll";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_i2s1_default>;
+	d0_i2s1_port: port {
+		d0_i2s1_endpoint: endpoint {
+			remote-endpoint = <&es8326_endpoint>;
+			dai-format = "i2s";
+		};
+	};
 };
 
 &d1_i2s1 {
@@ -1054,16 +1066,16 @@
 };
 
 &pinctrl_die0_gpio6_default {
-    mux {
-        groups = "gpio6_group";
-        function = "gpio6_func";
-    };
-    conf {
-        groups = "gpio6_group";
-        drive-strength = <2>;
-        bias-pull-up = <1>;
-        bias-pull-down = <0>;
-    };
+	mux {
+		groups = "gpio6_group";
+		function = "gpio6_func";
+	};
+	conf {
+		groups = "gpio6_group";
+		drive-strength = <2>;
+		bias-pull-up = <1>;
+		bias-pull-down = <0>;
+	};
 };
 
 &ssi1 {
@@ -1076,23 +1088,23 @@
 	cs-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 	num-cs = <1>;
 
-    fwos_ec: spi@0 {
-        compatible = "google,cros-ec-spi";
-        reg = <0>;
-        status = "okay";
+	fwos_ec: spi@0 {
+		compatible = "google,cros-ec-spi";
+		reg = <0>;
+		status = "okay";
 
 		spi-max-frequency = <4800000>;			// Maximum SPI clock frequency (4.8 MHz)
 		mode = <0>;								// SPI Mode 0 (CPOL=0, CPHA=0)
 		rx-sample-delay-ns = <10>;				// Receive sample delay in nanoseconds
-        google,cros-ec-spi-pre-delay = <10>;
-        google,cros-ec-spi-msg-delay = <10>;
+		google,cros-ec-spi-pre-delay = <10>;
+		google,cros-ec-spi-msg-delay = <10>;
 
 		interrupt-parent = <&porta>;
-        interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
 
-        pinctrl-names = "default";
-        pinctrl-0 = <&pinctrl_die0_gpio25_default>;
-    };
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio25_default>;
+	};
 };
 
 &d1_ssi1 {
@@ -1207,8 +1219,8 @@
 		reg = <0x19>;
 		status = "okay";
 
-        clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>;
-        clock-names = "mclk";
+		clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>;
+		clock-names = "mclk";
 
 		interrupt-parent = <&porta>;
 		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
@@ -1224,7 +1236,7 @@
 		everest,mic1-src = [00];
 		everest,mic2-src = [44];
 		everest,interrupt-src = [08];
-        everest,interrupt-clk = [45];
+		everest,interrupt-clk = [45];
 
 		port {
 			es8326_endpoint: endpoint {
@@ -1240,53 +1252,51 @@
 };
 
 &d0_i2c1 {
-    status = "okay";
-    tps549d22@10 {
+	status = "okay";
+	tps549d22@10 {
 		status = "okay";
-        compatible = "ti,tps549d22";
-        reg = <0x10>;
-        eswin,regulator_default-microvolt = <700000>;
-        regulator-compatible = "NPU_SVCC";
-        regulators {
-            d0_npu_vcc: npu_svcc {
-                regulator-name = "NPU_SVCC";
-                regulator-min-microvolt = <700000>;
-                regulator-max-microvolt = <1100000>;
-                regulator-min-microamp = <20000000>;
-                regulator-max-microamp = <40000000>;
-                regulator-always-on;
-                regulator-boot-on;
-            };
-        };
-    };
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
+		eswin,regulator_default-microvolt=<700000>;
+		label = "npu_vdd";
+		regulators {
+			d0_npu_vcc: npu_svcc {
+				regulator-name = "NPU_SVCC";
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <1120000>;
+				regulator-min-microamp = <20000000>;
+				regulator-max-microamp = <40000000>;
+				regulator-ov-protection-microvolt = <1100000>;
+			};
+		};
+	};
 };
 
 &d1_i2c1 {
-    status = "okay";
-    tps549d22@10 {
-		status = "okay";
-        compatible = "ti,tps549d22";
-        reg = <0x10>;
-        eswin,regulator_default-microvolt = <700000>;
-        regulator-compatible = "NPU_SVCC2";
-        regulators {
-            d1_npu_vcc: npu_svcc {
-                regulator-name = "NPU_SVCC2";
-                regulator-min-microvolt = <700000>;
-                regulator-max-microvolt = <1100000>;
-                regulator-min-microamp = <20000000>;
-                regulator-max-microamp = <40000000>;
-                regulator-always-on;
-                regulator-boot-on;
-            };
-        };
-    };
+	status = "okay";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
+		eswin,regulator_default-microvolt=<700000>;
+		label = "d1_npu_vdd";
+		regulators {
+			d1_npu_vcc: npu_svcc {
+				regulator-name = "NPU_SVCC2";
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <1120000>;
+				regulator-min-microamp = <20000000>;
+				regulator-max-microamp = <40000000>;
+				regulator-ov-protection-microvolt = <1100000>;
+			};
+		};
+	};
 };
 
 &d0_i2c2 {
-	/* touch pad*/
 	status = "ok";
+
 	d0_touchpad: hid@2c {
+		/* touch pad*/
 		compatible = "hid-over-i2c";
 		reg = <0x2c>;
 		hid-descr-addr = <0x0020>;
@@ -1297,7 +1307,19 @@
 		pinctrl-0 = <&pinctrl_die0_gpio20_default>;
 		irq-gpios = <&porta 20 GPIO_ACTIVE_LOW>;
 		status = "okay";
-        };
+	};
+
+	cm32181_sensor: cm32181@10 {
+		compatible = "capella,cm32181";
+		reg = <0x10>;
+		status = "okay";
+	};
+
+	cm32183_sensor: cm32183@29 {
+		compatible = "capella,cm32183";
+		reg = <0x29>;
+		status = "okay";
+	};
 };
 
 &d1_i2c2 {
@@ -1455,16 +1477,16 @@
 };
 
 &d1_pwm0 {
-    status = "okay";
-    clock-names = "pclk";
-    clocks = <&d1_clock EIC7700_CLK_LSP_TIMER_PCLK>;
-    pinctrl-names = "default";
-    pinctrl-0 = <&d1_pinctrl_pwm0_default>;
+	status = "okay";
+	clock-names = "pclk";
+	clocks = <&d1_clock EIC7700_CLK_LSP_TIMER_PCLK>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&d1_pinctrl_pwm0_default>;
 };
 
 &fan_control {
-    status = "okay";
-    pwms = <&pwm0 0 100000 PWM_POLARITY_INVERTED>;
+	status = "okay";
+	pwms = <&pwm0 0 100000 PWM_POLARITY_INVERTED>;
 };
 
 &pvt0 {
@@ -1589,6 +1611,20 @@
 
 &d1_d2d {
 	status = "okay";
+};
+
+&pinctrl_die1_gpio69_default {
+	mux {
+		groups = "gpio69_group";
+		function = "gpio69_func";
+	};
+	conf {
+		groups = "gpio69_group";
+		drive-strength = <2>;
+		output-high;
+		bias-pull-up = <1>;
+		bias-pull-down = <0>;
+	};
 };
 
 /* die0 GPIO Function Description
