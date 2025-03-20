@@ -129,7 +129,7 @@
 
 &d0_uart1 {
 	/* M.2 KEY E */
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_uart2 {
