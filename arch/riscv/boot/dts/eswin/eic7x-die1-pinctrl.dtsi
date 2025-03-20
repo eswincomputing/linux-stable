@@ -717,7 +717,7 @@
 				conf {
 					groups = "gpio16_group";
 					input-enable = <0>;
-					bias-pull-up = <1>;
+					bias-pull-down = <1>;
 				};
 			};
             pinctrl_die1_gpio18_default: gpio18-default{
@@ -727,8 +727,8 @@
 				};
 				conf {
 					groups = "gpio18_group";
-					input-enable = <0>;
-					bias-pull-up = <1>;
+					input-enable = <1>;
+					bias-pull-down = <1>;
 				};
 			};
             pinctrl_die1_gpio19_default: gpio19-default{
