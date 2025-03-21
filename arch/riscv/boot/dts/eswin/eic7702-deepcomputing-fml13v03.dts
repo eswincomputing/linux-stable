@@ -750,7 +750,7 @@
 };
 
 &d0_graphcard0 {
-	status = "okay";
+	status = "disabled";
 	label = "HDMI Audio-0";
 	dais = <&d0_i2s0_port>;
 };
@@ -776,7 +776,7 @@
 	status = "disabled";
 };
 
-&d1_graphcard1 {
+&d1_graphcard2 {
 	status = "disabled";
 };
 
