@@ -3490,6 +3490,8 @@ struct ec_response_get_next_event_v1 {
 #define EC_MKBP_BRI_UP		4
 #define EC_MKBP_BRI_DOWN	5
 #define EC_MKBP_SCREEN_LOCK	6
+#define EC_MKBP_MEDIA_BUTTON	7
+#define EC_MKBP_RFKILL_BUTTON	8
 
 /* Switches */
 #define EC_MKBP_LID_OPEN	0

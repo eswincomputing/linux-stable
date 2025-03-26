@@ -1658,6 +1658,13 @@
 	};
 };
 
+&fwos_ec {
+	keyboard-controller {
+		compatible = "google,cros-ec-keyb-switches";
+		status = "okay";
+	};
+};
+
 /* die0 GPIO Function Description
 
 	gpio0   : pcie prstn(I)

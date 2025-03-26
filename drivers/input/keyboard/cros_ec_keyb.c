@@ -115,6 +115,16 @@ static const struct cros_ec_bs_map cros_ec_keyb_bs[] = {
 		.code           = KEY_SCREENLOCK,
 		.bit            = EC_MKBP_SCREEN_LOCK,
 	},
+	{
+		.ev_type	= EV_KEY,
+		.code		= KEY_MEDIA,
+		.bit		= EC_MKBP_MEDIA_BUTTON,
+	},
+	{
+		.ev_type	= EV_KEY,
+		.code		= KEY_RFKILL,
+		.bit		= EC_MKBP_RFKILL_BUTTON,
+	},
 
 	/* Switches */
 	{
