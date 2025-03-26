@@ -1514,7 +1514,7 @@
 			interrupt-parent = <&plic1>;
 			interrupt-names = "macirq";
 			interrupts = <61>;
-			phy-mode = "rgmii";
+			phy-mode = "rgmii-txid";
 			numa-node-id = <1>;
 			id = <2>;
 			status = "disabled";
@@ -1545,7 +1545,7 @@
 			interrupt-parent = <&plic1>;
 			interrupt-names = "macirq";
 			interrupts = <70>;
-			phy-mode = "rgmii";
+			phy-mode = "rgmii-txid";
 			numa-node-id = <1>;
 			id = <3>;
 			status = "disabled";
