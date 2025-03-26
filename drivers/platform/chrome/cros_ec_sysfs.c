@@ -191,6 +191,37 @@ static ssize_t version_show(struct device *dev,
 				   r_board->board_version);
 	}
 
+	/* Get touch board version */
+	msg->command = EC_CMD_GET_TOUCHPAD_VERSION + ec->cmd_offset;
+	msg->insize = sizeof(*r_board);
+	ret = cros_ec_cmd_xfer_status(ec->ec_dev, msg);
+	if (ret < 0) {
+		count += sysfs_emit_at(
+			buf, count, "Touchpad version: XFER / EC ERROR %d / %d\n",
+			ret, msg->result);
+	} else {
+		r_board = (struct ec_response_board_version *)msg->data;
+
+		count += sysfs_emit_at(buf, count, "Touchpad version: %d\n",
+				       r_board->board_version);
+	}
+
+	/* Get audio-exp board version */
+	msg->command = EC_CMD_GET_AUDIO_EXP_VERSION + ec->cmd_offset;
+	msg->insize = sizeof(*r_board);
+	ret = cros_ec_cmd_xfer_status(ec->ec_dev, msg);
+	if (ret < 0) {
+		count += sysfs_emit_at(
+			buf, count,
+			"Audio-exp board version: XFER / EC ERROR %d / %d\n", ret,
+			msg->result);
+	} else {
+		r_board = (struct ec_response_board_version *)msg->data;
+
+		count += sysfs_emit_at(buf, count, "Audio-exp board version: %d\n",
+				       r_board->board_version);
+	}
+
 exit:
 	kfree(msg);
 	return count;

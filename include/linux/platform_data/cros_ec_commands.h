@@ -1706,6 +1706,12 @@ struct ec_params_flash_select {
 	uint8_t select;
 } __ec_align4;
 
+/*****************************************************************************/
+/* Get touch board HW version */
+#define EC_CMD_GET_TOUCHPAD_VERSION 0x001D
+
+/* Get audio board HW version */
+#define EC_CMD_GET_AUDIO_EXP_VERSION 0x001E
 
 /*****************************************************************************/
 /* PWM commands */
