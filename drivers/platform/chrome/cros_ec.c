@@ -206,8 +206,12 @@ int cros_ec_register(struct cros_ec_device *ec_dev)
 
 	err = cros_ec_query_all(ec_dev);
 	if (err) {
-		dev_err(dev, "Cannot identify the EC: error %d\n", err);
-		goto exit;
+		dev_err(dev, "EC identification failed (attempt 1): error %d\n", err);
+		err = cros_ec_query_all(ec_dev);
+		if (err) {
+			dev_err(dev, "EC identification failed again (attempt 2): error %d\n", err);
+			goto exit;
+		}
 	}
 
 	if (ec_dev->irq > 0) {

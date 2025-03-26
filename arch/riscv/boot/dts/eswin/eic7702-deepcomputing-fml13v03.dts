@@ -1115,27 +1115,14 @@
 	};
 };
 
-&pinctrl_die0_gpio6_default {
-	mux {
-		groups = "gpio6_group";
-		function = "gpio6_func";
-	};
-	conf {
-		groups = "gpio6_group";
-		drive-strength = <2>;
-		bias-pull-up = <1>;
-		bias-pull-down = <0>;
-	};
-};
-
 &ssi1 {
 	status = "okay";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_spi2_default
-				 &pinctrl_die0_gpio6_default>;	// SPI pin multiplexing
+				 &pinctrl_die0_gpio88_default>;	// SPI pin multiplexing
 
-	cs-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
+	cs-gpios = <&portc 24 GPIO_ACTIVE_LOW>;
 	num-cs = <1>;
 
 	fwos_ec: spi@0 {
@@ -1143,7 +1130,7 @@
 		reg = <0>;
 		status = "okay";
 
-		spi-max-frequency = <4800000>;			// Maximum SPI clock frequency (4.8 MHz)
+		spi-max-frequency = <1000000>;			// Maximum SPI clock frequency (4.8 MHz)
 		mode = <0>;								// SPI Mode 0 (CPOL=0, CPHA=0)
 		rx-sample-delay-ns = <10>;				// Receive sample delay in nanoseconds
 		google,cros-ec-spi-pre-delay = <10>;

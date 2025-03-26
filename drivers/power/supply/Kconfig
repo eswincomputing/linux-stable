@@ -233,6 +233,13 @@ config BATTERY_SBS
 	  Say Y to include support for SBS battery driver for SBS-compliant
 	  gas gauges.
 
+config BATTERY_CROS_SBS
+	tristate "CROS SBS Compliant gas gauge"
+	depends on MFD_CROS_EC_DEV
+	help
+	  Say Y to include support for CROS SBS battery driver for SBS-compliant
+	  gas gauges.
+
 config CHARGER_SBS
 	tristate "SBS Compliant charger"
 	depends on I2C

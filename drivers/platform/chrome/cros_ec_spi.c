@@ -58,7 +58,7 @@
   * need at least 70 us with the 16 MHz STM32 EC, so go with 200 us to be
   * safe.
   */
-#define EC_SPI_RECOVERY_TIME_NS	(200 * 1000)
+#define EC_SPI_RECOVERY_TIME_NS	(/*200*/1000 * 1000)
 
 /**
  * struct cros_ec_spi - information about a SPI-connected EC
