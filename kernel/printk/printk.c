@@ -84,6 +84,8 @@ struct paclog_iter {
 	u64 log_first_seq;
 	u64 log_next_seq;
 };
+
+static DEFINE_SPINLOCK(shm_lock);
 static bool shm_ready_flag;
 static u64 reserved_next_seq;
 static void __iomem *shm_va;
@@ -2243,6 +2245,20 @@ static int reserve_log_to_share_memory(char *buffer, size_t line_len)
 	memset(&new_info, 0, sizeof(struct paclog_info));
 
 	if (next_idx + offset >= PACMSG_MAX_OFFSET) {
+		while (first_seq < next_seq) {
+			memcpy(&old_info, (void *)(pacmsg_buf + first_idx),
+			       sizeof(struct paclog_info));
+
+			if (old_info.len) {
+				if (first_idx >= next_idx) {
+					first_idx += old_info.len;
+					first_seq++;
+				} else
+					break;
+			} else
+				break;
+		}
+
 		memcpy((void *)(pacmsg_buf + next_idx), &new_info,
 		       sizeof(struct paclog_info));
 		next_idx = 0;
@@ -2290,6 +2306,9 @@ static int reserve_record_to_share_memory(void)
 	struct printk_record r;
 	char *text;
 	u64 seq;
+	unsigned long flags;
+
+	spin_lock_irqsave(&shm_lock, flags);
 
 	text = kmalloc(PRINTK_MESSAGE_MAX, GFP_ATOMIC);
 	if (!text)
@@ -2308,6 +2327,8 @@ static int reserve_record_to_share_memory(void)
 	}
 
 	kfree(text);
+
+	spin_unlock_irqrestore(&shm_lock, flags);
 	return 0;
 }
 #endif
