@@ -984,8 +984,7 @@ done:
 static void cros_sbs_supply_changed(struct cros_sbs_info *chip)
 {
 	struct power_supply *battery = chip->power_supply;
-	int ret;
-	cros_sbs_update_presence(chip, ret);
+	cros_sbs_update_presence(chip, true);
 	power_supply_changed(battery);
 }
 
