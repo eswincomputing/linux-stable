@@ -299,7 +299,7 @@
 	status = "okay";
 };
 &d1_pmu {
-	status = "okay";
+	status = "disabled";
 };
 
 &ddr0 {
@@ -488,7 +488,7 @@
 	status = "okay";
 };
 &d1_lpcpu {
-	status = "okay";
+	status = "disabled";
 };
 
 &pinctrl_die0_gpio27_default {
@@ -993,7 +993,7 @@
 };
 
 &d1_dmac0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_aon_dmac {
