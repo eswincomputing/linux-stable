@@ -512,12 +512,12 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	if (0 == ctl->pwm_inverted)
 	{
 		state.period = pwm_args.period;
-		state.duty_cycle = state.period * 99 / 100; /* default set max speed */
+		state.duty_cycle = state.period * 50 / 100; /* default set 50% speed */
 	}
 	else
 	{
 		state.period = pwm_args.period;
-		state.duty_cycle = state.period / 100; /* default set max speed */
+		state.duty_cycle = state.period * 50 / 100; /* default set 50% speed */
 		if(0 == state.duty_cycle)
 		{
 			state.duty_cycle = 1;
