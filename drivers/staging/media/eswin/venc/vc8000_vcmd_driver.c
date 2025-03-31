@@ -4505,7 +4505,7 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 		}
 		new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 		if (!new_cmdbuf_node) {
-			LOG_ERR("vcmd_isr error cmdbuf_id %d!!\n", cmdbuf_id);
+			LOG_INFO("task has been done, but vdec interrupt occurred, cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 			spin_unlock_irqrestore(dev->spinlock, flags);
 			return IRQ_HANDLED;
 		}
