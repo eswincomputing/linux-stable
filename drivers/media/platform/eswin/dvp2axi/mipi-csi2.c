@@ -24,7 +24,7 @@
 /* eic770x */
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
-#include "common-def.h"
+#include <media/eswin/common-def.h>
 #include "dw-mipi-csi-hal.h"
 #include "bmtest_vitop.h"
 

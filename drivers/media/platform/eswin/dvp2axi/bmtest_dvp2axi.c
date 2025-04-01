@@ -1,6 +1,6 @@
 #include "bmtest_vitop.h"
 #include "bmtest_dvp2axi.h"
-#include "common-def.h"
+#include <media/eswin/common-def.h>
 
 #define DEBUG_LOG_ENABLE // print control
 #ifdef DEBUG_LOG_ENABLE

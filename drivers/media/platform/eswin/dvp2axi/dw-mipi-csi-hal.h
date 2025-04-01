@@ -2,7 +2,7 @@
 #define _DW_MIPI_CSI_HAL_
 // #include "sys_port.h"
 #include "bmtest_vitop.h"
-#include "common-def.h"
+#include <media/eswin/common-def.h>
 
 #define MIPI_CSI_REG_ADDR_0 VI_CSI2_CTRL0_REGISTER_BASE_ADDRESS
 #define MIPI_CSI_REG_SIZE_0 0x00010000UL

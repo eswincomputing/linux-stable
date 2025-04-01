@@ -26,11 +26,8 @@
 #include <linux/wait.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
-#include <media/eswin/dw-mipi-csi-pltfrm.h>
 
 #define ESWIN_MOD
-// #define DWC_PHY_USING
-#define REG_DUMMY_READ
 
 /* Advanced features */
 #define IPI_DT_OVERWRITE BIT(0)
@@ -52,6 +49,13 @@ enum line_event {
 enum sync_event {
 	SYNCEVFSN = 0,
 	SYNCEVFS = 1,
+};
+
+enum mipi_csi_pads {
+    CSI_PAD_SINK,
+    CSI_PAD_SOURCE0,
+    CSI_PAD_SOURCE1,
+    CSI_PADS_NUM,
 };
 
 /* DW MIPI CSI-2 register addresses*/
@@ -284,7 +288,6 @@ struct dw_csi {
 	struct media_pad pads[CSI_PADS_NUM];
 	struct mipi_fmt *fmt;
 	struct v4l2_mbus_framefmt format;
-	struct v4l2_device    v4l2_dev;
 	struct v4l2_async_notifier	notifier;
 
 	void __iomem *base_address;
@@ -329,10 +332,6 @@ int dw_mipi_csi_specific_mappings(struct dw_csi *csi_dev);
 void dw_mipi_csi_fill_timings(struct dw_csi *dev);
 void dw_mipi_csi_dump(struct dw_csi *csi_dev);
 
-#if IS_ENABLED(CONFIG_DWC_MIPI_TC_DPHY_GEN3)
-int dw_csi_create_capabilities_sysfs(struct platform_device *pdev);
-#endif
-
 static inline void dw_mipi_csi_write(struct dw_csi *dev,
 				     u32 address, u32 data)
 {
@@ -343,16 +342,6 @@ static inline void dw_mipi_csi_write(struct dw_csi *dev,
 static inline u32 dw_mipi_csi_read(struct dw_csi *dev, u32 address)
 {
     u32 ret =0;
-
-#ifdef REG_DUMMY_READ
-	readl(dev->base_address + address);
-#endif
-	ret = readl(dev->base_address + address);
-    
-    /*当前的haps平台下axi总线上csi读取时延大，需要多读取几次保证读取到正确值*/
-	ret = readl(dev->base_address + address);
-	ret = readl(dev->base_address + address);
-	ret = readl(dev->base_address + address);
 	ret = readl(dev->base_address + address);
 	dev_dbg(dev->dev, "%s: [%08x]: %08x\n", __func__, address, ret);
     return ret;

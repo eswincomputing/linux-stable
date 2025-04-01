@@ -11,7 +11,7 @@
 #ifndef _DW_CSI_PLAT_H__
 #define _DW_CSI_PLAT_H__
 
-#include <media/eswin/eswin_vi.h>
+#include "../eswin_vi.h"
 #include "dw-mipi-csi.h"
 
 /** Color Space Converter Block **/
@@ -165,4 +165,5 @@ struct mipi_fmt dw_mipi_csi_formats[] = {
 		.depth = 10,
 	},
 };
+
 #endif /* _DW_CSI_PLAT_H__ */

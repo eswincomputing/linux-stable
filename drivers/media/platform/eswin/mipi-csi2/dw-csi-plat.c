@@ -8,9 +8,6 @@
  * Author: Luis Oliveira <luis.oliveira@synopsys.com>
  */
 
-#include <media/eswin/dw-csi-data.h>
-#include <media/eswin/dw-dphy-data.h>
-
 #include "dw-csi-plat.h"
 #include <linux/es-camera-module.h>
 
@@ -45,6 +42,9 @@ static struct mipi_fmt *
 find_dw_mipi_csi_format(struct v4l2_mbus_framefmt *mf)
 {
 	unsigned int i;
+
+	pr_debug("%s entered mbus: 0x%x\n", __func__, mf->code);
+
 	for (i = 0; i < ARRAY_SIZE(dw_mipi_csi_formats); i++)
 		if (mf->code == dw_mipi_csi_formats[i].mbus_code) {
 			pr_debug("Found mbus 0x%x\n", dw_mipi_csi_formats[i].mbus_code);
@@ -292,18 +292,6 @@ dw_mipi_csi_log_status(struct v4l2_subdev *sd)
 	return 0;
 }
 
-#if 0
-static void dw_mipi_csi_start_phy(struct dw_csi *csi_dev)
-{
-	int ret = 0;
-	pr_info("%s:%d sensor name %s\n", __func__, __LINE__, csi_dev->sensors[0].sd->name);
-	ret = v4l2_subdev_call(csi_dev->sensors[0].sd, video, s_stream, 1);
-	if (ret) {
-		dev_err(csi_dev->dev, "Failed to start dphy: %d\n", ret);
-	}
-}
-#endif
-
 static void dw_mipi_csi_set_ipi_config(struct dw_csi *dev)
 {
 	switch (dev->hw.hdr_mode) {
@@ -337,8 +325,8 @@ static void dw_mipi_csi_set_ipi_config(struct dw_csi *dev)
 	}
 
 	dev_dbg(dev->dev, "HDR mode %d: IPI2=%d(VCID=%d), IPI3=%d(VCID=%d)\n",
-			dev->hw.hdr_mode, dev->hw.ipi2_en, dev->hw.ipi2_vcid,
-			dev->hw.ipi3_en, dev->hw.ipi3_vcid);
+				dev->hw.hdr_mode, dev->hw.ipi2_en, dev->hw.ipi2_vcid,
+				dev->hw.ipi3_en, dev->hw.ipi3_vcid);
 }
 
 static int dw_mipi_csi_get_hdr_config(struct v4l2_subdev *sd)
@@ -521,7 +509,6 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 	}
 
 	of_node_put(node);
-
 	return ret;
 }
 
@@ -534,7 +521,6 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct dw_csi *csi2 =
 		container_of(notifier, struct dw_csi, notifier);
 	struct csi2_sensor_info *sensor;
-	struct media_link *link;
 	unsigned int pad, ret;
 
 	if (csi2->num_sensors == ARRAY_SIZE(csi2->sensors)) {
@@ -557,18 +543,9 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 
 	ret = media_create_pad_link(
 		&sensor->sd->entity, pad, &csi2->sd.entity, DWC_CSI2_PAD_SINK,
-		0 /* csi2->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED */);
+		MEDIA_LNK_FL_ENABLED);
 	if (ret) {
 		dev_err(csi2->dev, "failed to create link for %s\n", sd->name);
-		return ret;
-	}
-
-	link = list_first_entry(&csi2->sd.entity.links, struct media_link,
-				list);
-	ret = media_entity_setup_link(link, MEDIA_LNK_FL_ENABLED);
-	if (ret) {
-		dev_err(csi2->dev, "failed to create link for %s\n",
-			sensor->sd->name);
 		return ret;
 	}
 
@@ -643,7 +620,6 @@ err_parse:
 
 static int csi2_notifier(struct dw_csi *csi2)
 {
-	// struct v4l2_async_notifier *ntf = &csi2->notifier;
 	int ret;
 
 	ret = csi2_fwnode_parse(csi2);
@@ -657,7 +633,6 @@ static int csi2_notifier(struct dw_csi *csi2)
 			ret);
 		v4l2_async_nf_cleanup(&csi2->notifier);
 	}
-	ret = v4l2_async_register_subdev(&csi2->sd);
 	return ret;
 }
 
@@ -673,7 +648,6 @@ static int dw_csi_of_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	if (action == OF_OVERLAY_POST_APPLY) {
-		msleep(200);
 		if (of_property_read_u32(csi_dev->dev->of_node, "num_lanes", &csi_dev->hw.num_lanes))
 			csi_dev->hw.num_lanes = 2;
 	}
@@ -683,7 +657,6 @@ static int dw_csi_of_notifier(struct notifier_block *nb,
 static int dw_csi_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id = NULL;
-	struct dw_csih_pdata *pdata = NULL;
 	struct device *dev = &pdev->dev;
 	struct dw_csi *csi;
 	struct v4l2_subdev *sd;
@@ -692,9 +665,6 @@ static int dw_csi_probe(struct platform_device *pdev)
 	int ret;
 
 	es_vi_dev = dev_get_drvdata(parent);
-
-	if (!IS_ENABLED(CONFIG_OF))
-		pdata = pdev->dev.platform_data;
 
 	dev_vdbg(dev, "Probing started\n");
 
@@ -715,27 +685,10 @@ static int dw_csi_probe(struct platform_device *pdev)
 		ret = dw_mipi_csi_parse_dt(pdev, csi);
 		if (ret < 0)
 			return ret;
-
-#ifdef DWC_PHY_USING
-		csi->phy = devm_of_phy_get(dev, dev->of_node, NULL);
-		if (IS_ERR(csi->phy)) {
-			dev_err(dev, "No DPHY available\n");
-			return PTR_ERR(csi->phy);
-		}
-#endif
 	} else {
-#ifdef DWC_PHY_USING
-		csi->phy = devm_phy_get(dev, phys[pdata->id].name);
-		if (IS_ERR(csi->phy)) {
-			dev_err(dev, "No '%s' DPHY available\n",
-				phys[pdata->id].name);
-			return PTR_ERR(csi->phy);
-		}
-		dev_info(dev, "got D-PHY %s with id %d\n", phys[pdata->id].name,
-			 csi->phy->id);
-#endif
+		dev_err(dev, "No device tree node\n");
+		return -EINVAL;
 	}
-
 
 	/* Registers mapping */
 	csi->base_address = devm_platform_ioremap_resource(pdev, 0);
@@ -760,49 +713,32 @@ static int dw_csi_probe(struct platform_device *pdev)
 	ret = devm_request_irq(dev, csi->ctrl_irq_number, dw_mipi_csi_irq1,
 			       IRQF_SHARED, dev_name(dev), csi);
 	if (ret) {
-		if (dev->of_node)
-			dev_err(dev, "irq csi %s failed\n", of_id->name);
-		else
-			dev_err(dev, "irq csi %d failed\n", pdata->id);
-
+		dev_err(dev, "irq csi %s failed\n", of_id->name);
 		goto end;
 	}
-
-	csi->v4l2_dev.mdev = es_vi_dev->media_dev;
-	ret = v4l2_device_register(dev, &csi->v4l2_dev);
 
 	sd = &csi->sd;
 	v4l2_subdev_init(sd, &dw_mipi_csi_subdev_ops);
 	sd->dev = dev;
 	csi->sd.owner = THIS_MODULE;
 
-	if (dev->of_node) {
-		snprintf(sd->name, sizeof(sd->name), "%s.%d",
+	snprintf(sd->name, sizeof(sd->name), "%s.%d",
 			 "dw-csi", csi->index);
-	} else {
-		strlcpy(sd->name, dev_name(dev), sizeof(sd->name));
-	}
+
 	csi->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	csi->fmt = &dw_mipi_csi_formats[0];
 	csi->format.code = dw_mipi_csi_formats[0].mbus_code;
 
 	sd->entity.function = MEDIA_ENT_F_IO_V4L;
 
-	if (dev->of_node) {
-		csi->pads[CSI_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
-		csi->pads[CSI_PAD_SOURCE0].flags = MEDIA_PAD_FL_SOURCE;
-		csi->pads[CSI_PAD_SOURCE1].flags = MEDIA_PAD_FL_SOURCE;
+	csi->pads[CSI_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
+	csi->pads[CSI_PAD_SOURCE0].flags = MEDIA_PAD_FL_SOURCE;
+	csi->pads[CSI_PAD_SOURCE1].flags = MEDIA_PAD_FL_SOURCE;
 
-		ret = media_entity_pads_init(&csi->sd.entity, CSI_PADS_NUM, csi->pads);
-		if (ret < 0) {
-			dev_err(dev, "media entity init failed\n");
-			goto end;
-		}
-	} else {
-		csi->hw.num_lanes = pdata->lanes;
-		csi->hw.pclk = pdata->pclk;
-		csi->hw.fps = pdata->fps;
-		csi->hw.dphy_freq = pdata->hs_freq;
+	ret = media_entity_pads_init(&csi->sd.entity, CSI_PADS_NUM, csi->pads);
+	if (ret < 0) {
+		dev_err(dev, "media entity init failed\n");
+		goto end;
 	}
 
 	v4l2_set_subdevdata(&csi->sd, pdev);
@@ -812,10 +748,6 @@ static int dw_csi_probe(struct platform_device *pdev)
 	if (csi->rst)
 		reset_control_deassert(csi->rst);
 
-#if IS_ENABLED(CONFIG_DWC_MIPI_TC_DPHY_GEN3)
-	dw_csi_create_capabilities_sysfs(pdev);
-#endif
-
 	dw_mipi_csi_get_version(csi);
 	dw_mipi_csi_specific_mappings(csi);
 	dw_mipi_csi_mask_irq_power_off(csi);
@@ -824,17 +756,14 @@ static int dw_csi_probe(struct platform_device *pdev)
 	dev_info(dev, "DW MIPI CSI-2 Host registered successfully HW v%u.%u\n",
 		 csi->hw_version_major, csi->hw_version_minor);
 
-#ifdef DWC_PHY_USING
-	ret = phy_init(csi->phy);
+	ret = csi2_notifier(csi);
 	if (ret) {
-		dev_err(&csi->phy->dev, "phy init failed --> %d\n", ret);
+		dev_err(dev, "failed to register async notifier --> %d\n",
+			ret);
 		goto end;
 	}
-#endif
 
-	ret = csi2_notifier(csi);
-
-	// ret = v4l2_async_register_subdev(sd);
+	ret = v4l2_async_register_subdev(sd);
 	if (ret < 0) {
 		dev_err(dev, "failed to register subdev\n");
 		goto end;
@@ -850,7 +779,6 @@ end:
 	media_entity_cleanup(&csi->sd.entity);
 	return ret;
 #endif
-	//v4l2_device_unregister(csi->vdev.v4l2_dev);
 	return ret;
 }
 
@@ -866,8 +794,6 @@ static int dw_csi_remove(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_OF)
 	media_entity_cleanup(&mipi_csi->sd.entity);
-#else
-	v4l2_device_unregister(mipi_csi->vdev.v4l2_dev);
 #endif
 	dev_info(&pdev->dev, "DW MIPI CSI-2 Host module removed\n");
 

@@ -24,31 +24,26 @@ config DWC_MIPI_CSI2_HOST
 
 config DWC_MIPI_DPHY_GEN3
 	default n
-	tristate "DesignWare platform support using a Gen3 D-PHY"
+	tristate "DesignWare platform support using a Gen3 D-PHY"		
 	select GENERIC_PHY
 	help
-	 Synopsys MIPI D-PHY Generation 3 reference driver. This driver supports
+	 Synopsys MIPI D-PHY Generation 3 reference driver. This driver supports	
 	 all Generation 3 D-PHYs. Choose Y or M if you have a platform with this
 	 block.
 
 	  If unsure, say N.
-
+		
 if DWC_MIPI_DPHY_GEN3
-
+		
 config DWC_MIPI_TC_DPHY_GEN3
 	tristate "Platform support using a Synopsys Test Chip"
 	default n
 	help
 	 Synopsys Test Chip is for prototyping purposes. This enables extra
 	 features that exist only in prototyping and/or for debug purposes.
-
 	  If unsure, say N.
-
+		
+		
 endif # DWC_MIPI_DPHY_GEN3
+		
 
-config ESWIN_MIPI_DMA
-	tristate "A MIPI CSI2 DMA written controller"
-	default n
-	select DWC_MIPI_CSI2_HOST
-	help
-	 If unsure, say N.
