@@ -296,6 +296,14 @@ config CROS_TYPEC_SWITCH
 	  To compile this driver as a module, choose M here: the module will be
 	  called cros_typec_switch.
 
+config CROS_EC_POWEROFF
+    tristate "Chrome OS EC Poweroff Driver via SPI"
+    depends on CROS_EC && CROS_EC_SPI
+    help
+      This driver enables system power-off by sending shutdown commands
+      to the Chrome OS Embedded Controller (EC) via SPI interface.
+      If unsure, say N.
+
 source "drivers/platform/chrome/wilco_ec/Kconfig"
 
 # Kunit test cases

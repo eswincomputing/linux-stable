@@ -1663,6 +1663,11 @@
 		compatible = "google,cros-ec-keyb-switches";
 		status = "okay";
 	};
+
+	cros-ec-poweroff {
+		compatible = "google,cros-ec-poweroff";
+		status = "okay";
+	};
 };
 
 /* die0 GPIO Function Description
