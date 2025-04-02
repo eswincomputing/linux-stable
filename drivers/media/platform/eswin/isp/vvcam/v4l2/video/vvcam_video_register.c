@@ -70,10 +70,15 @@
 #include <media/v4l2-mc.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-fwnode.h>
+#include <linux/ktime.h>
 #include "vvcam_video_register.h"
 #include "vvcam_v4l2_common.h"
 #include "vvcam_video_event.h"
+#include "vvcam_video_driver.h"
 #include "vvcam_v4l2_std_exts.h"
+
+#define VVCAM_VIDEO_NAME        "vvcam-video"
+#define VVCAM_VIDEO_NAME_D1     "vvcam-video-d1"
 
 static struct vvcam_video_fmt_info vvcam_formats_info[] = {
     {
@@ -1364,7 +1369,6 @@ static int vvcam_videoc_try_fmt_vid_cap(struct file *file, void *priv,
     sd_fmt.which = V4L2_SUBDEV_FORMAT_TRY;
 
     vvcam_video_vfmt_to_mfmt(f, &sd_fmt);
-
     ret = v4l2_subdev_call(subdev, pad, set_fmt, &sd_state, &sd_fmt);
     if (ret) {
         return ret;
@@ -1407,7 +1411,6 @@ static int vvcam_videoc_s_fmt_vid_cap(struct file *file, void *priv,
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 
     vvcam_video_vfmt_to_mfmt(f, &sd_fmt);
-
     ret = v4l2_subdev_call(subdev, pad, set_fmt, &sd_state, &sd_fmt);
     if (ret) {
         return ret;
@@ -2123,41 +2126,49 @@ static void vvcam_video_vb2_buf_queue(struct vb2_buffer *vb)
     return;
 }
 
-static int isp_pipeline_start(struct media_entity *entity, int on)
+static int isp_pipeline_start(struct media_entity *entity, int index, int on)
 {
-    struct v4l2_subdev *subdev;
+	struct v4l2_subdev *subdev;
 	struct media_pad *pad;
-    int ret;
+	int ret;
+	int source = 0;
 
 	while (1) {
-		pad = &entity->pads[0];
-
-        if (!pad) {
-            break;
-        }
-
-		if (!(pad->flags & MEDIA_PAD_FL_SINK))
+		if(source == VVCAM_ISP)
+			pad = &entity->pads[index/5*5];
+		else
+			pad = &entity->pads[0];
+        
+		if (!pad) {
+			break;
+		}
+        
+		if (!(pad->flags & MEDIA_PAD_FL_SINK)){
+			if(source != VVCAM_SENSOR)
+				pr_err("pad->flags get failed,remote source:%d\n", source);
 			return -1;
+		}
+		source++;
 
 		pad = media_pad_remote_pad_first(pad);
 		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
-			return -1;
-
+			return -1; 
+        
 		entity = pad->entity;
-        subdev = media_entity_to_v4l2_subdev(entity);
+		subdev = media_entity_to_v4l2_subdev(entity);
 
-        if (subdev) {
-            ret = v4l2_subdev_call(subdev, video, s_stream, on);
-            if(on)
-                printk("%s stream on\n", subdev->name);
-            else
-                printk("%s stream off\n", subdev->name);
-            if (ret != 0) {
-                printk("isp pipeline start failed\n");
-                return ret;
-            }
-        }
-    }
+		if (subdev) {
+			ret = v4l2_subdev_call(subdev, video, s_stream, on);
+			if(on)
+				pr_debug("%s stream on\n", subdev->name);
+			else
+				pr_debug("%s stream off\n", subdev->name);
+			if (ret != 0) {
+			pr_err("isp pipeline start failed\n");
+			return ret;
+			}
+		}
+	}
 	return 0;
 }
 
@@ -2181,83 +2192,84 @@ static int vvcam_video_vb2_start_streaming(struct vb2_queue *queue,
         memset(&stream_status, 0, sizeof(stream_status));
         stream_status.pad = pad->index;
         stream_status.status = 1;
-
+        //video_device_pipeline_start(vvcam_vdev->video, &pipe);
+        isp_pipeline_start(&subdev->entity, pad->index, 1);
         ret = v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_S_STREAM, &stream_status);
         if(ret) {
-            printk("vvcam_video_vb2_start_streaming failed\n");
+            pr_err("vvcam_video_vb2_start_streaming failed\n");
             return ret;
         }
-        printk("video strat stream ret = %d, name = %s\n", ret, subdev->name);
-        //video_device_pipeline_start(vvcam_vdev->video, &pipe);
-        isp_pipeline_start(&subdev->entity, 1);
+        pr_debug("video strat stream ret = %d, name = %s\n", ret, subdev->name);
+        
     }
     return ret;
 }
 
 static void vvcam_video_vb2_stop_streaming(struct vb2_queue *queue)
 {
-    struct vvcam_video_dev *vvcam_vdev = queue->drv_priv;
-    struct media_pad *pad;
-    struct v4l2_subdev *subdev;
-    struct vvcam_pad_stream_status stream_status;
-    int i;
+	struct vvcam_video_dev *vvcam_vdev = queue->drv_priv;
+	struct media_pad *pad;
+	struct v4l2_subdev *subdev;
+	struct vvcam_pad_stream_status stream_status;
+	int i;
 
-    subdev = vvcam_video_remote_subdev(vvcam_vdev);
-    if (subdev) {
-        isp_pipeline_start(&subdev->entity, 0);
+	subdev = vvcam_video_remote_subdev(vvcam_vdev);
+	if (subdev) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
-        pad = media_pad_remote_pad_first(&vvcam_vdev->pad);
+		pad = media_pad_remote_pad_first(&vvcam_vdev->pad);
 #else
-        pad = media_entity_remote_pad(&vvcam_vdev->pad);
+		pad = media_entity_remote_pad(&vvcam_vdev->pad);
 #endif
-        memset(&stream_status, 0, sizeof(stream_status));
-        stream_status.pad = pad->index;
-        stream_status.status = 0;
-        v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_S_STREAM, &stream_status);
-    }
-
-    for(i = 0; i < queue->num_buffers; i++) {
-		if(queue->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
-			vb2_buffer_done(queue->bufs[i], VB2_BUF_STATE_ERROR);
+		memset(&stream_status, 0, sizeof(stream_status));
+		stream_status.pad = pad->index;
+		stream_status.status = 0;
+		isp_pipeline_start(&subdev->entity, pad->index, 0);
+		v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_S_STREAM, &stream_status);
 	}
-    return;
+
+	for(i = 0; i < queue->num_buffers; i++) {
+		if(queue->bufs[i]->state == VB2_BUF_STATE_ACTIVE){
+			vb2_buffer_done(queue->bufs[i], VB2_BUF_STATE_ERROR);
+		}
+	}
+	return;
 }
 
 static const struct vb2_ops vvcam_video_queue_ops = {
 	.queue_setup     = vvcam_video_vb2_queue_setup,
 	.buf_prepare     = vvcam_video_vb2_buf_prepare,
 	.buf_queue       = vvcam_video_vb2_buf_queue,
-    .wait_prepare    = vb2_ops_wait_prepare,
-    .wait_finish     = vb2_ops_wait_finish,
+	.wait_prepare    = vb2_ops_wait_prepare,
+	.wait_finish     = vb2_ops_wait_finish,
 	.start_streaming = vvcam_video_vb2_start_streaming,
 	.stop_streaming  = vvcam_video_vb2_stop_streaming,
 };
 
 static int vvcam_video_queue_init(struct vvcam_video_dev *vvcam_vdev)
 {
-    int ret = 0;
-    struct vb2_queue *queue;
+	int ret = 0;
+	struct vb2_queue *queue;
 
-    queue = &vvcam_vdev->queue;
-    queue->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    vvcam_vdev->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    queue->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-    queue->drv_priv = vvcam_vdev;
-    queue->ops = &vvcam_video_queue_ops;
-    queue->mem_ops = &vb2_dma_contig_memops;
-    queue->buf_struct_size = sizeof(struct vvcam_vb2_buffer);
+	queue = &vvcam_vdev->queue;
+	queue->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	vvcam_vdev->format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	queue->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
+	queue->drv_priv = vvcam_vdev;
+	queue->ops = &vvcam_video_queue_ops;
+	queue->mem_ops = &vb2_dma_contig_memops;
+	queue->buf_struct_size = sizeof(struct vvcam_vb2_buffer);
 	queue->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-    queue->lock = &vvcam_vdev->video_lock;
-    queue->dev = vvcam_vdev->vvcam_mdev->dev;
+	queue->lock = &vvcam_vdev->video_lock;
+	queue->dev = vvcam_vdev->vvcam_mdev->dev;
 
-    ret = vb2_queue_init(queue);
-    if (ret) {
-        dev_err(vvcam_vdev->vvcam_mdev->dev, "vb2 queue init failed\n");
-        return ret;
-    }
-    vvcam_vdev->video->queue = queue;
+	ret = vb2_queue_init(queue);
+	if (ret) {
+		dev_err(vvcam_vdev->vvcam_mdev->dev, "vb2 queue init failed\n");
+		return ret;
+	}
+	vvcam_vdev->video->queue = queue;
 
-    return 0;
+	return 0;
 }
 
 static int vvcam_video_link_setup(struct media_entity *entity,
@@ -2273,16 +2285,26 @@ static const struct media_entity_operations vvcam_video_entity_ops = {
 	.link_validate  = v4l2_subdev_link_validate,
 };
 
-int
-vvcam_video_register(struct vvcam_media_dev *vvcam_mdev, int port)
+int vvcam_video_register(struct vvcam_media_dev *vvcam_mdev, int port)
 {
     int ret = 0;
     struct vvcam_video_dev *vvcam_vdev;
+#ifdef CONFIG_NUMA
+    u32 numa_id = 0;
+#endif
 
     vvcam_vdev = devm_kzalloc(vvcam_mdev->dev,
                 sizeof(struct vvcam_video_dev), GFP_KERNEL);
     if (!vvcam_vdev)
         return -ENOMEM;
+
+#ifdef CONFIG_NUMA
+	ret = of_property_read_u32(vvcam_mdev->dev->of_node, "numa-node-id", &numa_id);
+	if(ret) {
+		dev_warn(vvcam_mdev->dev, "Could not get numa-node-id, use default 0\n");
+		numa_id = 0;
+	}
+#endif
 
     mutex_init(&vvcam_vdev->video_lock);
     vvcam_vdev->vvcam_mdev = vvcam_mdev;
@@ -2294,14 +2316,22 @@ vvcam_video_register(struct vvcam_media_dev *vvcam_mdev, int port)
         ret = -ENOMEM;
         goto error_free_vvcam_vdev;
     }
-
+#ifdef CONFIG_NUMA
+    if (numa_id == 1) {
+        snprintf(vvcam_vdev->video->name, sizeof(vvcam_vdev->video->name),
+                "%s.%d.%d", VVCAM_VIDEO_NAME_D1, vvcam_mdev->id, port);
+    } else {
+        snprintf(vvcam_vdev->video->name, sizeof(vvcam_vdev->video->name),
+                "%s.%d.%d", VVCAM_VIDEO_NAME, vvcam_mdev->id, port);
+    }
+#else
     snprintf(vvcam_vdev->video->name, sizeof(vvcam_vdev->video->name),
                 "%s.%d.%d", VVCAM_VIDEO_NAME, vvcam_mdev->id, port);
-
+#endif
     vvcam_vdev->video->fops          = &vvcam_video_fops;
     vvcam_vdev->video->ioctl_ops     = &vvcam_video_ioctl_ops;
     vvcam_vdev->video->release       = video_device_release_empty;
-    vvcam_vdev->video->v4l2_dev      = &vvcam_mdev->v4l2_dev;
+    vvcam_vdev->video->v4l2_dev      = vvcam_mdev->v4l2_dev;
     //vvcam_vdev->video->lock          = &vvcam_vdev->video_lock;
     vvcam_vdev->video->device_caps   = V4L2_CAP_VIDEO_CAPTURE |
                                        V4L2_CAP_STREAMING;
