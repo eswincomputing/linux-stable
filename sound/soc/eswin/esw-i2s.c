@@ -65,6 +65,9 @@
 
 #define MAX_SAMPLE_RATE_SUPPORT (192000UL)
 #define MAX_SAMPLE_RATE_CLK (MAX_SAMPLE_RATE_SUPPORT * 32 * 2) // 32 bits, 2channels
+#define SAMPLE_RATE_44100      44100
+#define SAMPLE_RATE_22050      22050
+#define SAMPLE_RATE_11025      11025
 
 #define DIE0_VO_TOP_CSR        0x50280000UL
 #define DIE1_VO_TOP_CSR        0x70280000UL
@@ -74,12 +77,8 @@
 #define DIV_NUM_MASK           0x1f
 
 #define ESW_I2S_RATES (SNDRV_PCM_RATE_192000 | \
-			SNDRV_PCM_RATE_96000 | \
-			SNDRV_PCM_RATE_48000 | \
-			SNDRV_PCM_RATE_44100 | \
-			SNDRV_PCM_RATE_32000 | \
-			SNDRV_PCM_RATE_16000 | \
-			SNDRV_PCM_RATE_8000)
+				SNDRV_PCM_RATE_96000 | \
+				SNDRV_PCM_RATE_8000_48000)
 #define ESW_I2S_FORMATS (SNDRV_PCM_FMTBIT_S32_LE | \
 			SNDRV_PCM_FMTBIT_S16_LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | \
@@ -486,48 +485,67 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	i2s_write_reg(i2s_drvdata->i2s_base, CCR, i2s_drvdata->ccr);
 	config->sample_rate = params_rate(params);
 	if (i2s_drvdata->capability & DW_I2S_MASTER) {
-		if (config->sample_rate == 44100) {
+		if ((config->sample_rate == SAMPLE_RATE_44100) || (config->sample_rate == SAMPLE_RATE_22050)
+			|| (config->sample_rate == SAMPLE_RATE_11025)) {
 			if (!enable_441k[i2s_drvdata->nid]) {
 				if (!i2s_enable_cnt[i2s_drvdata->nid]) {
-					ret = clk_set_rate(i2s_drvdata->mclk, MAX_SAMPLE_RATE_CLK * 2);
+					// Get 20-division based on 983.04M
+					ret = clk_set_rate(i2s_drvdata->mclk, MAX_SAMPLE_RATE_CLK * 4);
 					if (ret) {
 						dev_err(i2s_drvdata->dev, "Can't set I2S mclock rate: %d\n", ret);
 						return ret;
 					}
+
+					// Get 11.2896M based on 20-division
 					ret = clk_set_rate(i2s_drvdata->apll_clk, APLL_LOW_FREQ);
 					if (ret) {
 						dev_err(i2s_drvdata->dev, "Can't set I2S apll clock rate: %d\n", ret);
 						return ret;
 					}
+
 					enable_441k[i2s_drvdata->nid] = 1;
-					div_num_reg = i2s_read_reg(i2s_drvdata->i2s_div_base, 0) & ~DIV_NUM_MASK;
-					div_num_reg |= 1;
-					i2s_write_reg(i2s_drvdata->i2s_div_base, 0, div_num_reg);
-					i2s_drvdata->i2s_div_num = 1;
 					dev_dbg(i2s_drvdata->dev, "apll rate:%ld\n", clk_get_rate(i2s_drvdata->apll_clk));
 				} else {
 					dev_err(i2s_drvdata->dev, "Other sample rate audio is playing.\n");
 					return -EINVAL;
 				}
+			}
+
+			if ((SAMPLE_RATE_44100 * 4) % config->sample_rate != 0) {
+				dev_err(i2s_drvdata->dev, "Not support sample rate: %d\n", config->sample_rate);
+				return -EINVAL;
+			}
+			div_num = (SAMPLE_RATE_44100 * 4) / config->sample_rate - 1;
+
+			if (i2s_drvdata->active) {
+				if (i2s_drvdata->i2s_div_num != div_num) {
+					dev_err(i2s_drvdata->dev, "Not support the playback and capture clocks are different\n");
+					return -EINVAL;
+				}
 			} else {
 				div_num_reg = i2s_read_reg(i2s_drvdata->i2s_div_base, 0) & ~DIV_NUM_MASK;
-				div_num_reg |= 1;
+				div_num_reg |= div_num;
+				dev_dbg(i2s_drvdata->dev, "div num:0x%x\n", div_num);
+				i2s_drvdata->i2s_div_num = div_num;
 				i2s_write_reg(i2s_drvdata->i2s_div_base, 0, div_num_reg);
-				i2s_drvdata->i2s_div_num = 1;
 			}
 		} else {
 			if (enable_441k[i2s_drvdata->nid]) {
 				if (!i2s_enable_cnt[i2s_drvdata->nid]) {
+					// Get 12.288M based on 40-division
 					ret = clk_set_rate(i2s_drvdata->apll_clk, APLL_HIGH_FREQ);
 					if (ret) {
 						dev_err(i2s_drvdata->dev, "Can't set I2S apll clock rate: %d\n", ret);
 						return ret;
 					}
+
+					// Get 40-division based on 983.04M
 					ret = clk_set_rate(i2s_drvdata->mclk, MAX_SAMPLE_RATE_CLK);
 					if (ret) {
 						dev_err(i2s_drvdata->dev, "Can't set I2S mclock rate: %d\n", ret);
 						return ret;
 					}
+
 					enable_441k[i2s_drvdata->nid] = 0;
 					dev_dbg(i2s_drvdata->dev, "apll rate:%ld\n", clk_get_rate(i2s_drvdata->apll_clk));
 				} else {
@@ -535,11 +553,11 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 					return -EINVAL;
 				}
 			}
+
 			if (MAX_SAMPLE_RATE_SUPPORT % config->sample_rate != 0) {
 				dev_err(i2s_drvdata->dev, "Not support sample rate: %d\n", config->sample_rate);
 				return -EINVAL;
 			}
-
 			div_num = MAX_SAMPLE_RATE_SUPPORT / config->sample_rate - 1;
 
 			if (i2s_drvdata->active) {
