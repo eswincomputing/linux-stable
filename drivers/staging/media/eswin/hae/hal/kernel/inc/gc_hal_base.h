@@ -2906,6 +2906,9 @@ gcoOS_ProfileDB(IN gctCONST_STRING Function, IN OUT gctBOOL_PTR Initialized);
 #define gcmOPT_POINTER(ptr)            (((ptr) == gcvNULL) ? gcvNULL : *(ptr))
 #define gcmOPT_STRING(ptr)             (((ptr) == gcvNULL) ? "(nil)" : (ptr))
 
+#define hae_print(fmt, ...) \
+    printk("[%s:%d] "fmt"\n", __func__, __LINE__, ##__VA_ARGS__)
+
 void
 gckOS_Print(IN gctCONST_STRING Message, ...) CHECK_PRINTF_FORMAT(1, 2);
 
