@@ -133,7 +133,7 @@ int win2030_dynm_sid_enable(int nid)
 		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
 		return -EFAULT;
 	#else
-		pr_info("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
+		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
 		nid = 0;
 	#endif
 	}
@@ -575,7 +575,6 @@ static int __do_win2030_tbu_power_ctl(int nid, bool is_powerUp, const struct tbu
 		writel(reg_val, mc->regs + tbu_reg_info_p->reg_offset);
 		pr_debug("reg_offset=0x%03x, tbu_val=0x%x\n",
 			tbu_reg_info_p->reg_offset, readl(mc->regs + tbu_reg_info_p->reg_offset));
-		pr_debug("%s, power up!\n", __func__);
 	}
 	else {
 		reg_val = readl(mc->regs + tbu_reg_info_p->reg_offset);
@@ -586,7 +585,6 @@ static int __do_win2030_tbu_power_ctl(int nid, bool is_powerUp, const struct tbu
 			pr_debug("reg_offset=0x%03x, tbu_val=0x%lx, BIT(qacceptn_pd_bit)=0x%lx\n",
 				tbu_reg_info_p->reg_offset, reg_val, BIT(tbu_reg_info_p->qacceptn_pd_bit));
 			if ((reg_val & BIT(tbu_reg_info_p->qacceptn_pd_bit)) == 0) {
-				pr_debug("%s, power down!\n", __func__);
 				break;
 			}
 			mdelay(10);
@@ -694,12 +692,12 @@ static void eic770x_tbu_dump_attachment(struct tbu_priv *tbu_priv_p)
 
 	WARN_ON(!mutex_is_locked(&tbu_priv_p->tbu_priv_lock));
 
-	pr_info("------Dump:(node %d) tbu 0x%02x total refcnt %d, attached device(s):------\n",
+	pr_debug("------Dump:(node %d) tbu 0x%02x total refcnt %d, attached device(s):------\n",
 		tbu_priv_p->nid, tbu_priv_p->tbu_client_p->tbu_id, atomic_read(&tbu_priv_p->refcount));
 	list_for_each_entry(a, &tbu_priv_p->attachments, list) {
-		pr_info("(node %d) %-32s refcnt %d\n", tbu_priv_p->nid, dev_name(a->dev), atomic_read(&a->f_count));
+		pr_debug("(node %d) %-32s refcnt %d\n", tbu_priv_p->nid, dev_name(a->dev), atomic_read(&a->f_count));
 	}
-	pr_info("------End of dump:(node %d) tbu 0x%02x------------------------------------\n",
+	pr_debug("------End of dump:(node %d) tbu 0x%02x------------------------------------\n",
 		tbu_priv_p->nid, tbu_priv_p->tbu_client_p->tbu_id);
 
 }
@@ -715,11 +713,10 @@ static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_p
 	mutex_lock(&tbu_priv_p->tbu_priv_lock);
 	old_refcount = atomic_read(&tbu_priv_p->refcount);
 
-	pr_debug("%s, nid=%d, is_powerUp=%d, tbu_priv_p addr is 0x%px\n",
-		__func__, nid, is_powerUp, tbu_priv_p);
 	if (is_powerUp == false) { //power down
 		if (unlikely(0 == old_refcount)) {
-			pr_info("%s, tbu_id 0x%02x is down already!\n", __func__, tbu_client_p->tbu_id);
+			pr_debug("tbu 0x%02x(node %d) is down already!\n",
+				tbu_client_p->tbu_id, tbu_priv_p->nid);
 			goto tbu_finish;
 		}
 
@@ -728,7 +725,7 @@ static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_p
 			ret = tbu_power_down_ref_release(&tbu_priv_p->refcount);
 		}
 		else {
-			pr_info("tbu 0x%02x(node %d) is used by other module(s) right now!\n",
+			pr_debug("tbu 0x%02x(node %d) is used by other module(s) right now!\n",
 				tbu_client_p->tbu_id, tbu_priv_p->nid);
 		}
 	}
@@ -737,7 +734,7 @@ static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_p
 			ret = do_win2030_tbu_power_up(nid, tbu_reg_info_p);
 		}
 		else {
-			pr_info("tbu 0x%02x(node %d) is already power up!",
+			pr_debug("tbu 0x%02x(node %d) is already power up!",
 				tbu_client_p->tbu_id, tbu_priv_p->nid);
 		}
 		atomic_add(1, &tbu_priv_p->refcount);
@@ -761,12 +758,9 @@ static int win2030_tbu_powr_priv_init(struct tbu_power_soc **tbu_power_soc_pp, i
 	struct tbu_priv *tbu_priv_p;
 	unsigned int alloc_size;
 
-	pr_debug("%s:%d\n", __func__, __LINE__);
-
 	tbu_power_soc_p = kzalloc(sizeof(struct tbu_power_soc), GFP_KERNEL);
 	if (!tbu_power_soc_p)
 		return -ENOMEM;
-	pr_debug("%s:%d, tbu_power_soc_p(0x%px)\n", __func__, __LINE__, tbu_power_soc_p);
 
 	alloc_size = num_tbuClients * sizeof(struct tbu_priv);
 	tbu_priv_p = kzalloc(alloc_size, GFP_KERNEL);
@@ -938,12 +932,11 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
 		return -EFAULT;
 	#else
-		pr_info("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
+		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
 		nid = 0;
 	#endif
 	}
 
-	pr_debug("%s called!\n", __func__);
 	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
 		pr_debug("tbus = <0x%02x>\n", tbu_id);
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
@@ -1032,7 +1025,7 @@ void print_tcu_node_status(const char *call_name, int call_line, int nid)
 	unsigned long tcu_node_status = 0;
 
 	get_tcu_node_status(&tcu_node_status, nid);
-	pr_info("%s:%d, (node %d) TCU_NODE_STATUS=0x%016lx\n",
+	pr_debug("%s:%d, (node %d) TCU_NODE_STATUS=0x%016lx\n",
 		call_name, call_line, nid, tcu_node_status);
 }
 EXPORT_SYMBOL(print_tcu_node_status);
