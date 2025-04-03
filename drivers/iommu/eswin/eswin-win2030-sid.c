@@ -881,7 +881,7 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 	#endif
 	}
 
-	dev_info(dev, "%s %s!\n", __func__, (is_powerUp == true)? "up":"down");
+	dev_dbg(dev, "%s %s!\n", __func__, (is_powerUp == true)? "up":"down");
 	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
 		pr_debug("tbus = <0x%02x>\n", tbu_id);
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
