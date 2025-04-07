@@ -4144,6 +4144,10 @@ struct ec_params_dedicated_charger_limit {
 } __ec_align2;
 
 /*****************************************************************************/
+/* Inform the host when entering a shutdown state */
+#define EC_CMD_HOST_SHUTDOWN 0x00FF
+
+/*****************************************************************************/
 /* Hibernate/Deep Sleep Commands */
 
 /* Set the delay before going into hibernation. */

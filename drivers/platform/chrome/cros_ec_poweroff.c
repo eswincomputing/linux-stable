@@ -2,7 +2,6 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <linux/reboot.h>
 #include <linux/spi/spi.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -60,11 +59,9 @@ static int cros_ec_send_shutdown_async(struct cros_ec_device *ec)
 	}
 
 	msg.version = 0;
-	msg.command = EC_CMD_REBOOT;
-	msg.outsize = 2;
+	msg.command = EC_CMD_HOST_SHUTDOWN;
+	msg.outsize = 0;
 	msg.insize = 0;
-	msg.data[0] = EC_REBOOT_HIBERNATE;
-	msg.data[1] = 0;
 
 	len = cros_ec_prepare_tx(ec, &msg);
 	if (len < 0) {
