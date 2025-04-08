@@ -26,11 +26,6 @@
 #include "hetero_env.h"
 #include "hetero_types.h"
 
-#define NPU_PERF_STATS_DEBUG 0
-#define NPU_PERF_STATS_RELEASE 1
-#define NPU_PERF_STATS_ALL 2
-#define NPU_PERF_STATS_HW 3
-
 #define OPERATOR_NAME_MAXLEN 128
 
 typedef struct _npu_model_perf {

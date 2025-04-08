@@ -557,15 +557,7 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
 	}
-#if NPU_PERF_STATS > 1
-	engine->perf_data_buf =
-		devm_kzalloc(&nvdla_dev->pdev->dev, sizeof(npu_e31_perf_t) * MAX_OP_NUM, GFP_KERNEL);
-	if (engine->perf_data_buf == NULL) {
-		devm_kfree(&nvdla_dev->pdev->dev, engine->is_event_source_done[0]);
-		devm_kfree(&nvdla_dev->pdev->dev, engine);
-		return -ENOMEM;
-	}
-#endif
+
 	ret = npu_init_ipc(nvdla_dev);
 #if (NPU_DEV_SIM == NPU_REAL_ENV)
 	if (ret) {
@@ -668,10 +660,7 @@ void win_engine_destroy(struct nvdla_device *nvdla_dev)
 			devm_kfree(&nvdla_dev->pdev->dev, engine->is_event_source_done[0]);
 			engine->is_event_source_done[0] = NULL;
 		}
-		if (engine->perf_data_buf != NULL) {
-			devm_kfree(&nvdla_dev->pdev->dev, engine->perf_data_buf);
-			engine->perf_data_buf = NULL;
-		}
+
 		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		engine = NULL;
 	}

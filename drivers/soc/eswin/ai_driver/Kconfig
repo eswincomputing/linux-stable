@@ -14,8 +14,3 @@ config ESWIN_NPU
     select ESWIN_DEV_DMA_BUF
     select ESWIN_IOMMU_RSV
     select ESWIN_RSVMEM_HEAP
-
-config NPU_PERF
-    bool "NPU PERF"
-    default n
-    depends on ESWIN_NPU

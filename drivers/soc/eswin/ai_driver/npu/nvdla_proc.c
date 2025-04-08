@@ -37,7 +37,6 @@ static spinlock_t proc_lock[2];
 static host_node_t *g_host_node[2] = { NULL };
 static wait_queue_head_t g_perf_wait_list[2];
 static u32 g_stat_titok[2] = { -1 };
-static u32 g_die_perf[2] = { 0 };
 
 void handle_perf_switch(struct nvdla_device *ndev, bool enable)
 {
@@ -55,14 +54,14 @@ void handle_perf_switch(struct nvdla_device *ndev, bool enable)
 		memset(op_num[ndev->numa_id], 0, sizeof(u16) * NUM_OP_TYPE);
 		g_host_node[ndev->numa_id] = NULL;
 		g_stat_titok[ndev->numa_id] = -1;
+
 		dla_debug("perf switch to off.\n");
 	}
 	spin_unlock_irqrestore(&proc_lock[ndev->numa_id], flags);
 }
 
-int get_perf_data(struct nvdla_device *ndev)
+int get_perf_data(struct nvdla_device *ndev, void *buf)
 {
-#if NPU_PERF_STATS > 1
 	int j, k;
 	int tiktok = -1;
 	npu_e31_perf_t *op_stats;
@@ -83,6 +82,7 @@ int get_perf_data(struct nvdla_device *ndev)
 	}
 
 	spin_lock_irqsave(&proc_lock[numa_id], flags);
+
 	tiktok = g_stat_titok[numa_id];
 	op_stats = g_host_node[numa_id]->model_stat[tiktok].op_stats;
 	for (j = 0; j < NUM_OP_TYPE; j++) {
@@ -92,13 +92,12 @@ int get_perf_data(struct nvdla_device *ndev)
 		}
 	}
 	dla_debug("get tiktok=%u perf data.\n", tiktok);
-	memcpy((npu_e31_perf_t *)engine->perf_data_buf, op_stats,
-	       sizeof(npu_e31_perf_t) * MAX_OP_NUM);
+	memcpy(buf, op_stats, sizeof(npu_e31_perf_t) * MAX_OP_NUM);
 	g_stat_titok[numa_id] = -1;
 	memset(g_host_node[numa_id]->model_stat[tiktok].op_stats, 0,
 	       sizeof(npu_e31_perf_t) * MAX_OP_NUM);
 	spin_unlock_irqrestore(&proc_lock[numa_id], flags);
-#endif
+
 	return 0;
 }
 
@@ -148,7 +147,6 @@ void refresh_op_statistic(struct win_executor *executor,
 	total_op_num[numa_id] = executor->total_op_num;
 	g_host_node[numa_id] = engine->host_node;
 	g_stat_titok[numa_id] = tiktok;
-	g_die_perf[numa_id] = 1;
 	dla_debug("refresh tiktok=%u perf data done.\n", tiktok);
 	spin_unlock_irqrestore(&proc_lock[numa_id], flags);
 	wake_up_interruptible(&g_perf_wait_list[numa_id]);
@@ -209,17 +207,22 @@ static int npu_stat_show(struct seq_file *m, void *p)
 
 static int npu_info_show(struct seq_file *m, void *p)
 {
-#if NPU_PERF_STATS > 1
 	int i, j, k;
-	int tiktok;
 	npu_e31_perf_t *op_stat;
 	s16 op_idx;
+	unsigned long flags;
 
 	if (g_perf == 0) {
 		seq_printf(
 			m,
 			"The perf is not turned on, pls first turn on the perf.\n");
 		return 0;
+	}
+
+	op_stat = vmalloc(sizeof(npu_e31_perf_t) * MAX_OP_NUM);
+	if (NULL == op_stat) {
+		dla_error("proc malloc npu perf buf error.\n");
+		return -ENOMEM;
 	}
 
 	seq_printf(
@@ -229,16 +232,20 @@ static int npu_info_show(struct seq_file *m, void *p)
 	seq_printf(m, "\t%-4s\t %-4s\t %-4s\t %-8s\t %-10s\t %-10s\t %-10s\n",
 		   "Die", "OpNum", "OpIndex", "OpType", "StartCycle",
 		   "EndCycle", "Elapsed(ns)");
+
 	for (i = 0; i < 2; i++) {
 		u32 start = 0xffffffff, end = 0;
 
-		if (!g_die_perf[i]) {
+		spin_lock_irqsave(&proc_lock[i], flags);
+		if ((NULL == g_host_node[i]) || (-1 == g_stat_titok[i])) {
+			spin_unlock_irqrestore(&proc_lock[i], flags);
 			continue;
 		}
 
-		spin_lock(&proc_lock[i]);
-		tiktok = g_stat_titok[i];
-		op_stat = g_host_node[i]->model_stat[tiktok].op_stats;
+		memcpy(op_stat, g_host_node[i]->model_stat[g_stat_titok[i]].op_stats,
+			sizeof(npu_e31_perf_t) * MAX_OP_NUM);
+		spin_unlock_irqrestore(&proc_lock[i], flags);
+
 		for (j = 0; j < NUM_OP_TYPE; j++) {
 			for (k = 0; k < op_num[i][j]; k++) {
 				op_idx = g_cfg_seq[i][j][k];
@@ -260,13 +267,13 @@ static int npu_info_show(struct seq_file *m, void *p)
 							.OpEvalStartCycle);
 			}
 		}
-		spin_unlock(&proc_lock[i]);
 		seq_printf(m, "\n");
 	}
 	seq_printf(
 		m,
 		"--------------------NPU PERF STATISTIC END--------------------\n");
-#endif
+
+	vfree(op_stat);
 	return 0;
 }
 

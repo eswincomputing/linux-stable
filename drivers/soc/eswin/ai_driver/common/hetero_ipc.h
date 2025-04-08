@@ -235,9 +235,7 @@ typedef struct _host_node {
     /**
      * @brief Specifies the model statistics data.
      */
-#if NPU_PERF_STATS > 1
     model_stat_t model_stat[NUM_TIKTOK];
-#endif
 } host_node_t;
 
 typedef struct _dsp_node {

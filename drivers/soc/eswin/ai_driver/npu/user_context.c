@@ -39,7 +39,7 @@
 #include "hetero_arch.h"
 #include "hetero_host.h"
 extern void handle_perf_switch(struct nvdla_device *ndev, bool enable);
-extern int get_perf_data(struct nvdla_device *ndev);
+extern int get_perf_data(struct nvdla_device *ndev, void *buf);
 
 static int setup_model_task(struct user_model *model)
 {
@@ -696,23 +696,30 @@ static int send_perf_data_to_usr(struct nvdla_device *nvdla_dev,
 				 struct win_ioctl_args *win_arg)
 {
 	struct win_engine *engine;
+	void *buf = NULL;
 	int ret;
 
 	engine = (struct win_engine *)nvdla_dev->win_engine;
 
-	ret = get_perf_data(nvdla_dev);
+	buf = vmalloc(sizeof(npu_e31_perf_t) * MAX_OP_NUM);
+	if (NULL == buf) {
+		dla_error("malloc npu perf buf error.\n");
+		return -ENOMEM;
+	}
+
+	ret = get_perf_data(nvdla_dev, buf);
 	if (ret)
 		goto fail;
 
-	if (copy_to_user((void __user *)(win_arg->data), engine->perf_data_buf,
-			 sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
+	if (copy_to_user((void __user *)(win_arg->data), buf,
+	                sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
 		dla_error("err:bad user data address.\n");
 		ret = -EFAULT;
 		goto fail;
 	}
 
 fail:
-
+	vfree(buf);
 	return ret;
 }
 
