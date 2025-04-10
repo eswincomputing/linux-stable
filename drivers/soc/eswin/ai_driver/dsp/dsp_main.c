@@ -948,9 +948,6 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	int ret;
 	char nodename[sizeof("es-dsp") + 3 * sizeof(int)];
 	struct es_dsp *dsp;
-#if defined(CONFIG_PM_DEVFREQ)
-	struct devfreq *df;
-#endif
 
 	dsp = devm_kzalloc(&pdev->dev,
 			   sizeof(*dsp) + sizeof(struct es_dsp_stats) +
@@ -1027,15 +1024,15 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 		goto err_dsp_devfreq;
 	}
 
-	df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
-	if (IS_ERR(df)) {
+	dsp->df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
+	if (IS_ERR(dsp->df)) {
 		dsp_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
-		ret = PTR_ERR(df);
+		ret = PTR_ERR(dsp->df);
 		goto err_dsp_devfreq;
 	};
 
 	/* Register opp_notifier to catch the change of OPP  ????*/
-	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, dsp->df);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to register opp notifier\n");
 		return ret;
@@ -1104,7 +1101,7 @@ err_tbu_power:
 	es_dsp_clk_disable(dsp);
 err_dsp_clk:
 #if defined(CONFIG_PM_DEVFREQ)
-	devm_devfreq_remove_device(dsp->dev, df);
+	devm_devfreq_remove_device(dsp->dev, dsp->df);
 err_dsp_devfreq:
 #endif
 	dsp_disable_mbox_clock(dsp);
@@ -1149,6 +1146,10 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	dsp_halt(dsp);
 
 	win2030_tbu_power(dsp->dev, false);
+
+#if defined(CONFIG_PM_DEVFREQ)
+	devm_devfreq_remove_device(dsp->dev, dsp->df);
+#endif
 
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
