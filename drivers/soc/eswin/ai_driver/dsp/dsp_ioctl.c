@@ -1024,6 +1024,37 @@ static long dsp_ioctl_get_fw_perf_data(struct file *flip, dsp_fw_perf_t *data)
 	return ret;
 }
 
+static long dsp_ioctl_get_cur_op_perf_data(struct file *flip, dsp_fw_perf_t *data)
+{
+	int ret = 0;
+
+	struct dsp_file *dsp_file = flip->private_data;
+	struct es_dsp *dsp = dsp_file->dsp;
+	es_dsp_perf_info perf_info;
+
+	get_dsp_perf_info(&perf_info, 0, 0);
+
+	dsp->op_cur_perf.Die = 0;
+	dsp->op_cur_perf.CoreId = perf_info.core_id;
+	dsp->op_cur_perf.OpIndex = perf_info.op_index;
+	dsp->op_cur_perf.OpType = perf_info.op_type;
+	dsp->op_cur_perf.OpStartCycle = perf_info.flat1_start_time;
+	dsp->op_cur_perf.OpPrepareStartCycle = perf_info.prepare_start_time;
+	dsp->op_cur_perf.OpPrepareEndCycle = perf_info.prepare_end_time;
+	dsp->op_cur_perf.OpEvalStartCycle = perf_info.eval_start_time;
+	dsp->op_cur_perf.OpEvalEndCycle = perf_info.eval_end_time;
+	dsp->op_cur_perf.OpNotifyStartCycle = perf_info.notify_start_time;
+	dsp->op_cur_perf.OpEndCycle = perf_info.flat1_end_time;
+
+	if (copy_to_user(data, &dsp->op_cur_perf, sizeof(dsp_fw_perf_t))) {
+		dsp_err("copy cur perf data to user err.\n");
+		ret = -EINVAL;
+	}
+	dsp_debug("get dsp%u hardware cur perf data done.\n", perf_info.op_index);
+
+	return ret;
+}
+
 static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 					 dsp_ioctl_task_s __user *arg)
 {
@@ -1173,6 +1204,10 @@ static long dsp_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		break;
 	case DSP_IOCTL_GET_FW_PERF_DATA:
 		retval = dsp_ioctl_get_fw_perf_data(
+			flip, (dsp_fw_perf_t __user *)arg);
+		break;
+	case DSP_IOCTL_GET_CUR_OP_PERF_DATA:
+		retval = dsp_ioctl_get_cur_op_perf_data(
 			flip, (dsp_fw_perf_t __user *)arg);
 		break;
 	default:
