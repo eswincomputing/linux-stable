@@ -467,6 +467,10 @@ static int find_proc_dir_by_name(const char *root,
     };
 
     pfile = filp_open(root, O_RDONLY | O_DIRECTORY, 0);
+    if(IS_ERR(pfile)) {
+        pr_err("Failed to open %s\n", root);
+        return -1;
+    }
     if (pfile->f_op->iterate_shared) {
         ret = pfile->f_op->iterate_shared(pfile, &fc.ctx);
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 2, 0)

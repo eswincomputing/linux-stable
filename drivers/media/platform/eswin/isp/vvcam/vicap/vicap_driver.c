@@ -69,11 +69,11 @@ static int vicap_release(struct inode *inode, struct file *file)
 }
 
 static struct file_operations vicap_fops = {
-	.owner          = THIS_MODULE,
-	.open           = vicap_open,
-	.release        = vicap_release,
-	.unlocked_ioctl = vicap_ioctl,
-	.poll           = vicap_poll,
+	.owner			= THIS_MODULE,
+	.open			= vicap_open,
+	.release		= vicap_release,
+	.unlocked_ioctl	= vicap_ioctl,
+	.poll			= vicap_poll,
 };
 
 static int vvcam_vicap_probe(struct platform_device *pdev)
@@ -102,14 +102,14 @@ static int vvcam_vicap_probe(struct platform_device *pdev)
 
 	if (!vicap_dev_info[pdev->id]) {
 		vicap_dev_info[pdev->id] = devm_kzalloc(&pdev->dev,
-				    sizeof(vicap_dev_info_t), GFP_KERNEL);
+					sizeof(vicap_dev_info_t), GFP_KERNEL);
 		if (!vicap_dev_info[pdev->id]) {
 			pr_err("%s: kzalloc failed\n", __func__);
 			return -ENOMEM;
 		}
 
 		vicap_dev_info[1] = devm_kzalloc(&pdev->dev,
-				    sizeof(vicap_dev_info_t), GFP_KERNEL);
+					sizeof(vicap_dev_info_t), GFP_KERNEL);
 	} else {
 		pr_err("vicap dev info already been alloced\n");
 	}
@@ -159,7 +159,7 @@ static int vvcam_vicap_probe(struct platform_device *pdev)
 	}
 	vicap_dev->class = vvcam_vicap_class;
 	device_create(vicap_dev->class, NULL, vicap_dev->devt,
-		      vicap_dev, "%s%d", VICAP_NAME, pdev->id);
+			  vicap_dev, "%s%d", VICAP_NAME, pdev->id);
 
 	pr_info("exit %s\n", __func__);
 
@@ -168,14 +168,14 @@ static int vvcam_vicap_probe(struct platform_device *pdev)
 
 static int vvcam_vicap_remove(struct platform_device *pdev)
 {
-    struct vicap_device *vicap_dev;
+	struct vicap_device *vicap_dev;
 
-    vicap_dev = platform_get_drvdata(pdev);
+	vicap_dev = platform_get_drvdata(pdev);
 
-    cdev_del(&vicap_dev->cdev);
-    device_destroy(vicap_dev->class, vicap_dev->devt);
-    unregister_chrdev_region(vicap_dev->devt, VICAP_DEV_MAXCNT);
-    class_destroy(vicap_dev->class);
+	cdev_del(&vicap_dev->cdev);
+	device_destroy(vicap_dev->class, vicap_dev->devt);
+	unregister_chrdev_region(vicap_dev->devt, VICAP_DEV_MAXCNT);
+	class_destroy(vicap_dev->class);
 
 	return 0;
 }
@@ -191,9 +191,9 @@ static struct platform_driver vicap_driver = {
 	.probe = vvcam_vicap_probe,
 	.remove = vvcam_vicap_remove,
 	.driver = {
-		   .name = VICAP_NAME,
-		   .owner = THIS_MODULE,
-		   .of_match_table = vicap_of_match,
+			.name = VICAP_NAME,
+			.owner = THIS_MODULE,
+			.of_match_table = vicap_of_match,
 	}
 };
 

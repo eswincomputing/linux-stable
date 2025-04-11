@@ -321,7 +321,7 @@ static void __exit vvcam_mipi_exit_module(void)
     return;
 }
 
-module_init(vvcam_mipi_init_module);
+late_initcall(vvcam_mipi_init_module);
 module_exit(vvcam_mipi_exit_module);
 
 MODULE_DESCRIPTION("Verisilicon mipi driver");

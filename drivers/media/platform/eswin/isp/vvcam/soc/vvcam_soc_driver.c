@@ -848,7 +848,7 @@ static void __exit vvcam_soc_exit_module(void)
 	platform_driver_unregister(&vvcam_soc_driver);
 }
 
-module_init(vvcam_soc_init_module);
+late_initcall(vvcam_soc_init_module);
 module_exit(vvcam_soc_exit_module);
 
 MODULE_DESCRIPTION("ISP");

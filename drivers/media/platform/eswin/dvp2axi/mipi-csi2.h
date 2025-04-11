@@ -1,17 +1,17 @@
-#ifndef _RKCIF_MIPI_CSI2_H_
-#define _RKCIF_MIPI_CSI2_H_
+#ifndef _ES_DVP2AXI_MIPI_CSI2_H_
+#define _ES_DVP2AXI_MIPI_CSI2_H_
 
 #include <linux/notifier.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-event.h>
-#include "rkcif-config.h"
+#include "../../../../phy/eswin/es-dvp2axi-config.h"
 
 #define CSI2_ERR_FSFE_MASK	(0xff << 8)
 #define CSI2_ERR_COUNT_ALL_MASK	(0xff)
 
-#define RKCIF_V4L2_EVENT_ELEMS 4
+#define ES_DVP2AXI_V4L2_EVENT_ELEMS 4
 
 /*
  * there must be 5 pads: 1 input pad from sensor, and
@@ -25,8 +25,8 @@
 #define CSI2_NUM_PADS_SINGLE_LINK	2
 #define MAX_CSI2_SENSORS		2
 
-#define RKCIF_DEFAULT_WIDTH 1920	//3280
-#define RKCIF_DEFAULT_HEIGHT 1080 //	2464
+// #define ES_DVP2AXI_DEFAULT_WIDTH 1920	//3280
+// #define ES_DVP2AXI_DEFAULT_HEIGHT 1080 //	2464
 
 #define CSI_ERRSTR_LEN		(256)
 #define CSI_VCINFO_LEN		(12)
@@ -305,45 +305,45 @@
 #define SW_DATATYPE_LS(x)	((x) << 20)
 #define SW_DATATYPE_LE(x)	((x) << 26)
 
-#define RK_MAX_CSI_HW		(6)
+#define ES_MAX_CSI_HW		(6)
 
 /*
  * add new chip id in tail in time order
  * by increasing to distinguish csi2 host version
  */
-enum rkcsi2_chip_id {
+enum escsi2_chip_id {
 	CHIP_PX30_CSI2,
-	CHIP_RK1808_CSI2,
-	CHIP_RK3128_CSI2,
-	CHIP_RK3288_CSI2,
+	CHIP_ES1808_CSI2,
+	CHIP_ES3128_CSI2,
+	CHIP_ES3288_CSI2,
 	CHIP_RV1126_CSI2,
-	CHIP_RK3568_CSI2,
-	CHIP_RK3588_CSI2,
+	CHIP_ES3568_CSI2,
+	CHIP_ES3588_CSI2,
 	CHIP_RV1106_CSI2,
-	CHIP_RK3562_CSI2,
+	CHIP_ES3562_CSI2,
 };
 
 enum csi2_pads {
-	RK_CSI2_PAD_SINK = 0,
-	RK_CSI2X_PAD_SOURCE0,
-	RK_CSI2X_PAD_SOURCE1,
-	RK_CSI2X_PAD_SOURCE2,
-	RK_CSI2X_PAD_SOURCE3
+	ES_CSI2_PAD_SINK = 0,
+	ES_CSI2X_PAD_SOURCE0,
+	ES_CSI2X_PAD_SOURCE1,
+	ES_CSI2X_PAD_SOURCE2,
+	ES_CSI2X_PAD_SOURCE3
 };
 
 enum csi2_err {
-	RK_CSI2_ERR_SOTSYN = 0x0,
-	RK_CSI2_ERR_FS_FE_MIS,
-	RK_CSI2_ERR_FRM_SEQ_ERR,
-	RK_CSI2_ERR_CRC_ONCE,
-	RK_CSI2_ERR_CRC,
-	RK_CSI2_ERR_ALL,
-	RK_CSI2_ERR_MAX
+	ES_CSI2_ERR_SOTSYN = 0x0,
+	ES_CSI2_ERR_FS_FE_MIS,
+	ES_CSI2_ERR_FRM_SEQ_ERR,
+	ES_CSI2_ERR_CRC_ONCE,
+	ES_CSI2_ERR_CRC,
+	ES_CSI2_ERR_ALL,
+	ES_CSI2_ERR_MAX
 };
 
 enum host_type_t {
-	RK_CSI_RXHOST,
-	RK_DSI_RXHOST
+	ES_CSI_RXHOST,
+	ES_DSI_RXHOST
 };
 
 struct csi2_match_data {
@@ -391,12 +391,12 @@ struct csi2_dev {
 	const struct csi2_match_data	*match_data;
 	int			num_sensors;
 	atomic_t		frm_sync_seq;
-	struct csi2_err_stats	err_list[RK_CSI2_ERR_MAX];
-	struct csi2_hw		*csi2_hw[RK_MAX_CSI_HW];
+	struct csi2_err_stats	err_list[ES_CSI2_ERR_MAX];
+	struct csi2_hw		*csi2_hw[ES_MAX_CSI_HW];
 	int			irq1;
 	int			irq2;
 	int			dsi_input_en;
-	struct rkcif_csi_info	csi_info;
+	struct es_dvp2axi_csi_info	csi_info;
 	const char		*dev_name;
 };
 
@@ -444,15 +444,15 @@ struct csi2_hw {
 	u32 vactive;
 };
 
-u32 rkcif_csi2_get_sof(struct csi2_dev *csi2_dev);
-void rkcif_csi2_set_sof(struct csi2_dev *csi2_dev, u32 seq);
-void rkcif_csi2_event_inc_sof(struct csi2_dev *csi2_dev);
-int rkcif_csi2_plat_drv_init(void);
-void rkcif_csi2_plat_drv_exit(void);
-int rkcif_csi2_hw_plat_drv_init(void);
-void rkcif_csi2_hw_plat_drv_exit(void);
-int rkcif_csi2_register_notifier(struct notifier_block *nb);
-int rkcif_csi2_unregister_notifier(struct notifier_block *nb);
-void rkcif_csi2_event_reset_pipe(struct csi2_dev *csi2_dev, int reset_src);
+u32 es_dvp2axi_csi2_get_sof(struct csi2_dev *csi2_dev);
+void es_dvp2axi_csi2_set_sof(struct csi2_dev *csi2_dev, u32 seq);
+void es_dvp2axi_csi2_event_inc_sof(struct csi2_dev *csi2_dev);
+int es_dvp2axi_csi2_plat_drv_init(void);
+void es_dvp2axi_csi2_plat_drv_exit(void);
+int es_dvp2axi_csi2_hw_plat_drv_init(void);
+void es_dvp2axi_csi2_hw_plat_drv_exit(void);
+int es_dvp2axi_csi2_register_notifier(struct notifier_block *nb);
+int es_dvp2axi_csi2_unregister_notifier(struct notifier_block *nb);
+void es_dvp2axi_csi2_event_reset_pipe(struct csi2_dev *csi2_dev, int reset_src);
 
 #endif

@@ -391,7 +391,7 @@ static void __exit soc_gpio_i2c_driver_exit_module(void)
 	return;
 }
 
-module_init(soc_gpio_i2c_driver_init_module);
+late_initcall(soc_gpio_i2c_driver_init_module);
 module_exit(soc_gpio_i2c_driver_exit_module);
 
 MODULE_DESCRIPTION("Verisilicon soc_gpio_i2c driver");

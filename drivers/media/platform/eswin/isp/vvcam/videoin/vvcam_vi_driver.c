@@ -430,7 +430,7 @@ static void __exit vvcam_vi_exit_module(void)
     vvcam_vi_platform_device_unregister();
 }
 
-module_init(vvcam_vi_init_module);
+late_initcall(vvcam_vi_init_module);
 module_exit(vvcam_vi_exit_module);
 
 MODULE_DESCRIPTION("Verisilicon video in driver");

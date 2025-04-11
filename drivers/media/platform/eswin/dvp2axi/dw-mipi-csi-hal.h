@@ -1,7 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN DVP2AXI dw-mipi-csi-hal driver
+ *
+ * Copyright 2025, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Eswin VI team
+ */
+
 #ifndef _DW_MIPI_CSI_HAL_
 #define _DW_MIPI_CSI_HAL_
 // #include "sys_port.h"
-#include "bmtest_vitop.h"
+#include "../vi_top/vitop.h"
 #include <media/eswin/common-def.h>
 
 #define MIPI_CSI_REG_ADDR_0 VI_CSI2_CTRL0_REGISTER_BASE_ADDRESS
@@ -181,7 +203,7 @@ struct csi_data {
 	u32 phy_mode:1;
 
     u32 vc:5;
-    u32 dt:6;
+    u32 dt:6;	
 	u32 emb:1;
 	u32 frame_det:1;
 

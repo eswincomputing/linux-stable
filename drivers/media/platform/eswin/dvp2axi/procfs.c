@@ -214,33 +214,10 @@ static const char *es_dvp2axi_pixelcode_to_string(u32 mbus_code)
 	return "unknown";
 }
 
-static const char *es_dvp2axi_get_monitor_mode(enum es_dvp2axi_monitor_mode monitor_mode)
-{
-	switch (monitor_mode) {
-	case ES_DVP2AXI_MONITOR_MODE_IDLE:
-		return "idle";
-	case ES_DVP2AXI_MONITOR_MODE_CONTINUE:
-		return "continue";
-	case ES_DVP2AXI_MONITOR_MODE_TRIGGER:
-		return "trigger";
-	case ES_DVP2AXI_MONITOR_MODE_HOTPLUG:
-		return "hotplug";
-	default:
-		return "unknown";
-	}
-}
-
 static void es_dvp2axi_show_mixed_info(struct es_dvp2axi_device *dev, struct seq_file *f)
 {
-	enum es_dvp2axi_monitor_mode monitor_mode;
-
 	seq_printf(f, "Work Mode:%s\n",
-		   dev->workmode == ES_DVP2AXI_WORKMODE_ONEFRAME ? "one frame" :
-		   dev->workmode == ES_DVP2AXI_WORKMODE_PINGPONG ? "ping pong" : "line loop");
-
-	monitor_mode = dev->reset_watchdog_timer.monitor_mode;
-	seq_printf(f, "Monitor Mode:%s\n",
-		   es_dvp2axi_get_monitor_mode(monitor_mode));
+		   dev->workmode == ES_DVP2AXI_WORKMODE_ONEFRAME ? "one frame" :"error mode");
 }
 
 static void es_dvp2axi_show_clks(struct es_dvp2axi_device *dev, struct seq_file *f)
@@ -345,47 +322,40 @@ static void es_dvp2axi_show_format(struct es_dvp2axi_device *dev, struct seq_fil
 			   dev->irq_stats.frm_end_cnt[1] +
 			   dev->irq_stats.frm_end_cnt[2] +
 			   dev->irq_stats.frm_end_cnt[3] +
+			   dev->irq_stats.frm_end_cnt[4] +
+			   dev->irq_stats.frm_end_cnt[5] +
 			   dev->irq_stats.all_err_cnt);
-		if (sensor->mbus.type == V4L2_MBUS_PARALLEL ||
-		    sensor->mbus.type == V4L2_MBUS_BT656) {
-			seq_printf(f, "\t\t\tdvp bus err:%llu\n", dev->irq_stats.dvp_bus_err_cnt);
-			seq_printf(f, "\t\t\tdvp pix err:%llu\n", dev->irq_stats.dvp_pix_err_cnt);
-			seq_printf(f, "\t\t\tdvp line err:%llu\n", dev->irq_stats.dvp_line_err_cnt);
-			seq_printf(f, "\t\t\tdvp over flow:%llu\n", dev->irq_stats.dvp_overflow_cnt);
-			seq_printf(f, "\t\t\tdvp bandwidth lack:%llu\n",
-				   dev->irq_stats.dvp_bwidth_lack_cnt);
-			seq_printf(f, "\t\t\tdvp size err:%llu\n", dev->irq_stats.dvp_size_err_cnt);
-		} else {
-			seq_printf(f, "\t\t\tcsi over flow:%llu\n", dev->irq_stats.csi_overflow_cnt);
-			seq_printf(f, "\t\t\tcsi bandwidth lack:%llu\n",
-				   dev->irq_stats.csi_bwidth_lack_cnt);
-			seq_printf(f, "\t\t\tcsi size err:%llu\n", dev->irq_stats.csi_size_err_cnt);
-		}
-		seq_printf(f, "\t\t\tnot active buf cnt:%llu %llu %llu %llu\n",
+
+		seq_printf(f, "\t\t\tnot active buf cnt:%llu %llu %llu %llu %llu %llu\n",
 			   dev->irq_stats.not_active_buf_cnt[0],
 			   dev->irq_stats.not_active_buf_cnt[1],
 			   dev->irq_stats.not_active_buf_cnt[2],
-			   dev->irq_stats.not_active_buf_cnt[3]);
+			   dev->irq_stats.not_active_buf_cnt[3],
+			   dev->irq_stats.not_active_buf_cnt[4],
+			   dev->irq_stats.not_active_buf_cnt[5]);
 		seq_printf(f, "\t\t\tall err count:%llu\n", dev->irq_stats.all_err_cnt);
-		seq_printf(f, "\t\t\tframe dma end:%llu %llu %llu %llu\n",
+		seq_printf(f, "\t\t\tframe dma end:%llu %llu %llu %llu %llu %llu\n",
 			   dev->irq_stats.frm_end_cnt[0],
 			   dev->irq_stats.frm_end_cnt[1],
 			   dev->irq_stats.frm_end_cnt[2],
-			   dev->irq_stats.frm_end_cnt[3]);
+			   dev->irq_stats.frm_end_cnt[3],
+			   dev->irq_stats.frm_end_cnt[4],
+			   dev->irq_stats.frm_end_cnt[5]);
 		seq_printf(f, "irq time: %llu ns\n", dev->hw_dev->irq_time);
-		seq_printf(f, "dma enable: 0x%x 0x%x 0x%x 0x%x\n",
-			   dev->stream[0].dma_en, dev->stream[1].dma_en,
-			   dev->stream[2].dma_en, dev->stream[3].dma_en);
-		seq_printf(f, "buf_cnt in drv: %d %d %d %d\n",
+		seq_printf(f, "buf_cnt in drv: %d %d %d %d %d %d\n",
 			   atomic_read(&dev->stream[0].buf_cnt),
 			   atomic_read(&dev->stream[1].buf_cnt),
 			   atomic_read(&dev->stream[2].buf_cnt),
-			   atomic_read(&dev->stream[3].buf_cnt));
-		seq_printf(f, "total buf_cnt: %d %d %d %d\n",
+			   atomic_read(&dev->stream[3].buf_cnt),
+			   atomic_read(&dev->stream[4].buf_cnt),
+			   atomic_read(&dev->stream[5].buf_cnt));
+		seq_printf(f, "total buf_cnt: %d %d %d %d %d %d\n",
 			   dev->stream[0].total_buf_num,
 			   dev->stream[1].total_buf_num,
 			   dev->stream[2].total_buf_num,
-			   dev->stream[3].total_buf_num);
+			   dev->stream[3].total_buf_num,
+			   dev->stream[4].total_buf_num,
+			   dev->stream[5].total_buf_num);
 	}
 }
 

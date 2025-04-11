@@ -346,7 +346,7 @@ static int csi2_dphy_get_set_fmt(struct v4l2_subdev *sd,
 	 * Do not allow format changes and just relay whatever
 	 * set currently in the sensor.
 	 */
-	pr_info("%s:%d sensor_sd->name \n", __func__, __LINE__, sensor_sd->name);
+	pr_info("sensor_sd->name %s:%d \n", __func__, __LINE__);
 	if (!sensor_sd)
 		return -ENODEV;
 	sensor = sd_to_sensor(dphy, sensor_sd);
@@ -649,7 +649,6 @@ static int eswin_csi2_dphy_get_inno_phy_hw(struct csi2_dphy *dphy)
 				dphy->phy_index);
 			return -ENODEV;
 		}
-		pr_info("%s:%d dphy%d hw node %s\n", __func__, __LINE__, dphy->phy_index, np->name);
 		plat_dev = of_find_device_by_node(np);
 		of_node_put(np);
 		if (!plat_dev) {
@@ -825,6 +824,7 @@ int eswin_csi2_dphy_init(void)
 
 void eswin_csi2_dphy_uinit(void)
 {
+	pr_err("%s:%d yfx !!!!!! \n", __func__, __LINE__);
 	platform_driver_unregister(&eswin_csi2_dphy_driver);
 }
 
