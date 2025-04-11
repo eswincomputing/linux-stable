@@ -737,10 +737,6 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	int ret;
 	dev_dbg(dsp->dev, "dsp generic suspend...\n");
 
-	ret = es_dsp_pm_get_sync(dsp);
-	if (ret < 0) {
-		return ret;
-	}
 	dsp->off = true;
 
 	if (dsp->current_task != NULL) {
@@ -760,9 +756,9 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	dsp_release_firmware(dsp);
 	dsp_halt(dsp);
 
-	pm_runtime_mark_last_busy(dsp->dev);
-	pm_runtime_put_noidle(dsp->dev);
 	win2030_tbu_power(dsp->dev, false);
+	pm_runtime_put_sync(dsp->dev);
+
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
 		dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
@@ -806,8 +802,6 @@ int __maybe_unused dsp_resume(struct device *dev)
 		goto err_firm;
 	}
 
-	pm_runtime_mark_last_busy(dsp->dev);
-	pm_runtime_put_autosuspend(dsp->dev);
 	dsp_debug("dsp_core%d Generic resume ok, dsp->off=%d.\n",
 		  dsp->process_id, dsp->off);
 	dsp->off = false;
@@ -990,6 +984,10 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
+	pm_runtime_set_active(dsp->dev);
+	pm_runtime_enable(dsp->dev);
+	pm_runtime_get_sync(dsp->dev);
+
 	ret = es_dsp_map_resource(dsp);
 	if (ret < 0) {
 		dsp_err("%s, %d, dsp map resource err, ret=%d.\n", __func__,
@@ -1055,11 +1053,6 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_hw_init;
 
-	pm_runtime_set_autosuspend_delay(dsp->dev, 5000);
-	pm_runtime_use_autosuspend(dsp->dev);
-	pm_runtime_set_active(dsp->dev);
-	pm_runtime_enable(dsp->dev);
-	pm_runtime_get_noresume(dsp->dev);
 	ret = dsp_boot_firmware(dsp);
 	if (ret < 0) {
 		dsp_err("load firmware failed, ret=%d.\n", ret);
@@ -1082,18 +1075,11 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	g_es_dsp[dsp->numa_id][dsp->process_id] = dsp;
 
-	pm_runtime_mark_last_busy(dsp->dev);
-	pm_runtime_put_autosuspend(dsp->dev);
-
 	dsp_info("%s, probe successful.\n", __func__);
 	return 0;
 
 err_pm_disable:
 err_firm:
-	pm_runtime_put_noidle(dsp->dev);
-	pm_runtime_disable(dsp->dev);
-	pm_runtime_set_suspended(dsp->dev);
-	pm_runtime_dont_use_autosuspend(dsp->dev);
 	es_dsp_hw_uninit(dsp);
 err_hw_init:
 	win2030_tbu_power(dsp->dev, false);
@@ -1101,6 +1087,7 @@ err_tbu_power:
 	es_dsp_clk_disable(dsp);
 err_dsp_clk:
 #if defined(CONFIG_PM_DEVFREQ)
+	devm_devfreq_unregister_opp_notifier(dsp->dev, dsp->df);
 	devm_devfreq_remove_device(dsp->dev, dsp->df);
 err_dsp_devfreq:
 #endif
@@ -1108,8 +1095,9 @@ err_dsp_devfreq:
 err_mbox_clk:
 	es_dsp_unmap_resource(dsp);
 err_map_res:
-	dsp_put_resource(dsp);
+	pm_runtime_disable(dsp->dev);
 err_dev:
+	dsp_put_resource(dsp);
 err_mbx:
 err_clk_init:
 	es_dsp_put_subsys(dsp);
@@ -1128,6 +1116,7 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 		return 0;
 	dsp->off = true;
 	debugfs_remove_recursive(dsp->debug_dentry);
+	pm_runtime_get_sync(dsp->dev);
 
 	g_es_dsp[dsp->numa_id][dsp->process_id] = NULL;
 
@@ -1138,16 +1127,13 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	cancel_work_sync(&dsp->task_work);
 	es_dsp_hw_uninit(dsp);
 
-	pm_runtime_disable(dsp->dev);
-	pm_runtime_set_suspended(dsp->dev);
-	pm_runtime_dont_use_autosuspend(dsp->dev);
 	dsp_release_firmware(dsp);
-
 	dsp_halt(dsp);
 
 	win2030_tbu_power(dsp->dev, false);
 
 #if defined(CONFIG_PM_DEVFREQ)
+	devm_devfreq_unregister_opp_notifier(dsp->dev, dsp->df);
 	devm_devfreq_remove_device(dsp->dev, dsp->df);
 #endif
 
@@ -1155,6 +1141,11 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	dsp_disable_mbox_clock(dsp);
 	es_dsp_unmap_resource(dsp);
 	dsp_put_resource(dsp);
+
+
+	pm_runtime_put_sync(dsp->dev);
+	pm_runtime_disable(dsp->dev);
+
 	es_dsp_put_subsys(dsp);
 	dsp_free_hw(dsp);
 	return 0;
