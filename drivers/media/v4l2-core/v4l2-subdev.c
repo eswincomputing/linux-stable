@@ -647,9 +647,10 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg,
 
 		if (!client_supports_streams)
 			format->stream = 0;
-
+		printk("set fmt,, sd name = %s, %d",sd->name, *format->format.reserved);
 		memset(format->reserved, 0, sizeof(format->reserved));
 		memset(format->format.reserved, 0, sizeof(format->format.reserved));
+		
 		return v4l2_subdev_call(sd, pad, set_fmt, state, format);
 	}
 

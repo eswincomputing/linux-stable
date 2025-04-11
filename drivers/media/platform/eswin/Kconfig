@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+source "drivers/media/platform/eswin/dvp2axi/Kconfig"
+source "drivers/media/platform/eswin/mipi-csi2/Kconfig"
+source "drivers/media/platform/eswin/vi_top/Kconfig"
+source "drivers/media/platform/eswin/isp/Kconfig"
+
+config EIC7700_EVB_VI
+    bool "ESWIN EVB Board Support"
+    default n

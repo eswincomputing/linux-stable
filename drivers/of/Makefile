@@ -20,3 +20,5 @@ endif
 endif
 
 obj-$(CONFIG_OF_UNITTEST) += unittest-data/
+
+CFLAGS_device.o:= -DDEBUG

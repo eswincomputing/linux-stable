@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Configuration for the eswin isp driver
+#
+
+config VIDEO_ESWIN_ISP
+    tristate "ESWIN ISP driver support"
+    default m
+    depends on VIDEO_DEV
+    select VIDEOBUF2_CORE
+    help
+      Enable support for the ESWIN ISP video interface driver.
+      This driver is used for handling video input from ESWIN devices.

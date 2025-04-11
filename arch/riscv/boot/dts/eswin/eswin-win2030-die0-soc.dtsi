@@ -93,6 +93,8 @@
 };
 
 &SOC {
+	
+
 		d0_uart0: serial@0x50900000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x50900000 0x0 0x10000>;
@@ -2038,252 +2040,486 @@
 			};
 		};
 
-		vi_top_csr: vi_common_top_csr@0x51030000 {
-			compatible = "esw,vi-common-csr", "syscon";
+		
+
+
+
+		vi_subsys: vi-subsys@51000000 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "esw,vi_subsys";	
+			reg = <0x0 0x51000000 0x0 0x200000>, <0x0 0x51030000 0x0 0x2000>;
+			eswin,syscrg_csr = <&d0_sys_crg>;
+			eswin,vitop_csr = <&vi_top_csr>;
 			clocks = <&d0_clock EIC7700_CLK_VI_ACLK>,
-			         <&d0_clock EIC7700_CLK_VI_CFG_CLK>,
-			         <&d0_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
-			         <&d0_clock EIC7700_CLK_VI_DVP_CLK>,
-			         <&d0_clock EIC7700_CLK_VI_PHY_CFG>,
-			         <&d0_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
-			         <&d0_clock EIC7700_CLK_VI_SHUTTER_0>,
-			         <&d0_clock EIC7700_CLK_VI_SHUTTER_1>,
-			         <&d0_clock EIC7700_CLK_VI_SHUTTER_2>,
-			         <&d0_clock EIC7700_CLK_VI_SHUTTER_3>,
-			         <&d0_clock EIC7700_CLK_VI_SHUTTER_4>,
-			         <&d0_clock EIC7700_CLK_VI_SHUTTER_5>,
-			         <&d0_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-			         <&d0_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
-			         <&d0_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
-			         <&d0_clock EIC7700_SPLL0_FOUT1>,
-			         <&d0_clock EIC7700_VPLL_FOUT1>;
-			clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
-			              "phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
-			              "sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
-			resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-			         <&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-			         <&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
-			         <&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
-			         <&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
-			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
-			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
-			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
-			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
-			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
-			         <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
-			reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
-			interrupt-parent = <&plic0>;
-			interrupts = <368 369 370 371 372 373 374 375>;
-			id = <0>;
-			#size-cells = <2>;
-			reg = <0x0 0x51030000 0x0 0x10000>;
-			numa-node-id = <0>;
-			tbus = <WIN2030_TBUID_ISP>;
-		};
+						<&d0_clock EIC7700_CLK_VI_CFG_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DVP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_PHY_CFG>,
+						<&d0_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_0>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_1>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_2>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_3>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_4>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_5>,
+						<&d0_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_SPLL0_FOUT1>,
+						<&d0_clock EIC7700_VPLL_FOUT1>;
+				clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
+							"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
+							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
+				resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
+						<&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+						<&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
+						<&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
+						<&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
+				reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
+				tbus = <WIN2030_TBUID_DW>;
 
+			ranges;
+			status = "okay";
+			
+			vi_top_csr: vi_common_top_csr@51030000 {
+				compatible ="syscon", "esw,vi-common-csr";
+				status="okay";
+				clocks = <&d0_clock EIC7700_CLK_VI_ACLK>,
+						<&d0_clock EIC7700_CLK_VI_CFG_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DVP_CLK>,
+						<&d0_clock EIC7700_CLK_VI_PHY_CFG>,
+						<&d0_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_0>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_1>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_2>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_3>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_4>,
+						<&d0_clock EIC7700_CLK_VI_SHUTTER_5>,
+						<&d0_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_SPLL0_FOUT1>,
+						<&d0_clock EIC7700_VPLL_FOUT1>;
+				clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
+							"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
+							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
+				resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
+						<&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+						<&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
+						<&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
+						<&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
+				reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
+				interrupt-parent = <&plic0>;
+				interrupts = <368 369 370 371 372 373 374 375>;
+				id = <0>;
+				#size-cells = <2>;
+				reg = <0x0 0x51030000 0x0 0x2000>;
+				numa-node-id = <0>;
+				tbus = <WIN2030_TBUID_ISP>;
+			};
 
-		isp_0: isp@0x51000000 {
-			compatible = "esw,win2030-isp";
+			isp_0: isp@51000000 {
+				compatible = "esw,win2030-isp";
 
-			reg = <0x0 0x51000000 0x0 0x10000>;
-			interrupts = <21 19 20>;
-			interrupt-parent = <&plic0>;
-			id = <0>;
-			#size-cells = <2>;
-			dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
-			iommus = <&smmu0 WIN2030_SID_ISP0>;
-			tbus = <WIN2030_TBUID_ISP>;
-			eswin,vi_top_csr = <&vi_top_csr 0x1000>;
-			numa-node-id = <0>;
-			dma-noncoherent;
-		};
+				reg = <0x0 0x51000000 0x0 0x10000>;
+				interrupts = <21 19 20>;
+				interrupt-parent = <&plic0>;
+				id = <0>;
+				#size-cells = <2>;
+				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+				iommus = <&smmu0 WIN2030_SID_ISP0>;
+				tbus = <WIN2030_TBUID_ISP>;
+				eswin,vi_top_csr = <&vi_top_csr 0x1000>;
+				numa-node-id = <0>;
+				dma-noncoherent;
+			};
 
-		isp_1: isp@0x51010000 {
-			compatible = "esw,win2030-isp";
+			isp_1: isp@51010000 {
+				compatible = "esw,win2030-isp";
 
-			reg = <0x0 0x51010000 0x0 0x10000>;
-			interrupts = <24 22 23>;
-			interrupt-parent = <&plic0>;
-			id = <1>;
-			#size-cells = <2>;
-			dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
-			iommus = <&smmu0 WIN2030_SID_ISP1>;
-			tbus = <WIN2030_TBUID_ISP>;
-			eswin,vi_top_csr = <&vi_top_csr 0x1004>;
-			numa-node-id = <0>;
-			dma-noncoherent;
-		};
+				reg = <0x0 0x51010000 0x0 0x10000>;
+				interrupts = <24 22 23>;
+				interrupt-parent = <&plic0>;
+				id = <1>;
+				#size-cells = <2>;
+				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+				iommus = <&smmu0 WIN2030_SID_ISP1>;
+				tbus = <WIN2030_TBUID_ISP>;
+				eswin,vi_top_csr = <&vi_top_csr 0x1004>;
+				numa-node-id = <0>;
+				dma-noncoherent;
+			};
 
-		dewarp: dewarp@51020000 {
-			compatible = "eswin,dewarp";
-			clocks = <&d0_clock EIC7700_CLK_VI_ACLK>,
-			         <&d0_clock EIC7700_CLK_VI_CFG_CLK>,
-			         <&d0_clock EIC7700_CLK_VI_DIG_DW_CLK>,
-			         <&d0_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-			         <&d0_clock EIC7700_MUX_U_VI_DW_ROOT_2MUX1>,
-			         <&d0_clock EIC7700_SPLL0_FOUT1>,
-			         <&d0_clock EIC7700_VPLL_FOUT1>;
-			clock-names = "aclk", "cfg_clk", "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
-			resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-			         <&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-			         <&d0_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
-			reset-names = "axi", "cfg", "dwe";
+			dewarp: dewarp@51020000 {
+				compatible = "eswin,dewarp";
+				clocks = <&d0_clock EIC7700_CLK_VI_ACLK>,
+						<&d0_clock EIC7700_CLK_VI_CFG_CLK>,
+						<&d0_clock EIC7700_CLK_VI_DIG_DW_CLK>,
+						<&d0_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
+						<&d0_clock EIC7700_MUX_U_VI_DW_ROOT_2MUX1>,
+						<&d0_clock EIC7700_SPLL0_FOUT1>,
+						<&d0_clock EIC7700_VPLL_FOUT1>;
+				clock-names = "aclk", "cfg_clk", "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
+				resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
+						<&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+						<&d0_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
+				reset-names = "axi", "cfg", "dwe";
 
-			operating-points-v2 = <&vi_opp_table>;
-			#cooling-cells = <2>;
-			dynamic-power-coefficient = <1000>; /*TBD*/
-			interrupt-parent = <&plic0>;
-			interrupts = <26 25>;
-			#size-cells = <2>;
-			dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
-			iommus = <&smmu0 WIN2030_SID_DW>;
-			tbus = <WIN2030_TBUID_DW>;
-			eswin,vi_top_csr = <&vi_top_csr 0x1008>;
-			reg = <0x0 0x51020000 0x0 0xc00>, <0x0 0x51020c00 0x0 0x120>;
-			numa-node-id = <0>;
-			dma-noncoherent;
-		};
+				operating-points-v2 = <&vi_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
+				interrupt-parent = <&plic0>;
+				interrupts = <26 25>;
+				#size-cells = <2>;
+				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+				iommus = <&smmu0 WIN2030_SID_DW>;
+				tbus = <WIN2030_TBUID_DW>;
+				eswin,vi_top_csr = <&vi_top_csr 0x1008>;
+				reg = <0x0 0x51020000 0x0 0xc00>, <0x0 0x51020c00 0x0 0x120>;
+				numa-node-id = <0>;
+				dma-noncoherent;
+			};
 
-		mipi_dphy_rx: dphy@510c0000 {
-			compatible = "snps,dw-dphy-rx";
-			#phy-cells = <1>;
-			bus-width = <8>;
-			snps,dphy-frequency = <300000>;
-			snps,phy_type = <8>;
-			reg = <0x0 0x510c0000 0x0 0x20000>;
-			numa-node-id = <0>;
-		};
+			dvp2axi: dvp2axi@51034000 {
+				compatible = "eswin,dvp2axi";
+				reg = <0x0 0x51034000 0x0 0x8000>;
+				reg-names = "dvp2axi_regs";
+				interrupt-parent = <&plic0>;
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				interrupts = <368 369 370 371 372 373 374 375>;
+				interrupt-names = "dvp0_frame_int", "dvp1_frame_int", "dvp2_frame_int",
+									"dvp3_frame_int", "dvp4_frame_int", "dvp5_frame_int",
+									"dvp2axi_error_int","dvp2axi_afull_int";
+				dma-noncoherent;
+				status = "disabled";
+			};
 
-		csi_dma0: csidma@0x52048000 {
-			compatible = "eswin,csi-video";
-			interrupt-parent = <&plic0>;
-			interrupts = <29>;
-			reg = <0x0 0x52048000 0x0 0x1000>;
-			numa-node-id = <0>;
+			dvp2axi_mipi_lvds: dvp2axi_mipi_lvds {
+				compatible = "eswin,dvp2axi-mipi-lvds";
+				eswin,hw = <&dvp2axi>;
+				status = "disabled";
+			};
+			
+			dvp2axi_mipi_lvds1: dvp2axi_mipi_lvds1 {
+				compatible = "eswin,dvp2axi-mipi-lvds";
+				eswin,hw = <&dvp2axi>;
+				status = "disabled";
+			};
 
-			port {
+			dvp2axi_mipi_lvds2: dvp2axi_mipi_lvds2 {
+				compatible = "eswin,dvp2axi-mipi-lvds";
+				eswin,hw = <&dvp2axi>;
+				status = "disabled";
+			};
+			
+			mipi_csi2_0: mipi-csi2-0@51050000 {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,eic770x-mipi-csi2";
+				reg = <0x0 0x51050000 0x0 0x10000>;
+				reg-names = "csihost_regs";
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				//eswin,hw = <&mipi_csi2_hw>;
+				interrupt-parent = <&plic0>;
+				interrupts = <29>;
+				interrupt-names = "csi-intr1";
+				index = <0>;
+				status = "disabled";
+			};
+
+			mipi_csi2_1: mipi-csi2-1@51060000 {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,eic770x-mipi-csi2";
+				reg = <0x0 0x51060000 0x0 0x10000>;
+				reg-names = "csihost_regs";
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				//eswin,hw = <&mipi_csi2_hw>;
+				interrupt-parent = <&plic0>;
+				interrupts = <30>;
+				interrupt-names = "csi-intr1";
+				index = <1>;
+				status = "disabled";
+			};
+
+			mipi_csi2_2: mipi-csi2-2@51070000 {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,eic770x-mipi-csi2";
+				reg = <0x0 0x51070000 0x0 0x10000>;
+				reg-names = "csihost_regs";
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				//eswin,hw = <&mipi_csi2_hw>;
+				interrupt-parent = <&plic0>;
+				interrupts = <31>;
+				interrupt-names = "csi-intr1";
+				index = <2>;
+				status = "disabled";
+			};
+
+			mipi_csi2_3: mipi-csi2-3@51080000 {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,eic770x-mipi-csi2";
+				reg = <0x0 0x51080000 0x0 0x10000>;
+				reg-names = "csihost_regs";
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				//eswin,hw = <&mipi_csi2_hw>;
+				interrupt-parent = <&plic0>;
+				interrupts = <32>;
+				interrupt-names = "csi-intr1";
+				index = <3>;
+				status = "disabled";
+			};
+
+			mipi_csi2_4: mipi-csi2-4@51090000 {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,eic770x-mipi-csi2";
+				reg = <0x0 0x51090000 0x0 0x10000>;
+				reg-names = "csihost_regs";
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				//eswin,hw = <&mipi_csi2_hw>;
+				interrupt-parent = <&plic0>;
+				interrupts = <33>;
+				interrupt-names = "csi-intr1";
+				index = <4>;
+				status = "disabled";
+			};
+
+			mipi_csi2_5: mipi-csi2-5@510a0000 {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				compatible = "eswin,eic770x-mipi-csi2";
+				reg = <0x0 0x510a0000 0x0 0x10000>;
+				reg-names = "csihost_regs";
+				eswin,syscrg_csr = <&d0_sys_crg>;
+				eswin,vi_top_csr = <&vi_top_csr>;
+				//eswin,hw = <&mipi_csi2_hw>;
+				interrupt-parent = <&plic0>;
+				interrupts = <34>;
+				interrupt-names = "csi-intr1";
+				index = <5>;
+				status = "disabled";
+			};
+
+			csi2_dphy_hw: csi2-dphy-hw@510c0000 {
+				compatible = "eswin,eic770x-csi2-dphy-hw";
+				reg = <0x0 0x510c0000 0x0 0x20000>;
+				//clocks = <&cru PCLK_MIPICSIPHY>;
+				//clock-names = "pclk";
+				//eswin,grf = <&grf>;
+				phy_cfg = <0x510d8000>;
+				// eswin,mipi_csi2_hw = <&mipi_csi2_hw>;
+				csi_base = <0x51050000>;
+				status = "disabled";
+			};
+
+			csi2_dphy_hw1: csi2-dphy-hw1@510e0000 {
+				compatible = "eswin,eic770x-csi2-dphy-hw";
+				reg = <0x0 0x510e0000 0x0 0x20000>;
+				//clocks = <&cru PCLK_MIPICSIPHY>;
+				//clock-names = "pclk";
+				//eswin,grf = <&grf>;
+				phy_cfg = <0x510f8000>;
+				// eswin,mipi_csi2_hw = <&mipi_csi2_hw>;
+				csi_base = <0x51060000>;
+				status = "disabled";
+			};
+
+			csi2_dphy_hw2: csi2-dphy-hw2@51100000 {
+				compatible = "eswin,eic770x-csi2-dphy-hw";
+				reg = <0x0 0x51100000 0x0 0x20000>;
+				//clocks = <&cru PCLK_MIPICSIPHY>;
+				//clock-names = "pclk";
+				//eswin,grf = <&grf>;
+				phy_cfg = <0x51180000>;
+				// eswin,mipi_csi2_hw = <&mipi_csi2_hw>;
+				csi_base = <0x51070000>;
+				status = "disabled";
+			};
+
+			csi2_dphy0: csi2-dphy0 {
+				compatible = "eswin,eic770x-csi2-dphy";
+				eswin,hw = <&csi2_dphy_hw>, <&csi2_dphy_hw1>,<&csi2_dphy_hw2>;
+				index = <0>;
+				status = "disabled";
+			};
+			
+			csi2_dphy1: csi2-dphy1 {
+				compatible = "eswin,eic770x-csi2-dphy";
+				eswin,hw = <&csi2_dphy_hw>, <&csi2_dphy_hw1>,<&csi2_dphy_hw2>;
+				index = <1>;
+				status = "disabled";
+			};
+
+			csi2_dphy2: csi2-dphy2 {
+				compatible = "eswin,eic770x-csi2-dphy";
+				eswin,hw =  <&csi2_dphy_hw>, <&csi2_dphy_hw1>,<&csi2_dphy_hw2>;
+				index = <2>;
+				status = "disabled";
+			};
+
+			mipi_dphy_rx: dphy@510c0000 {
+				compatible = "snps,dw-dphy-rx";
+				#phy-cells = <1>;
+				bus-width = <8>;
+				snps,dphy-frequency = <300000>;
+				snps,phy_type = <8>;
+				reg = <0x0 0x510c0000 0x0 0x20000>;
+				numa-node-id = <0>;
+			};
+
+			csi_dma0: csidma@52048000 {
+				compatible = "eswin,csi-video";
+				interrupt-parent = <&plic0>;
+				interrupts = <29>;
+				reg = <0x0 0x52048000 0x0 0x1000>;
+				numa-node-id = <0>;
+
+				port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					csi_dmar_0: endpoint@0 {
+						reg = <0>;
+						bus-type = <4>;
+						remote-endpoint = <&csi2_dma_0_3>;
+					};
+				};
+			};
+
+			csi_dma1: csidma@52058000 {
+				compatible = "eswin,csi-video";
+				interrupt-parent = <&plic0>;
+				interrupts = <30>;
+				reg = <0x0 0x52058000 0x0 0x1000>;
+				numa-node-id = <0>;
+
+				port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					csi_dmar_1: endpoint@0 {
+						reg = <0>;
+						bus-type = <4>;
+						remote-endpoint = <&csi2_dma_1_3>;
+					};
+				};
+			};
+
+			csi2_0: csi2@51050000 {
+				compatible = "snps,dw-csi";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				interrupt-parent = <&plic0>;
+				interrupts = <29>;
+				snps,output-type = <0>;
+				reg = <0x0 0x51050000 0x0 0x1000>;
+				/*phys = <&mipi_dphy_rx 1>;*/
+				numa-node-id = <0>;
 
-				csi_dmar_0: endpoint@0 {
-					reg = <0>;
-					bus-type = <4>;
-					remote-endpoint = <&csi2_dma_0_3>;
+				/* MIPI CONFIG */
+				snps,en-ppi-width = <0>;/* 0: ppi8, 1: ppi16 */
+				snps,en-phy-mode = <0>;/* 0: D-PHY, 1: C-PHY */
+
+				ipi2_en = <0>;/* for virtual channel */
+				ipi2_vcid = <0>;/* virtual channel id */
+				ipi3_en = <0>;
+				ipi3_vcid = <0>;
+
+				#ifdef MIPI_CSI2_IMX290_ENBALE
+				port@1 {
+					reg = <1>;
+					csi2_0_1: endpoint {
+						bus-type = <4>;
+						clock-lanes = <0>;
+						#ifdef MIPI_CSI2_2LINE_ENABLE
+						data-lanes = <1 2>;
+						#else
+						data-lanes = <1 2 3 4>;
+						#endif
+						//remote-endpoint = <&imx290_csi2>;
+					};
+				};
+				#endif
+
+				port@2 {
+					reg = <2>;
+					csi2_dma_0_3: endpoint {
+						bus-type = <4>;
+						clock-lanes = <0>;
+											data-lanes = <1 2>;
+						remote-endpoint = <&csi_dmar_0>;
+					};
 				};
 			};
-		};
 
-		csi_dma1: csidma@0x52058000 {
-			compatible = "eswin,csi-video";
-			interrupt-parent = <&plic0>;
-			interrupts = <30>;
-			reg = <0x0 0x52058000 0x0 0x1000>;
-			numa-node-id = <0>;
-
-			port {
+			csi2_1: csi2@51060000 {
+				compatible = "snps,dw-csi";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				interrupt-parent = <&plic0>;
+				interrupts = <30>;
+				snps,output-type = <0>;
+				reg = <0x0 0x51060000 0x0 0x1000>;
+				/*phys = <&mipi_dphy_rx 1>;*/
+				numa-node-id = <0>;
 
-				csi_dmar_1: endpoint@0 {
-					reg = <0>;
-					bus-type = <4>;
-					remote-endpoint = <&csi2_dma_1_3>;
+				/* MIPI CONFIG */
+				snps,en-ppi-width = <0>;/* 0: ppi8, 1: ppi16 */
+				snps,en-phy-mode = <0>;/* 0: D-PHY, 1: C-PHY */
+
+				ipi2_en = <0>;/* for virtual channel */
+				ipi2_vcid = <0>;/* virtual channel id */
+				ipi3_en = <0>;
+				ipi3_vcid = <0>;
+
+				#ifdef MIPI_CSI2_IMX290_ENBALE
+				port@1 {
+					reg = <1>;
+					csi2_1_1: endpoint {
+						bus-type = <4>;
+						clock-lanes = <0>;
+						#ifdef MIPI_CSI2_2LINE_ENABLE
+						data-lanes = <1 2>;
+						#else
+						data-lanes = <1 2 3 4>;
+						#endif
+						//remote-endpoint = <&imx290_csi2>;
+					};
+				};
+				#endif
+
+				port@2 {
+					reg = <2>;
+					csi2_dma_1_3: endpoint {
+						bus-type = <4>;
+						remote-endpoint = <&csi_dmar_1>;
+					};
 				};
 			};
 		};
-
-		csi2_0: csi2@51050000 {
-			compatible = "snps,dw-csi";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			interrupt-parent = <&plic0>;
-			interrupts = <29>;
-			snps,output-type = <0>;
-			reg = <0x0 0x51050000 0x0 0x1000>;
-			/*phys = <&mipi_dphy_rx 1>;*/
-			numa-node-id = <0>;
-
-			/* MIPI CONFIG */
-			snps,en-ppi-width = <0>;/* 0: ppi8, 1: ppi16 */
-			snps,en-phy-mode = <0>;/* 0: D-PHY, 1: C-PHY */
-
-			ipi2_en = <0>;/* for virtual channel */
-			ipi2_vcid = <0>;/* virtual channel id */
-			ipi3_en = <0>;
-			ipi3_vcid = <0>;
-
-			#ifdef MIPI_CSI2_IMX290_ENBALE
-			port@1 {
-				reg = <1>;
-				csi2_0_1: endpoint {
-					bus-type = <4>;
-					clock-lanes = <0>;
-					#ifdef MIPI_CSI2_2LINE_ENABLE
-					data-lanes = <1 2>;
-					#else
-					data-lanes = <1 2 3 4>;
-					#endif
-					//remote-endpoint = <&imx290_csi2>;
-				};
-			};
-			#endif
-
-			port@2 {
-				reg = <2>;
-				csi2_dma_0_3: endpoint {
-					bus-type = <4>;
-					clock-lanes = <0>;
-                                        data-lanes = <1 2>;
-					remote-endpoint = <&csi_dmar_0>;
-				};
-			};
-		};
-
-		csi2_1: csi2@51060000 {
-			compatible = "snps,dw-csi";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			interrupt-parent = <&plic0>;
-			interrupts = <30>;
-			snps,output-type = <0>;
-			reg = <0x0 0x51060000 0x0 0x1000>;
-			/*phys = <&mipi_dphy_rx 1>;*/
-			numa-node-id = <0>;
-
-			/* MIPI CONFIG */
-			snps,en-ppi-width = <0>;/* 0: ppi8, 1: ppi16 */
-			snps,en-phy-mode = <0>;/* 0: D-PHY, 1: C-PHY */
-
-			ipi2_en = <0>;/* for virtual channel */
-			ipi2_vcid = <0>;/* virtual channel id */
-			ipi3_en = <0>;
-			ipi3_vcid = <0>;
-
-			#ifdef MIPI_CSI2_IMX290_ENBALE
-			port@1 {
-				reg = <1>;
-				csi2_1_1: endpoint {
-					bus-type = <4>;
-					clock-lanes = <0>;
-					#ifdef MIPI_CSI2_2LINE_ENABLE
-					data-lanes = <1 2>;
-					#else
-					data-lanes = <1 2 3 4>;
-					#endif
-					//remote-endpoint = <&imx290_csi2>;
-				};
-			};
-			#endif
-
-			port@2 {
-				reg = <2>;
-				csi2_dma_1_3: endpoint {
-					bus-type = <4>;
-					remote-endpoint = <&csi_dmar_1>;
-				};
-			};
-		};
-
 		dc_test: dctest@502c0000 {
 			compatible = "eswin,dc";
 			reg = <0x0 0x502c0000 0x0 0x10000>;

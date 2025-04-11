@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Configuration for the eswin vi_top driver
+#
+
+config VIDEO_ESWIN_VI_TOP
+    tristate "ESWIN VI_TOP driver support"
+    default y
+    depends on VIDEO_DEV
+    select VIDEOBUF2_CORE
+    help
+      Enable support for the ESWIN VI_TOP video interface driver.
+      This driver is used for handling video input from ESWIN devices.

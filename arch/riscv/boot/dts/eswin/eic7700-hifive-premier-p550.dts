@@ -29,7 +29,7 @@
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
-// #include "eic7700-dvb-dsi-panel.dtsi"
+#include "eic7700-dvb-dsi-panel.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -82,7 +82,7 @@
 			reusable;
 			size = <0x0 CMA_SIZE>;
 			alignment = <0x0 0x1000>;
-			alloc-ranges = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
+		 	alloc-ranges = <0x0 0x80000000 MEMORY_SIZE_H MEMORY_SIZE_L>;
 			linux,cma-default;
 		};
 
@@ -111,7 +111,14 @@
 			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
 		};
+
+		dvp2axi_mem: dvp2axi-mem@90000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x90000000 0x0 0x10000000>;
+			no-map;
+		};
 	};
+
 };
 
 &d0_clock {
@@ -294,12 +301,12 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dc_out_dpi: endpoint@1 {
-			reg = <1>;
+		dc_out_dpi: endpoint@0 {
+			reg = <0>;
 			remote-endpoint = <&vd_input>;
 		};
-		dc_out_hdmi: endpoint@2 {
-			reg = <2>;
+		dc_out_hdmi: endpoint@1 {
+			reg = <1>;
 			remote-endpoint = <&hdmi_in_dc>;
 		};
 	};
@@ -390,7 +397,7 @@
 };
 
 &isp_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &isp_1 {
@@ -399,26 +406,6 @@
 
 &dewarp {
 	status = "okay";
-};
-
-&mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
-	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -681,10 +668,10 @@
 	status = "disabled";
 };
 
-&d0_i2c5 {
-	/* PCA9548 */
+/* &d0_i2c5 {
+	// PCA9548
 	status = "okay";
-};
+}; */
 
 &d0_i2c6 {
 	/* unused */
@@ -897,3 +884,9 @@ GPIO USED ON CarrierBoard:
 		clock-latency-ns = <70000>;
 	};
 };
+
+&dvp2axi {
+	memory-region = <&dvp2axi_mem>;
+};
+
+#include "eic7700-hifive-premier-p550-camera.dtsi"
