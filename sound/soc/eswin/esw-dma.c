@@ -27,10 +27,9 @@
 #include "esw-dai.h"
 
 #define MAX_PERIOD_SIZE 4096
-#define MIN_PERIOD_SIZE 256
-#define MAX_PERIOD_CNT 64
+#define MIN_PERIOD_SIZE 512
+#define MAX_PERIOD_CNT 16
 #define MIN_PERIOD_CNT 2
-#define MAX_BUFFER_SIZE 4096 * 4
 
 static void esw_pcm_dma_complete(void *arg)
 {
@@ -152,7 +151,7 @@ int esw_pcm_dma_open(struct snd_soc_component *component,
 	hw.periods_max = MAX_PERIOD_CNT;
 	hw.period_bytes_min = MIN_PERIOD_SIZE;
 	hw.period_bytes_max = MAX_PERIOD_SIZE;
-	hw.buffer_bytes_max = MAX_BUFFER_SIZE;
+	hw.buffer_bytes_max = hw.period_bytes_max * MAX_PERIOD_CNT;
 	hw.fifo_size = dma_data->fifo_size;
 	hw.info |= SNDRV_PCM_INFO_BATCH;
 
