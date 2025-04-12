@@ -48,7 +48,6 @@
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
 		rtc0 = &die0_rtc;
-		rtc1 = &pcf_rtc;
 	};
 
 	chosen {
@@ -531,35 +530,19 @@
 };
 
 &d0_i2s1 {
-	status = "okay";
-	d0_i2s1_port: port {
-		d0_i2s1_endpoint: endpoint {
-			remote-endpoint = <&d0_codec0_endpoint>;
-			dai-format = "i2s";
-		};
-	};
+	status = "disabled";
 };
 
 &d0_i2s2 {
-	status = "okay";
-	d0_i2s2_port: port {
-		d0_i2s2_endpoint: endpoint {
-			remote-endpoint = <&d0_codec1_endpoint>;
-			dai-format = "i2s";
-		};
-	};
+	status = "disabled";
 };
 
 &d0_graphcard0 {
-	status = "okay";
-	label = "Analog Audio-0";
-	dais = <&d0_i2s1_port>;
+	status = "disabled";
 };
 
 &d0_graphcard1 {
-	status = "okay";
-	label = "Analog Audio-1";
-	dais = <&d0_i2s2_port>;
+	status = "disabled";
 };
 
 &d0_graphcard2 {
@@ -836,46 +819,31 @@
 };
 
 &d0_i2c0 {
-	/* codec es8388 */
+	/* PS_PMBUS */
 	status = "okay";
-	d0_es8388_0: es8388-0@10 {
-		compatible = "eswin,es8388";
-		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s1_endpoint>;
-			};
-		};
-	};
-	d0_es8388_1: es8388-1@11 {
-		compatible = "eswin,es8388";
-		reg = <0x11>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec1_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s2_endpoint>;
-			};
-		};
+	i2c-sda-hold-time-ns = <0x40>;
+	ina226@44 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "soc_vdd";
+		reg = <0x44>;
+		shunt-resistor = <1000>;
 	};
 };
 
 &d0_i2c1 {
-	/* mpq8785 */
+	/* NPU Power Control */
 	status = "okay";
-	mpq8785@10 {
-		compatible = "mps,mpq8785";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
 				regulator-name="NPU_SVCC";
 				regulator-min-microvolt=<700000>;
-				regulator-max-microvolt=<1100000>;
+				regulator-max-microvolt=<1120000>;
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
@@ -885,17 +853,13 @@
 };
 
 &d0_i2c2 {
-	/* touch screen*/
-	status = "ok";
-	gt911:touchscreen@14 {
-		compatible = "goodix,gt911";
-		reg = <0x14>;
-		interrupt-parent = <&porta>;
-		interrupts = <10 IRQ_TYPE_EDGE_RISING>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio10_default>;
-		irq-gpios = <&porta 10 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
+	/* Temperature Sensor */
+	status = "okay";
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "d0_board_tmp";
+		#thermal-sensor-cells = <1>;
 	};
 };
 
@@ -910,8 +874,13 @@
 };
 
 &d0_i2c5 {
-	/* mipi csi4/csi5 */
-	status = "disabled";
+	/* AT24C02C EEPROM */
+	status = "okay";
+	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
 };
 
 &d0_i2c6 {
@@ -925,29 +894,8 @@
 };
 
 &d0_i2c8 {
-	/* io extended for mipi csi */
-	status = "okay";
-	tca6416_0: gpio@20 {
-		compatible = "ti,tca6416";
-		reg = <0x20>;
-		gpio-controller; /* IRQ not connected */
-		#gpio-cells = <2>;
-		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
-				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
-				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
-				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
-	};
-	tca6416_1: gpio@21 {
-		compatible = "ti,tca6416";
-		reg = <0x21>;
-		gpio-controller;
-		#gpio-cells = <2>;
-		/* IRQ not connected */
-		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
-				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
-				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
-				"", "", "", "";
-	};
+	/* unused */
+	status = "disabled";
 };
 
 &d0_i2c9 {
@@ -956,47 +904,46 @@
 };
 
 &d0_aon_i2c0 {
-	/* temp sensor & rtc */
+	/* ADC */
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c4_default>;
 	status = "okay";
-	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
-	pcf_rtc:rtc@51 {
-		compatible = "nxp,pcf8563";
-		reg = <0x51>;
+
+	adc@48 {
+		compatible = "ti,ads1115";
+		reg = <0x48>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@4 {
+			reg = <4>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			ti,gain = <1>;
+			ti,datarate = <7>;
+		};
 	};
 };
 
 &d0_aon_i2c1 {
-	/* ina226x4 */
-	status = "okay";
-	i2c-sda-hold-time-ns = <0x40>;
-	ina226@45 {
-		compatible = "ti,ina226";
-		#io-channel-cells = <1>;
-		label = "cpu_vdd";
-		reg = <0x45>;
-		shunt-resistor = <1000>;
-	};
-	ina226@44 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "soc_vdd";
-			reg = <0x44>;
-			shunt-resistor = <1000>;
-		};
-	ina226@41 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "lpddr_vdd";
-			reg = <0x41>;
-			shunt-resistor = <1000>;
-		};
-	ina226@48 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "dc_vdd";
-			reg = <0x48>;
-			shunt-resistor = <1000>;
-		};
+	status = "disabled";
 };
 
 &pwm0 {
