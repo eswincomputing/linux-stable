@@ -25,19 +25,19 @@ struct cros_ec_hwmon_priv {
 	bool has_temp_threshold;
 };
 
-static int cros_ec_hwmon_read_temp(struct device *dev, struct cros_ec_device *cros_ec, u8 index, u8 *temp)
+static int cros_ec_hwmon_read_temp(struct device *dev, struct cros_ec_device *cros_ec, u8 index, u16 *temp)
 {
 	unsigned int offset;
 	int ret;
 
 	if (index < EC_TEMP_SENSOR_ENTRIES)
-		offset = EC_MEMMAP_TEMP_SENSOR + index;
+        offset = EC_MEMMAP_TEMP_SENSOR + index * 2; // Assume 2 bytes per sensor
 	else
-		offset = EC_MEMMAP_TEMP_SENSOR_B + index - EC_TEMP_SENSOR_ENTRIES;
+        offset = EC_MEMMAP_TEMP_SENSOR_B + (index - EC_TEMP_SENSOR_ENTRIES) * 2;
 
 	dev_dbg(dev, "Reading temperature for sensor %d at offset 0x%x\n",
 		index, offset);
-	ret = cros_ec_cmd_readmem(cros_ec, offset, 1, temp);
+    ret = cros_ec_cmd_readmem(cros_ec, offset, 2, temp); // Read 2 bytes
 	if (ret < 0) {
 		dev_dbg(dev, "Failed to read temp sensor %d: %d\n", index, ret);
 		return ret;
@@ -95,18 +95,21 @@ static int cros_ec_hwmon_write_temp_threshold(struct device *dev, struct cros_ec
 			index, ret);
 	return ret;
 }
-
-static bool cros_ec_hwmon_is_error_temp(u8 temp)
+static bool cros_ec_hwmon_is_error_temp(u16 temp)
 {
-	return temp == EC_TEMP_SENSOR_NOT_PRESENT     ||
-	       temp == EC_TEMP_SENSOR_ERROR           ||
-	       temp == EC_TEMP_SENSOR_NOT_POWERED     ||
-	       temp == EC_TEMP_SENSOR_NOT_CALIBRATED;
+    // Adjust error values for u16 (assuming same logic scaled to 0.1K)
+    return temp == (u16)EC_TEMP_SENSOR_NOT_PRESENT     ||
+           temp == (u16)EC_TEMP_SENSOR_ERROR           ||
+           temp == (u16)EC_TEMP_SENSOR_NOT_POWERED     ||
+           temp == (u16)EC_TEMP_SENSOR_NOT_CALIBRATED;
 }
 
-static long cros_ec_hwmon_temp_to_millicelsius(u8 temp)
+static long cros_ec_hwmon_temp_to_millicelsius(u16 temp)
 {
-	return kelvin_to_millicelsius((((long)temp) + EC_TEMP_SENSOR_OFFSET));
+    // Assume temp is in 0.1K units (e.g., 2000 = 200.0K)
+    // Convert to millicelsius: (temp * 0.1 - 273.15) * 1000
+    long kelvin_tenths = (long)temp; // temp in 0.1K
+    return (kelvin_tenths - 2732) * 100; // (temp * 0.1 - 273.2) * 1000 / 10
 }
 
 static enum ec_temp_thresholds cros_ec_hwmon_attr_to_thres(u32 attr)
@@ -127,7 +130,7 @@ static int cros_ec_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 	struct cros_ec_hwmon_priv *priv = dev_get_drvdata(dev);
 	int ret = -EOPNOTSUPP;
 	u32 threshold;
-	u8 temp;
+	u16 temp;
 
 	dev_dbg(dev, "Reading type %d attr %d channel %d\n", type, attr, channel);
 
@@ -266,7 +269,7 @@ static void cros_ec_hwmon_probe_temp_sensors(struct device *dev, struct cros_ec_
 	size_t candidates, i, sensor_name_size;
 	int ret;
 	u32 threshold;
-	u8 temp;
+    u16 temp; // Changed from u8 to u16
 
 	dev_dbg(dev, "Probing temperature sensors, thermal version: %d\n", thermal_version);
 
@@ -287,7 +290,7 @@ static void cros_ec_hwmon_probe_temp_sensors(struct device *dev, struct cros_ec_
 		if (cros_ec_hwmon_read_temp(dev, priv->cros_ec, i, &temp) < 0)
 			continue;
 
-		if (temp == EC_TEMP_SENSOR_NOT_PRESENT)
+		if (cros_ec_hwmon_is_error_temp(temp))
 			continue;
 
 		req.id = i;
