@@ -43,8 +43,6 @@ static struct v4l2_subdev *get_remote_sensor(struct v4l2_subdev *sd)
 	local = &sd->entity.pads[CSI2_DPHY_RX_PAD_SINK];
 	remote = media_pad_remote_pad_first(local);
 	if (!remote) {
-		pr_info("%s:%d yfx !!!!! \n", __func__, __LINE__);
-
 		v4l2_warn(sd, "No link between dphy and sensor\n");
 		return NULL;
 	}
@@ -824,7 +822,6 @@ int eswin_csi2_dphy_init(void)
 
 void eswin_csi2_dphy_uinit(void)
 {
-	pr_err("%s:%d yfx !!!!!! \n", __func__, __LINE__);
 	platform_driver_unregister(&eswin_csi2_dphy_driver);
 }
 

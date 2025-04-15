@@ -179,10 +179,10 @@ int dw_mipi_csi_hw_stdby(struct dw_csi *csi_dev)
 
 		/* only for version 1.40 */
 		if (csi_dev->hw_version_minor == 40) {
-			// dw_mipi_csi_write(csi_dev,reg.MSK_BNDRY_FRAME_FATAL,GENMASK(31, 0));
-			// dw_mipi_csi_write(csi_dev,reg.MSK_SEQ_FRAME_FATAL,GENMASK(31, 0));
-			// dw_mipi_csi_write(csi_dev,reg.MSK_CRC_FRAME_FATAL,GENMASK(31, 0));
-			// dw_mipi_csi_write(csi_dev,reg.MSK_PLD_CRC_FATAL,GENMASK(31, 0));
+			//dw_mipi_csi_write(csi_dev,reg.MSK_BNDRY_FRAME_FATAL,GENMASK(31, 0));
+			//dw_mipi_csi_write(csi_dev,reg.MSK_SEQ_FRAME_FATAL,GENMASK(31, 0));
+			dw_mipi_csi_write(csi_dev,reg.MSK_CRC_FRAME_FATAL,GENMASK(31, 0));
+			dw_mipi_csi_write(csi_dev,reg.MSK_PLD_CRC_FATAL,GENMASK(31, 0));
 			dw_mipi_csi_write(csi_dev,reg.MSK_DATA_ID, GENMASK(31, 0));
 			dw_mipi_csi_write(csi_dev,reg.MSK_ECC_CORRECT, GENMASK(31, 0));
 		}
@@ -237,14 +237,23 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 		break;
 
 	case MEDIA_BUS_FMT_SBGGR14_1X14:
+	case MEDIA_BUS_FMT_SGBRG14_1X14:
+	case MEDIA_BUS_FMT_SGRBG14_1X14:
+	case MEDIA_BUS_FMT_SRGGB14_1X14:
 		csi_dev->hw.ipi_dt = CSI_2_RAW14;
 		break;
 
 	case MEDIA_BUS_FMT_SBGGR16_1X16:
+	case MEDIA_BUS_FMT_SGBRG16_1X16:
+	case MEDIA_BUS_FMT_SGRBG16_1X16:
+	case MEDIA_BUS_FMT_SRGGB16_1X16:
 		csi_dev->hw.ipi_dt = CSI_2_RAW16;
 		break;
 
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
 		csi_dev->hw.ipi_dt = CSI_2_RAW8;
 		break;
 
@@ -273,6 +282,7 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 		break;
 
 	case MEDIA_BUS_FMT_Y8_1X8:
+	case MEDIA_BUS_FMT_UV8_1X8:
 		csi_dev->hw.ipi_dt = CSI_2_RAW8;
 		break;
 
