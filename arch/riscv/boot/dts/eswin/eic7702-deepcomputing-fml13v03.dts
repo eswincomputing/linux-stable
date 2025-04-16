@@ -803,7 +803,6 @@
 &d0_graphcard1 {
 	status = "okay";
 	label = "ES8326 Audio";
-//	mclk-fs = <128>;
 	dais = <&d0_i2s1_port>;
 };
 
@@ -1277,7 +1276,6 @@
 
 		port {
 			es8326_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
 				remote-endpoint = <&d0_i2s1_endpoint>;
 			};
 		};

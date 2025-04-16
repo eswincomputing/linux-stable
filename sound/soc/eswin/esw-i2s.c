@@ -65,6 +65,9 @@
 
 #define MAX_SAMPLE_RATE_SUPPORT (192000UL)
 #define MAX_SAMPLE_RATE_CLK (MAX_SAMPLE_RATE_SUPPORT * 32 * 2) // 32 bits, 2channels
+#define SAMPLE_RATE_44100      44100
+#define SAMPLE_RATE_22050      22050
+#define SAMPLE_RATE_11025      11025
 
 #define DIE0_VO_TOP_CSR        0x50280000UL
 #define DIE1_VO_TOP_CSR        0x70280000UL
@@ -74,12 +77,8 @@
 #define DIV_NUM_MASK           0x1f
 
 #define ESW_I2S_RATES (SNDRV_PCM_RATE_192000 | \
-			SNDRV_PCM_RATE_96000 | \
-			SNDRV_PCM_RATE_48000 | \
-			SNDRV_PCM_RATE_44100 | \
-			SNDRV_PCM_RATE_32000 | \
-			SNDRV_PCM_RATE_16000 | \
-			SNDRV_PCM_RATE_8000)
+				SNDRV_PCM_RATE_96000 | \
+				SNDRV_PCM_RATE_8000_48000)
 #define ESW_I2S_FORMATS (SNDRV_PCM_FMTBIT_S32_LE | \
 			SNDRV_PCM_FMTBIT_S16_LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | \
@@ -447,13 +446,15 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	uint32_t div_num = 0;
 	uint32_t div_num_reg;
 	int ret;
+	unsigned long mclk_rate;
 
-	dev_dbg(i2s_drvdata->dev, "sample rate:%d, chan:%d, width:%d\n",
-			 params_rate(params), params_channels(params), params_width(params));
+	dev_dbg(i2s_drvdata->dev, "Sample rate: %d Hz, channels: %d, width: %d bits\n",
+		params_rate(params), params_channels(params), params_width(params));
+
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		config->data_width = 16;
-		i2s_drvdata->ccr = CLOCK_CYCLES_32 << CCR_WSS_POS |
+		i2s_drvdata->ccr = CLOCK_CYCLES_16 << CCR_WSS_POS |
 					NO_CLOCK_GATING;
 		i2s_drvdata->xfer_resolution = RESOLUTION_16_BIT;
 		break;
@@ -474,6 +475,8 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 		dev_err(i2s_drvdata->dev, "eswin-i2s: unsupported PCM fmt");
 		return -EINVAL;
 	}
+
+	// Set channel number
 	config->chan_nr = MAX_CHANNEL_NUM;
 	switch (config->chan_nr) {
 	case TWO_CHANNEL_SUPPORT:
@@ -482,79 +485,82 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 		dev_err(i2s_drvdata->dev, "channel not supported\n");
 		return -EINVAL;
 	}
+
+	// Configure I2S settings
 	i2s_config(i2s_drvdata, substream->stream);
 	i2s_write_reg(i2s_drvdata->i2s_base, CCR, i2s_drvdata->ccr);
+
+	// Get sample rate
 	config->sample_rate = params_rate(params);
+
 	if (i2s_drvdata->capability & DW_I2S_MASTER) {
-		if (config->sample_rate == 44100) {
-			if (!enable_441k[i2s_drvdata->nid]) {
-				if (!i2s_enable_cnt[i2s_drvdata->nid]) {
-					ret = clk_set_rate(i2s_drvdata->mclk, MAX_SAMPLE_RATE_CLK * 2);
-					if (ret) {
-						dev_err(i2s_drvdata->dev, "Can't set I2S mclock rate: %d\n", ret);
-						return ret;
-					}
-					ret = clk_set_rate(i2s_drvdata->apll_clk, APLL_LOW_FREQ);
-					if (ret) {
-						dev_err(i2s_drvdata->dev, "Can't set I2S apll clock rate: %d\n", ret);
-						return ret;
-					}
-					enable_441k[i2s_drvdata->nid] = 1;
-					div_num_reg = i2s_read_reg(i2s_drvdata->i2s_div_base, 0) & ~DIV_NUM_MASK;
-					div_num_reg |= 1;
-					i2s_write_reg(i2s_drvdata->i2s_div_base, 0, div_num_reg);
-					i2s_drvdata->i2s_div_num = 1;
-					dev_dbg(i2s_drvdata->dev, "apll rate:%ld\n", clk_get_rate(i2s_drvdata->apll_clk));
-				} else {
-					dev_err(i2s_drvdata->dev, "Other sample rate audio is playing.\n");
-					return -EINVAL;
-				}
-			} else {
-				div_num_reg = i2s_read_reg(i2s_drvdata->i2s_div_base, 0) & ~DIV_NUM_MASK;
-				div_num_reg |= 1;
-				i2s_write_reg(i2s_drvdata->i2s_div_base, 0, div_num_reg);
-				i2s_drvdata->i2s_div_num = 1;
+		if (config->sample_rate == SAMPLE_RATE_44100 ||
+		    config->sample_rate == SAMPLE_RATE_22050 ||
+		    config->sample_rate == SAMPLE_RATE_11025) {
+			// 44.1kHz series
+			mclk_rate = config->sample_rate * 256;
+			ret = clk_set_rate(i2s_drvdata->apll_clk, APLL_LOW_FREQ); // 225.792 MHz
+			if (ret) {
+				dev_err(i2s_drvdata->dev, "Failed to set APLL to 225.792 MHz: %d\n", ret);
+				return ret;
 			}
+			ret = clk_set_rate(i2s_drvdata->mclk, mclk_rate);
+			if (ret) {
+				dev_err(i2s_drvdata->dev, "Failed to set MCLK to %ld Hz: %d\n", mclk_rate, ret);
+				return ret;
+			}
+
+			enable_441k[i2s_drvdata->nid] = 1;
 		} else {
-			if (enable_441k[i2s_drvdata->nid]) {
-				if (!i2s_enable_cnt[i2s_drvdata->nid]) {
-					ret = clk_set_rate(i2s_drvdata->apll_clk, APLL_HIGH_FREQ);
-					if (ret) {
-						dev_err(i2s_drvdata->dev, "Can't set I2S apll clock rate: %d\n", ret);
-						return ret;
-					}
-					ret = clk_set_rate(i2s_drvdata->mclk, MAX_SAMPLE_RATE_CLK);
-					if (ret) {
-						dev_err(i2s_drvdata->dev, "Can't set I2S mclock rate: %d\n", ret);
-						return ret;
-					}
-					enable_441k[i2s_drvdata->nid] = 0;
-					dev_dbg(i2s_drvdata->dev, "apll rate:%ld\n", clk_get_rate(i2s_drvdata->apll_clk));
-				} else {
-					dev_err(i2s_drvdata->dev, "44.1khz audio is playing.\n");
-					return -EINVAL;
-				}
+			// 48kHz series
+			if (config->sample_rate == 8000)
+				mclk_rate = config->sample_rate * 1024;
+			else if (config->sample_rate == 16000)
+				mclk_rate = config->sample_rate * 512;
+			else
+				mclk_rate = config->sample_rate * 256;
+
+			ret = clk_set_rate(i2s_drvdata->apll_clk, APLL_HIGH_FREQ); // 983.04 MHz
+			if (ret) {
+				dev_err(i2s_drvdata->dev, "Failed to set APLL to 983.04 MHz: %d\n", ret);
+				return ret;
 			}
-			if (MAX_SAMPLE_RATE_SUPPORT % config->sample_rate != 0) {
-				dev_err(i2s_drvdata->dev, "Not support sample rate: %d\n", config->sample_rate);
-				return -EINVAL;
+			ret = clk_set_rate(i2s_drvdata->mclk, mclk_rate);
+			if (ret) {
+				dev_err(i2s_drvdata->dev, "Failed to set MCLK to %ld Hz: %d\n", mclk_rate, ret);
+				return ret;
 			}
 
-			div_num = MAX_SAMPLE_RATE_SUPPORT / config->sample_rate - 1;
-
-			if (i2s_drvdata->active) {
-				if (i2s_drvdata->i2s_div_num != div_num) {
-					dev_err(i2s_drvdata->dev, "Not support the playback and capture clocks are different\n");
-					return -EINVAL;
-				}
-			} else {
-				div_num_reg = i2s_read_reg(i2s_drvdata->i2s_div_base, 0) & ~DIV_NUM_MASK;
-				div_num_reg |= div_num;
-				dev_dbg(i2s_drvdata->dev, "div num:0x%x\n", div_num);
-				i2s_drvdata->i2s_div_num = div_num;
-				i2s_write_reg(i2s_drvdata->i2s_div_base, 0, div_num_reg);
-			}
+			enable_441k[i2s_drvdata->nid] = 0;
 		}
+
+		// Calculate frame size (data width * channels)
+		int frame_size = config->data_width * config->chan_nr;
+		// Calculate BCLK rate
+		unsigned long bclk_rate = config->sample_rate * frame_size;
+		if (bclk_rate == 0) {
+			dev_err(i2s_drvdata->dev, "Calculated BCLK rate is zero\n");
+			return -EINVAL;
+		}
+		// Calculate divider for BCLK (MCLK / BCLK - 1)
+		div_num = mclk_rate / bclk_rate - 1;
+
+// Define maximum divider value (assuming 8-bit divider)
+#define DIV_NUM_MAX 255
+		// Ensure div_num is valid
+		if (div_num < 0 || div_num > DIV_NUM_MAX) {
+			dev_err(i2s_drvdata->dev, "Invalid divider value: %u for sample rate: %d Hz\n",
+				div_num, config->sample_rate);
+			return -EINVAL;
+		}
+
+		// Set divider register for BCLK
+		div_num_reg = i2s_read_reg(i2s_drvdata->i2s_div_base, 0) & ~DIV_NUM_MASK;
+		div_num_reg |= div_num;
+		dev_dbg(i2s_drvdata->dev, "MCLK: %ld Hz, BCLK: %ld Hz, LRCLK: %d Hz, divider: %u\n",
+			mclk_rate, bclk_rate, config->sample_rate, div_num);
+		i2s_write_reg(i2s_drvdata->i2s_div_base, 0, div_num_reg);
+		i2s_drvdata->i2s_div_num = div_num;
 	}
 
 	return 0;

@@ -28,7 +28,7 @@
 
 #define MAX_PERIOD_SIZE 4096
 #define MIN_PERIOD_SIZE 512
-#define MAX_PERIOD_CNT 16
+#define MAX_PERIOD_CNT 4
 #define MIN_PERIOD_CNT 2
 
 static void esw_pcm_dma_complete(void *arg)
