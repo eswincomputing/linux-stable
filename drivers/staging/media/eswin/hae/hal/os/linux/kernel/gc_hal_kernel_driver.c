@@ -1522,7 +1522,7 @@ static void viv_dev_shutdown(struct platform_device *pdev)
 {
     gckGALDEVICE gal_device;
 
-    gal_device = platform_get_drvdata(pdev);
+    gal_device = galDevice;
     if (!gal_device) {
         return;
     }
@@ -1539,10 +1539,10 @@ static int viv_dev_suspend(struct platform_device *dev, pm_message_t state)
     gckDEVICE device;
     gctUINT i, dev_index;
 
-    gal_device = platform_get_drvdata(dev);
-
-    if (!gal_device)
+    gal_device = galDevice;
+    if (!gal_device) {
         return -1;
+    }
 
     for (dev_index = 0; dev_index < gal_device->args.devCount; dev_index++) {
         device = gal_device->devices[dev_index];
@@ -1552,14 +1552,14 @@ static int viv_dev_suspend(struct platform_device *dev, pm_message_t state)
                 /* Store states. */
                 status = gckHARDWARE_QueryPowerState(device->kernels[i]->hardware,
                                                      &device->statesStored[i]);
-
-                if (gcmIS_ERROR(status))
+                if (gcmIS_ERROR(status)) {
                     return -1;
+                }
 
                 status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_OFF);
-
-                if (gcmIS_ERROR(status))
+                if (gcmIS_ERROR(status)) {
                     return -1;
+                }
             }
         }
     }
@@ -1575,8 +1575,7 @@ static int viv_dev_resume(struct platform_device *dev)
     gctUINT i, dev_index;
     gceCHIPPOWERSTATE statesStored;
 
-    gal_device = platform_get_drvdata(dev);
-
+    gal_device = galDevice;
     if (!gal_device)
         return -1;
 
@@ -1587,8 +1586,9 @@ static int viv_dev_resume(struct platform_device *dev)
             if (device->kernels[i] != gcvNULL) {
                     status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_ON);
 
-                if (gcmIS_ERROR(status))
+                if (gcmIS_ERROR(status)) {
                     return -1;
+                }
 
                 /* Convert global state to crossponding internal state. */
                 switch (device->statesStored[i]) {
@@ -1610,10 +1610,10 @@ static int viv_dev_resume(struct platform_device *dev)
                 }
 
                 /* Restore states. */
-                    status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, statesStored);
-
-                if (gcmIS_ERROR(status))
+                status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, statesStored);
+                if (gcmIS_ERROR(status)) {
                     return -1;
+                }
             }
         }
     }
