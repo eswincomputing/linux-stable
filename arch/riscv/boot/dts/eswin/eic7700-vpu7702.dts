@@ -184,12 +184,13 @@
 			memory-region = <&ipcm_vdev0vring0>,<&ipcm_vdev0vring1>,<&ipcm_vdev0buffer>;
 			interrupt-parent = <&plic0>;
 			interrupts = <119>;
+		  	smmu_dev = <&smmu_cfg_0>;
 		};
 
 		dev_smmu_cfg: smmu_cfg@0 {
 			compatible = "eswin,vpu7702_dev_smmu_cfg";
 			#size-cells = <2>;
-			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
+			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0xc0000000>;
 			iommus = <&smmu0 WIN2030_SID_DEV_FOO_B>;
 			iommu-map = <0x000000 &smmu0 0xff0000 0xffffff>;
 			tbus = <WIN2030_TBUID_PCIE>;
