@@ -3371,6 +3371,11 @@ dw_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return MODE_NO_INTERLACE;
 
+	if (hdmi->numa_id == 0) {
+		if (mode->clock != 235690 && mode->clock != 371370)
+			return MODE_BAD;
+	}
+
 	if (pdata->mode_valid)
 		mode_status = pdata->mode_valid(hdmi, pdata->priv_data, info,
 						mode);
