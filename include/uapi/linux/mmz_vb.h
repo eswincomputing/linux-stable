@@ -145,7 +145,7 @@ typedef struct esVB_RETRIEVE_MEM_NODE_CMD_S
 {
 	int fd;	// Input: The dmabuf_fd
 	void *cpu_vaddr; // Input: The virtual addr of cpu in user space
-	int numa_node; // Ouput: return the NUMA node id of the memory
+	EIC770X_LOGICAL_MEM_NODE_E numa_node; // Ouput: return the logic code of NUMA node id of the memory
 }VB_RETRIEVE_MEM_NODE_CMD_S;
 
 //corresponding to MMZ_VB_IOCTL_DMABUF_SIZE

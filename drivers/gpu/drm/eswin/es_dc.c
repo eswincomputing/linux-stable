@@ -345,6 +345,7 @@ static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
 	struct es_crtc_state *crtc_state = to_es_crtc_state(crtc->state);
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct dc_hw_display display;
+	struct dc_hw_cursor cursor = { 0 };
 	int ret;
 
 	display.bus_format = crtc_state->output_fmt;
@@ -406,6 +407,8 @@ static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
 #endif
 
 	dc_hw_setup_display(&dc->hw, &display);
+	cursor.enable = false;
+	dc_hw_update_cursor(&dc->hw, &cursor);
 }
 
 static void es_dc_disable(struct device *dev)

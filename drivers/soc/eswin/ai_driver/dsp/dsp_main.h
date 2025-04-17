@@ -191,6 +191,9 @@ struct es_dsp {
 	dsp_kmd_perf_t op_perf[MAX_DSP_TASKS];
 	dsp_fw_perf_t op_fw_perf[MAX_DSP_TASKS];
 	atomic_t dmabuf_mapped_cnt;
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df;
+#endif
 };
 
 #define DSP_FIRMWARE_IOVA 0xfe000000

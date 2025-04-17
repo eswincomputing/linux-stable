@@ -882,6 +882,11 @@
 					groups = "gpio55_group";
 					function = "gpio55_func";
 				};
+				conf {
+					groups = "gpio55_group";
+					input-enable = <1>;
+					bias-pull-down = <1>;
+				};
 			};
             pinctrl_gpio56_default: gpio56-default{
 				mux {

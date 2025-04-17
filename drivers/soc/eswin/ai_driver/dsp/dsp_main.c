@@ -3,7 +3,6 @@
  * ESWIN AI driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -738,10 +737,6 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	int ret;
 	dev_dbg(dsp->dev, "dsp generic suspend...\n");
 
-	ret = es_dsp_pm_get_sync(dsp);
-	if (ret < 0) {
-		return ret;
-	}
 	dsp->off = true;
 
 	if (dsp->current_task != NULL) {
@@ -761,9 +756,9 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	dsp_release_firmware(dsp);
 	dsp_halt(dsp);
 
-	pm_runtime_mark_last_busy(dsp->dev);
-	pm_runtime_put_noidle(dsp->dev);
 	win2030_tbu_power(dsp->dev, false);
+	pm_runtime_put_sync(dsp->dev);
+
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
 		dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
@@ -807,8 +802,6 @@ int __maybe_unused dsp_resume(struct device *dev)
 		goto err_firm;
 	}
 
-	pm_runtime_mark_last_busy(dsp->dev);
-	pm_runtime_put_autosuspend(dsp->dev);
 	dsp_debug("dsp_core%d Generic resume ok, dsp->off=%d.\n",
 		  dsp->process_id, dsp->off);
 	dsp->off = false;
@@ -907,13 +900,39 @@ static int dsp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 	return 0;
 }
 
+static void eswin_exit(struct device *dev)
+{
+	;
+}
+
+static int eswin_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	struct es_dsp *dsp = dev_get_drvdata(dev);
+	unsigned long rate;
+
+	stat->busy_time = 1024;	
+	stat->total_time = 1024;
+	stat->current_frequency = dsp_get_rate(dsp);
+
+	return 0;
+}
+
 /* devfreq profile */
 static struct devfreq_dev_profile dsp_devfreq_profile = {
 	.initial_freq = DSP_SUBSYS_HILOAD_CLK,
 	.timer = DEVFREQ_TIMER_DELAYED,
-	.polling_ms = 1000, /* Poll every 1000ms to monitor load */
+	.polling_ms = 100, /* Poll every 1000ms to monitor load */
 	.target = dsp_devfreq_target,
 	.get_cur_freq = dsp_devfreq_get_cur_freq,
+	.get_dev_status = eswin_get_dev_status,
+	.exit = eswin_exit,
+	.is_cooling_device = true,
+};
+static struct devfreq_simple_ondemand_data ondemand_data =
+{
+	.upthreshold =80,
+	.downdifferential=10,
 };
 #endif
 
@@ -923,9 +942,6 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	int ret;
 	char nodename[sizeof("es-dsp") + 3 * sizeof(int)];
 	struct es_dsp *dsp;
-#if defined(CONFIG_PM_DEVFREQ)
-	struct devfreq *df;
-#endif
 
 	dsp = devm_kzalloc(&pdev->dev,
 			   sizeof(*dsp) + sizeof(struct es_dsp_stats) +
@@ -968,6 +984,10 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 		goto err_dev;
 	}
 
+	pm_runtime_set_active(dsp->dev);
+	pm_runtime_enable(dsp->dev);
+	pm_runtime_get_sync(dsp->dev);
+
 	ret = es_dsp_map_resource(dsp);
 	if (ret < 0) {
 		dsp_err("%s, %d, dsp map resource err, ret=%d.\n", __func__,
@@ -1002,11 +1022,18 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 		goto err_dsp_devfreq;
 	}
 
-	df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, "userspace", NULL);
-	if (IS_ERR(df)) {
+	dsp->df = devm_devfreq_add_device(&pdev->dev, &dsp_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
+	if (IS_ERR(dsp->df)) {
 		dsp_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
-		ret = PTR_ERR(df);
+		ret = PTR_ERR(dsp->df);
 		goto err_dsp_devfreq;
+	};
+
+	/* Register opp_notifier to catch the change of OPP  ????*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, dsp->df);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to register opp notifier\n");
+		return ret;
 	}
 #endif
 
@@ -1026,11 +1053,6 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_hw_init;
 
-	pm_runtime_set_autosuspend_delay(dsp->dev, 5000);
-	pm_runtime_use_autosuspend(dsp->dev);
-	pm_runtime_set_active(dsp->dev);
-	pm_runtime_enable(dsp->dev);
-	pm_runtime_get_noresume(dsp->dev);
 	ret = dsp_boot_firmware(dsp);
 	if (ret < 0) {
 		dsp_err("load firmware failed, ret=%d.\n", ret);
@@ -1053,18 +1075,11 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 
 	g_es_dsp[dsp->numa_id][dsp->process_id] = dsp;
 
-	pm_runtime_mark_last_busy(dsp->dev);
-	pm_runtime_put_autosuspend(dsp->dev);
-
 	dsp_info("%s, probe successful.\n", __func__);
 	return 0;
 
 err_pm_disable:
 err_firm:
-	pm_runtime_put_noidle(dsp->dev);
-	pm_runtime_disable(dsp->dev);
-	pm_runtime_set_suspended(dsp->dev);
-	pm_runtime_dont_use_autosuspend(dsp->dev);
 	es_dsp_hw_uninit(dsp);
 err_hw_init:
 	win2030_tbu_power(dsp->dev, false);
@@ -1072,15 +1087,17 @@ err_tbu_power:
 	es_dsp_clk_disable(dsp);
 err_dsp_clk:
 #if defined(CONFIG_PM_DEVFREQ)
-	devm_devfreq_remove_device(dsp->dev, df);
+	devm_devfreq_unregister_opp_notifier(dsp->dev, dsp->df);
+	devm_devfreq_remove_device(dsp->dev, dsp->df);
 err_dsp_devfreq:
 #endif
 	dsp_disable_mbox_clock(dsp);
 err_mbox_clk:
 	es_dsp_unmap_resource(dsp);
 err_map_res:
-	dsp_put_resource(dsp);
+	pm_runtime_disable(dsp->dev);
 err_dev:
+	dsp_put_resource(dsp);
 err_mbx:
 err_clk_init:
 	es_dsp_put_subsys(dsp);
@@ -1099,6 +1116,7 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 		return 0;
 	dsp->off = true;
 	debugfs_remove_recursive(dsp->debug_dentry);
+	pm_runtime_get_sync(dsp->dev);
 
 	g_es_dsp[dsp->numa_id][dsp->process_id] = NULL;
 
@@ -1109,19 +1127,25 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	cancel_work_sync(&dsp->task_work);
 	es_dsp_hw_uninit(dsp);
 
-	pm_runtime_disable(dsp->dev);
-	pm_runtime_set_suspended(dsp->dev);
-	pm_runtime_dont_use_autosuspend(dsp->dev);
 	dsp_release_firmware(dsp);
-
 	dsp_halt(dsp);
 
 	win2030_tbu_power(dsp->dev, false);
+
+#if defined(CONFIG_PM_DEVFREQ)
+	devm_devfreq_unregister_opp_notifier(dsp->dev, dsp->df);
+	devm_devfreq_remove_device(dsp->dev, dsp->df);
+#endif
 
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
 	es_dsp_unmap_resource(dsp);
 	dsp_put_resource(dsp);
+
+
+	pm_runtime_put_sync(dsp->dev);
+	pm_runtime_disable(dsp->dev);
+
 	es_dsp_put_subsys(dsp);
 	dsp_free_hw(dsp);
 	return 0;

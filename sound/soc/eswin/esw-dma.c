@@ -231,8 +231,8 @@ int esw_pcm_dma_hw_params(struct snd_soc_component *component,
 	struct dma_slave_config slave_config;
 	int ret;
 
-	dev_dbg(chip->dev, "%s, period size:%d, period cnt:%d\n", __func__,
-			 params_period_size(params), params_periods(params));
+	 dev_dbg(chip->dev, "%s, buffer_size: %d, period size:%d, period cnt:%d\n", __func__,
+		params_buffer_size(params), params_period_size(params), params_periods(params));
 
 	memset(&slave_config, 0, sizeof(slave_config));
 

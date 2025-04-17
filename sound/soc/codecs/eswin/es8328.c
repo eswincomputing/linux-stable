@@ -240,16 +240,16 @@ int esw_codec_dump_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	u32 reg, ret, i;
 
-	printk("codec dump onoff:%d\n", dump_onoff);
+	dev_dbg(component->dev, "codec dump onoff:%d\n", dump_onoff);
 	dump_flag = dump_onoff;
 	if (dump_onoff == true) {
-		printk("statr codec dump\n");
+		dev_dbg(component->dev, "statr codec dump\n");
 		for (i = 0; i < 53; i++) {
 			ret = regmap_read(component->regmap, i, &reg);
 			if (ret != 0) {
-				printk("reag reg[%d] failed!\n", i);
+				dev_err(component->dev, "reag reg[%d] failed!\n", i);
 			}
-			printk("reg[%d]:0x%x\n", i, reg);
+			dev_dbg(component->dev, "reg[%d]:0x%x\n", i, reg);
 		}
 	}
 	return 0;
@@ -269,9 +269,9 @@ int esw_codec_reg_get(struct snd_kcontrol *kcontrol,
 	} else {
 		ret = regmap_read(component->regmap, g_reg, &val);
 		if (ret != 0) {
-			printk("read reg[%d] failed!\n", g_reg);
+			dev_err(component->dev, "read reg[%d] failed!\n", g_reg);
 		}
-		printk("codec read reg[%d]:0x%x\n", g_reg, val);
+		dev_dbg(component->dev, "codec read reg[%d]:0x%x\n", g_reg, val);
 		ucontrol->value.integer.value[1] = val;
 		g_get_cnt = 0;
 	}

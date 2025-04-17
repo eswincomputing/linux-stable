@@ -1,3 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ESWIN encoder driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Xiaojun Zou <zouxiaojun@eswincomputing.com>
+ */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -429,7 +449,7 @@ static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 			LOG_ERR("Video encoder: failed to set aclk: %d\n", ret);
 			return ret;
 		}
-		LOG_INFO("VE set aclk to %ldHZ\n", rate);
+		LOG_DBG("VE set aclk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for aclk %ld\n", rate);
 		return -1;
@@ -442,7 +462,7 @@ static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_INFO("VE set je_clk to %ldHZ\n", rate);
+		LOG_DBG("VE set je_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", rate);
 		return -1;
@@ -455,7 +475,7 @@ static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_INFO("VE set ve_clk to %ldHZ\n", rate);
+		LOG_DBG("VE set ve_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", rate);
 		return -1;
@@ -662,7 +682,7 @@ static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
 		}
 
 		if (!strcmp(core_name, core_name_tag)) {
-			LOG_INFO("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
+			LOG_DBG("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
 			win2030_tbu_power_by_dev_and_node(dev, chi, powerUp);
 		}
 	}

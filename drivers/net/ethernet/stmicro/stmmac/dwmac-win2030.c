@@ -82,6 +82,7 @@ struct dwc_qos_priv {
 	struct gpio_desc *phy_reset;
 	struct stmmac_priv *stmpriv;
 	int phyled_cfgs[3];
+	int phyaddr;
 	unsigned int dly_hsp_reg[3];
 	unsigned int dly_param_1000m[3];
 	unsigned int dly_param_100m[3];
@@ -356,6 +357,10 @@ static int dwc_qos_probe(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,phyaddr", 0, &dwc_priv->phyaddr);
+	if (ret) {
+		dev_warn(&pdev->dev, "can't get phyaddr (%d)\n", ret);
+	}
 	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,led-cfgs", 0, &dwc_priv->phyled_cfgs[0]);
 	if (ret) {
 		dev_warn(&pdev->dev, "can't get led cfgs for 1Gbps mode (%d)\n", ret);
@@ -578,13 +583,16 @@ static int dwc_eth_dwmac_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove;
 
+	dwc_priv = (struct dwc_qos_priv *)plat_dat->bsp_priv;
+		plat_dat->phy_addr = dwc_priv->phyaddr;
+
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto remove;
 
 	ndev = dev_get_drvdata(&pdev->dev);
 	stmpriv = netdev_priv(ndev);
-	dwc_priv = (struct dwc_qos_priv *)plat_dat->bsp_priv;
+	
 	dwc_priv->stmpriv = stmpriv;
 
 	return ret;

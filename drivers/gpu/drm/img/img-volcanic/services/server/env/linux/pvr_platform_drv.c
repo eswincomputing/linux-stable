@@ -61,6 +61,8 @@
 #include "pvr_drv.h"
 #include "pvrmodule.h"
 #include "sysinfo.h"
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
 
 
 /* This header must always be included last */
@@ -167,18 +169,76 @@ static void pvr_devices_unregister(void)
 #endif /* defined(MODULE) && !defined(PVR_LDM_PLATFORM_PRE_REGISTERED) */
 }
 
+#if defined(CONFIG_PM_DEVFREQ)
+
+static void eswin_exit(struct device *dev)
+{
+	;
+}
+
+static int eswin_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	stat->busy_time = 1024;	
+	stat->total_time = 1024;
+	igpu_devfreq_get_cur_freq(dev,&stat->current_frequency);
+
+	return 0;
+}
+
+/** devfreq profile */
+static struct devfreq_dev_profile igpu_devfreq_profile = {
+	.initial_freq = 800000000,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 100, /** Poll every 1000ms to monitor load */
+	.target = igpu_devfreq_target,
+	.get_cur_freq = igpu_devfreq_get_cur_freq,
+	.get_dev_status = eswin_get_dev_status,
+	.exit = eswin_exit,
+	.is_cooling_device = true,
+};
+static struct devfreq_simple_ondemand_data ondemand_data =
+{
+	.upthreshold =80,
+	.downdifferential=10,
+};
+#endif
+
 static int pvr_probe(struct platform_device *pdev)
 {
 	struct drm_device *ddev;
 	int ret;
-
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df;
+#endif
 	DRM_DEBUG_DRIVER("device %p\n", &pdev->dev);
 
 	ddev = drm_dev_alloc(&pvr_drm_platform_driver, &pdev->dev);
 	if (IS_ERR(ddev))
 		return PTR_ERR(ddev);
 
+#if defined(CONFIG_PM_DEVFREQ)
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev,"%s, %d, Failed to add OPP table\n", __func__, __LINE__);
+		goto err_drm_dev_put;
+	}
 
+	df = devm_devfreq_add_device(&pdev->dev, &igpu_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
+	if (IS_ERR(df)) {
+		dev_err(&pdev->dev,"%s, %d, add devfreq failed\n", __func__, __LINE__);
+		ret = PTR_ERR(df);
+		goto err_drm_dev_put;
+	};
+
+	/* Register opp_notifier to catch the change of OPP  ????*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to register opp notifier\n");
+		return ret;
+	}
+#endif
 	/*
 	 * The load callback, called from drm_dev_register, is deprecated,
 	 * because of potential race conditions. Calling the function here,

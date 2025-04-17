@@ -1316,7 +1316,7 @@
 
 &d0_i2c1 {
 	status = "okay";
-	es5430@f {
+	es5340@f {
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
@@ -1330,14 +1330,13 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};
 };
 &d1_i2c1 {
 	status = "okay";
-	es5430@f {
+	es5340@f {
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
@@ -1351,7 +1350,6 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};

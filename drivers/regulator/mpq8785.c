@@ -3,8 +3,7 @@
 /*
  * eswin Specific Glue layer
  *
- * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights
- * reserved. SPDX-License-Identifier: GPL-2.0
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +38,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
+#include <linux/delay.h>
 
 #define MPQ8785_CMD_PAGE 0x0
 #define MPQ8785_CMD_OPERATION 0x1
@@ -192,7 +192,7 @@ struct MPQ8785_DRIVER_DATA
 static u32 garr_volt_numerator[] = {64, 80, 80, 80};
 static char garr_bool_string[][2] = {"N", "Y"};
 static char garr_speed_string[][8] = {"100kHz", "400kHz", "1MHz", "resv"};
-
+static u32 mpq8785_get_vout(struct MPQ8785_DRIVER_DATA *data);
 static struct of_regulator_match mpq8785_matches[] = {
 	{
 		.name = "npu_svcc",
@@ -238,8 +238,17 @@ static inline s32 mpq8785_str2ul(const char *buf, u32 *value)
 static u8 mpq8785_read_byte(struct MPQ8785_DRIVER_DATA *data, u8 command)
 {
 	int ret = 0;
+	int cnt=0;
+
 	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_read_byte_data(data->client, command);
+	for(cnt = 0; cnt < 5; cnt++)
+	{
+		ret = i2c_smbus_read_byte_data(data->client, command);
+		if(ret >= 0)
+		{
+			break;
+		}
+	}
 	mutex_unlock(&data->config_lock);
 	if (ret < 0)
 	{
@@ -254,8 +263,17 @@ static s32 mpq8785_write_byte(struct MPQ8785_DRIVER_DATA *data, u8 command,
 							  u8 val)
 {
 	int ret = 0;
+	int cnt=0;
+
 	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_write_byte_data(data->client, command, val);
+	for(cnt = 0; cnt < 5; cnt++)
+	{
+		ret = i2c_smbus_write_byte_data(data->client, command, val);
+		if(ret >= 0)
+		{
+			break;
+		}
+	}
 	mutex_unlock(&data->config_lock);
 	if (ret < 0)
 	{
@@ -285,8 +303,17 @@ static s32 mpq8785_update_byte(struct MPQ8785_DRIVER_DATA *data, u8 command,
 static u16 mpq8785_read_word(struct MPQ8785_DRIVER_DATA *data, u8 command)
 {
 	int ret = 0;
+	int cnt=0;
+
 	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_read_word_data(data->client, command);
+	for(cnt = 0; cnt < 5; cnt++)
+	{
+		ret = i2c_smbus_read_word_data(data->client, command);
+		if(ret >= 0)
+		{
+			break;
+		}
+	}
 	mutex_unlock(&data->config_lock);
 	if (ret < 0)
 	{
@@ -308,8 +335,17 @@ static s32 mpq8785_write_word(struct MPQ8785_DRIVER_DATA *data, u8 command,
 							  u16 val)
 {
 	int ret = 0;
+	int cnt=0;
+
 	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_write_word_data(data->client, command, val);
+	for(cnt = 0; cnt < 5; cnt++)
+	{
+		ret = i2c_smbus_write_word_data(data->client, command, val);
+		if(ret >= 0)
+		{
+			break;
+		}
+	}
 	mutex_unlock(&data->config_lock);
 	if (ret < 0)
 	{
@@ -524,12 +560,12 @@ static int mpq8785_read(struct device *dev, enum hwmon_sensor_types type,
 		case hwmon_curr_crit:
 			*val = mpq8785_read_mask_word(data, MPQ8785_CMD_IOUT_OC_FAULT_LIMIT,
 										  MPQ8785_MASK_IOUT_LIMIT);
-
+			*val *=1000;
 			break;
 		case hwmon_curr_max:
 			*val = mpq8785_read_mask_word(data, MPQ8785_CMD_IOUT_OC_WARN_LIMIT,
 										  MPQ8785_MASK_IOUT_LIMIT);
-
+			*val *=1000;
 			break;
 		}
 		break;
@@ -617,6 +653,52 @@ static int mpq8785_read_string(struct device *dev,
 	return 0;
 }
 
+static int mpq8785_enable(struct device *dev,struct MPQ8785_DRIVER_DATA *data, u8 val)
+{
+	u32 set_value = 0;
+	u32 get_value = 0;
+	int count = 0;
+	int ret;
+
+	if (MPQ8785_MASK_OPERATION_ENABLE == val) {
+		do {
+			ret = mpq8785_update_byte(
+				data, MPQ8785_CMD_OPERATION,
+				MPQ8785_MASK_OPERATION_ENABLE,
+				MPQ8785_MASK_OPERATION_ENABLE);
+			if (ret < 0) {
+				dev_err(dev,"failed to enable output, ret %d\n",ret);
+				return ret;
+			}
+			/* regulator need some time to set up stable output*/
+			msleep(10);
+
+			/*
+		 * The reason for this checking is that,
+		 * it was found that repeatedly toggling the MPQ8785 output voltage
+		 * may cause the voltage to suddenly drop to 0.7V.
+		 * Enabling it a second time may ensures normal output voltage.
+		 */
+			set_value = mpq8785_get_vout(data);
+			get_value = mpq8785_reg2volt(
+				mpq8785_read_word(data, MPQ8785_CMD_READ_VOUT),
+				data->volt_numerator);
+			if (abs((s32)set_value - (s32)get_value) < 20) {
+				return 0;
+			}
+			count++;
+			dev_dbg(dev,
+				"set value(%d )not equal to get value (%d), retry count %d\n",
+				set_value, get_value, count);
+		} while (count < 5);
+		dev_err(dev, "failed to enable output, set value %d, get value %d\n", set_value, get_value);
+		return -EIO;
+	} else {
+		mpq8785_update_byte(data, MPQ8785_CMD_OPERATION,
+				    MPQ8785_MASK_OPERATION_ENABLE, val);
+	}
+	return 0;
+}
 static int mpq8785_write(struct device *dev, enum hwmon_sensor_types type,
 						 u32 attr, int channel, long val)
 {
@@ -631,8 +713,7 @@ static int mpq8785_write(struct device *dev, enum hwmon_sensor_types type,
 		switch (attr)
 		{
 		case hwmon_in_enable:
-			mpq8785_update_byte(data, MPQ8785_CMD_OPERATION,
-								MPQ8785_MASK_OPERATION_ENABLE, (u8)(val << 7));
+			mpq8785_enable(dev,data, (u8)(val << 7));
 			break;
 		case hwmon_in_min:
 			new_value = mpq8785_volt2reg(val, data->volt_numerator);
@@ -665,11 +746,11 @@ static int mpq8785_write(struct device *dev, enum hwmon_sensor_types type,
 		{
 		case hwmon_curr_crit:
 			ret = mpq8785_update_word(data, MPQ8785_CMD_IOUT_OC_FAULT_LIMIT,
-									  MPQ8785_MASK_IOUT_LIMIT, (u16)val);
+									  MPQ8785_MASK_IOUT_LIMIT, (u16)(val / 1000));
 			break;
 		case hwmon_curr_max:
 			ret = mpq8785_update_word(data, MPQ8785_CMD_IOUT_OC_WARN_LIMIT,
-									  MPQ8785_MASK_IOUT_LIMIT, (u16)val);
+									  MPQ8785_MASK_IOUT_LIMIT, (u16)val/1000);
 			break;
 		}
 		break;
@@ -986,10 +1067,13 @@ int mpq8785_regulator_enable(struct regulator_dev *rdev)
 {
 	struct i2c_client *client = to_i2c_client(rdev->dev.parent);
 	struct MPQ8785_DRIVER_DATA *data = i2c_get_clientdata(client);
+	u32 set_value = 0;
+	u32 get_value = 0;
+	int count = 0;
+	int ret;
+
 	dev_dbg(&rdev->dev, "%s.%d\n", __FUNCTION__, __LINE__);
-	return mpq8785_update_byte(data, MPQ8785_CMD_OPERATION,
-							   MPQ8785_MASK_OPERATION_ENABLE,
-							   MPQ8785_MASK_OPERATION_ENABLE);
+	return mpq8785_enable(&rdev->dev,data,  MPQ8785_MASK_OPERATION_ENABLE);
 }
 
 int mpq8785_regulator_disable(struct regulator_dev *rdev)

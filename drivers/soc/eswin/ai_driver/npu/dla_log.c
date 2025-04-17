@@ -29,9 +29,7 @@
 #include "dla_log.h"
 
 /*/sys/module/npu/parameters/*/
-#if NPU_PERF_STATS
-int npu_debug_control = NPU_PRINT_ERROR;
-#else
+
 #if LOG_LEVEL == 0
 int npu_debug_control = NPU_PRINT_ERROR;
 #elif LOG_LEVEL == 1
@@ -40,7 +38,6 @@ int npu_debug_control = NPU_PRINT_WARN;
 int npu_debug_control = NPU_PRINT_INFO;
 #else
 int npu_debug_control = NPU_PRINT_DETAIL;
-#endif
 #endif
 
 int loop_buf_enable = 0;

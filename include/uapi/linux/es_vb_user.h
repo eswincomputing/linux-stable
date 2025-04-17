@@ -1,5 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+/*
+ * ESWIN MMZ VB user state api header.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: Min Lin <linmin@eswincomputing.com>
+ */
+
 #ifndef ES_VB_USER_H
 #define ES_VB_USER_H
+
+typedef unsigned int ES_U32;
+typedef unsigned long long ES_U64;
+typedef char ES_CHAR;
 
 /**
  * mmz vb configurations
@@ -11,6 +36,17 @@
 #define ES_VB_MAX_MOD_POOL	16
 
 #define ES_MAX_MMZ_NAME_LEN	64
+
+/**
+ * numa id encoding definitions
+*/
+typedef enum {
+    EIC770X_LOGICAL_FLAT_MEM_NODE_0 = 0,
+    EIC770X_LOGICAL_FLAT_MEM_NODE_1 = 1,
+    EIC770X_LOGICAL_SPRAM_NODE_0 = 500,
+    EIC770X_LOGICAL_SPRAM_NODE_1 = 501,
+    EIC770X_LOGICAL_INTERLEAVE_MEM_NODE = 1000,
+} EIC770X_LOGICAL_MEM_NODE_E;
 
 /**
  * mmz vb pool or block struct definition

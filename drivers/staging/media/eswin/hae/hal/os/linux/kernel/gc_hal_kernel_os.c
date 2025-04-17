@@ -1,3 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/******************************************************************************
+ *
+ * ESWIN hae driver
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Authors: zhilin lei <leizhilin@eswincomputing.com>
+ *
+ ***************************************************************************/
+
 /****************************************************************************
 *
 *    The MIT License (MIT)
@@ -4292,7 +4315,10 @@ gckOS_Broadcast(gckOS Os, gckHARDWARE Hardware, gceBROADCAST Reason)
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "Last process has detached");
 
         /* Put GPU OFF. */
+        /* With PM, Clock will power off by powerStateTimer*/
+#if !gcdENABLE_PER_DEVICE_PM
         gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_OFF_BROADCAST));
+#endif
         break;
 
     case gcvBROADCAST_GPU_IDLE:

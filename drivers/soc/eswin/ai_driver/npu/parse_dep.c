@@ -226,6 +226,14 @@ static void dependency_consumer2producer(struct win_executor *executor,
 		if (pcer == IDX_EVENT_SOURCE)
 			dependency_count[i]++;
 
+		if((pcer == IDX_EVENT_SOURCE || pcer == IDX_EVENT_SINK) &&
+		    task->op_desc[i].event_op.submodel_type == E31)
+		{
+			npu_info->peer_type = E31;
+			dla_debug("e31 event op:%d,depcnt:%d,peer_type:%d\n", i,
+			           dependency_count[i], npu_info->peer_type);
+		}
+
 		for (j = IDX_SDP; j <= IDX_PDP; j++) {
 			consumer = task->common_desc[i].fused_parent.index;
 			event = task->common_desc[i].fused_parent.event;
@@ -274,7 +282,7 @@ static void dependency_consumer2producer(struct win_executor *executor,
 			 */
 		}
 		dependency_count[i]++;
-		dla_detail("i:%d dependency_count:%d\n", i,
+		dla_debug("i:%d dependency_count:%d\n", i,
 			   dependency_count[i]);
 		npu_info->depcnt = dependency_count[i];
 		pcer_cnt[pcer]++;

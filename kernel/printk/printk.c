@@ -55,10 +55,39 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
+#ifdef CONFIG_PRINTK_TO_SHMEM
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#endif
+
 #include "printk_ringbuffer.h"
 #include "console_cmdline.h"
 #include "braille.h"
 #include "internal.h"
+
+#ifdef CONFIG_PRINTK_TO_SHMEM
+#define KDR_MEM_SIZE 0x100000
+#define PACMSG_BUF_SIZE 0x40000
+#define PACMSG_MAX_OFFSET                               \
+	(PACMSG_BUF_SIZE - sizeof(struct paclog_iter) - \
+	 sizeof(struct paclog_info))
+
+struct paclog_info {
+	u16 len;
+	u16 text_len;
+};
+
+struct paclog_iter {
+	u32 log_first_idx;
+	u32 log_next_idx;
+	u64 log_first_seq;
+	u64 log_next_seq;
+};
+static bool shm_ready_flag;
+static u64 reserved_next_seq;
+static void __iomem *shm_va;
+#endif
 
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
@@ -2149,6 +2178,140 @@ static u16 printk_sprint(char *text, u16 size, int facility,
 	return text_len;
 }
 
+#ifdef CONFIG_PRINTK_TO_SHMEM
+static int pacmsg_share_memory_init(void)
+{
+	struct device_node *shm = NULL;
+	struct resource res;
+	struct paclog_iter msg_iter;
+	int ret;
+
+	shm = of_find_node_by_name(NULL, "kernel_debug_reserved");
+	if (!shm) {
+		pr_err("get share_memory failed\n");
+		return -EINVAL;
+	}
+
+	ret = of_address_to_resource(shm, 0, &res);
+	if (ret) {
+		pr_err("Failed to get kernel_debug_reserved resource\n");
+		return -EINVAL;
+	}
+
+	shm_va = ioremap(res.start, PACMSG_BUF_SIZE);
+	if (!shm_va) {
+		pr_err("Failed to ioremap share memory\n");
+		return -EIO;
+	}
+
+	memset(shm_va, 0, PACMSG_BUF_SIZE);
+
+	memset(&msg_iter, 0, sizeof(struct paclog_iter));
+	memcpy((void *)shm_va, &msg_iter, sizeof(struct paclog_iter));
+
+	shm_ready_flag = true;
+
+	return ret;
+}
+
+static int reserve_log_to_share_memory(char *buffer, size_t line_len)
+{
+	struct paclog_info old_info;
+	struct paclog_info new_info;
+	struct paclog_iter *iter;
+	unsigned long pacmsg_base;
+	unsigned long pacmsg_buf;
+	unsigned long target_address;
+	u32 first_idx, next_idx;
+	u64 first_seq, next_seq;
+	u32 offset;
+
+	if (buffer == NULL)
+		return 0;
+
+	pacmsg_base = (unsigned long)shm_va;
+	pacmsg_buf = pacmsg_base + sizeof(struct paclog_iter);
+
+	iter = (struct paclog_iter *)(pacmsg_base);
+	first_idx = iter->log_first_idx;
+	first_seq = iter->log_first_seq;
+	next_idx = iter->log_next_idx;
+	next_seq = iter->log_next_seq;
+
+	offset = sizeof(struct paclog_info) + line_len;
+
+	memset(&new_info, 0, sizeof(struct paclog_info));
+
+	if (next_idx + offset >= PACMSG_MAX_OFFSET) {
+		memcpy((void *)(pacmsg_buf + next_idx), &new_info,
+		       sizeof(struct paclog_info));
+		next_idx = 0;
+	}
+
+	while (first_seq < next_seq) {
+		memcpy(&old_info, (void *)(pacmsg_buf + first_idx),
+		       sizeof(struct paclog_info));
+
+		if (old_info.len) {
+			if (first_idx >= next_idx &&
+			    first_idx < (next_idx + offset)) {
+				first_idx += old_info.len;
+				first_seq++;
+			} else
+				break;
+		} else
+			first_idx = 0;
+	}
+
+	new_info.len = offset;
+	new_info.text_len = line_len;
+
+	target_address = pacmsg_buf + next_idx;
+	memcpy((void *)target_address, &new_info, sizeof(struct paclog_info));
+	memcpy((void *)(target_address + sizeof(struct paclog_info)), buffer,
+	       line_len);
+
+	next_idx += offset;
+	next_seq++;
+
+	iter->log_first_idx = first_idx;
+	iter->log_next_idx = next_idx;
+	iter->log_first_seq = first_seq;
+	iter->log_next_seq = next_seq;
+
+	reserved_next_seq = next_seq;
+
+	return 0;
+}
+
+static int reserve_record_to_share_memory(void)
+{
+	struct printk_info info;
+	struct printk_record r;
+	char *text;
+	u64 seq;
+
+	text = kmalloc(PRINTK_MESSAGE_MAX, GFP_ATOMIC);
+	if (!text)
+		return -ENOMEM;
+
+	prb_rec_init_rd(&r, &info, text, PRINTK_MESSAGE_MAX);
+
+	prb_for_each_record(reserved_next_seq, prb, seq, &r)
+	{
+		int textlen;
+
+		textlen = record_print_text(
+			&r, console_msg_format & MSG_FORMAT_SYSLOG,
+			printk_time);
+		reserve_log_to_share_memory(text, textlen);
+	}
+
+	kfree(text);
+	return 0;
+}
+#endif
+
 __printf(4, 0)
 int vprintk_store(int facility, int level,
 		  const struct dev_printk_info *dev_info,
@@ -2259,6 +2422,10 @@ int vprintk_store(int facility, int level,
 
 	ret = text_len + trunc_msg_len;
 out:
+#ifdef CONFIG_PRINTK_TO_SHMEM
+	if (shm_ready_flag) 
+		reserve_record_to_share_memory();
+#endif
 	printk_exit_irqrestore(recursion_ptr, irqflags);
 	return ret;
 }
@@ -3668,6 +3835,10 @@ void __init console_init(void)
 		trace_initcall_finish(call, ret);
 		ce++;
 	}
+
+#ifdef CONFIG_PRINTK_TO_SHMEM
+	pacmsg_share_memory_init();
+#endif
 }
 
 /*

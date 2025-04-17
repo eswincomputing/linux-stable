@@ -252,9 +252,16 @@ static int es_plane_atomic_check(struct drm_plane *plane,
 	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct drm_crtc *crtc = new_plane_state->crtc;
 	struct es_crtc *es_crtc = to_es_crtc(crtc);
+	struct drm_device *dev = plane->dev;
+	struct es_drm_private *priv = dev->dev_private;
 
 	if (!crtc || !fb)
 		return 0;
+
+	/* Reject FB with misaligned pitches, which seem to crash the DC */
+	if (fb->format->num_planes == 1 &&
+		fb->pitches[0] & (priv->pitch_alignment - 1))
+		return -EINVAL;
 
 	return es_plane->funcs->check(es_crtc->dev, es_plane, new_plane_state);
 }

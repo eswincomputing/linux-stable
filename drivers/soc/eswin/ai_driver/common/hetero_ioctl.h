@@ -37,6 +37,7 @@ enum {
     mem_flag_swap,
     mem_flag_input,
     mem_flag_output,
+    mem_flag_remote
 };
 
 /**

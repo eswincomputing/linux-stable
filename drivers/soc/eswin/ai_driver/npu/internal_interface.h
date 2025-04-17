@@ -180,7 +180,6 @@ struct win_engine {
 	/* Next executor to use, Protected by executor_lock */
 	spinlock_t executor_lock;
 	bool perf_switch;
-	void *perf_data_buf;
 	struct timer_list timer[NUM_TIKTOK];
 	atomic_t is_sending;
 

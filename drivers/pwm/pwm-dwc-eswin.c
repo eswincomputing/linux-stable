@@ -1,19 +1,9 @@
+
 // SPDX-License-Identifier: GPL-2.0
 /*
- * DesignWare PWM Controller driver
- *
- * Copyright (C) 2018-2020 Intel Corporation
- *
- * Author: Felipe Balbi (Intel)
- * Author: Jarkko Nikula <jarkko.nikula@linux.intel.com>
- * Author: Raymond Tan <raymond.tan@intel.com>
- *
- * Limitations:
- * - The hardware cannot generate a 0 % or 100 % duty cycle. Both high and low
- *   periods are one or more input clock periods long.
+ * ESWIN cipher serivce driver
  *
  * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
- * SPDX-License-Identifier: GPL-2.0
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
- * Author: xuxiang@eswincomputing.com
+ * Authors: xuxiang@eswincomputing.com
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -106,8 +96,8 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 {
 	u64 tmp;
 	u32 ctrl;
-	u32 high;
-	u32 low;
+	u32 high=0;
+	u32 low=0;
 
 	/*
 	 * Calculate width of low and high period in terms of input clock
@@ -117,14 +107,26 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 	tmp = DIV_ROUND_CLOSEST_ULL(state->duty_cycle, DWC_CLK_PERIOD_NS);
 	if (tmp < 1 || tmp > (1ULL << 32))
 		return -ERANGE;
-	low = tmp - 1;
-
+	if (pwm->args.polarity== PWM_POLARITY_INVERSED)
+	{
+		high = tmp - 1;
+	}
+	else
+	{
+		low = tmp - 1;
+	}
 	tmp = DIV_ROUND_CLOSEST_ULL(state->period - state->duty_cycle,
 				    DWC_CLK_PERIOD_NS);
 	if (tmp < 1 || tmp > (1ULL << 32))
 		return -ERANGE;
-	high = tmp - 1;
-
+	if (pwm->args.polarity == PWM_POLARITY_INVERSED)
+	{
+		low = tmp - 1;
+	}
+	else
+	{
+		high = tmp - 1;
+	}
 	/*
 	 * Specification says timer usage flow is to disable timer, then
 	 * program it followed by enable. It also says Load Count is loaded

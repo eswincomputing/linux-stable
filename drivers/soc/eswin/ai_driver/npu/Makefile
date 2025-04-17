@@ -1,11 +1,8 @@
-﻿NPU_PERF_STATS ?= 0
+﻿
 LOG_LEVEL ?= 0
 NPU_DEV_SIM ?= 0
 SMALL_PEC_MAT ?= 0
 
-ifeq ($(CONFIG_NPU_PERF),y)
-	NPU_PERF_STATS = 2
-endif
 ccflags-y += -I$(src)
 ccflags-y += -I$(srctree)/drivers/soc/eswin
 ccflags-y += -I$(srctree)/drivers/memory/eswin/codacache/
@@ -20,7 +17,6 @@ ccflags-y += -DENABLE_PROGRAM_CORE=$(ENABLE_PROGRAM_CORE)
 ccflags-y += -DDUAL_DIE=$(DUAL_DIE)
 ccflags-y += -DSMALL_PEC_MAT=$(SMALL_PEC_MAT)
 ccflags-y += -DNPU_DRV_SUPPORT_DSP=$(NPU_DSP_MODULE)
-ccflags-y += -DNPU_PERF_STATS=$(NPU_PERF_STATS)
 ccflags-y += -DNPU_DBG
 #ccflags-y += -DCONV_DUMP
 ccflags-y += -DLOG_LEVEL=$(LOG_LEVEL)

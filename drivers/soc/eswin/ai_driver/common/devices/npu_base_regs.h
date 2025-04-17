@@ -87,8 +87,10 @@ typedef enum type_NPU_MODULE_SEL_ID_E {
 /* NPU system port base address */
 #if defined(DIE1) && DIE1
 #define NPU_SYS_BASE_ADDR 0x71C00000
+#define ANOTHER_NPU_CTL_ADDR (NPU_CTRL_BASE_ADDR - 0x20000000)
 #else
 #define NPU_SYS_BASE_ADDR 0x51C00000
+#define ANOTHER_NPU_CTL_ADDR (NPU_CTRL_BASE_ADDR + 0x20000000)
 #endif
 /* NPU configuration base address */
 #define NPU_CFG_BASE_ADDR 0x51828000
