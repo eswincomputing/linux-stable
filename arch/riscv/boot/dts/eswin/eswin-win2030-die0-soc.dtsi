@@ -1372,7 +1372,7 @@
 			reset-names = "rst";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0x0 0x50960000 0x0 0x10000>;
+			reg = <0x0 0x50960000 0x0 0x8000>;
 			interrupts = <106>;
 			interrupt-parent = <&plic0>;
 			numa-node-id = <0>;
