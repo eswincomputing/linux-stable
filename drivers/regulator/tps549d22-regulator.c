@@ -462,10 +462,10 @@ static s32 tps549d22_init_data(struct TPS549D22_DRIVER_DATA *data,
 			tps549d22_regulator_desc.n_voltages);
 
 	tps549d22_set_vout(data, default_voltage);
-	tps549d22_write_byte(data, TPS549D22_CMD_ON_OFF_CONFIG, 0xf);
 	ret =  tps549d22_update_byte(data, TPS549D22_CMD_OPERATION,
 								 TPS549D22_MASK_OPERATION_ENABLE,
 								 TPS549D22_MASK_OPERATION_ENABLE);
+	tps549d22_write_byte(data, TPS549D22_CMD_ON_OFF_CONFIG, 0xf);
 	mdelay(20);
 	return ret;
 }
