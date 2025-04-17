@@ -461,7 +461,7 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_S24_3LE:
 		config->data_width = 24;
-		i2s_drvdata->ccr = CLOCK_CYCLES_32 << CCR_WSS_POS |
+		i2s_drvdata->ccr = CLOCK_CYCLES_24 << CCR_WSS_POS |
 					NO_CLOCK_GATING;
 		i2s_drvdata->xfer_resolution = RESOLUTION_24_BIT;
 		break;
