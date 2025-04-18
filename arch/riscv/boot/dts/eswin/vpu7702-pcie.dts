@@ -998,6 +998,54 @@
 
 &pinctrl {
 	status = "okay";
+
+	pinctrl_gpio58_default: gpio58-default {
+		mux {
+			groups = "gpio58_group";
+			function = "gpio58_func";
+		};
+		conf {
+			groups = "gpio58_group";
+			input-enable = <1>;
+			bias-pull-down = <0>;
+		};
+	};
+
+	pinctrl_gpio59_default: gpio59-default {
+		mux {
+			groups = "gpio59_group";
+			function = "gpio59_func";
+		};
+		conf {
+			groups = "gpio59_group";
+			input-enable = <1>;
+			bias-pull-down = <0>;
+		};
+	};
+
+	pinctrl_gpio60_default: gpio60-default {
+		mux {
+			groups = "gpio60_group";
+			function = "gpio60_func";
+		};
+		conf {
+			groups = "gpio60_group";
+			input-enable = <1>;
+			bias-pull-down = <0>;
+		};
+	};
+
+	pinctrl_gpio61_default: gpio61-default {
+		mux {
+			groups = "gpio61_group";
+			function = "gpio61_func";
+		};
+		conf {
+			groups = "gpio61_group";
+			input-enable = <1>;
+			bias-pull-down = <0>;
+		};
+	};
 };
 
 /* GPIO Function Description
@@ -1024,7 +1072,13 @@
 
 &gpio0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio58_default
+	&pinctrl_gpio59_default
+	&pinctrl_gpio60_default
+	&pinctrl_gpio61_default>;
 };
+
 &dev_llc_d0{
 	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
