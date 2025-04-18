@@ -1,0 +1,323 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7702 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+#include "eic7702-som560.dtsi"
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	model = "ESWIN 7702 D560";
+
+	/* die0 gpio111 system led */
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio111_default>;
+
+		gpio-111 {
+			gpios = <&portd 15 GPIO_ACTIVE_LOW>;
+			label = "heartbeat";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+};
+
+&d0_i2s1 {
+	status = "okay";
+	numa-node-id = <0>;
+	d0_i2s1_port: port {
+		d0_i2s1_endpoint: endpoint {
+			remote-endpoint = <&d0_codec0_endpoint>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&sdio0 {
+	/* sd card */
+	status = "okay";
+	delay_code = <0x55>;
+	drive-impedance-ohm = <33>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	no-sdio;
+	no-mmc;
+};
+
+&d1_sdio0 {
+	/* wifi module */
+	status = "okay";
+	delay_code = <0x29>;
+	drive-impedance-ohm = <33>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	keep-power-in-suspend;
+	non-removable;
+	no-sd;
+	no-mmc;
+	aw315:wifi_aw3155@0 {
+		compatible = "aml_w1_sdio";
+		reg = <0x0>;
+		interrupt-parent = <&d1_porta>;
+		interrupts = <18 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default", "default";
+		pinctrl-0 = <&pinctrl_die1_gpio18_default>;
+		pinctrl-1 = <&pinctrl_die1_gpio16_default>;
+		irq-gpios = <&d1_porta 18 GPIO_ACTIVE_HIGH>;
+		rst-gpios = <&d1_porta 16 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&d1_uart1 {
+	/* BT M.2 KEY-E */
+	status = "okay";
+};
+
+&d0_uart2 {
+	/* connect mcu */
+	status = "okay";
+};
+
+&d1_uart2 {
+	/* pin header */
+	status = "okay";
+};
+
+&ssi0 {
+	/* pin header */
+	status = "okay";
+};
+&d1_ssi0 {
+	/* pin header */
+	status = "okay";
+};
+
+&d0_graphcard1 {
+	status = "okay";
+	label = "Analog Audio-1";
+	dais = <&d0_i2s1_port>;
+};
+
+&d0_i2c0 {
+	/* codec es8388 */
+	status = "okay";
+	d0_es8388_0: es8388-0@11 {
+		compatible = "eswin,es8388";
+		reg = <0x11>;
+		#sound-dai-cells = <0>;
+		port {
+			d0_codec0_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
+};
+
+&d1_i2c0 {
+	/* eeprom(at24c02c) & rtc(pcf8563) & power monitor(ina236) */
+	status = "okay";
+	pcf_rtc:rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+	};
+	ina226@45 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "cpu_vdd";
+		reg = <0x45>;
+		shunt-resistor = <1000>;
+	};
+	aon_eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
+};
+
+&d0_i2c1 {
+	/* pin header */
+	status = "okay";
+};
+&d1_i2c1 {
+	/* ch347 */
+	status = "okay";
+};
+
+&d0_i2c2 {
+	/* d0 dsi*/
+	status = "ok";
+};
+
+&d1_i2c2 {
+	/* d1 dsi */
+	status = "ok";
+};
+
+&d0_i2c3 {
+	/* d0 csi0-1 */
+	status = "okay";
+};
+&d1_i2c3 {
+	/* d1 csi0-1 */
+	status = "okay";
+};
+
+&d0_i2c4 {
+	/* d0 csi2-3 */
+};
+&d1_i2c4 {
+	/* d1 csi2-3 */
+};
+
+&d0_i2c5 {
+	/* pin header */
+};
+&d1_i2c5 {
+	/* cc logic fusb303b */
+	fusb303b@21 {
+		compatible = "fcs,fusb303b";
+		status = "okay";
+		reg = <0x21>;
+		eswin,syscfg = <&d0_sys_con 0x3C0 12>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio30_default>;
+		int-gpios = <&porta 30 GPIO_ACTIVE_HIGH>;
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "host";
+		};
+	};
+};
+
+&d0_i2c8 {
+	/* pin header */
+};
+&d1_i2c8 {
+	/* pin header */
+};
+
+&d0_i2c9 {
+	/* pin header */
+};
+&d1_i2c9 {
+	/* pin header */
+};
+
+&pvt0 {
+	status = "disabled";
+};
+&d1_pvt0 {
+	status = "disabled";
+};
+
+&wdt0 {
+	status = "disabled";
+};
+&d1_wdt0 {
+	status = "disabled";
+};
+
+&wdt1 {
+	status = "disabled";
+};
+&d1_wdt1 {
+	status = "disabled";
+};
+
+&wdt2 {
+	status = "disabled";
+};
+&d1_wdt2 {
+	status = "disabled";
+};
+
+&wdt3 {
+	status = "disabled";
+};
+&d1_wdt3 {
+	status = "disabled";
+};
+
+&timer1 {
+	status = "disabled";
+};
+&d1_timer1 {
+	status = "disabled";
+};
+
+&pinctrl {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio5_default &pinctrl_die0_gpio6_default &pinctrl_die0_gpio12_default &pinctrl_die0_gpio35_default
+				 &pinctrl_die0_gpio39_default &pinctrl_die0_gpio40_default &pinctrl_die0_gpio41_default &pinctrl_die0_gpio46_default
+				 &pinctrl_die0_gpio47_default &pinctrl_die0_gpio54_default &pinctrl_die0_gpio55_default &pinctrl_die0_gpio73_default
+				 &pinctrl_die0_gpio75_default &pinctrl_die0_gpio79_default &pinctrl_die0_gpio81_default &pinctrl_die0_gpio36_default
+				 &pinctrl_die0_gpio37_default &pinctrl_die0_gpio38_default &pinctrl_die0_gpio74_default &pinctrl_die0_gpio92_default
+				 &pinctrl_die0_gpio93_default>;
+	
+
+    /* pin header default function for GPIO
+       D0_SPI1 (CS0,SCLK,MOSI,MISO,D2,D3): GPIO 35,36,37,38,39,40
+	   D0_I2C1 (SCL,SDA): GPIO 46,47
+       D0_I2C5 (SCL,SDA): GPIO 54,55
+	   D1_SPI1 (CS0,SCLK,D0,D1,D2): GPIO 35,36,37,38,39
+       D1_UART3(TX,RX): GPIO 92,93
+	   D0_UART3(TX,RX): GPIO 92,93
+    */
+};
+
+&d1_pinctrl {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die1_gpio35_default &pinctrl_die1_gpio36_default &pinctrl_die1_gpio37_default &pinctrl_die1_gpio38_default
+				 &pinctrl_die1_gpio39_default &pinctrl_die1_gpio92_default &pinctrl_die1_gpio93_default>;
+};
+
+/* die0 GPIO Function Description
+
+	gpio0   : pcie prstn(I)
+	gpio11  : tmp alert(I)
+	gpio13  : tf card detect(I)
+	gpio18  : ina226 alert(I)
+	gpio25  : front panel audio insert detection(I)
+	gpio27  : sata act(O)
+	gpio28  : to mcu pb5
+	gpio29  : gphy0 resetn(O)
+	gpio34  : gphy1 resetn(O)
+	gpio42  : usb0 pwren(O)
+	gpio43  : usb1 pwren(O)
+	gpio111 : sys run led(O)
+*/
+/* die1 GPIO Function Description
+
+	gpio0   : pcie prstn(I)
+	gpio5   : classis fan1 fantach
+	gpio6   : classis fan2 fantach
+	gpio27  : to mcu pb3
+	gpio28  : to mcu pb4
+	gpio29  : gphy0 resetn(O)
+	gpio34  : gphy1 resetn(O)
+	gpio42  : usb0 pwren(O)
+	gpio43  : usb1 pwren(O)
+*/
