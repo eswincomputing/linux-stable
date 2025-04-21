@@ -640,6 +640,15 @@ static int eswin_csi2_dphy_get_inno_phy_hw(struct csi2_dphy *dphy)
 	struct device_node *np;
 	int i = 0;
 
+	// int count = of_count_phandle_with_args(dev->of_node, "eswin,hw", NULL);
+	// if (count < 0) {
+	// 	dev_err(dphy->dev, "failed to get dphy%d hw count\n",
+	// 		dphy->phy_index);
+	// 	return -ENODEV;
+	// }
+
+	// dphy->drv_data->num_inno_phy = count;
+
 	for (i = 0; i < dphy->drv_data->num_inno_phy; i++) {
 		np = of_parse_phandle(dev->of_node, "eswin,hw", i);
 		if (!np || !of_device_is_available(np)) {
