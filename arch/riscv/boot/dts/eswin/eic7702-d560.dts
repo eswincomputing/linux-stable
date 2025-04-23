@@ -88,6 +88,13 @@
 	};
 };
 
+&d0_usbdrd3_1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio14_default>;
+	hub-rst-gpios = <&porta 14 GPIO_ACTIVE_HIGH>;
+};
+
 &d1_uart1 {
 	/* BT M.2 KEY-E */
 	status = "okay";
@@ -198,11 +205,11 @@
 		compatible = "fcs,fusb303b";
 		status = "okay";
 		reg = <0x21>;
-		eswin,syscfg = <&d0_sys_con 0x3C0 12>;
+		eswin,syscfg = <&d1_sys_con 0x3C0 12>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die0_gpio30_default>;
-		int-gpios = <&porta 30 GPIO_ACTIVE_HIGH>;
+		pinctrl-0 = <&pinctrl_die1_gpio30_default>;
+		int-gpios = <&d1_porta 30 GPIO_ACTIVE_HIGH>;
 		connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
