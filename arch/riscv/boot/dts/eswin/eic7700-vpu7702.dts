@@ -188,7 +188,7 @@
 		};
 
 		dev_smmu_cfg: smmu_cfg@0 {
-			compatible = "riscv,dev_smmu_cfg";
+			compatible = "eswin,vpu7702_dev_smmu_cfg";
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
 			iommus = <&smmu0 WIN2030_SID_DEV_FOO_B>;
