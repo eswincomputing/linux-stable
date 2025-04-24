@@ -175,7 +175,12 @@
 			linux,default-trigger = "heartbeat";
 		};
 	};
-
+	reg_vcc1v8: vcc1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
 };
 
 &D1CACHE {
@@ -939,6 +944,7 @@
 	non-removable;
 	no-sd;
 	no-mmc;
+	vqmmc-supply = <&reg_vcc1v8>;
 	aw315:wifi_aw3155@0 {
 		compatible = "aml_w1_sdio";
 		reg = <0x0>;
@@ -949,6 +955,12 @@
 		pinctrl-1 = <&pinctrl_die1_gpio16_default>;
 		irq-gpios = <&d1_porta 18 GPIO_ACTIVE_HIGH>;
 		rst-gpios = <&d1_porta 16 GPIO_ACTIVE_HIGH>;
+	};
+	mdhd_wlan {
+		compatible = "android,bcmdhd_wlan";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die1_gpio16_default>;
+		gpio_wl_reg_on = <&d1_porta 16 GPIO_ACTIVE_HIGH>;
 	};
 };
 
