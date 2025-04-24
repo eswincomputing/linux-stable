@@ -1269,8 +1269,6 @@
 
 //		everest,jack-detect-inverted;
 		everest,jack-pol = [0e];
-		everest,mic1-src = [00];
-		everest,mic2-src = [44];
 		everest,interrupt-src = [08];
 		everest,interrupt-clk = [45];
 
