@@ -918,8 +918,7 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 		return runtime_try_lock(uctx, file);
 	case ES_NPU_IOCTL_MUTEX_UNLOCK:
 	case ES_NPU_IOCTL_MUTEX_LOCK:
-		ret = runtime_lock_request(uctx, file, cmd);
-		break;
+		return runtime_lock_request(uctx, file, cmd);
 	case ES_NPU_IOCTL_HETERO_CMD:
 		ret = npu_hetero_cmd(npu_cdev->nvdla_dev, &win_arg);
 		break;
