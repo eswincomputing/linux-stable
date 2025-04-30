@@ -260,12 +260,19 @@ static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 	writel_relaxed(val, pcie->mgmt_base + PCIEMGMT_CTRL0_OFFSET);
 
 	/* wait pm_sel_aux_clk to 0 */
-	while (1) {
+	for (ret = 50; ret > 0; ret--) {
 		val = readl_relaxed(pcie->mgmt_base + PCIEMGMT_STATUS0_OFFSET);
 		if (!(val & PCIE_PM_SEL_AUX_CLK)) {
 			break;
 		}
-		msleep(1);
+		msleep(2);
+	}
+
+	if (!ret) {
+		dev_info(pcie->pci.dev, "No clock exist.\n");
+		eswin_pcie_power_off(pcie);
+		eswin_pcie_clk_disable(pcie);
+		return -ENODEV;
 	}
 
 	/* config eswin vendor id and win2030 device id */
