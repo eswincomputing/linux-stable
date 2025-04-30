@@ -160,8 +160,155 @@
 };
 
 &d0_aon_i2c0 {
-	/* rk628f x2 */
+	/* rk628f */
+	status = "okay";
+	i2c-sda-hold-time-ns = <1000>;
 
+	rk628_csi: rk628_csi@50 {
+		reg = <0x50>;
+		compatible = "rockchip,rk628-csi-v4l2";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio70_default &pinctrl_gpio71_default &pinctrl_gpio73_default &pinctrl_gpio9_default>;
+		/* pinctrl-0 = <&rk628_pin>; */
+		/* RK628_INT_H GPIO_070 input */
+		interrupt-parent = <&portc>;
+		interrupts = <6 IRQ_TYPE_EDGE_RISING>;
+		/* RK628_PWR_EN_H_3V3 GPIO_073 output high */
+		enable-gpios = <&portc 9 GPIO_ACTIVE_HIGH>;
+		/* RK628_RESET_H GPIO_071 output high */
+		reset-gpios = <&portc 7 GPIO_ACTIVE_HIGH>;
+		/* RK628_Plugin_DET_1V8 GPIO_009 input */
+		plugin-det-gpios = <&porta 9 GPIO_ACTIVE_LOW>;
+		continues-clk = <1>;
+
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "HDMI-MIPI";
+		rockchip,camera-module-lens-name = "RK628-CSI";
+/*
+		multi-dev-info {
+			dev-idx-l = <0>;
+			dev-idx-r = <1>;
+			combine-idx = <0>;
+			pixel-offset = <0>;
+			dev-num = <2>;
+		};
+*/
+		port {
+			hdmiin_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+};
+
+&csi2_dphy_hw {
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_ucam0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&hdmiin_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi2_csi2_input>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&csi2_dphy1 {
+	status = "disabled";
+};
+
+&mipi_csi2_0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidphy0_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	port {
+		axi2dvp_mipi2_in0: endpoint {
+			remote-endpoint = <&mipi2_csi2_output>;
+			data-lanes = <1 2>;
+		};
+	};
+};
+
+&mipi_dphy_rx {
+	status = "disabled";
+};
+
+&csi_dma0 {
+	status = "disabled";
+};
+
+&csi_dma1 {
+	status = "disabled";
+};
+
+&csi2_0 {
+	status = "disabled";
+};
+
+&csi2_1 {
+	status = "disabled";
 };
 
 /* GPIO Function Description

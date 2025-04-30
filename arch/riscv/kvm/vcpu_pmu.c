@@ -555,6 +555,8 @@ void kvm_riscv_vcpu_pmu_init(struct kvm_vcpu *vcpu)
 	 */
 	if (!riscv_isa_extension_available(NULL, SSCOFPMF))
 		return;
+	/* reject sscofpmf */
+	return;
 
 	ret = riscv_pmu_get_hpm_info(&hpm_width, &num_hw_ctrs);
 	if (ret < 0 || !hpm_width || !num_hw_ctrs)

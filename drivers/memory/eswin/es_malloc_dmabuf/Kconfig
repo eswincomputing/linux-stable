@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config ESWIN_MALLOC_DMABUF
+	tristate "ESWIN Malloc to DMA-BUF"
+	help
+	  ESWIN Malloc to DMA-BUF.

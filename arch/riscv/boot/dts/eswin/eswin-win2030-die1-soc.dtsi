@@ -735,7 +735,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x70950000 0x0 0x10000>;
+				reg = <0x0 0x70950000 0x0 0x8000>;
 				interrupts = <105>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -759,7 +759,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x70960000 0x0 0x10000>;
+				reg = <0x0 0x70960000 0x0 0x8000>;
 				interrupts = <106>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -774,7 +774,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x70970000 0x0 0x10000>;
+				reg = <0x0 0x70970000 0x0 0x8000>;
 				interrupts = <107>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -789,7 +789,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x70980000 0x0 0x10000>;
+				reg = <0x0 0x70980000 0x0 0x8000>;
 				interrupts = <108>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -804,7 +804,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x70990000 0x0 0x10000>;
+				reg = <0x0 0x70990000 0x0 0x8000>;
 				interrupts = <109>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -819,7 +819,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x709a0000 0x0 0x10000>;
+				reg = <0x0 0x709a0000 0x0 0x8000>;
 				interrupts = <110>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -834,7 +834,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x709b0000 0x0 0x10000>;
+				reg = <0x0 0x709b0000 0x0 0x8000>;
 				interrupts = <111>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -849,7 +849,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x709c0000 0x0 0x10000>;
+				reg = <0x0 0x709c0000 0x0 0x8000>;
 				interrupts = <112>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -864,7 +864,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x709d0000 0x0 0x10000>;
+				reg = <0x0 0x709d0000 0x0 0x8000>;
 				interrupts = <113>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -879,7 +879,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x709e0000 0x0 0x10000>;
+				reg = <0x0 0x709e0000 0x0 0x8000>;
 				interrupts = <114>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
@@ -895,7 +895,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x71830000 0x0 0x10000>;
+				reg = <0x0 0x71830000 0x0 0x8000>;
 				interrupts = <290>;
 				interrupt-parent = <&plic1>;
 				eswin,i2c_dma = <&d1_aon_dmac>;
@@ -918,7 +918,7 @@
 				reset-names = "rst";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0x0 0x71838000 0x0 0x10000>;
+				reg = <0x0 0x71838000 0x0 0x8000>;
 				interrupts = <291>;
 				interrupt-parent = <&plic1>;
 				numa-node-id = <1>;

@@ -516,6 +516,8 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 
 			engine->tiktok = 0;
 
+			edma_free(nvdla_dev);
+
 			ret = npu_hardware_reset(nvdla_dev);
 			if (ret) {
 				dla_error("hardware reset err, ret=%d.\n", ret);
@@ -575,11 +577,16 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 				dla_error("e31 not bootup, error.\n");
 				goto exit;
 			}
+
+			ret = edma_init(nvdla_dev);
+			if (ret) {
+				dla_error("edma_init fail\n");
+				goto exit;
+			}
 			engine->engine_is_alive = true;
 		} else {
 			dla_error("err:input err.\n");
 		}
-		goto exit;
 	}
 
 exit:

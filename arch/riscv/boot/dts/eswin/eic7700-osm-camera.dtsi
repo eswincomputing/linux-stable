@@ -1,0 +1,227 @@
+&vi_subsys {
+    vvcam_isp_0: vvcam_isp@0 {
+        compatible = "verisilicon,isp-v4l2";
+        id = <0>;
+        status = "disabled";
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				vvcam_isp_input_port: endpoint@0 {
+					remote-endpoint = <&mipi2_csi2_output>;
+				};
+			};
+
+            port@1 {
+                reg = <1>;
+                vvcam_isp_port0_mp: endpoint {
+                    remote-endpoint = <&vvcam_video0>;
+                };
+            };
+
+            port@2 {
+                reg = <2>;
+                vvcam_isp_port0_sp1: endpoint {
+                    remote-endpoint = <&vvcam_video1>;
+                };
+            };
+
+            port@3 {
+                reg = <3>;
+                vvcam_isp_port0_sp2: endpoint {
+                    remote-endpoint = <&vvcam_video2>;
+                };
+            };
+
+            port@4 {
+                reg = <4>;
+                vvcam_isp_port0_raw: endpoint {
+                    remote-endpoint = <&vvcam_video3>;
+                };
+            };
+        };
+    };
+
+    vvcam_video_0: vvcam_video@0 {
+        compatible = "verisilicon,video";
+        id = <0>;
+        status = "okay";
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                vvcam_video0: endpoint {
+                    remote-endpoint = <&vvcam_isp_port0_mp>;
+                };
+            };
+
+            port@1 {
+                reg = <1>;
+                vvcam_video1: endpoint {
+                    remote-endpoint = <&vvcam_isp_port0_sp1>;
+                };
+            };
+
+            port@2 {
+                reg = <2>;
+                vvcam_video2: endpoint {
+                    remote-endpoint = <&vvcam_isp_port0_sp2>;
+                };
+            };
+
+            port@3 {
+                reg = <3>;
+                vvcam_video3: endpoint {
+                    remote-endpoint = <&vvcam_isp_port0_raw>;
+                };
+            };
+        };
+    };
+};
+
+
+&d0_i2c1 {
+	status = "okay";
+		camera_imx219: camera-imx219@10 {
+			status = "okay";
+			compatible = "sony,imx219";
+			reg = <0x10>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio9_default &pinctrl_gpio10_default>;
+			gpio9-gpios = <&porta 9 GPIO_ACTIVE_HIGH>;
+			gpio10-gpios = <&porta 10 GPIO_ACTIVE_HIGH>;
+			//clocks = <&clk_cam_24m>;
+			//clock-names = "xvclk";
+
+			eswin,camera-module-index = <0>;
+			eswin,camera-module-facing = "back";
+			eswin,camera-module-name = "rpi-camera-v2";
+			eswin,camera-module-lens-name = "default";
+
+			port {
+				imx219_out0: endpoint {
+					remote-endpoint = <&mipidphy0_in_ucam0>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <456000000>;
+				};
+			};
+		};
+};
+
+&csi2_dphy_hw {
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_ucam0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&imx219_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi2_csi2_input>;
+			};
+		};
+	};
+};
+
+&csi2_dphy1 {
+	status = "disabled";
+};
+
+&mipi_csi2_0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
+	};
+};
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	port {
+		axi2dvp_mipi2_in0: endpoint {
+			remote-endpoint = <&mipi2_csi2_output>;
+		};
+	};
+};
+
+&mipi_dphy_rx {
+	status = "disabled";
+};
+
+&csi_dma0 {
+	status = "disabled";
+};
+
+&csi_dma1 {
+	status = "disabled";
+};
+
+&csi2_0 {
+	status = "disabled";
+};
+
+&csi2_1 {
+	status = "disabled";
+};
+
+&isp_0 {
+	status = "disabled";
+};
+
+&isp_1 {
+	status = "disabled";
+};

@@ -1,0 +1,7 @@
+config PHY_ESWIN_CSI2_DPHY
+	tristate "Eswin CSI2 D-PHY Driver"
+	select GENERIC_PHY
+	select VIDEO_V4L2_SUBDEV_API
+	select V4L2_FWNODE
+	help
+	  Enable this to support the Eswin CSI2 DPHY.

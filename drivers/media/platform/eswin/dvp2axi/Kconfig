@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-2.0
+config VIDEO_ESWIN_DVP2AXI_DEPENDENCES
+	bool "Eswin Camera AXI2DVP dependences"
+	default "y"
+	select MEDIA_CAMERA_SUPPORT
+	select VIDEO_V4L2
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_FWNODE
+	select VIDEOBUF2_CMA_SG
+	select VIDEOBUF2_VMALLOC
+	select V4L2_CCI_I2C
+	help
+	  Support for DVP2AXi dependences
+
+config VIDEO_ESWIN_DVP2AXI
+	tristate "Eswin Camera AXI2DVP driver"
+	depends on VIDEO_ESWIN_DVP2AXI_DEPENDENCES
+#	select MEDIA_CAMERA_SUPPORT
+#	select VIDEO_V4L2
+#	select MEDIA_CONTROLLER
+#	select VIDEO_V4L2_SUBDEV_API
+#	select VIDEOBUF2_DMA_CONTIG
+#	select V4L2_FWNODE
+#	select VIDEOBUF2_CMA_SG
+#	select VIDEOBUF2_VMALLOC
+	help
+	  Support for DVP2AXi on the eswin eic770x
+
+config ES_DVP2AXI_WORKMODE_ONEFRAME
+	bool "Eswin Camera AXI2DVP Work Mode Test"
+	default "y"
+	help
+	  Support for DVP2AXi ONEFRAME mode on the eswin eic770x
