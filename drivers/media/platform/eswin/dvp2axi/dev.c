@@ -49,7 +49,7 @@
 
 #define ES_DVP2AXI_VERNO_LEN 10
 
-int es_dvp2axi_debug = 7;
+int es_dvp2axi_debug = 0;
 module_param_named(debug, es_dvp2axi_debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-1)");
 
