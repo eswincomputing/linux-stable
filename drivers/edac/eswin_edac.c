@@ -519,8 +519,8 @@ static irqreturn_t intr_handler(int irq, void *dev_id)
 	}
 
 	status = p_data->get_error_info(priv);
-	if (status)
-		return IRQ_NONE;
+	/* if (status)
+		return IRQ_NONE; */
 
 	priv->ce_cnt += priv->stat.ce_cnt;
 	priv->ue_cnt += priv->stat.ue_cnt;

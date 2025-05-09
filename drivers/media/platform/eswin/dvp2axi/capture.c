@@ -82,7 +82,7 @@
 
 static inline void DVP2AXI_HalWriteReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address, u32 data) {
     writel(data, dvp2axi_hw->base_addr + address);
-	pr_info("%s: address:0x%x, data:0x%x\n", __func__, address, data);
+	// pr_info("%s: address:0x%x, data:0x%x\n", __func__, address, data);
 }
 
 static inline u32 DVP2AXI_HalReadReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address) {
@@ -1650,7 +1650,6 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 	unsigned long flags;
 	int ret = 0;
 	int hdr_id;
-	pr_info("%s:%d hdr mode %d \n", __func__, __LINE__, dev->hdr.hdr_mode);
 	spin_lock_irqsave(&stream->vbq_lock, flags);
 	if (stat == ES_DVP2AXI_YUV_ADDR_STATE_INIT) {
 		
@@ -1664,13 +1663,10 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 		}
 
 		if (stream->curr_buf) {
-			//yfx ! TODO need to change ES_DVP2AXI_PLANE_Y
-			// pr_info("%s:%d yfx !!!!! cur buf_addr 0x%x \n", __func__, __LINE__, stream->curr_buf->buff_addr[ES_DVP2AXI_PLANE_Y]);
 			DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL9_CSR + stream->id * 0xc, stream->curr_buf->buff_addr[ES_DVP2AXI_PLANE_Y]);
 		} else {
 			if (dummy_buf->vaddr) {
 				DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL9_CSR + stream->id * 0xc, dummy_buf->dma_addr);
-				// DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL9_CSR + stream->id * 0xc, (u32)(uintptr_t)dummy_buf->vaddr);
 			}
 		}
 
@@ -1692,7 +1688,6 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 			} else {
 				if (dummy_buf->vaddr) {
 					DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL10_CSR+stream->id * 0xc, dummy_buf->dma_addr);
-					// DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL10_CSR+stream->id * 0xc, (u32)(uintptr_t)dummy_buf->vaddr);
 				}
 			}
 		} else if(dev->hdr.hdr_mode == HDR_X3) {
@@ -1711,7 +1706,6 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 			} else {
 				if (dummy_buf->vaddr) {
 					DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL10_CSR+stream->id * 0xc, dummy_buf->dma_addr);
-					// DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL10_CSR+stream->id * 0xc, (u32)(uintptr_t)dummy_buf->vaddr);
 				}
 			}
 
@@ -1724,12 +1718,10 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 				}
 			}
 			if (stream->last_buf) {
-				// pr_info("%s:%d yfx !!!!! next buf_addr 0x%x \n",__func__, __LINE__, stream->next_buf->buff_addr[ES_DVP2AXI_PLANE_Y]);
 				DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL11_CSR+stream->id * 0xc, stream->next_buf->buff_addr[ES_DVP2AXI_PLANE_Y]);
 			} else {
 				if (dummy_buf->vaddr) {
 					DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL11_CSR+stream->id * 0xc, dummy_buf->dma_addr);
-					// DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL11_CSR+stream->id * 0xc, (u32)(uintptr_t)dummy_buf->vaddr);
 				}
 			}
 
@@ -1783,7 +1775,6 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 			if(dummy_buf->vaddr) {
 				DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL11_CSR+stream->id * 0xc, dummy_buf->dma_addr);
 			}
-			pr_warn("%s: no free buffer for stream %d, drop next frame\n", __func__, stream->id);
 			dev->err_state |= (ES_DVP2AXI_ERR_ID0_NOT_BUF << stream->id);
 			dev->irq_stats.not_active_buf_cnt[stream->id]++;
 		}
@@ -4868,7 +4859,6 @@ void es_dvp2axi_buf_queue(struct vb2_buffer *vb)
 	// static int first = 1;
 	bool is_find_tools_buf = false;
 
-	DPRINTK("%s, %d \n", __func__, __LINE__);
 	if (tools_vdev) {
 		spin_lock_irqsave(&stream->tools_vdev->vbq_lock, flags);
 		if (!list_empty(&tools_vdev->src_buf_head)) {
@@ -8252,7 +8242,6 @@ void es_dvp2axi_vb_done_tasklet(struct es_dvp2axi_stream *stream,
 	if (!stream || !buf)
 		return;
 	spin_lock_irqsave(&stream->vbq_lock, flags);
-	// pr_info("%s:%d: buf %p, index %d\n", __func__, __LINE__, buf, buf->vb.vb2_buf.index);
 	list_add_tail(&buf->queue, &stream->vb_done_list);
 	spin_unlock_irqrestore(&stream->vbq_lock, flags);
 
@@ -8828,10 +8817,6 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 	vi_dvp2axi_int1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR);
 	vi_dvp2axi_int_err = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR);
 	
-	
-	//pr_info("%s:%d yfx!!!!! stream %p \n", __func__, __LINE__, stream);
-
-	pr_info("%s:%d vi_dvp2axi_int0 0x%x, vi_dvp2axi_int1 0x%x, vi_dvp2axi_int_err 0x%x\n", __func__, __LINE__, vi_dvp2axi_int0, vi_dvp2axi_int1, vi_dvp2axi_int_err);
 	//TODO add error process into err tasklet
 	if (vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_AFULL || \
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_DVP5_FRAME_ERROR || \
@@ -8842,7 +8827,6 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_DVP0_FRAME_ERROR || \
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_RESP_ERROR || \
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_FULL) {  // error handle
-		DPRINTK("capture-Error: %x!!!\n", vi_dvp2axi_int_err);
 		
 		uint32_t soft_rstn;
 		u32 count = 0;
@@ -8911,7 +8895,6 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, vi_dvp2axi_int1);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, vi_dvp2axi_int_err);
 	stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
-	pr_info("%s:%d irq done  \n", __func__, __LINE__);
 }
 
 void es_irq_oneframe_new(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
@@ -8943,18 +8926,12 @@ void es_irq_oneframe_new(struct device *dev, struct es_dvp2axi_device *dvp2axi_d
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_DVP0_FRAME_ERROR || \
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_RESP_ERROR || \
 		vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_FULL) {  // error handle
-		//DPRINTK("t3 capture-Error: %x!!!\n", vi_dvp2axi_int_err);
 
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, vi_dvp2axi_int0);
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, vi_dvp2axi_int1);
 
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, vi_dvp2axi_int_err);
-		//pr_info("%s:%d yfx!!!! not disable when err irq \n", __func__, __LINE__);
-		//disable dvp2axi
-		//uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-        //csr0 &= (~0x3f);  // disable all
-    	//DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
-		//soft reset
+		
 		uint32_t soft_rstn;
 
 		// do software reset

@@ -915,8 +915,8 @@
 	rst-gpios = <&porta 29 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
-	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
+	dly-param-1000m = <0x20202020 0x96206420 0x20202020>;
+	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
 };
@@ -927,8 +927,8 @@
 	rst-gpios = <&d1_porta 29 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
-	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
+	dly-param-1000m = <0x20202020 0x8C205A20 0x20202020>;
+	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
 };
@@ -939,8 +939,8 @@
 	rst-gpios = <&porta 34 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
-	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
+	dly-param-1000m = <0x20202020 0x46205020 0x20202020>;
+	dly-param-100m = <0x20202020 0x50205020 0x20202020>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
 };
@@ -951,8 +951,8 @@
 	rst-gpios = <&d1_porta 34 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
-	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
+	dly-param-1000m = <0x20202020 0x46205A20 0x20202020>;
+	dly-param-100m = <0x20202020 0x50205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
 	status = "okay";
 };
