@@ -198,11 +198,7 @@
 			status = "okay";
 			numa-node-id = <0>;
 			dma-noncoherent;
-
-			smmu_cfg_0: smmu_cfg0@0 {
-			};
-			smmu_cfg_1: smmu_cfg1@0 {
-			};
+                        #include "smmu_cfg.dtsi"
 		};
 	};
 
