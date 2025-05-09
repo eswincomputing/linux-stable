@@ -527,7 +527,7 @@ static int eic770x_csi2_dphy_init(struct csi2_dphy_hw *dphy_hw)
 
 	// 400Mbps
 #ifndef CONFIG_EIC7700_EVB_VI
-	dev_info(dphy_hw->dev, "config evb dphy \n");
+	dev_info(dphy_hw->dev, "config dvb dphy \n");
 
 	eic770x_write_csi2_dphy_reg(hw, 0xc10, 0x30);
 	eic770x_write_csi2_dphy_reg(hw, 0x1cf2, 0x444);
@@ -650,7 +650,7 @@ static int eic770x_csi2_dphy_init(struct csi2_dphy_hw *dphy_hw)
 	eic770x_write_csi2_dphy_reg(hw, 0x3286, 0x2);
 
 #else
-	dev_info(dphy_hw->dev, "config dvb dphy \n");
+	dev_info(dphy_hw->dev, "config evb dphy \n");
 	// eic770x_write_csi2_dphy_reg(hw, 0xc10       , 0x30  ) ;//PPI_STARTUP_RW_COMMON_DPHY_10
     eic770x_write_csi2_dphy_reg(hw, 0x1cf2      , 0x444 ) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_2
     eic770x_write_csi2_dphy_reg(hw, 0x1cf2      , 0x1444) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_2

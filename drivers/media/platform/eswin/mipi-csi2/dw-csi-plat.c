@@ -495,15 +495,15 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			 __func__, csi2->num_sensors);
 		return -EBUSY;
 	}
-	pr_info("%s:%d csi2->num_sensors %d\n", __func__, __LINE__, csi2->num_sensors);
+	pr_debug("%s:%d csi2->num_sensors %d\n", __func__, __LINE__, csi2->num_sensors);
 	sensor = &csi2->sensors[csi2->num_sensors++];
 	sensor->sd = sd;
 
 	for (pad = 0; pad < sd->entity.num_pads; pad++)
 		if (sensor->sd->entity.pads[pad].flags & MEDIA_PAD_FL_SOURCE)
 			break;
-	pr_info("%s:%d sensor->sd->name %s\n", __func__, __LINE__, sensor->sd->name);
-	pr_info("%s:%d sensor->sd->entity->name %s\n", __func__, __LINE__, sensor->sd->entity.name);
+	pr_debug("%s:%d sensor->sd->name %s\n", __func__, __LINE__, sensor->sd->name);
+	pr_debug("%s:%d sensor->sd->entity->name %s\n", __func__, __LINE__, sensor->sd->entity.name);
 	
 	if (pad == sensor->sd->entity.num_pads) {
 		dev_err(csi2->dev, "failed to find src pad for %s\n", sd->name);
@@ -511,7 +511,6 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 		return -ENXIO;
 	}
 
-//TODO 为什么这里创建了link，但是没有enable
 	ret = media_create_pad_link(
 		&sensor->sd->entity, pad, &csi2->sd.entity, DWC_CSI2_PAD_SINK,
 		0 /* csi2->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED */);
@@ -528,7 +527,6 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			sensor->sd->name);
 		return ret;
 	}
-	pr_info("t1 %s, %d succsess\n", __func__, __LINE__);
 
 	return 0;
 }

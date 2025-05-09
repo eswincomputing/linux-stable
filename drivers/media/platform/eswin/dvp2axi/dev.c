@@ -1272,11 +1272,7 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 	memcpy(&linked_sensor.mbus, &sensor->mbus,
 	       sizeof(struct v4l2_mbus_config));
 
-	DPRINTK("t1 %s, %d pads:%d, name:%s\n", __func__, __LINE__,
-	       linked_sensor.sd->entity.num_pads, linked_sensor.sd->name);
-
 	for (pad = 0; pad < linked_sensor.sd->entity.num_pads; pad++) {
-		pr_info("%s:%d xfy! num pads : %d \n", __func__, __LINE__, linked_sensor.sd->entity.num_pads);
 		if (linked_sensor.sd->entity.pads[pad].flags &
 		    MEDIA_PAD_FL_SOURCE) {
 			if (pad == linked_sensor.sd->entity.num_pads) {
@@ -1286,41 +1282,14 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 
 				break;
 			}
-
-			// for (id = 0; id < stream_num; id++) {
-			// 	source_entity = &linked_sensor.sd->entity;
-			// 	sink_entity =
-			// 		&dev->stream[id].vnode.vdev.entity;
-			// 	if ((dev->chip_id < CHIP_ES1808_DVP2AXI) ||
-			// 	    (id == pad - 1 && !(*mipi_lvds_linked)))
-			// 		flags = MEDIA_LNK_FL_ENABLED;
-			// 	else
-			// 		flags = 0;
-			// 	DPRINTK("t1 %s, %d sd->name:%s\n", __func__,
-			// 	       __LINE__, linked_sensor.sd->name);
-			// 	ret = media_create_pad_link(source_entity, pad,
-			// 				    sink_entity, 0,
-			// 				    flags);
-			// 	if (ret) {
-			// 		dev_err(dev->dev,
-			// 			"failed to create link for %s\n",
-			// 			linked_sensor.sd->name);
-			// 		break;
-			// 	}
-			// }
 			for (id = 0; id < stream_num; id++) {
 				source_entity = &linked_sensor.sd->entity;
 				sink_entity =
 					&dev->stream[id].vnode.vdev.entity;
-				// pr_info("%s:%d yfx! stream addr %p, id %d, stream_num %d \n", __func__, __LINE__, &dev->stream[id], id, stream_num);
-				// pr_info("%s:%d yfx! stream sink entity->name %s, addr %p \n", __func__, __LINE__, sink_entity->name, sink_entity);
-				// pr_info("%s:%d yfx! source_entity entity name %s, addr %p \n", __func__, __LINE__, source_entity->name, source_entity);
 				if ((id == pad - 1 && !(*mipi_lvds_linked)))
 					flags = MEDIA_LNK_FL_ENABLED;
 				else
 					flags = 0;
-				DPRINTK("t1 %s, %d sd->name:%s\n", __func__,
-				       __LINE__, linked_sensor.sd->name);
 				ret = media_create_pad_link(source_entity, pad,
 							    sink_entity, 0,
 							    flags);
@@ -1331,102 +1300,12 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 					break;
 				}
 			}
-			// for (id = 0; id < stream_num; id++) {
-			// 	source_entity = &linked_sensor.sd->entity;
-			// 	sink_entity =
-			// 		&dev->stream[id].vnode.vdev.entity;
-			// 	pr_info("%s:%d yfx! stream addr %p, id %d, stream_num %d \n", __func__, __LINE__, &dev->stream[id], id, stream_num);
-			// 	pr_info("%s:%d yfx! stream sink entity->name %s, addr %p \n", __func__, __LINE__, sink_entity->name, sink_entity);
-			// 	pr_info("%s:%d yfx! source_entity entity name %s, addr %p \n", __func__, __LINE__, source_entity->name, source_entity);
-			// 	if ((dev->chip_id < CHIP_RK1808_CIF) ||
-			// 	    (id == pad - 1 && !(*mipi_lvds_linked))) {
-			// 		flags = MEDIA_LNK_FL_ENABLED;
-			// 		DPRINTK("t1 %s, %d sd->name:%s, flags %d, pad = %d \n", __func__,
-			// 	       __LINE__, linked_sensor.sd->name, flags, pad);
-			// 		DPRINTK("t1 %s, %d sink_entity %s \n", __func__,
-			// 	       __LINE__, sink_entity->name);
-			// 		ret = media_create_pad_link(source_entity, pad,
-			// 				    sink_entity, 0,
-			// 				    flags);
-			// 		if (ret) {
-			// 			pr_err("%s:%d xfy! Failed to create link error: %d\n",
-			// 						__func__, __LINE__,  ret);
-			// 			break;
-			// 		}	
-			// 	}
-			// 	else {
-			// 		// continue;
-			// 		// flags = 0;
-			// 		break;
-			// 	}
-				
-			// }
-
-
-
-			// DPRINTK("t1 %s, %d \n", __func__, __LINE__);
-			// if (dev->chip_id >= CHIP_EIC770X_DVP2AXI) {
-			// 	for (id = 0; id < stream_num; id++) {
-			// 		source_entity =
-			// 			&linked_sensor.sd->entity;
-			// 		sink_entity =
-			// 			&dev->scale_vdev[id]
-			// 				 .vnode.vdev.entity;
-
-			// 		if ((id + stream_num) == pad - 1 &&
-			// 		    !(*mipi_lvds_linked))
-			// 			flags = MEDIA_LNK_FL_ENABLED;
-			// 		else
-			// 			flags = 0;
-			// 		DPRINTK("t1 %s, %d \n", __func__,
-			// 		       __LINE__);
-			// 		ret = media_create_pad_link(
-			// 			source_entity, pad, sink_entity,
-			// 			0, flags);
-			// 		if (ret) {
-			// 			dev_err(dev->dev,
-			// 				"failed to create link for %s\n",
-			// 				linked_sensor.sd->name);
-			// 			break;
-			// 		}
-			// 	}
-			// }
-			// DPRINTK("t1 %s, %d \n", __func__, __LINE__);
-			// if (dev->chip_id > CHIP_ES1808_DVP2AXI) {
-			// 	for (id = 0; id < ES_DVP2AXI_MAX_TOOLS_CH; id++) {
-			// 		source_entity =
-			// 			&linked_sensor.sd->entity;
-			// 		sink_entity =
-			// 			&dev->tools_vdev[id]
-			// 				 .vnode.vdev.entity;
-
-			// 		if ((id + stream_num + pad_offset) ==
-			// 			    pad - 1 &&
-			// 		    !(*mipi_lvds_linked))
-			// 			flags = MEDIA_LNK_FL_ENABLED;
-			// 		else
-			// 			flags = 0;
-			// 		DPRINTK("t1 %s, %d \n", __func__,
-			// 		       __LINE__);
-			// 		ret = media_create_pad_link(
-			// 			source_entity, pad, sink_entity,
-			// 			0, flags);
-			// 		if (ret) {
-			// 			dev_err(dev->dev,
-			// 				"failed to create link for %s\n",
-			// 				linked_sensor.sd->name);
-			// 			break;
-			// 		}
-			// 	}
-			// }
-			// DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 		}
 	}
 
 	if (sensor->mbus.type == V4L2_MBUS_CCP2) {
 		source_entity = &sensor->sd->entity;
 		sink_entity = &linked_sensor.sd->entity;
-		DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 		ret = media_create_pad_link(source_entity, 1, sink_entity, 0,
 					    MEDIA_LNK_FL_ENABLED);
 		if (ret)
@@ -1440,7 +1319,6 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 			// pr_info("%s:%d yfx is linked \n", __func__, __LINE__);
 			*mipi_lvds_linked = true;
 		}
-	DPRINTK("t1 %s, %d done\n", __func__, __LINE__);
 	return ret;
 }
 
@@ -1456,14 +1334,9 @@ static int es_dvp2axi_create_links(struct es_dvp2axi_device *dev)
 	/* sensor links(or mipi-phy) */
 	for (s = 0; s < dev->num_sensors; ++s) {
 		struct es_dvp2axi_sensor_info *sensor = &dev->sensors[s];
-		DPRINTK("t1 %s index:%d, type:%d, datalanes:%d, name:%s\n", __func__, s,
-		       sensor->mbus.type, sensor->lanes, sensor->sd->name);
 		es_dvp2axi_create_link(dev, sensor, stream_num, s, &mipi_lvds_linked);
-		DPRINTK("t1 %s linked %d. sd->name:%s\n", __func__, s, sensor->sd->name);
 	}
-	DPRINTK("t1 %s %d num_sensors:%d\n", __func__, __LINE__,
-	       dev->num_sensors);
-
+	
 	return 0;
 }
 
@@ -1504,18 +1377,14 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 	struct v4l2_device *v4l2_dev = NULL;
 	int ret, index;
 
-	DPRINTK("t1 %s, %d IN\n", __func__, __LINE__);
 	dev = container_of(notifier, struct es_dvp2axi_device, notifier);
 
 	v4l2_dev = &dev->v4l2_dev;
-	DPRINTK("t1 %s, %d num_sensors:%d\n", __func__, __LINE__,
-	       dev->num_sensors);
+	
 	for (index = 0; index < dev->num_sensors; index++) {
 		sensor = &dev->sensors[index];
 
 		list_for_each_entry(sd, &v4l2_dev->subdevs, list) {
-			DPRINTK("t1 %s %d. sd->name:%s, sensor->sd->name:%s\n",
-			       __func__, __LINE__, sd->name, sensor->sd->name);
 			if (sd->ops) {
 				if (sd == sensor->sd) {
 					ret = v4l2_subdev_call(sd, pad,
@@ -1529,7 +1398,6 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 				}
 			}
 		}
-		DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 		if (sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
 		    sensor->mbus.type == V4L2_MBUS_CSI2_CPHY) {
 			sensor->lanes =
@@ -1537,10 +1405,7 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 		} else if (sensor->mbus.type == V4L2_MBUS_CCP2) {
 			sensor->lanes = sensor->mbus.bus.mipi_csi1.data_lane;
 		}
-		DPRINTK("t1 index:%d, type:%d, datalanes:%d, name:%s\n",
-		       index, sensor->mbus.type, sensor->lanes,
-		       sensor->sd->name);
-
+		
 		if (sensor->mbus.type == V4L2_MBUS_CCP2) {
 			ret = es_dvp2axi_register_lvds_subdev(dev);
 			if (ret < 0) {
@@ -1565,23 +1430,18 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 		}
 	}
 
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	ret = es_dvp2axi_create_links(dev);
 	if (ret < 0)
 		goto unregister_lvds;
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	ret = v4l2_device_register_subdev_nodes(&dev->v4l2_dev);
 	if (ret < 0)
 		goto unregister_lvds;
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	ret = _set_pipeline_default_fmt(dev);
 	if (ret < 0)
 		goto unregister_lvds;
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	if (!completion_done(&dev->cmpl_ntf))
 		complete(&dev->cmpl_ntf);
 	v4l2_info(&dev->v4l2_dev, "Async subdev notifier completed\n");
-	DPRINTK("t1 %s, %d success\n", __func__, __LINE__);
 	return ret;
 
 unregister_lvds:
@@ -1621,9 +1481,6 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	dvp2axi_dev->sensors[dvp2axi_dev->num_sensors].sd = subdev;
 	++dvp2axi_dev->num_sensors;
 
-	DPRINTK("t1 %s, %d lanes:%d, mbus:%d, subdev:%p, subdev-name %s, num_sensors:%d\n",
-	       __func__, __LINE__, s_asd->lanes, s_asd->mbus.type, subdev, subdev->name,
-	       dvp2axi_dev->num_sensors);
 
 	v4l2_err(subdev, "Async registered subdev\n");
 
@@ -1682,12 +1539,6 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 			continue;
 		}
 
-		DPRINTK("t1 %s, %d remote_ep:%s\n", __func__, __LINE__,
-		       fwnode_get_name(remote_ep));
-
-		DPRINTK("t1 %s, %d ep:%s\n", __func__, __LINE__,
-		       fwnode_get_name(ep));
-
 		ret = v4l2_fwnode_endpoint_parse(ep, &vep);
 		// pr_info("%s:%d yfx!!!\n", __func__, __LINE__);
 		if (ret)
@@ -1709,7 +1560,6 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 		continue;
 
 err_parse:
-		DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 		fwnode_handle_put(ep);
 		return ret;
 	}
@@ -1722,7 +1572,6 @@ err_parse:
 	ret = v4l2_async_nf_register(&sditf->notifier);
 	if (ret)
 		dev_err(dev, "failed to register async notifier : %d\n", ret);
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	return ret;
 }
 
@@ -1759,22 +1608,17 @@ static int es_dvp2axi_register_platform_subdevs(struct es_dvp2axi_device *dvp2ax
 {
 	int stream_num = 0, ret;
 
-	DPRINTK("t1 %s, %d In\n", __func__, __LINE__);
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	//stream_num = ES_DVP2AXI_SINGLE_STREAM;
 	stream_num = ESDVP2AXI_MAX_STREAM_MIPI;
 	ret = es_dvp2axi_register_stream_vdevs(dvp2axi_dev, stream_num, true);
 	//ret = es_dvp2axi_register_stream_vdevs(dvp2axi_dev, stream_num, false);
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	if (ret < 0) {
 		dev_err(dvp2axi_dev->dev, "dvp2axi register stream[%d] failed!\n",
 			stream_num);
 		return -EINVAL;
 	}
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	dvp2axi_dev->is_support_tools = false;
 
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	init_completion(&dvp2axi_dev->cmpl_ntf);
 	kthread_run(notifier_isp_thread, dvp2axi_dev, "notifier isp");
 	ret = dvp2axi_subdev_notifier(dvp2axi_dev);
@@ -1783,7 +1627,6 @@ static int es_dvp2axi_register_platform_subdevs(struct es_dvp2axi_device *dvp2ax
 			 "Failed to register subdev notifier(%d)\n", ret);
 		goto err_unreg_stream_vdev;
 	}
-	DPRINTK("t1 %s, %d out\n", __func__, __LINE__);
 	return 0;
 err_unreg_stream_vdev:
 	es_dvp2axi_unregister_stream_vdevs(dvp2axi_dev, stream_num);
@@ -1994,7 +1837,6 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 	INIT_WORK(&dvp2axi_dev->err_state_work.work, es_dvp2axi_err_print_work);
 	INIT_WORK(&dvp2axi_dev->sensor_work.work, es_dvp2axi_set_sensor_stream);
 	INIT_DELAYED_WORK(&dvp2axi_dev->work_deal_err, es_dvp2axi_deal_err_intr);
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	es_dvp2axi_stream_init(dvp2axi_dev, ESDVP2AXI_STREAM_MIPI_ID0);
 	es_dvp2axi_stream_init(dvp2axi_dev, ESDVP2AXI_STREAM_MIPI_ID1);
 	es_dvp2axi_stream_init(dvp2axi_dev, ESDVP2AXI_STREAM_MIPI_ID2);
@@ -2027,11 +1869,9 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 	v4l2_dev = &dvp2axi_dev->v4l2_dev;
 	v4l2_dev->mdev = dvp2axi_dev->media_dev;
 	strlcpy(v4l2_dev->name, dev_name(dev), sizeof(v4l2_dev->name));
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	ret = v4l2_device_register(dvp2axi_dev->dev, &dvp2axi_dev->v4l2_dev);
 	if (ret < 0)
 		return ret;
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 
 
 	// media_device_init(&dvp2axi_dev->media_dev);
@@ -2041,7 +1881,6 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 	// 		 ret);
 	// 	goto err_unreg_v4l2_dev;
 	// }
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	/* create & register platefom subdev (from of_node) */
 	ret = es_dvp2axi_register_platform_subdevs(dvp2axi_dev);
 	// if (ret < 0)
@@ -2050,14 +1889,7 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 	mutex_lock(&es_dvp2axi_dev_mutex);
 	list_add_tail(&dvp2axi_dev->list, &es_dvp2axi_device_list);
 	mutex_unlock(&es_dvp2axi_dev_mutex);
-	DPRINTK("t1 %s, %d succsess\n", __func__, __LINE__);
 	return 0;
-
-// err_unreg_media_dev:
-// 	media_device_unregister(&dvp2axi_dev->media_dev);
-// err_unreg_v4l2_dev:
-// 	v4l2_device_unregister(&dvp2axi_dev->v4l2_dev);
-// 	return ret;
 }
 
 int es_dvp2axi_plat_uninit(struct es_dvp2axi_device *dvp2axi_dev)
@@ -2134,26 +1966,21 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 
 	if (sysfs_create_group(&pdev->dev.kobj, &dev_attr_grp))
 		return -ENODEV;
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	ret = es_dvp2axi_attach_hw(dvp2axi_dev);
 	if (ret)
 		return ret;
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	es_dvp2axi_parse_dts(dvp2axi_dev);
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	ret = es_dvp2axi_plat_init(dvp2axi_dev, node, data->inf_id);
 	if (ret) {
 		es_dvp2axi_detach_hw(dvp2axi_dev);
 		return ret;
 	}
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 
 	if (es_dvp2axi_proc_init(dvp2axi_dev))
 		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
-	DPRINTK("t1 %s, %d \n", __func__, __LINE__);
 	es_dvp2axi_init_reset_monitor(dvp2axi_dev);
 	pm_runtime_enable(&pdev->dev);
-	DPRINTK("t1 %s, %d succsess\n", __func__, __LINE__);
+	pr_info("%s succsess\n", __func__);
 	return 0;
 }
 

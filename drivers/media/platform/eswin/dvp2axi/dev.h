@@ -976,7 +976,6 @@ void es_dvp2axi_buf_queue(struct vb2_buffer *vb);
 
 void es_dvp2axi_vb_done_tasklet(struct es_dvp2axi_stream *stream, struct es_dvp2axi_buffer *buf);
 
-void dvp2axi_interrupt_handler(struct device *dev);
 void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
 
 void es_irq_oneframe_new(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);

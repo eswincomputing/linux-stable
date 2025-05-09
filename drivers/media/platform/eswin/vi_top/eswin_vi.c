@@ -71,14 +71,13 @@ static int major_number;
 static int viscu_cfg(struct eswin_vi_device *es_vi_dev)
 {
 	struct regmap *regmap = es_vi_dev->syscrg_regmap;
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
     
 	regmap_write(regmap, VI_SUBSYSTEM_SCU_ISP_RESET, 0x0);///isp reset(sys_crg)
-	DPRINTK("SCU: ISP Reset ...\n");
+	pr_debug("SCU: ISP Reset ...\n");
 	regmap_write(regmap, VI_SUBSYSTEM_SCU_ISP_RESET, 0x1);
 
 	// CSI controller 0 HDR mode
-	DPRINTK("SCU: HDR Disabled ...\n");
+	pr_debug("SCU: HDR Disabled ...\n");
     // regmap_write(regmap, VI_SUBSYSTEM_SCU_SONY_HDR_MODE, 0x0);///i2c_rst_ctl(sys_crg)
 	return 0;
 }
@@ -95,17 +94,16 @@ static u32 vi_top_register_read(struct eswin_vi_device *es_vi_dev, u32 reg)
 UNUSED_FUNC static void syscrg_register_write(struct eswin_vi_device *es_vi_dev, u32 reg, u32 val)
 {
     u32 reg_value;
-    pr_info("%s reg:0x%x, val:0x%x", __func__, reg, val);
+    pr_debug("%s reg:0x%x, val:0x%x", __func__, reg, val);
     regmap_write(es_vi_dev->syscrg_regmap, reg, val);
     regmap_read(es_vi_dev->syscrg_regmap, reg, &reg_value);
-
-    pr_info("read reg:0x%x, val:0x%x", reg, reg_value);
+    pr_debug("read reg:0x%x, val:0x%x", reg, reg_value);
 }
 UNUSED_FUNC static u32 syscrg_register_read(struct eswin_vi_device *es_vi_dev, u32 reg)
 {
     u32 reg_value;
     regmap_read(es_vi_dev->syscrg_regmap, reg, &reg_value);
-    pr_info("%s reg:0x%x, val:0x%x", __func__, reg, reg_value);
+    pr_debug("%s reg:0x%x, val:0x%x", __func__, reg, reg_value);
     return reg_value;
 }
 
@@ -114,11 +112,8 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 	u32 val = 0;
 	unsigned int reg_value;
 
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-
-
 	// Enable Clocks from TOP CSR
-	DPRINTK("ISP Top Setting ...\n");
+	pr_debug("ISP Top Setting ...\n");
 	val = VI_TOP_ISP0_CLOCK_ENABLED | VI_TOP_ISP1_CLOCK_ENABLED; //ISP0 ISP1 Core Clock
     // val |= VI_TOP_DVP2AXI_CLOCK_ENABLED; // DVP2AXI clock
 	// val |= VI_TOP_CTRL0_DVP_CLOCK_ENABLED | VI_TOP_CTRL1_DVP_CLOCK_ENABLED | VI_TOP_CTRL2_DVP_CLOCK_ENABLED | VI_TOP_CTRL3_DVP_CLOCK_ENABLED | VI_TOP_CTRL4_DVP_CLOCK_ENABLED | VI_TOP_CTRL5_DVP_CLOCK_ENABLED; //DVP Input Interface Clock: MIPI Controller 0,1
@@ -129,7 +124,7 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 
     vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, val);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
-	DPRINTK("ISP_TOP_CLOCK_EN[0x51030040] = %x\n", reg_value);
+	pr_debug("ISP_TOP_CLOCK_EN[0x51030040] = %x\n", reg_value);
 
     #ifdef SENSOR_OUT_2LANES
 	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, 5);
@@ -157,27 +152,27 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 
 
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_PHY_CONNECT_MODE);
-    DPRINTK("t2 VI_TOP_PHY_CONNECT_MODE[0x51030000] = %x\n", reg_value);
+    pr_debug("t2 VI_TOP_PHY_CONNECT_MODE[0x51030000] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP_DVP_SEL);
-	DPRINTK("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
+    pr_debug("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE);
-    DPRINTK("ISP0_DVP0 size[0x5103000c] = %x\n", reg_value);
+    pr_debug("ISP0_DVP0 size[0x5103000c] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE);
-    DPRINTK("ISP0_DVP1 size[0x51030010] = %x\n", reg_value);
+    pr_debug("ISP0_DVP1 size[0x51030010] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE);
-    DPRINTK("ISP1_DVP0 size[0x51030014] = %x\n", reg_value);
+    pr_debug("ISP1_DVP0 size[0x51030014] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE);
-    DPRINTK("ISP1_DVP1 size[0x51030018] = %x\n", reg_value);
+    pr_debug("ISP1_DVP1 size[0x51030018] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP_BLANK);
-    DPRINTK("ISP_MUL2ISP_BLANK[0x5103001c] = %x\n", reg_value);
+    pr_debug("ISP_MUL2ISP_BLANK[0x5103001c] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0);
-    DPRINTK("ISP0_DVP0 multi[0x51030020] = %x\n", reg_value);
+    pr_debug("ISP0_DVP0 multi[0x51030020] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1);
-    DPRINTK("ISP0_DVP1 multi[0x51030024] = %x\n", reg_value);
+    pr_debug("ISP0_DVP1 multi[0x51030024] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0);
-    DPRINTK("ISP1_DVP0 multi[0x51030028] = %x\n", reg_value);
+    pr_debug("ISP1_DVP0 multi[0x51030028] = %x\n", reg_value);
     reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1);
-    DPRINTK("ISP1_DVP1 multi[0x5103002c] = %x\n", reg_value);
+    pr_debug("ISP1_DVP1 multi[0x5103002c] = %x\n", reg_value);
 
 	return 0;
 }

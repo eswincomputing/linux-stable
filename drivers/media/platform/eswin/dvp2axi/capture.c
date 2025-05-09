@@ -854,7 +854,7 @@ static struct v4l2_subdev *get_remote_sensor(struct es_dvp2axi_stream *stream,
 	sensor_me = remote->entity;
 
 	sub = media_entity_to_v4l2_subdev(sensor_me);
-	DPRINTK("t1 get_remote_sensors sd:%p\n", sub);
+	pr_info("get_remote_sensors sd:%s\n", sub->name);
 
 	return sub;
 }
@@ -867,7 +867,6 @@ static void get_remote_terminal_sensor(struct es_dvp2axi_stream *stream,
 	struct media_device *mdev = entity->graph_obj.mdev;
 	int ret;
 
-	DPRINTK("t2 %s %s %d \n", __FILE__, __func__, __LINE__);
 	/* Walk the graph to locate sensor nodes. */
 	mutex_lock(&mdev->graph_mutex);
 	ret = media_graph_walk_init(&graph, mdev);
@@ -877,23 +876,19 @@ static void get_remote_terminal_sensor(struct es_dvp2axi_stream *stream,
 		return;
 	}
 
-	DPRINTK("t1 %s %d \n", __func__, __LINE__);
 	media_graph_walk_start(&graph, entity);
 	while ((entity = media_graph_walk_next(&graph))) {
 		if (entity->function == MEDIA_ENT_F_CAM_SENSOR)
 			break;
 	}
-	DPRINTK("t1 %s %d \n", __func__, __LINE__);
 	mutex_unlock(&mdev->graph_mutex);
 	media_graph_walk_cleanup(&graph);
-	DPRINTK("t1 %s %d \n", __func__, __LINE__);
 	if (entity){
 			*sensor_sd = media_entity_to_v4l2_subdev(entity);
-			DPRINTK("t1 %s %d sd->name :%s\n", __func__, __LINE__, (*sensor_sd)->name);
+			pr_debug("%s %d sd->name :%s\n", __func__, __LINE__, (*sensor_sd)->name);
 	}
 	else
 		*sensor_sd = NULL;
-	DPRINTK("t1 %s %d \n", __func__, __LINE__);
 }
 
 static struct es_dvp2axi_sensor_info *sd_to_sensor(struct es_dvp2axi_device *dev,
@@ -1005,7 +1000,6 @@ es_dvp2axi_get_input_fmt(struct es_dvp2axi_device *dev, struct v4l2_rect *rect,
 	int ret;
 	u32 i;
 
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	fmt.pad = 0;
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	fmt.reserved[0] = 0;
@@ -1086,8 +1080,7 @@ const struct dvp2axi_output_fmt *es_dvp2axi_find_output_fmt(struct es_dvp2axi_st
 	const struct dvp2axi_output_fmt *fmt;
 	u32 i;
 
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
-	DPRINTK("***** t2 pixelfmt =0x%x *****\n", pixelfmt);
+	pr_debug("%s pixelfmt =0x%x\n", __func__, pixelfmt);
 	for (i = 0; i < ARRAY_SIZE(out_fmts); i++) {
 		fmt = &out_fmts[i];
 		if (fmt->fourcc == pixelfmt)
@@ -2142,7 +2135,6 @@ static void es_dvp2axi_dphy_quick_stream(struct es_dvp2axi_device *dev, int on)
 {
 	struct es_dvp2axi_pipeline *p = NULL;
 	int j = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
 	    dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_CPHY ||
 	    dev->active_sensor->mbus.type == V4L2_MBUS_CCP2) {
@@ -4345,7 +4337,6 @@ static int es_dvp2axi_csi_stream_start(struct es_dvp2axi_stream *stream,
 	u32 ret = 0;
 	int i;
 
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (stream->state < ES_DVP2AXI_STATE_STREAMING) {
 		stream->frame_idx = 0;
 		stream->buf_wake_up_cnt = 0;
@@ -4445,7 +4436,6 @@ static void es_dvp2axi_stream_stop(struct es_dvp2axi_stream *stream)
 	u32 val;
 	int id;
 	int i = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	stream->dvp2axidev->id_use_cnt--;
 	if (mbus_cfg->type == V4L2_MBUS_CSI2_DPHY ||
 	    mbus_cfg->type == V4L2_MBUS_CSI2_CPHY ||
@@ -4542,7 +4532,6 @@ static bool es_dvp2axi_is_extending_line_for_height(struct es_dvp2axi_device *de
 					       const struct dvp2axi_input_fmt *fmt)
 {
 	bool is_extended = false;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	return is_extended;
 }
@@ -4559,7 +4548,6 @@ static int es_dvp2axi_queue_setup(struct vb2_queue *queue, unsigned int *num_buf
 	const struct dvp2axi_input_fmt *in_fmt;
 	bool is_extended = false;
 	u32 i, height;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	pixm = &stream->pixm;
 	dvp2axi_fmt = stream->dvp2axi_fmt_out;
@@ -4597,7 +4585,6 @@ static int es_dvp2axi_queue_setup(struct vb2_queue *queue, unsigned int *num_buf
 static void es_dvp2axi_check_buffer_update_pingpong(struct es_dvp2axi_stream *stream,
 					       int channel_id)
 {
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	struct v4l2_mbus_config *mbus_cfg = &dev->active_sensor->mbus;
 	struct es_dvp2axi_buffer *buffer = NULL;
@@ -4959,7 +4946,6 @@ void es_dvp2axi_free_rx_buf(struct es_dvp2axi_stream *stream, int buf_num)
 	struct v4l2_subdev *sd;
 	int i = 0;
 	unsigned long flags;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	if (!priv)
 		return;
@@ -5034,7 +5020,6 @@ int es_dvp2axi_init_rx_buf(struct es_dvp2axi_stream *stream, int buf_num)
 	int frm_type = 0;
 	int i = 0;
 	int ret = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	if (!priv)
 		return -EINVAL;
@@ -5150,7 +5135,6 @@ static int es_dvp2axi_create_dummy_buf(struct es_dvp2axi_stream *stream)
 	int ret = 0;
 	int i, j;
 	
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	for (i = 0; i < hw->dev_num; i++) {
 		tmp_dev = hw->dvp2axi_dev[i];
 		if (tmp_dev->terminal_sensor.sd) {
@@ -5225,7 +5209,6 @@ static int es_dvp2axi_create_dummy_buf(struct es_dvp2axi_stream *stream)
 
 static void es_dvp2axi_destroy_dummy_buf(struct es_dvp2axi_stream *stream)
 {
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	struct es_dvp2axi_dummy_buffer *dummy_buf = &dev->hw_dev->dummy_buf;
 
@@ -5240,7 +5223,6 @@ static void es_dvp2axi_do_cru_reset(struct es_dvp2axi_device *dev)
 	struct es_dvp2axi_hw *dvp2axi_hw = dev->hw_dev;
 
 	unsigned int val, i;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (dev->luma_vdev.enable)
 		es_dvp2axi_stop_luma(&dev->luma_vdev);
 
@@ -5265,7 +5247,6 @@ static void es_dvp2axi_do_cru_reset(struct es_dvp2axi_device *dev)
 
 void es_dvp2axi_do_soft_reset(struct es_dvp2axi_device *dev)
 {
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
 	    dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_CPHY ||
 	    dev->active_sensor->mbus.type == V4L2_MBUS_CCP2)
@@ -5287,7 +5268,6 @@ static void es_dvp2axi_release_rdbk_buf(struct es_dvp2axi_stream *stream)
 	bool has_added;
 	int index = 0;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (stream->id == ES_DVP2AXI_STREAM_MIPI_ID0)
 		index = RDBK_L;
 	else if (stream->id == ES_DVP2AXI_STREAM_MIPI_ID1)
@@ -5327,7 +5307,6 @@ static void es_dvp2axi_detach_sync_mode(struct es_dvp2axi_device *dvp2axi_dev)
 	struct es_dvp2axi_device *tmp_dev;
 	struct es_dvp2axi_multi_sync_config *sync_config;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if ((!dvp2axi_dev->sync_cfg.type) ||
 	    (atomic_read(&dvp2axi_dev->pipe.stream_cnt) != 0))
 		return;
@@ -5381,7 +5360,6 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 	u64 cur_time = 0;
 	u64 fs_time = 0;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	mutex_lock(&dev->stream_lock);
 
 	v4l2_info(&dev->v4l2_dev,
@@ -5617,7 +5595,6 @@ static u32 es_dvp2axi_determine_input_mode(struct es_dvp2axi_stream *stream)
 	v4l2_std_id std;
 	int ret;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	ret = v4l2_subdev_call(sensor_info->sd, video, querystd, &std);
 	if (ret == 0) {
 		/* retrieve std from sensor if exist */
@@ -5660,7 +5637,6 @@ static u32 es_dvp2axi_determine_input_mode_eic770x(struct es_dvp2axi_stream *str
 	v4l2_std_id std;
 	int ret;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	ret = v4l2_subdev_call(sensor_info->sd, video, querystd, &std);
 	if (ret == 0) {
 		/* retrieve std from sensor if exist */
@@ -5719,7 +5695,6 @@ static u32 es_dvp2axi_determine_input_mode_eic770x(struct es_dvp2axi_stream *str
 static inline u32 es_dvp2axi_scl_ctl(struct es_dvp2axi_stream *stream)
 {
 	u32 fmt_type = stream->dvp2axi_fmt_in->fmt_type;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	return (fmt_type == DVP2AXI_FMT_TYPE_YUV) ? ENABLE_YUV_16BIT_BYPASS :
 						ENABLE_RAW_16BIT_BYPASS;
 }
@@ -5807,7 +5782,6 @@ static u32 es_dvp2axi_cal_raw_vir_line_ratio(struct es_dvp2axi_stream *stream,
 					const struct dvp2axi_output_fmt *fmt)
 {
 	u32 ratio = 0, bpp = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (fmt) {
 		bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt, 0);
 		ratio = bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
@@ -5821,7 +5795,6 @@ static void es_dvp2axi_sync_crop_info(struct es_dvp2axi_stream *stream)
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	struct v4l2_subdev_selection input_sel;
 	int ret;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (dev->terminal_sensor.sd) {
 		input_sel.target = V4L2_SEL_TGT_CROP_BOUNDS;
 		input_sel.which = V4L2_SUBDEV_FORMAT_ACTIVE;
@@ -5876,7 +5849,6 @@ static void es_dvp2axi_sync_crop_info(struct es_dvp2axi_stream *stream)
 static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 				  const struct v4l2_rect *s_crop)
 {
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
 	struct v4l2_device *v4l2_dev = &dev->v4l2_dev;
 	struct v4l2_rect input, *crop;
@@ -5888,7 +5860,7 @@ static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 			v4l2_err(v4l2_dev, "Input fmt is invalid\n");
 			return -EINVAL;
 		}
-		DPRINTK("%s:%d input.width %d, input.height %d\n", __func__, __LINE__, input.width, input.height);
+		pr_info("%s:%d input.width %d, input.height %d\n", __func__, __LINE__, input.width, input.height);
 	} else {
 		v4l2_err(v4l2_dev, "terminal_sensor is invalid\n");
 		return -EINVAL;
@@ -5907,7 +5879,7 @@ static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 
 	if (crop->width + crop->left > input.width ||
 	    crop->height + crop->top > input.height) {
-		DPRINTK("%s:%d crop->width %d, crop->left %d, crop->height %d,crop->top %d, input.width %d, input.height %d\n", __func__, __LINE__, crop->width, crop->left, crop->height, crop->top, input.width, input.height);
+		pr_debug("%s:%d crop->width %d, crop->left %d, crop->height %d,crop->top %d, input.width %d, input.height %d\n", __func__, __LINE__, crop->width, crop->left, crop->height, crop->top, input.width, input.height);
 		v4l2_err(v4l2_dev, "crop size is bigger than input\n");
 		return -EINVAL;
 	}
@@ -5944,7 +5916,6 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 	struct es_dvp2axi_sensor_info *sensor, *terminal_sensor;
 	struct v4l2_subdev *sensor_sd;
 	int ret = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	sensor_sd = get_remote_sensor(stream, NULL);
 	if (!sensor_sd) {
@@ -5953,8 +5924,6 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 			 __func__, stream->id);
 		return -ENODEV;
 	}
-
-	DPRINTK("%s %d. sd->name:%s\n", __func__, __LINE__, sensor_sd->name);
 
 	sensor = sd_to_sensor(stream->dvp2axidev, sensor_sd);
 	if (!sensor) {
@@ -5986,7 +5955,6 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 				 terminal_sensor->sd->name);
 			return ret;
 		}
-		DPRINTK("%s %d \n", __func__, __LINE__);
 		ret = v4l2_subdev_call(terminal_sensor->sd, video,
 				       g_frame_interval, &terminal_sensor->fi);
 		if (ret) {
@@ -5996,7 +5964,6 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 				__func__, terminal_sensor->sd->name);
 			return ret;
 		}
-		DPRINTK("%s %d \n", __func__, __LINE__);
 		// if (v4l2_subdev_call(terminal_sensor->sd, core, ioctl,
 		// 		     ESMODULE_GET_CSI_DSI_INFO,
 		// 		     &terminal_sensor->dsi_input_en)) {
@@ -6021,7 +5988,6 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 	else if (terminal_sensor->mbus.type == V4L2_MBUS_CCP2)
 		terminal_sensor->lanes =
 			terminal_sensor->mbus.bus.mipi_csi1.data_lane;
-	DPRINTK("%s %d terminal_sensor->lanes:%d done\n", __func__, __LINE__, terminal_sensor->lanes);
 	return ret;
 }
 
@@ -6029,7 +5995,6 @@ static int es_dvp2axi_dvp_get_output_type_mask(struct es_dvp2axi_stream *stream)
 {
 	unsigned int mask;
 	const struct dvp2axi_output_fmt *fmt = stream->dvp2axi_fmt_out;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	switch (fmt->fourcc) {
 	case V4L2_PIX_FMT_NV16:
 		mask = (CSI_WRDDR_TYPE_YUV422SP_EIC770X << 11) |
@@ -6124,7 +6089,6 @@ static int es_dvp2axi_stream_start(struct es_dvp2axi_stream *stream, unsigned in
 	int i = 0;
 	u32 sav_detect = BT656_DETECT_SAV;
 	u32 reserved = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	if (stream->state < ES_DVP2AXI_STATE_STREAMING) {
 		stream->frame_idx = 0;
@@ -6384,7 +6348,6 @@ static void es_dvp2axi_attach_sync_mode(struct es_dvp2axi_device *dvp2axidev)
 	struct es_dvp2axi_sync_cfg sync_cfg;
 	struct es_dvp2axi_multi_sync_config *sync_config;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	mutex_lock(&hw->dev_lock);
 	if (dvp2axidev->sditf_cnt <= 1) {
 		ret = v4l2_subdev_call(dvp2axidev->terminal_sensor.sd, core, ioctl,
@@ -6743,27 +6706,6 @@ out:
 	return ret;
 }
 
-// void bmtest_dvp2axi_hw_enable(struct es_dvp2axi_hw *dvp2axi_hw)
-// {
-//     uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-
-//     /* no bit shift, burst len 16, DVP Channels enabled */
-//     #ifdef DVP2AXI_DVP0_ENABLE
-//     csr0 = csr0 | 1;
-//     // #ifdef VI_DVP2AXI_IRQ_ENABLE
-//     // metal_interrupt_ext_irq_enable(VI_DVP2AXI_DVP0_IRQ_NUM);
-//     // #endif
-//     #endif
-//     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
-
-//     // #ifdef VI_DVP2AXI_IRQ_ENABLE
-//     // metal_interrupt_ext_irq_enable(VI_DVP2AXI_ERROR_IRQ_NUM);
-//     // metal_interrupt_ext_irq_enable(VI_DVP2AXI_AFULL_IRQ_NUM);
-//     // #endif
-
-//     DPRINTK("enabled=%x\n", csr0);
-// }
-
 /* CTRL1 */
 #define DVP2AXI_DVP0_PWIDTH 16
 #define DVP2AXI_DVP1_PWIDTH 16
@@ -6784,7 +6726,6 @@ out:
 
 static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int count)
 {
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	struct es_dvp2axi_stream *stream = queue->drv_priv;
 	struct es_dvp2axi_hw *dvp2axi_hw = stream->dvp2axidev->hw_dev;
 
@@ -6793,12 +6734,6 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	// uint32_t stride, shnum;
 	u32 dvp2axi_bpp;
 	dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK ) >> 20;
-	// /* DVP0-1 16bit, IO_DVP disable */
-	// outstand_reg = DVP2AXI_IO_DVP_DIS;
-	// #ifdef DVP2AXI_DVP0_ENABLE
-	// outstand_reg |= (dvp2axi_bpp << 20);
-	// #endif
-	// DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR, outstand_reg);
 
 	/* outstanding 16 */
 	outstand_reg = (DVP2AXI_OUTSTANDING_SIZE-1) << 24;
@@ -6820,13 +6755,13 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	}
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR, dvpx_bpl);
 	dvpx_bpl = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR);
-	pr_info("%s:%d read dvpx_bpl:%x\n", __func__, __LINE__, dvpx_bpl);
+	pr_info("%s:%d dvpx_bpl:%x\n", __func__, __LINE__, dvpx_bpl);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR, dvpx_bpl);
 	#endif
 
 	int ret = 0;
 	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
-
+	stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
 	dvp2axi_hw_int_mask(stream->dvp2axidev->hw_dev, 0);
 	dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
@@ -6854,19 +6789,6 @@ static int es_dvp2axi_init_vb2_queue(struct vb2_queue *q,
 {
 	struct es_dvp2axi_hw *hw_dev = stream->dvp2axidev->hw_dev;
 
-	DPRINTK("%s, %s, %d\n", __FILE__, __func__, __LINE__);
-	// q = &node->buf_queue;
-	// q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	// q->io_modes = VB2_MMAP | VB2_DMABUF;
-	// q->drv_priv = cap;
-	// q->ops = &esisp1_vb2_ops;
-	// q->mem_ops = &vb2_dma_contig_memops;
-	// q->buf_struct_size = sizeof(struct esisp1_buffer);
-	// q->min_buffers_needed = ESISP1_MIN_BUFFERS_NEEDED;
-	// q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-	// q->lock = &node->vlock;
-	// q->dev = cap->esisp1->dev;
-
 	q->type = buf_type;
 	q->io_modes = VB2_MMAP | VB2_DMABUF;
 	q->drv_priv = stream;
@@ -6886,10 +6808,8 @@ static int es_dvp2axi_init_vb2_queue(struct vb2_queue *q,
 	// q->gfp_flags = GFP_DMA32;
 	dma_set_mask_and_coherent(q->dev, DMA_BIT_MASK(41));
 	if (hw_dev->is_dma_contig)
-		// q->dma_attrs = DMA_ATTR_FORCE_CONTIGUOUS;
 		q->dma_attrs = 0;//DMA_ATTR_FORCE_CONTIGUOUS;
-	DPRINTK("%s, %d hw_dev->is_dma_contig:%d\n", __func__, __LINE__,
-	       hw_dev->is_dma_contig);
+
 	return vb2_queue_init(q);
 }
 
@@ -6917,12 +6837,10 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	for (i = 0; i < ES_DVP2AXI_MAX_PLANE; i++)
 		memset(&pixm->plane_fmt[i], 0,
 		       sizeof(struct v4l2_plane_pix_format));
-	pr_info("%s:%d: pixm->width = %d, pixm—>height %d \n", __func__, __LINE__, pixm->width, pixm->height);
 	fmt = es_dvp2axi_find_output_fmt(stream, pixm->pixelformat);
 	if (!fmt)
 		fmt = &out_fmts[0];
-	DPRINTK("*** pixm->pixelformat = 0x%x ***\n", pixm->pixelformat);
-	DPRINTK("*** fmt->fourcc = 0x%x ***\n", fmt->fourcc);
+
 	// input_rect.width = ES_DVP2AXI_DEFAULT_WIDTH;
 	// input_rect.height = ES_DVP2AXI_DEFAULT_HEIGHT;
 	input_rect.width = pixm->width;
@@ -6933,15 +6851,14 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 
 		stream->dvp2axi_fmt_in = dvp2axi_fmt_in;
 	} else {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
-			 "terminal subdev does not exist\n");
+		pr_debug("terminal subdev does not exist\n");
 		return -EINVAL;
 	}
 	ret = es_dvp2axi_output_fmt_check(stream, fmt);
 	if (ret)
 		return -EINVAL;
 
-	DPRINTK("%s:%d input_rect.width:%d height:%d \n", __func__, __LINE__, input_rect.width, input_rect.height);
+	pr_debug("%s:%d input_rect.width:%d height:%d \n", __func__, __LINE__, input_rect.width, input_rect.height);
 	fmt_w_h_val = (input_rect.height << 16) | (input_rect.width);
 	DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR, fmt_w_h_val);
 
@@ -6959,10 +6876,10 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	/* DVP2AXI has not scale function,
 	 * the size should not be larger than input
 	 */
-	DPRINTK("input_rect.width = 0x%x \n", input_rect.width);
-	DPRINTK("input_rect.height = 0x%x \n", input_rect.height);
-	DPRINTK("pixm->width = 0x%x \n", pixm->width);
-	DPRINTK("pixm->height = 0x%x \n", pixm->height);
+	pr_debug("input_rect.width = 0x%x \n", input_rect.width);
+	pr_debug("input_rect.height = 0x%x \n", input_rect.height);
+	pr_debug("pixm->width = 0x%x \n", pixm->width);
+	pr_debug("pixm->height = 0x%x \n", pixm->height);
 	pixm->width =
 		clamp_t(u32, pixm->width, DVP2AXI_MIN_WIDTH, input_rect.width);
 	pixm->height =
@@ -7018,7 +6935,7 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		     dvp2axi_fmt_in->mbus_code == MEDIA_BUS_FMT_SPD_2X8)) {
 			stream->is_compact = false;
 		}
-		DPRINTK("*** modet fmt->fmt_type = 0x%x ***\n",fmt->fmt_type);
+		pr_debug("*** modet fmt->fmt_type = 0x%x ***\n",fmt->fmt_type);
 		if (fmt->fmt_type == DVP2AXI_FMT_TYPE_RAW && stream->is_compact &&
 		    (dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
 		     dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_CPHY ||
@@ -7032,7 +6949,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 			// } else {
 			// 	bpl = ALIGN(width * fmt->raw_bpp / 8, 256);
 			// }
-			DPRINTK("*** raw width = 0x%x ***\n", width);
 			dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
 			if(fmt->raw_bpp == 10) {
 				bpl = ALIGN(width * ALIGN(fmt->raw_bpp, 16) / 8, 256);
@@ -7044,18 +6960,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 			dvp2axi_mode_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~0x300;
 			DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_RAW & 0x3) << 8));
 		} else {
-			// if(fmt->fmt_type == DVP2AXI_FMT_TYPE_YUV)
-			// {
-			// 	dvp2axi_mode_clear = readl(dev->hw_dev->base_addr+VI_DVP2AXI_CTRL1_CSR) & ~0x300;
-			// 	writel(dvp2axi_mode_clear | ((DVP_PIXEL_MODE_YUV & 0x3) << 8), dev->hw_dev->base_addr+VI_DVP2AXI_CTRL1_CSR);
-			// 	if (dvp2axi_bpp == 10) {
-    		// 	// dvp2axi_bpp 为 10 位时，计算每行的字节数，考虑到 10 位像素位深度
-    		// 		bpl = ALIGN(width * ALIGN(fmt->bpp[0], 16) / 8, 256);
-			// 	} else if (dvp2axi_bpp == 8) {
-    		// 		// dvp2axi_bpp 为 8 位时，计算每行的字节数
-    		// 		bpl = ALIGN(width * fmt->bpp[0] / 8, 256);
-			// 	}
-			// }
 			if (fmt->fmt_type == DVP2AXI_FMT_TYPE_RAW &&
 			    stream->is_compact &&
 			    fmt->csi_fmt_val != CSI_WRDDR_TYPE_RGB888 &&
@@ -7065,7 +6969,7 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 			} else {
 				if(fmt->fmt_type == DVP2AXI_FMT_TYPE_YUV){
 					//YUV
-					DPRINTK("*** mode yuv ***\n");
+					pr_debug("*** mode yuv ***\n");
 					dvp2axi_mode_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~0x300;
 					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_YUV & 0x3) << 8));
 					bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt,
@@ -7073,10 +6977,10 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
 					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((bpp & 0x1F) << 20));
 					bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
-					DPRINTK("*** modeyuv width = 0x%x ***\n", width);
-					DPRINTK("*** mode yuv bpp = 0x%x ***\n", bpp);
-					DPRINTK("*** mode yuv DVP2AXI_YUV_STORED_BIT_WIDTH = 0x%x ***\n", DVP2AXI_YUV_STORED_BIT_WIDTH);
-					DPRINTK("*** mode yuv bpl = 0x%x ***\n", bpl);
+					pr_debug("*** mode yuv width = 0x%x ***\n", width);
+					pr_debug("*** mode yuv bpp = 0x%x ***\n", bpp);
+					pr_debug("*** mode yuv DVP2AXI_YUV_STORED_BIT_WIDTH = 0x%x ***\n", DVP2AXI_YUV_STORED_BIT_WIDTH);
+					pr_debug("*** mode yuv bpl = 0x%x ***\n", bpl);
 				}
 				if(fmt->csi_fmt_val == CSI_WRDDR_TYPE_RGB888){
 					//RGB888
@@ -7087,25 +6991,25 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
 					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((bpp & 0x1F) << 20));
 					bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
-					DPRINTK("*** mode rgb width = 0x%x ***\n", width);
-					DPRINTK("*** mode rgb bpp = 0x%x ***\n", bpp);
-					DPRINTK("*** mode rgb DVP2AXI_YUV_STORED_BIT_WIDTH = 0x%x ***\n", DVP2AXI_YUV_STORED_BIT_WIDTH);
-					DPRINTK("*** mode rgb bpl = 0x%x ***\n", bpl);
+					pr_debug("*** mode rgb width = 0x%x ***\n", width);
+					pr_debug("*** mode rgb bpp = 0x%x ***\n", bpp);
+					pr_debug("*** mode rgb DVP2AXI_YUV_STORED_BIT_WIDTH = 0x%x ***\n", DVP2AXI_YUV_STORED_BIT_WIDTH);
+					pr_debug("*** mode rgb bpl = 0x%x ***\n", bpl);
 				}
 			}
 		}
 		
-		DPRINTK("***** bpl = 0x%x *****\n", bpl);
+		pr_debug("***** bpl = 0x%x *****\n", bpl);
 		
 		size = bpl * height;
 		imagesize += size;
 		ex_size = bpl * extend_line->pixm.height;
 		ex_imagesize += ex_size;
 
-		DPRINTK("*** mode size = 0x%x ***\n", size);
-		DPRINTK("*** mode imagesize = 0x%x ***\n", imagesize);
-		DPRINTK("*** mode ex_size = 0x%x ***\n", ex_size);
-		DPRINTK("*** mode ex_imagesize = 0x%x ***\n", ex_imagesize);
+		pr_debug("*** mode size = 0x%x ***\n", size);
+		pr_debug("*** mode imagesize = 0x%x ***\n", imagesize);
+		pr_debug("*** mode ex_size = 0x%x ***\n", ex_size);
+		pr_debug("*** mode ex_imagesize = 0x%x ***\n", ex_imagesize);
 
 		if (fmt->mplanes > i) {
 			/* Set bpl and size for each mplane */
@@ -7148,7 +7052,6 @@ void es_dvp2axi_stream_init(struct es_dvp2axi_device *dev, u32 id)
 	struct v4l2_pix_format_mplane pixm;
 	int i;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	memset(stream, 0, sizeof(*stream));
 	memset(&pixm, 0, sizeof(pixm));
 	stream->id = id;
@@ -7217,7 +7120,6 @@ void es_dvp2axi_stream_init(struct es_dvp2axi_device *dev, u32 id)
 	stream->rx_buf_num = 0;
 	init_completion(&stream->stop_complete);
 	stream->is_wait_stop_complete = false;
-	DPRINTK("%s, %d out \n", __func__, __LINE__);
 }
 
 static int es_dvp2axi_fh_open(struct file *filp)
@@ -7283,7 +7185,6 @@ static int es_dvp2axi_fh_release(struct file *filp)
 
 	stream->is_first_flush = true;
 
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	ret = vb2_fop_release(filp);
 	if (!ret) {
 		mutex_lock(&dvp2axidev->stream_lock);
@@ -7325,7 +7226,6 @@ unsigned int eic770x_vb2_fop_poll(struct file *file, poll_table *wait)
 
 		if ((int0 >> 9) & 0x7) {  // done handle
 			// clear interrupt
-			DPRINTK("%s:%d int0=0x%x \n", __func__, __LINE__,int0);
 			DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, int0);
 			//send q to donelist
 			buf_idx = (((int0 >> 9) & 0x7) & 0x1) ? 0 : (((int0 >> 9) & 0x7) & 0x2)? 1: 2;
@@ -7338,12 +7238,10 @@ unsigned int eic770x_vb2_fop_poll(struct file *file, poll_table *wait)
 
 		if (int0 & 0x1ff) {  // flush handle
 			// clear interrupt
-			DPRINTK("%s:%d int0=0x%x \n",__func__, __LINE__, int0);
 			DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, int0);
 		}
 		if (int1) {  // done handle
 			// clear interrupt
-			DPRINTK("%s:%d int0=0x%x \n", __func__, __LINE__, int0);
 			DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, int1);
 			mask = POLLIN | POLLRDNORM;
 			break;
@@ -7352,12 +7250,10 @@ unsigned int eic770x_vb2_fop_poll(struct file *file, poll_table *wait)
 
 		if (int1 & 0x1ff) {  // flush handle
 			// clear interrupt
-			DPRINTK("Flush-1 [0x%x][0x%x][0x%x]!!!\n", (int1) & 0x7, (int1 >> 3) & 0x7, (int1 >> 6) & 0x7);
 			DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, int1);
 		}
 
 		if (int_err) {  // axi error: reset required
-			DPRINTK(" capture-Error: %x!!!\n", int_err);
 			DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, int_err);
 		}
 	}
@@ -7383,89 +7279,6 @@ void dvp2axi_hw_int_mask(struct es_dvp2axi_hw *dvp2axi_hw, int mask)
 }
 
 
-
-void dvp2axi_interrupt_handler(struct device *dev )
-{
-	int int0, int1, int_err;
-	struct es_dvp2axi_hw	*dvp2axi_hw =  dev_get_drvdata(dev);
-	// unsigned int mask = 0;
-	// int count = 0;
-	int buf_idx = 0;
-	int frame_done = 0;
-	struct es_dvp2axi_stream *stream = &dvp2axi_hw->dvp2axi_dev[0]->stream[0];
-	struct video_device* vdev = &stream->vnode.vdev;
-
-	int0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR);
-	int1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR);
-	int_err = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR);
-
-	if ((int0 >> 9) & 0x7) {  // done handle
-		// clear interrupt
-		//dvp2axi_hw_int_mask(dvp2axi_hw, 1);
-		DPRINTK("%s:%d int0=0x%x \n", __func__, __LINE__,int0);
-		buf_idx = (((int0 >> 9) & 0x7) & 0x1) ? 0 : (((int0 >> 9) & 0x7) & 0x2)? 1: 2;
-		DPRINTK("%s:%d idx=0x%x, mplanes:%u , addr %p \n", __func__, __LINE__,buf_idx, vdev->queue->bufs[buf_idx]->num_planes, vdev->queue->bufs[buf_idx]);
-		vdev->queue->bufs[buf_idx]->state = VB2_BUF_STATE_DONE;
-		vdev->queue->bufs[buf_idx]->planes[0].bytesused = stream->pixm.plane_fmt[0].sizeimage;
-
-		list_add_tail(&vdev->queue->bufs[buf_idx]->done_entry, &vdev->queue->done_list); 
-
-		/*
-		vdev->queue->bufs[buf_idx] = VB2_BUF_STATE_ACTIVE;
-		DPRINTK("%s:%d t3 buf is NULL\n", __func__, __LINE__);
-		vb2_buffer_done(vdev->queue->bufs[buf_idx], VB2_BUF_STATE_DONE);
-		es_dvp2axi_vb_done_oneframe(stream, vdev->queue->bufs[buf_idx])
-		*/
-		frame_done = (int0 >> 9) & 0x7;
-		wake_up(&vdev->queue->done_wq);
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, (frame_done << 9));
-	}
-
-	if (int0 & 0x1ff) {  // flush handle
-		// clear interrupt
-		DPRINTK("%s:%d int0=0x%x \n",__func__, __LINE__, int0);
-		//if(vdev->queue->bufs[buf_idx]->state== VB2_BUF_STATE_DEQUEUED) {
-			//vdev->queue->bufs[0] = VB2_BUF_STATE_ACTIVE;
-			DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, (int0&0x1ff));
-		//}
-	}
-
-	if (int1) { 
-		//TODO complete interrupt1 process 
-		DPRINTK("%s:%d int0=0x%x \n", __func__, __LINE__, int0);
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, int1);
-	}
-
-	if (int1 & 0x1ff) {  // flush handle
-		//TODO complete interrupt1 process 
-		DPRINTK("Flush-1 [0x%x][0x%x][0x%x]!!!\n", (int1) & 0x7, (int1 >> 3) & 0x7, (int1 >> 6) & 0x7);
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, int1);
-	}
-
-	if (int_err) {  // axi error: reset required
-		DPRINTK("capture-Error: %x!!!\n", int_err);
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, int_err);
-    	
-		//disable dvp2axi
-		uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-        csr0 &= (~0x3f);  // disable all
-    	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
-		//soft reset
-		uint32_t soft_rstn;
-
-		// do software reset
-		soft_rstn = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR) & (~VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_MASK);
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, soft_rstn);
-		do {
-			volatile uint32_t cycle = 0;
-			while (cycle++ < 100);
-			soft_rstn = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-    	} while ((soft_rstn & VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_DONE_MASK) != VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_DONE_MASK);
-    	// release reset
-    	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, soft_rstn | VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_MASK);
-	}
-}
-
 static const struct v4l2_file_operations es_dvp2axi_fops = {
 	.open = es_dvp2axi_fh_open,
 	.release = es_dvp2axi_fh_release,
@@ -7481,7 +7294,6 @@ static const struct v4l2_file_operations es_dvp2axi_fops = {
 static int es_dvp2axi_enum_input(struct file *file, void *priv,
 			    struct v4l2_input *input)
 {
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (input->index > 0)
 		return -EINVAL;
 
@@ -7497,7 +7309,6 @@ static int es_dvp2axi_try_fmt_vid_cap_mplane(struct file *file, void *fh,
 	struct es_dvp2axi_stream *stream = video_drvdata(file);
 	int ret = 0;
 	ret = es_dvp2axi_set_fmt(stream, &f->fmt.pix_mp, true);
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	return ret;
 }
 
@@ -7511,12 +7322,11 @@ static int es_dvp2axi_enum_framesizes(struct file *file, void *prov,
 	struct v4l2_rect input_rect;
 	struct csi_channel_info csi_info;
 	
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 	
 	if (fsize->index != 0)
 		return -EINVAL;
 
-	DPRINTK("***** fsize->pixel_format =0x%x *****\n", fsize->pixel_format);
+	pr_debug("***** fsize->pixel_format =0x%x *****\n", fsize->pixel_format);
 	if (!es_dvp2axi_find_output_fmt(stream, fsize->pixel_format))
 		return -EINVAL;
 
@@ -7552,7 +7362,6 @@ static int es_dvp2axi_enum_frameintervals(struct file *file, void *fh,
 	struct v4l2_subdev_frame_interval fi;
 	int ret;
 
-	DPRINTK("t2 %s, %s, %d \n", __FILE__, __func__, __LINE__);
 	if (fival->index != 0)
 		return -EINVAL;
 
@@ -7591,7 +7400,6 @@ static int es_dvp2axi_enum_frameintervals(struct file *file, void *fh,
 static int es_dvp2axi_enum_fmt_vid_cap_mplane(struct file *file, void *priv,
 					 struct v4l2_fmtdesc *f)
 {
-	DPRINTK("%s %s %d \n", __FILE__, __func__, __LINE__);
 	const struct dvp2axi_output_fmt *fmt = NULL;
 	struct es_dvp2axi_stream *stream = video_drvdata(file);
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
@@ -7608,10 +7416,9 @@ static int es_dvp2axi_enum_fmt_vid_cap_mplane(struct file *file, void *priv,
 		dvp2axi_fmt_in = es_dvp2axi_get_input_fmt(dev, &input_rect, stream->id,
 						 &dev->channels[stream->id]);
 		stream->dvp2axi_fmt_in = dvp2axi_fmt_in;
-		DPRINTK("*** stream->dvp2axi_fmt_in->mbus_code = %d ***\n", stream->dvp2axi_fmt_in->mbus_code);
+		pr_debug("*** stream->dvp2axi_fmt_in->mbus_code = %d ***\n", stream->dvp2axi_fmt_in->mbus_code);
 	} else {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
-			 "terminal subdev does not exist\n");
+		pr_debug("terminal subdev does not exist\n");
 		return -EINVAL;
 	}
 
@@ -7723,8 +7530,6 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 	u16 pad = 0;
 	int ret = 0;
 
-	DPRINTK(" %s, %s, %d \n", __FILE__, __func__, __LINE__);
-
 	if (!s) {
 		v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev, "sel is null\n");
 		goto err;
@@ -7737,7 +7542,7 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 		sd_sel.pad = pad;
 		sd_sel.target = s->target;
 		sd_sel.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-		DPRINTK("%s:%d s->r.left %d,  s->r.top %d,  s->r.width %d, s->r.height %d \n", __func__, __LINE__, s->r.left, s->r.top, s->r.width, s->r.height);
+		pr_debug("%s:%d s->r.left %d,  s->r.top %d,  s->r.width %d, s->r.height %d \n", __func__, __LINE__, s->r.left, s->r.top, s->r.width, s->r.height);
 		ret = v4l2_subdev_call(sensor_sd, pad, set_selection, NULL,
 				       &sd_sel);
 		if (!ret) {
@@ -7747,7 +7552,7 @@ static int es_dvp2axi_s_selection(struct file *file, void *fh,
 				 pad, sd_sel.which, sd_sel.target);
 		}
 	} else if (s->target == V4L2_SEL_TGT_CROP) {
-		DPRINTK("%s:%d start check fmt\n", __func__, __LINE__);
+		pr_debug("%s:%d start check fmt\n", __func__, __LINE__);
 		ret = es_dvp2axi_sanity_check_fmt(stream, rect);
 		if (ret) {
 			v4l2_err(&dev->v4l2_dev, "set crop failed\n");
@@ -7825,7 +7630,6 @@ static int es_dvp2axi_g_selection(struct file *file, void *fh,
 	struct v4l2_subdev_selection sd_sel;
 	u16 pad = 0;
 	int ret = 0;
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	if (!s) {
 		v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev, "sel is null\n");
@@ -8002,8 +7806,6 @@ static long es_dvp2axi_ioctl_default(struct file *file, void *fh, bool valid_pri
 	int i = 0;
 	int stream_num = 0;
 	bool is_can_be_online = false;
-
-	DPRINTK("%s, %s, %d \n", __FILE__, __func__, __LINE__);
 
 	switch (cmd) {
 	case ES_DVP2AXI_CMD_GET_CSI_MEMORY_MODE:
@@ -8265,7 +8067,6 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 	int ret = 0;
 	char *vdev_name;
 
-	DPRINTK("%s %s %d \n", __FILE__, __func__, __LINE__);
 	if (dev->inf_id == ES_DVP2AXI_MIPI_LVDS) {
 		switch (stream->id) {
 		case ESDVP2AXI_STREAM_MIPI_ID0:
@@ -8319,7 +8120,7 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 	}
 
 	strlcpy(vdev->name, vdev_name, sizeof(vdev->name));
-	pr_info("%s:%d vdev->name %s \n", __func__, __LINE__, vdev->name);
+	v4l2_err(v4l2_dev, "vdev->name %s \n", vdev->name);
 	node = vdev_to_node(vdev);
 	mutex_init(&node->vlock);
 	vdev->ioctl_ops = &es_dvp2axi_v4l2_ioctl_ops;
@@ -8337,7 +8138,6 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 	vdev->queue = &node->buf_queue;
 	
 	ret = media_entity_pads_init(&vdev->entity, 1, &node->pad);
-	pr_info("%s:%d entity %p \n", __func__, __LINE__, &vdev->entity);
 	if (ret < 0)
 		goto unreg;
 
@@ -8350,7 +8150,6 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 
 
 	INIT_LIST_HEAD(&stream->vb_done_list);
-	pr_info("%s:%d stream addr %p \n", __func__, __LINE__, stream);
 	tasklet_init(&stream->vb_done_tasklet, es_dvp2axi_tasklet_handle,
 		     (unsigned long)stream);
 	tasklet_disable(&stream->vb_done_tasklet);
@@ -8377,7 +8176,6 @@ int es_dvp2axi_register_stream_vdevs(struct es_dvp2axi_device *dev, int stream_n
 	struct es_dvp2axi_stream *stream;
 	int i, j, ret;
 
-	DPRINTK("%s, %d \n", __func__, __LINE__);
 	for (i = 0; i < stream_num; i++) {
 		stream = &dev->stream[i];
 		stream->dvp2axidev = dev;
@@ -11149,8 +10947,8 @@ void es_dvp2axi_set_default_fmt(struct es_dvp2axi_device *dvp2axi_dev)
 				pixm.width = input_sel.r.width;
 				pixm.height = input_sel.r.height;
 			}
-			DPRINTK("pixm.pixelformat:%d, pixm.width:%d, pixm.height:%d\n",pixm.pixelformat, pixm.width, pixm.height);
-			DPRINTK("dvp2axi_dev->terminal_sensor.sd->name :%s\n",dvp2axi_dev->terminal_sensor.sd->name);
+			pr_debug("pixm.pixelformat:%d, pixm.width:%d, pixm.height:%d\n",pixm.pixelformat, pixm.width, pixm.height);
+			pr_debug("dvp2axi_dev->terminal_sensor.sd->name :%s\n",dvp2axi_dev->terminal_sensor.sd->name);
 			es_dvp2axi_set_fmt(&dvp2axi_dev->stream[i], &pixm, false);
 		}
 	}
@@ -11163,7 +10961,6 @@ void es_dvp2axi_enable_dma_capture(struct es_dvp2axi_stream *stream, bool is_onl
 	struct csi_channel_info *channel = &dvp2axi_dev->channels[stream->id];
 	u32 val = 0;
 
-	DPRINTK("t2 %s %s %d \n", __FILE__, __func__, __LINE__);
 	if (stream->buf_owner == ES_DVP2AXI_DMAEN_BY_ISP)
 		stream->buf_owner = ES_DVP2AXI_DMAEN_BY_ISP_TO_VICAP;
 
