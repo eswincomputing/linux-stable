@@ -148,6 +148,11 @@
 		compatible = "eswin,es8388";
 		reg = <0x11>;
 		#sound-dai-cells = <0>;
+		eswin-plat = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio25_default &pinctrl_die0_gpio26_default>;
+		front-jack-gpios = <&porta 25 GPIO_ACTIVE_HIGH>;
+		back-jack-gpios = <&porta 26 GPIO_ACTIVE_HIGH>;
 		port {
 			d0_codec0_endpoint: endpoint {
 				system-clock-frequency = <12288000>;
@@ -307,7 +312,7 @@
 				 &pinctrl_die0_gpio75_default &pinctrl_die0_gpio79_default &pinctrl_die0_gpio81_default &pinctrl_die0_gpio36_default
 				 &pinctrl_die0_gpio37_default &pinctrl_die0_gpio38_default &pinctrl_die0_gpio74_default &pinctrl_die0_gpio92_default
 				 &pinctrl_die0_gpio93_default>;
-	
+
 
     /* pin header default function for GPIO
        D0_SPI1 (CS0,SCLK,MOSI,MISO,D2,D3): GPIO 35,36,37,38,39,40
