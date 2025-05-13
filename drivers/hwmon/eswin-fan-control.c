@@ -33,11 +33,16 @@
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/wait.h>
+#include <linux/delay.h>
 
 #define FAN_PWM_DUTY			0x0
 #define FAN_PWM_PERIOD			0x1
 #define FAN_PWM_FREE			0x2
 #define DDR_TRAINING_TEMP		0x3
+
+#define FAN_RPM_MAX_VALUE		(100000)
+#define FAN_RPM_MAX_READ_CNT	(100)
+#define FAN_RPM_RETRY_INTERVAL	(10)
 
 /* register map */
 #define REG_FAN_INT				0x0
@@ -69,6 +74,8 @@ struct eswin_fan_control_data {
 	u32 ppr;
 	/* revolutions per minute */
 	u32 rpm;
+	/* last revolutions per minute */
+	u32 last_rpm;
 	u8 pwm_inverted;
 };
 
@@ -226,14 +233,32 @@ static long eswin_fan_control_get_fan_rpm(struct eswin_fan_control_data *ctl)
 
 static int eswin_fan_control_read_fan(struct device *dev, u32 attr, long *val)
 {
+	int retry = 0;
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
 
 	switch (attr) {
 	case hwmon_fan_input:
-		if(!eswin_fan_control_get_fan_rpm(ctl)){
-			dev_err(dev, "wait read interrupt timeout!\n");
+		while (retry < FAN_RPM_MAX_READ_CNT) {
+			if (eswin_fan_control_get_fan_rpm(ctl) <= 0) {
+				dev_err(dev, "wait read interrupt fail!\n");
+				retry++;
+				continue;
+			}
+			if (ctl->rpm > FAN_RPM_MAX_VALUE) {
+				dev_warn(dev, "retry(%d) to measure rpm(%d)\n", retry, ctl->rpm);
+				msleep(FAN_RPM_RETRY_INTERVAL);
+				retry++;
+				continue;
+			} else {
+				break;
+			}
 		}
-		*val = ctl->rpm;
+		if (retry == FAN_RPM_MAX_READ_CNT) {
+			*val = ctl->last_rpm;
+		} else {
+			*val = ctl->rpm;
+			ctl->last_rpm = ctl->rpm;
+		}
 		return 0;
 	default:
 		return -ENOTSUPP;
