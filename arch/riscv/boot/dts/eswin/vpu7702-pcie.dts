@@ -908,7 +908,7 @@
 	/* ADC */
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c4_default>;
+	pinctrl-0 = <&pinctrl_i2c10_default>;
 	status = "okay";
 
 	adc@48 {
@@ -919,25 +919,25 @@
 
 		channel@4 {
 			reg = <4>;
-			ti,gain = <1>;
+			ti,gain = <0>;
 			ti,datarate = <7>;
 		};
 
 		channel@5 {
 			reg = <5>;
-			ti,gain = <1>;
+			ti,gain = <0>;
 			ti,datarate = <7>;
 		};
 
 		channel@6 {
 			reg = <6>;
-			ti,gain = <1>;
+			ti,gain = <0>;
 			ti,datarate = <7>;
 		};
 
 		channel@7 {
 			reg = <7>;
-			ti,gain = <1>;
+			ti,gain = <0>;
 			ti,datarate = <7>;
 		};
 	};
@@ -998,6 +998,28 @@
 
 &pinctrl {
 	status = "okay";
+
+	pinctrl_gpio12_default: gpio12-default{
+		mux {
+			groups = "gpio12_group";
+			function = "gpio12_func";
+		};
+		conf {
+			groups = "gpio12_group";
+			bias-pull-down = <1>;
+		};
+	};
+
+	pinctrl_gpio27_default: gpio27-default{
+		mux {
+			groups = "gpio27_group";
+			function = "gpio27_func";
+		};
+		conf {
+			groups = "gpio27_group";
+			bias-pull-down = <1>;
+		};
+	};
 
 	pinctrl_gpio58_default: gpio58-default {
 		mux {
@@ -1073,7 +1095,9 @@
 &gpio0 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio58_default
+	pinctrl-0 = <&pinctrl_gpio12_default
+	&pinctrl_gpio27_default
+	&pinctrl_gpio58_default
 	&pinctrl_gpio59_default
 	&pinctrl_gpio60_default
 	&pinctrl_gpio61_default>;
