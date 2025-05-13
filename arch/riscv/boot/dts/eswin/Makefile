@@ -12,5 +12,6 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7700-sbc-a1.dtb \
 							eic7700-vpu7702.dtb \
 							eic7700-osm.dtb \
-							eic7702-d560.dtb
+							eic7702-d560.dtb \
+							eic7702-d560-interleave.dtb
 obj-$(CONFIG_BUILTIN_DTB) += $(addsuffix .o, $(dtb-y))
