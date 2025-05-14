@@ -111,65 +111,65 @@
 
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x3 0x0 0x1 0x10000000>;
+			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
 		};
 
-		rpc_reserved:rpc_reserved@410000000 {
-			reg = <0x4 0x10000000 0 0x1000>;
+		rpc_reserved:rpc_reserved@100000000 {
+			reg = <0x1 0x0 0 0x1000>;
 			no-map;
 		};
 
-		commu_reserved:commu_reserved@410001000 {
-			reg = <0x4 0x10001000 0 0x10000>;
+		commu_reserved:commu_reserved@100001000 {
+			reg = <0x1 0x1000 0 0x10000>;
 			no-map;
 		};
 
-		kernel_debug_reserved:kernel_debug_reserved@410011000 {
-			reg = <0x4 0x10011000 0 0x100000>;
+		kernel_debug_reserved:kernel_debug_reserved@100011000 {
+			reg = <0x1 0x11000 0 0x100000>;
 			no-map;
 		};
 
-		pgretire_reserved:pgretire_reserved@410111000 {
-			reg = <0x4 0x10111000 0 0x100000>;
+		pgretire_reserved:pgretire_reserved@100111000 {
+			reg = <0x1 0x111000 0 0x100000>;
 			no-map;
 		};
 
-		configs_reserved:configs_reserved@410211000 {
-			reg = <0x4 0x10211000 0 0x1000>;
+		configs_reserved:configs_reserved@100211000 {
+			reg = <0x10 0x211000 0 0x1000>;
 			no-map;
 		};
 
-		ipcm_vdev0vring0:vdev0vring0@410212000 {
-			reg = <0x4 0x10212000 0 0x100000>;
+		ipcm_vdev0vring0:vdev0vring0@100212000 {
+			reg = <0x1 0x212000 0 0x100000>;
 			no-map;
 		};
 
-		ipcm_vdev0vring1:vdev0vring1@410312000 {
-			reg = <0x4 0x10312000 0 0x100000>;
+		ipcm_vdev0vring1:vdev0vring1@100312000 {
+			reg = <0x1 0x312000 0 0x100000>;
 			no-map;
 		};
 
-		ipcm_vdev0buffer:vdev0buffer@410412000 {
+		ipcm_vdev0buffer:vdev0buffer@100412000 {
 			compatible = "shared-dma-pool";
-			reg = <0x4 0x10412000 0 0x4000000>; // pre is rx
+			reg = <0x1 0x412000 0 0x4000000>; // pre is rx
 			no-map;
 		};
 
-		rsc_table0:rsc_table0@414412000 {
-			reg = <0x4 0x14412000 0 0x100>;
+		rsc_table0:rsc_table0@104412000 {
+			reg = <0x1 0x4412000 0 0x100>;
 			no-map;
 		};
 
 		share_memory {
-			compatible = "cambr,shm";
+			compatible = "eswin,shm";
 			#address-cells = <2>;
 			#size-cells = <2>;
 
-			phys-base = <0x4 0x14412100>;
-			virt-base = <0x4 0x14412100>;
+			phys-base = <0x1 0x4412100>;
+			virt-base = <0x1 0x4412100>;
 			shm-size = <0xbbedf00>;
-			reg = <0x4 0x14412100 0 0xbbedf00>;
+			reg = <0x1 0x4412100 0 0xbbedf00>;
 			no-map;
 		};
 
