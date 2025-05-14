@@ -307,12 +307,12 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dc_out_dpi: endpoint@0 {
-			reg = <0>;
+		dc_out_dpi: endpoint@1 {
+			reg = <1>;
 			remote-endpoint = <&vd_input>;
 		};
-		dc_out_hdmi: endpoint@1 {
-			reg = <1>;
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
 			remote-endpoint = <&hdmi_in_dc>;
 		};
 	};
