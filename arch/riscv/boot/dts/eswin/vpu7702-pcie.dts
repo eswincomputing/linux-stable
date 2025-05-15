@@ -156,7 +156,12 @@
 		};
 
 		rsc_table0:rsc_table0@104412000 {
-			reg = <0x1 0x4412000 0 0x100>;
+			reg = <0x1 0x4412000 0 0x1000>;
+			no-map;
+		};
+
+		version_table:version_table@104413000 {
+			reg = <0x1 0x4413000 0 0x1000>;
 			no-map;
 		};
 
@@ -164,12 +169,10 @@
 			compatible = "eswin,shm";
 			#address-cells = <2>;
 			#size-cells = <2>;
-
-			phys-base = <0x1 0x4412100>;
-			virt-base = <0x1 0x4412100>;
-			shm-size = <0xbbedf00>;
-			reg = <0x1 0x4412100 0 0xbbedf00>;
-			no-map;
+			phys-base = <0x1 0x4414000>;
+			virt-base = <0x1 0x4414000>;
+			shm-size = <0xbbea000>;
+			reg = <0x1 0x4414000 0 0xbbea000>;
 		};
 
 	};
