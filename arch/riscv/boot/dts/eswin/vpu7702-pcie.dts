@@ -24,8 +24,8 @@
 #define LSPCLK_FREQ		200000000
 
 /* If wanna enable ECC capability of DDR, should reserve highest zone of 1/8 all space for it */
-#define MEMORY_SIZE_H		0x4
-#define MEMORY_SIZE_L		0x0
+#define MEMORY_SIZE_H		0x3
+#define MEMORY_SIZE_L		0x80000000
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
@@ -110,7 +110,7 @@
 
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x3 0x0 0x1 0x80000000>;
+			reg = <0x3 0x0 0x1 0x0>;
 			no-map;
 		};
 
