@@ -870,8 +870,13 @@
 
 &pinctrl {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default &pinctrl_gpio10_default
+			&pinctrl_gpio71_default &pinctrl_gpio73_default &pinctrl_gpio74_default &pinctrl_gpio75_default 
+			&pinctrl_gpio76_default &pinctrl_gpio77_default &pinctrl_gpio79_default &pinctrl_gpio80_default 
+			&pinctrl_gpio83_default &pinctrl_gpio84_default &pinctrl_gpio85_default &pinctrl_gpio86_default
+			&pinctrl_gpio87_default &pinctrl_gpio89_default &pinctrl_gpio91_default &pinctrl_gpio92_default>;
 };
-
 &gpio0 {
 	status = "okay";
 };
