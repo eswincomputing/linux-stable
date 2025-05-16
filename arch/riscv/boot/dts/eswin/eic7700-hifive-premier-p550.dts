@@ -29,7 +29,7 @@
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
-#include "eic7700-dvb-dsi-panel.dtsi"
+//#include "eic7700-dvb-dsi-panel.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>

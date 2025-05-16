@@ -48,8 +48,7 @@
 		serial0 = &d0_uart0;
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
-		rtc0 = &die0_rtc;
-		rtc1 = &pcf_rtc;
+		rtc0 = &pcf_rtc;
 	};
 
 	chosen {
@@ -512,6 +511,7 @@
 	drive-impedance-ohm = <50>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	disable-wp;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
 	no-sdio;
@@ -525,6 +525,7 @@
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	disable-wp;
 	no-sdio;
 	no-mmc;
 };
@@ -596,6 +597,9 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio55_default>;
+	hub-rst-gpios = <&portb 23 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -708,6 +712,7 @@
 
 &fan_control {
 	status = "okay";
+	eswin,pwm_inverted;
 };
 
 &d0_i2c0 {
@@ -737,7 +742,7 @@
 		compatible = "ti,tlv320aic3106";
 		reg = <0x1b>;
 		status = "okay";
-		ai3x-ocmv = <2>; /* Common-Mode Voltage 1.65V */
+		ai3x-ocmv = <0>; /* Common-Mode Voltage 1.35V */
 		ai3x-micbias-vg = <2>; /* MICBIAS_2_5V */
 		#sound-dai-cells = <0>;
 		pinctrl-names = "default";
@@ -754,7 +759,7 @@
 
 &d0_i2c3 {
 	/* unused */
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_i2c4 {
@@ -809,12 +814,11 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};
 	pcf_rtc:rtc@51 {
-		compatible = "nxp,pcf8563";
+		compatible = "nxp,pcf85063a";
 		reg = <0x51>;
 	};
 };

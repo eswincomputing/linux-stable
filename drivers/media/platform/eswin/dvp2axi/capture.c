@@ -843,7 +843,7 @@ static struct v4l2_subdev *get_remote_sensor(struct es_dvp2axi_stream *stream,
 
 	remote = media_pad_remote_pad_first(local);
 	if (!remote) {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev, "%s: remote pad is null\n",
+		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev, "%s: remote pad is null\n",
 			 __func__);
 		return NULL;
 	}
@@ -4839,7 +4839,7 @@ void es_dvp2axi_buf_queue(struct vb2_buffer *vb)
 	struct v4l2_pix_format_mplane *pixm = &stream->pixm;
 	const struct dvp2axi_output_fmt *fmt = stream->dvp2axi_fmt_out;
 	struct es_dvp2axi_hw *hw_dev = stream->dvp2axidev->hw_dev;
-	struct es_dvp2axi_tools_buffer *tools_buf;
+	struct es_dvp2axi_tools_buffer *tools_buf = NULL;
 	struct es_dvp2axi_tools_vdev *tools_vdev = stream->tools_vdev;
 	unsigned long flags;
 	int i;
@@ -5262,8 +5262,8 @@ void es_dvp2axi_do_soft_reset(struct es_dvp2axi_device *dev)
 static void es_dvp2axi_release_rdbk_buf(struct es_dvp2axi_stream *stream)
 {
 	struct es_dvp2axi_device *dev = stream->dvp2axidev;
-	struct es_dvp2axi_buffer *rdbk_buf;
-	struct es_dvp2axi_buffer *tmp_buf;
+	struct es_dvp2axi_buffer *rdbk_buf = NULL;
+	struct es_dvp2axi_buffer *tmp_buf = NULL;
 	unsigned long flags;
 	bool has_added;
 	int index = 0;
@@ -5919,7 +5919,7 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 
 	sensor_sd = get_remote_sensor(stream, NULL);
 	if (!sensor_sd) {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
 			 "%s: stream[%d] get remote sensor_sd failed!\n",
 			 __func__, stream->id);
 		return -ENODEV;
@@ -5927,7 +5927,7 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 
 	sensor = sd_to_sensor(stream->dvp2axidev, sensor_sd);
 	if (!sensor) {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
 			 "%s: stream[%d] get remote sensor failed!\n", __func__,
 			 stream->id);
 		return -ENODEV;
@@ -5935,7 +5935,7 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 	ret = v4l2_subdev_call(sensor->sd, pad, get_mbus_config, 0,
 			       &sensor->mbus);
 	if (ret && ret != -ENOIOCTLCMD) {
-		v4l2_err(&stream->dvp2axidev->v4l2_dev,
+		v4l2_dbg(1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
 			 "%s: get remote %s mbus failed!\n", __func__,
 			 sensor->sd->name);
 		return ret;
@@ -6527,7 +6527,7 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 	if (!dev->active_sensor) {
 		ret = es_dvp2axi_update_sensor_info(stream);
 		if (ret < 0) {
-			v4l2_err(v4l2_dev, "update sensor info failed %d\n",
+			v4l2_dbg(1, es_dvp2axi_debug,v4l2_dev, "update sensor info failed %d\n",
 				 ret);
 			goto out;
 		}
@@ -7139,7 +7139,7 @@ static int es_dvp2axi_fh_open(struct file *filp)
 	/* Make sure active sensor is valid before .set_fmt() */
 	ret = es_dvp2axi_update_sensor_info(stream);
 	if (ret < 0) {
-		v4l2_err(vdev, "update sensor info failed %d\n", ret);
+		v4l2_dbg(1, es_dvp2axi_debug, vdev, "update sensor info failed %d\n", ret);
 
 		return ret;
 	}
@@ -7708,7 +7708,7 @@ void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps 
 	if (!stream->dvp2axidev->terminal_sensor.sd) {
 		ret = es_dvp2axi_update_sensor_info(stream);
 		if (ret) {
-			v4l2_err(&stream->dvp2axidev->v4l2_dev,
+			v4l2_dbg(1, es_dvp2axi_debug ,&stream->dvp2axidev->v4l2_dev,
 				 "%s update sensor info fail\n", __func__);
 			return;
 		}
