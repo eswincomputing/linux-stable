@@ -266,9 +266,9 @@
 	};
 };
 
-&cpu_0 {
-	cpu-supply = <&vdd_soc>;
-};
+// &cpu_0 {
+//	cpu-supply = <&vdd_soc>;
+// };
 
 &d0_clock {
 	status = "okay";
