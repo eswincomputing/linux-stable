@@ -177,6 +177,10 @@
 	};
 };
 
+&fan_control {
+	status = "okay";
+};
+
 &d0_i2c1 {
 	/* pin header */
 	status = "okay";
@@ -288,6 +292,10 @@
 };
 &d1_timer1 {
 	status = "disabled";
+};
+
+&pwm0 {
+	status = "okay";
 };
 
 &pinctrl {
