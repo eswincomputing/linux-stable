@@ -65,7 +65,7 @@
 #define SATA_P0_AMPLITUDE_GEN3        (0x73 << 16)
 #define SATA_P0_PHY_TX_PREEMPH_GEN1   0x05
 #define SATA_P0_PHY_TX_PREEMPH_GEN2   (0x05 << 8)
-#define SATA_P0_PHY_TX_PREEMPH_GEN3   (0x23 << 16)
+#define SATA_P0_PHY_TX_PREEMPH_GEN3   (0x08 << 16)
 #define SATA_MPLL_MULTIPLIER          (0x3c << 16)
 #define SATA_M_CSYSREQ                BIT(0)
 #define SATA_S_CSYSREQ                BIT(16)
@@ -152,7 +152,7 @@ static int eswin_sata_init(struct device *dev)
     regmap_write(regmap, SATA_AXI_LP_CTRL, (SATA_M_CSYSREQ|SATA_S_CSYSREQ));
     regmap_write(regmap, SATA_REG_CTRL, (SATA_REF_REPEATCLK_EN|SATA_REF_USE_PAD));
     regmap_write(regmap, SATA_MPLL_CTRL, SATA_MPLL_MULTIPLIER);
-    regmap_write(regmap, SATA_RESET_CTRL, 0x0);
+    udelay(20);
 
     return 0;
 }
@@ -208,6 +208,8 @@ static int ahci_probe(struct platform_device *pdev)
     if (IS_ERR(hpriv))
         return PTR_ERR(hpriv);
 
+    eswin_sata_init(dev);  //The PHY parameters need to be modified before resetting
+
     hpriv->plat_data = plat;
     ret = eswin_ahci_platform_resets(hpriv, dev);
 	if (ret)
@@ -216,8 +218,6 @@ static int ahci_probe(struct platform_device *pdev)
     ret = ahci_platform_enable_resources(hpriv);
 	if (ret)
 		return ret;
-
-    eswin_sata_init(dev);
 
     eswin_sata_sid_cfg(dev);
 
