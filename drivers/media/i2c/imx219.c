@@ -445,6 +445,10 @@ struct imx219 {
 	u32 xclk_freq;
 
 	struct gpio_desc *reset_gpio;
+	struct gpio_desc *power_en_gpio;
+	struct gpio_desc *mclk_gpio;
+	struct gpio_desc *xvs_gpio;
+
 	struct regulator_bulk_data supplies[IMX219_NUM_SUPPLIES];
 
 	struct v4l2_ctrl_handler ctrl_handler;
@@ -1406,29 +1410,21 @@ static int imx219_probe(struct i2c_client *client)
 	if (imx219_check_hwcfg(dev))
 		return -EINVAL;
 
-	// /* Get system clock (xclk) */
-	// imx219->xclk = devm_clk_get(dev, NULL);
-	// if (IS_ERR(imx219->xclk)) {
-	// 	dev_err(dev, "failed to get xclk\n");
-	// 	return PTR_ERR(imx219->xclk);
-	// }
+	imx219->mclk_gpio = devm_gpiod_get_optional(dev, "mclk-gpios",
+						     GPIOD_OUT_HIGH);
+	if(IS_ERR(imx219->mclk_gpio)) {
+		dev_warn(dev, "4 lanes imx219 sensor neet to config mclk-gpios in dts\n");
+	} else {
+		gpiod_set_value(imx219->mclk_gpio, 1);
+	}
 
-	// imx219->xclk_freq = clk_get_rate(imx219->xclk);
-	// if (imx219->xclk_freq != IMX219_XCLK_FREQ) {
-	// 	dev_err(dev, "xclk frequency not supported: %d Hz\n",
-	// 		imx219->xclk_freq);
-	// 	return -EINVAL;
-	// }
-
-	// ret = imx219_get_regulators(imx219);
-	// if (ret) {
-	// 	dev_err(dev, "failed to get regulators\n");
-	// 	return ret;
-	// }
-
-	// /* Request optional enable pin */
-	// imx219->reset_gpio = devm_gpiod_get_optional(dev, "reset",
-	// 					     GPIOD_OUT_HIGH);
+	imx219->xvs_gpio = devm_gpiod_get_optional(dev, "xvs-gpios",
+						     GPIOD_OUT_HIGH);
+	if(IS_ERR(imx219->xvs_gpio)) {
+		dev_warn(dev, "optional to config xvs-gpios in dts, default is up\n");
+	} else {
+		gpiod_set_value(imx219->xvs_gpio, 1);
+	}
 
 	/*
 	* The sensor must be powered for imx219_identify_module()

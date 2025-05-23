@@ -445,8 +445,6 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 	if (of_property_read_u32(node, "index", &dev->index))
 		dev->index = 0;
 
-	pr_info("%s:%d index %d \n", __func__, __LINE__, dev->index);
-
 	node = of_graph_get_next_endpoint(node, NULL);
 	if (!node) {
 		dev_err(&pdev->dev, "No port node at %pOF\n",

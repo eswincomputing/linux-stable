@@ -1,0 +1,231 @@
+&vi_subsys {
+	board_compat = "eic7700,dvb_vi";
+	eswin,isp_dvp0_hor = <3280>;
+	eswin,isp_dvp0_ver = <2464>;
+	phy_mode = <2>;
+	vvcam_isp_0: vvcam_isp@0 {
+		compatible = "verisilicon,isp-v4l2";
+		id = <0>;
+		status = "okay";
+		dma-noncoherent;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				vvcam_isp_input_port: endpoint@0 {
+					remote-endpoint = <&mipi_csi2_output1>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				vvcam_isp_port0_mp: endpoint {
+					remote-endpoint = <&vvcam_video0>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				vvcam_isp_port0_sp1: endpoint {
+					remote-endpoint = <&vvcam_video1>;
+				};
+			};
+
+			port@3 {
+				reg = <3>;
+				vvcam_isp_port0_sp2: endpoint {
+					remote-endpoint = <&vvcam_video2>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+				vvcam_isp_port0_raw: endpoint {
+					remote-endpoint = <&vvcam_video3>;
+				};
+			};
+		};
+	};
+
+	vvcam_vb: vvcam-vb@0 {
+		compatible = "verisilicon,vb";
+		status = "okay";
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu0 WIN2030_SID_ISP0>;
+	};
+
+	vvcam_video_0: vvcam_video@0 {
+		compatible = "verisilicon,video";
+		id = <0>;
+		status = "okay";
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu0 WIN2030_SID_ISP0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				vvcam_video0: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_mp>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				vvcam_video1: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_sp1>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				vvcam_video2: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_sp2>;
+				};
+			};
+
+			port@3 {
+				reg = <3>;
+				vvcam_video3: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_raw>;
+				};
+			};
+		};
+	};
+};
+
+&mipi_csi2_0 {
+	num_lanes = <2>;
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi0_csi2_input: endpoint@0 {
+				remote-endpoint = <&csidphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_output1: endpoint@2 {
+				remote-endpoint = <&vvcam_isp_input_port>;
+			};
+		};
+	};
+};
+
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	dvp2axi_id = <0>;
+	port@0 {
+		axi2dvp_mipi2_in0: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_output0>;
+		};
+	};
+};
+
+
+&csi2_dphy_hw {
+	lanes = <1 2>;
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_ucam0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&imx219_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi0_csi2_input>;
+			};
+		};
+	};
+};
+
+
+&d0_i2c3 {
+	/* mipi csi0/csi1 */
+	status = "okay";
+	imx219: imx219@10 {
+			compatible = "sony,imx219";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x10>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio72_default &pinctrl_gpio70_default>;
+			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;  //gpio72
+			xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;   //gpio70
+			eswin,camera-module-index = <0>;
+			eswin,camera-module-facing = "back";
+			eswin,camera-module-name = "rpi-camera-v2";
+			eswin,camera-module-lens-name = "default";
+
+			port {
+				imx219_out0: endpoint {
+					remote-endpoint = <&mipidphy0_in_ucam0>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <456000000>;
+				};
+			};
+		};
+};
+
+&isp_0 {
+	status = "okay";
+};
+
+&isp_1 {
+	status = "disabled";
+};
