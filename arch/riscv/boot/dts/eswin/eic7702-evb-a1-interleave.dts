@@ -917,6 +917,9 @@
 	enable-data-pullup;
 	no-sdio;
 	no-mmc;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio13_default>;
+	cd-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
 };
 
 &d1_sdio0 {

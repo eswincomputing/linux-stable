@@ -214,7 +214,7 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 	}
 
 	if (phase_code == -1) {
-		pr_err("%s: phase code tuning failed!\n",
+		pr_debug("%s: phase code tuning failed!\n",
 		       mmc_hostname(host->mmc));
 		eswin_sdhci_disable_card_clk(host);
 		sdhci_writew(host, 0, VENDOR_AT_SATA_R);
