@@ -115,7 +115,7 @@
 			no-map;
 		};
 
-		dvp2axi_mem: dvp2axi-mem@0x90000000 {
+		dvp2axi_mem: dvp2axi-mem@90000000 {
 			compatible = "shared-dma-pool";
 			reg = <0x0 0x90000000 0x0 0x10000000>;
 			no-map;
@@ -716,19 +716,7 @@
 };
 
 &d0_i2c0 {
-	/* codec es8388 */
 	status = "disabled";
-	d0_es8388_0: es8388-0@10 {
-		compatible = "eswin,es8388";
-		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s1_endpoint>;
-			};
-		};
-	};
 };
 
 &d0_i2c1 {
@@ -876,8 +864,8 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default &pinctrl_gpio10_default
-			&pinctrl_gpio71_default &pinctrl_gpio73_default &pinctrl_gpio74_default &pinctrl_gpio75_default 
-			&pinctrl_gpio76_default &pinctrl_gpio77_default &pinctrl_gpio79_default &pinctrl_gpio80_default 
+			&pinctrl_gpio71_default &pinctrl_gpio73_default &pinctrl_gpio74_default &pinctrl_gpio75_default
+			&pinctrl_gpio76_default &pinctrl_gpio77_default &pinctrl_gpio79_default &pinctrl_gpio80_default
 			&pinctrl_gpio83_default &pinctrl_gpio84_default &pinctrl_gpio85_default &pinctrl_gpio86_default
 			&pinctrl_gpio87_default &pinctrl_gpio89_default &pinctrl_gpio91_default &pinctrl_gpio92_default>;
 };

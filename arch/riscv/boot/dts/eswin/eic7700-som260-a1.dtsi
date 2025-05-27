@@ -380,6 +380,8 @@
 &dw_hdmi {
 	status = "okay";
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		port@0 {
 			reg = <0>;
 			hdmi_in_dc: endpoint@0 {

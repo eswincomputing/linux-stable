@@ -64,6 +64,7 @@
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
 		status = "okay";
+		#size-cells = <2>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
@@ -73,6 +74,7 @@
 		compatible = "verisilicon,video";
 		id = <0>;
 		status = "okay";
+		#size-cells = <2>;
 
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
@@ -151,7 +153,7 @@
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
 	status = "okay";
-	
+
 	imx327_0: imx327@36 {
 			compatible = "sony,imx327";
 			status = "okay";
@@ -172,7 +174,7 @@
 			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
 			//pinctrl-names = "default";
 			//pinctrl-0 = <&cif_clkout>;
-			
+
 			port {
 				imx327_out0: endpoint {
 					// remote-endpoint = <&mipi_in_ucam0>;
@@ -258,7 +260,7 @@
 
 		port@0 {
 			#address-cells = <1>;
-			#size-cells = <0>;	
+			#size-cells = <0>;
 			reg = <0>;
 			mipi2_csi2_input: endpoint {
 				remote-endpoint = <&csidphy0_out>;
@@ -306,7 +308,6 @@
 			};
 		};
 	};
-	
 };
 
 

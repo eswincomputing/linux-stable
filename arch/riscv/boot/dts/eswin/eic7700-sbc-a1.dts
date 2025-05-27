@@ -679,6 +679,7 @@
 	};
 	usb_pd_sink@8 {
 		label = "usb_pd_sink";
+		reg = <0x8>;
 	};
 };
 
@@ -695,7 +696,7 @@
 &d0_i2c4 {
 	/* pin header */
 	status = "okay";
-	sys_power:ina226@44 {
+	sys_power:ina226@40 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
 		label = "sys_power";

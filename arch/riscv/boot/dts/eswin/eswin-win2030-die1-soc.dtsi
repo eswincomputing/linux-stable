@@ -1675,7 +1675,7 @@
 			dma-noncoherent;
 		};
 
-		d1_ssi0: spi1@70810000 {
+		d1_ssi0: spi@70810000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
