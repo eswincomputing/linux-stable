@@ -245,7 +245,6 @@ static int eswin_fan_control_read_fan(struct device *dev, u32 attr, long *val)
 				continue;
 			}
 			if (ctl->rpm > FAN_RPM_MAX_VALUE) {
-				dev_warn(dev, "retry(%d) to measure rpm(%d)\n", retry, ctl->rpm);
 				msleep(FAN_RPM_RETRY_INTERVAL);
 				retry++;
 				continue;
