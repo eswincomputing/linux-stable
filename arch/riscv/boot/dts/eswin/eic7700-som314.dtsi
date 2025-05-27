@@ -32,6 +32,7 @@
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
+#include "eic7700-d314-camera.dtsi"
 
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 
@@ -108,6 +109,12 @@
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
 			reg = <0x3 0x0 0x1 0x80000000>;
+			no-map;
+		};
+
+		dvp2axi_mem: dvp2axi-mem@90000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x90000000 0x0 0x10000000>;
 			no-map;
 		};
 	};
@@ -713,4 +720,8 @@
 		opp-microvolt = <900000>;
 		clock-latency-ns = <70000>;
 	};
+};
+
+&dvp2axi {
+	memory-region = <&dvp2axi_mem>;
 };
