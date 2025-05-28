@@ -854,7 +854,7 @@ static struct v4l2_subdev *get_remote_sensor(struct es_dvp2axi_stream *stream,
 	sensor_me = remote->entity;
 
 	sub = media_entity_to_v4l2_subdev(sensor_me);
-	pr_info("get_remote_sensors sd:%s\n", sub->name);
+	pr_debug("get_remote_sensors sd:%s\n", sub->name);
 
 	return sub;
 }
@@ -7151,15 +7151,10 @@ static int es_dvp2axi_fh_open(struct file *filp)
 	}
 
 	ret = v4l2_fh_open(filp);
-	if (!ret) {
-		mutex_lock(&dvp2axidev->stream_lock);
-		ret = v4l2_pipeline_pm_get(&vnode->vdev.entity);
-		v4l2_info(vdev, "open video, entity use_countt %d\n",
-			  vnode->vdev.entity.use_count);
-		mutex_unlock(&dvp2axidev->stream_lock);
-		if (ret < 0)
-			vb2_fop_release(filp);
-	}
+	
+	if (ret < 0)
+		vb2_fop_release(filp);
+	
 	if (dvp2axidev->sditf_cnt > 1) {
 		for (i = 0; i < dvp2axidev->sditf_cnt; i++) {
 			if (dvp2axidev->sditf[i]->sensor_sd)
@@ -7186,15 +7181,7 @@ static int es_dvp2axi_fh_release(struct file *filp)
 	stream->is_first_flush = true;
 
 	ret = vb2_fop_release(filp);
-	if (!ret) {
-		mutex_lock(&dvp2axidev->stream_lock);
-		v4l2_pipeline_pm_put(&vnode->vdev.entity);
-		v4l2_info(vdev, "close video, entity use_count %d\n",
-			  vnode->vdev.entity.use_count);
-			// dump_stack();
-		mutex_unlock(&dvp2axidev->stream_lock);
-	}
-
+	
 	pm_runtime_put_sync(dvp2axidev->dev);
 	if (dvp2axidev->sditf_cnt > 1) {
 		for (i = 0; i < dvp2axidev->sditf_cnt; i++) {
