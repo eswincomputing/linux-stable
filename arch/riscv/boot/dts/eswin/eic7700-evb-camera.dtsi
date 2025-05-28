@@ -8,7 +8,7 @@
 		id = <0>;
 		status = "okay";
 		dma-noncoherent;
-
+		depends-on = <&imx327_0>;
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -64,6 +64,7 @@
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
 		status = "okay";
+		depends-on = <&imx327_0>;
 		#size-cells = <2>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
@@ -75,7 +76,7 @@
 		id = <0>;
 		status = "okay";
 		#size-cells = <2>;
-
+		depends-on = <&imx327_0>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
@@ -310,4 +311,6 @@
 	};
 };
 
-
+&isp_0 {
+	depends-on = <&imx327_0>;
+};

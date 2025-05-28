@@ -71,7 +71,9 @@
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-ctrls.h>
-
+#include <linux/i2c.h>
+#include <linux/delay.h>
+#include <media/v4l2-subdev.h>
 #include "vvcam_v4l2_common.h"
 #include "vvcam_isp_driver.h"
 #include "vvcam_isp_event.h"
@@ -1276,7 +1278,7 @@ static int vvcam_isp_link_setup(struct media_entity *entity,
 		const struct media_pad *local,
 		const struct media_pad *remote, u32 flags)
 {
-    printk(KERN_ERR "lijun %s %d\n", __func__, __LINE__);
+    printk(KERN_ERR "%s %d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -1391,12 +1393,12 @@ static int vvcam_isp_async_notifier(struct vvcam_isp_dev *isp_dev)
 
     for (pad = 0; pad < VVCAM_ISP_PAD_NR; pad++) {
 
-        //pr_info("lijun %s, %d pad:%d, isp_dev->pads[pad].flags :%ld\n", __func__, __LINE__, pad, isp_dev->pads[pad].flags);
+        //pr_info("%s, %d pad:%d, isp_dev->pads[pad].flags :%ld\n", __func__, __LINE__, pad, isp_dev->pads[pad].flags);
 
         if (isp_dev->pads[pad].flags != MEDIA_PAD_FL_SINK)
             continue;
 
-        //pr_info("lijun %s, %d pad:%d, subdev name = %s, fwnode name = %s\n", __func__, __LINE__, pad, isp_dev->sd.name, fwnode_get_name(dev_fwnode(dev)));
+        //pr_info("%s, %d pad:%d, subdev name = %s, fwnode name = %s\n", __func__, __LINE__, pad, isp_dev->sd.name, fwnode_get_name(dev_fwnode(dev)));
 
         ep = fwnode_graph_get_endpoint_by_id(dev_fwnode(dev),
                                         pad, 0, FWNODE_GRAPH_ENDPOINT_NEXT);
@@ -1408,10 +1410,10 @@ static int vvcam_isp_async_notifier(struct vvcam_isp_dev *isp_dev)
             fwnode_handle_put(ep);
             continue;
         }
-		pr_info("lijun %s, %d remote_ep:%s\n", __func__, __LINE__,
+		pr_info("%s, %d remote_ep:%s\n", __func__, __LINE__,
 		       fwnode_get_name(remote_ep));
 
-		pr_info("lijun %s, %d ep:%s\n", __func__, __LINE__,
+		pr_info("%s, %d ep:%s\n", __func__, __LINE__,
 		       fwnode_get_name(ep));
 
         fwnode_handle_put(remote_ep);
@@ -1544,7 +1546,30 @@ static int vvcam_isp_probe(struct platform_device *pdev)
 {
     struct device *dev = &pdev->dev;
     struct vvcam_isp_dev *isp_dev;
+    struct device_node *sensor_np;
+    struct device *sensor_dev;
+    struct v4l2_subdev *sd;
     int ret;
+    int wait_time = 0;
+
+    sensor_np = of_parse_phandle(dev->of_node, "depends-on", 0);
+    if (sensor_np)
+    {
+        while (wait_time < 20000) {
+            sensor_dev = bus_find_device_by_of_node(&i2c_bus_type, sensor_np);
+            of_node_put(sensor_np);
+            if (sensor_dev) {
+                sd = dev_get_drvdata(sensor_dev);
+                put_device(sensor_dev);
+                if (sd && sd->v4l2_dev) {
+                    dev_info(dev, "Sensor is ready.\n");
+                    break;
+                }
+            }
+            msleep(1000);
+            wait_time += 1000;
+        }
+    }
 
     isp_dev = devm_kzalloc(&pdev->dev,
 		        sizeof(struct vvcam_isp_dev), GFP_KERNEL);
@@ -1734,7 +1759,7 @@ static int __init vvcam_isp_init_module(void)
     }
 
 #ifdef VVCAM_PLATFORM_REGISTER
-    printk(KERN_ERR "lijun %s %d\n", __func__, __LINE__);
+    printk(KERN_ERR "%s %d\n", __func__, __LINE__);
     ret = vvcam_isp_platform_device_register();
     if (ret) {
 		platform_driver_unregister(&vvcam_isp_driver);

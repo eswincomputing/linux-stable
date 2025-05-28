@@ -70,7 +70,9 @@
 #include <media/v4l2-mc.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-fwnode.h>
-
+#include <linux/i2c.h>
+#include <linux/delay.h>
+#include <media/v4l2-subdev.h>
 #include "vvcam_video_driver.h"
 #include "vvcam_video_register.h"
 #ifdef VVCAM_PLATFORM_REGISTER
@@ -402,7 +404,7 @@ static int vvcam_video_async_register_subdev(struct vvcam_media_dev *vvcam_mdev)
 
     vvcam_mdev->notifier.ops = &vvcam_video_async_nf_ops;
 
-    printk(KERN_ERR "lijun %s %d\n", __func__, __LINE__);
+    printk(KERN_ERR "%s %d\n", __func__, __LINE__);
     v4l2_async_nf_init(&vvcam_mdev->notifier, &vvcam_mdev->v4l2_dev);
 
     while (1) {
@@ -414,10 +416,10 @@ static int vvcam_video_async_register_subdev(struct vvcam_media_dev *vvcam_mdev)
 
 		remote_ep = fwnode_graph_get_remote_port_parent(ep);
 
-		pr_info("lijun %s, %d remote_ep:%s\n", __func__, __LINE__,
+		pr_info("%s, %d remote_ep:%s\n", __func__, __LINE__,
 		       fwnode_get_name(remote_ep));
 
-		pr_info("lijun %s, %d ep:%s\n", __func__, __LINE__,
+		pr_info("%s, %d ep:%s\n", __func__, __LINE__,
 		       fwnode_get_name(ep));
     
         // asc = vvcam_video_async_nf_add_fwnode_remote(&vvcam_mdev->notifier,
@@ -614,6 +616,29 @@ static int vvcam_video_probe(struct platform_device *pdev)
     struct vvcam_media_dev *vvcam_mdev;
     struct device *parent = pdev->dev.parent;
     struct eswin_vi_device* es_vi_device;
+    struct device_node *sensor_np;
+    struct device *sensor_dev;
+    struct v4l2_subdev *sd;
+    int wait_time = 0;
+
+    sensor_np = of_parse_phandle(dev->of_node, "depends-on", 0);
+    if (sensor_np)
+    {
+        while (wait_time < 20000) {
+            sensor_dev = bus_find_device_by_of_node(&i2c_bus_type, sensor_np);
+            of_node_put(sensor_np);
+            if (sensor_dev) {
+                sd = dev_get_drvdata(sensor_dev);
+                put_device(sensor_dev);
+                if (sd && sd->v4l2_dev) {
+                    dev_info(dev, "Sensor is ready.\n");
+                    break;
+                }
+            }
+            msleep(1000);
+            wait_time += 1000;
+        }
+    }
 
     vvcam_mdev = devm_kzalloc(dev, sizeof(struct vvcam_media_dev), GFP_KERNEL);
 	if (!vvcam_mdev)

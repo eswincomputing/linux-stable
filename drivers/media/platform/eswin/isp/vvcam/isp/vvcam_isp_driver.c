@@ -66,7 +66,9 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/property.h>
-
+#include <linux/i2c.h>
+#include <media/v4l2-subdev.h>
+#include <linux/delay.h>
 #include <linux/iommu.h>
 #include <linux/mfd/syscon.h>
 #include <linux/bitfield.h>
@@ -374,6 +376,30 @@ static int vvcam_isp_probe(struct platform_device *pdev)
     int ret = 0;
     struct vvcam_isp_dev *isp_dev;
     char *ispdev_name;
+    struct device *dev = &pdev->dev;
+    struct device_node *sensor_np;
+    struct device *sensor_dev;
+    struct v4l2_subdev *sd;
+    int wait_time = 0;
+
+    sensor_np = of_parse_phandle(dev->of_node, "depends-on", 0);
+    if (sensor_np)
+    {
+        while (wait_time < 20000) {
+            sensor_dev = bus_find_device_by_of_node(&i2c_bus_type, sensor_np);
+            of_node_put(sensor_np);
+            if (sensor_dev) {
+                sd = dev_get_drvdata(sensor_dev);
+                put_device(sensor_dev);
+                if (sd && sd->v4l2_dev) {
+                    dev_info(dev, "Sensor is ready.\n");
+                    break;
+                }
+            }
+            msleep(1000);
+            wait_time += 1000;
+        }
+    }
 
     isp_dev = devm_kzalloc(&pdev->dev,
                 sizeof(struct vvcam_isp_dev), GFP_KERNEL);
