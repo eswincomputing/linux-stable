@@ -1237,7 +1237,6 @@ static int vvcam_video_try_create_pipeline(struct vvcam_video_dev *vvcam_vdev)
 
     ret = vvcam_video_create_pipeline_event(vvcam_vdev);
     if (ret) {
-        printk("vvcam video creat pipeline event failed ret = %d\n", ret);
         return ret;
     }
 
