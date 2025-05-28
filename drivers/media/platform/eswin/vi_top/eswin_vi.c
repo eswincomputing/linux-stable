@@ -112,20 +112,7 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 	u32 val = 0;
 	unsigned int reg_value;
 
-	// Enable Clocks from TOP CSR
-	pr_debug("ISP Top Setting ...\n");
-	val = VI_TOP_ISP0_CLOCK_ENABLED | VI_TOP_ISP1_CLOCK_ENABLED; //ISP0 ISP1 Core Clock
-    // val |= VI_TOP_DVP2AXI_CLOCK_ENABLED; // DVP2AXI clock
-	// val |= VI_TOP_CTRL0_DVP_CLOCK_ENABLED | VI_TOP_CTRL1_DVP_CLOCK_ENABLED | VI_TOP_CTRL2_DVP_CLOCK_ENABLED | VI_TOP_CTRL3_DVP_CLOCK_ENABLED | VI_TOP_CTRL4_DVP_CLOCK_ENABLED | VI_TOP_CTRL5_DVP_CLOCK_ENABLED; //DVP Input Interface Clock: MIPI Controller 0,1
-	val |= VI_TOP_CTRL0_DVP_CLOCK_ENABLED | VI_TOP_CTRL1_DVP_CLOCK_ENABLED;
-	val |= VI_TOP_DVP2AXI_CLOCK_ENABLED; // DVP2AXI clock
-    
-    val |= VI_TOP_ISP0_DVP0_CLOCK_ENABLED;
-
-    vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, val);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
-	pr_debug("ISP_TOP_CLOCK_EN[0x51030040] = %x\n", reg_value);
-
+    pr_debug("ISP Top Setting ...\n");
     #ifdef SENSOR_OUT_2LANES
 	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, 5);
     #else
@@ -181,7 +168,7 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 {
     struct eswin_vi_device *regmap = es_vi_dev;
-	pr_info("%s vi init \n", __func__);
+    unsigned int reg_value;
 
     syscrg_register_write(regmap, 0x200, 0xffffffff);///lsp_clk_en0 enable(sys_crg)
     syscrg_register_write(regmap, 0x424, 0x3ff);///i2c_rst_ctl(sys_crg)
@@ -220,8 +207,11 @@ static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
     syscrg_register_write(regmap, 0x1a8, 0x80000100);///vi_shutter5
     syscrg_register_write(regmap, 0x1ac, 0x3);///vi_phy_clk_ctl
 
-    vi_top_register_write(es_vi_dev, 0x40, 0xffffffff);
-
+    // Enable Clocks from TOP CSR
+    vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, 0xffffffff);
+    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
+    pr_debug("ISP_TOP_CLOCK_EN[0x51030040] = %x\n", reg_value);
+    
     udelay(200000);
 
 	viscu_cfg(es_vi_dev);///isp_rst(sys_crg)
