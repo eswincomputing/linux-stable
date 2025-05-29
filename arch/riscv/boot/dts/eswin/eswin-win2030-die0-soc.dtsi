@@ -2068,22 +2068,23 @@
 						<&d0_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
 						<&d0_clock EIC7700_SPLL0_FOUT1>,
 						<&d0_clock EIC7700_VPLL_FOUT1>;
-				clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
-							"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
-							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
-				resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-						<&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-						<&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
-						<&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
-						<&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
-						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
-						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
-						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
-						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
-						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
-						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
-				reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
-				tbus = <WIN2030_TBUID_DW>;
+			clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
+						"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
+						"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
+			resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
+					 <&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+					 <&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
+					 <&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
+					 <&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
+					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
+					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
+					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
+					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
+					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
+					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
+			reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
+			tbus = <WIN2030_TBUID_DW>;
+			numa-node-id = <0>;
 
 			ranges;
 			status = "okay";
