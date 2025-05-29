@@ -1924,6 +1924,7 @@ static const struct of_device_id es_dvp2axi_plat_of_match[] = {
 		.compatible = "eswin,dvp2axi-mipi-lvds",
 		.data = &es_dvp2axi_mipi_lvds_match_data,
 	},
+	{},
 };
 
 static void es_dvp2axi_parse_dts(struct es_dvp2axi_device *dvp2axi_dev)
