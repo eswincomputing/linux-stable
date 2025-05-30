@@ -54,6 +54,7 @@
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
 		status = "okay";
+		#size-cells = <2>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
@@ -63,6 +64,7 @@
 		compatible = "verisilicon,video";
 		id = <0>;
 		status = "okay";
+		#size-cells = <2>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
