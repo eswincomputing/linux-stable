@@ -86,7 +86,7 @@
 };
 
 &isp_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &isp_1 {
