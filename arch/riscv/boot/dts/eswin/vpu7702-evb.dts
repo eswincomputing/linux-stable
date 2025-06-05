@@ -843,7 +843,7 @@
 
 &d0_i2c0 {
 	/* codec es8388 */
-	status = "okay";
+	status = "disabled";
 	d0_es8388_0: es8388-0@10 {
 		compatible = "eswin,es8388";
 		reg = <0x10>;
@@ -892,7 +892,7 @@
 
 &d0_i2c2 {
 	/* touch screen*/
-	status = "ok";
+	status = "disabled";
 	gt911:touchscreen@14 {
 		compatible = "goodix,gt911";
 		reg = <0x14>;
@@ -907,7 +907,7 @@
 
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_i2c4 {
@@ -963,7 +963,7 @@
 
 &d0_aon_i2c0 {
 	/* temp sensor & rtc */
-	status = "okay";
+	status = "disabled";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
 	pcf_rtc:rtc@51 {
 		compatible = "nxp,pcf8563";

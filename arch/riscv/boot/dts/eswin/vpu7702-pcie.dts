@@ -827,7 +827,7 @@
 
 &d0_i2c0 {
 	/* 12V_DC_IN */
-	status = "okay";
+	status = "disabled";
 	i2c-sda-hold-time-ns = <0x40>;
 	ina226@44 {
 		compatible = "ti,ina226";
@@ -861,7 +861,7 @@
 
 &d0_i2c2 {
 	/* Temperature Sensor */
-	status = "okay";
+	status = "disabled";
 	tmp102@48 {
 		compatible = "ti,tmp102";
 		reg = <0x48>;
@@ -882,7 +882,7 @@
 
 &d0_i2c5 {
 	/* AT24C02C EEPROM */
-	status = "okay";
+	status = "disabled";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
 	eeprom@50 {
 		compatible = "atmel,24c02";
@@ -915,7 +915,7 @@
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c10_default>;
-	status = "okay";
+	status = "disabled";
 
 	adc@48 {
 		compatible = "ti,ads1115";
