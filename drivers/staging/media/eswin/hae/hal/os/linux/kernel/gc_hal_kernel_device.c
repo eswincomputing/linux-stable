@@ -549,7 +549,19 @@ gc_load_show(void *m, void *data)
                     load[i] = (hi_total_cycle_count[i] - hi_total_idle_cycle_count[i]) * 100 / hi_total_cycle_count[i];
 
                 len += fs_printf(ptr, "core      : %d\n", i);
-                len += fs_printf(ptr + len, "load      : %d%%\n", load[i]);
+                len += fs_printf(ptr + len, "load          : %d%%\n", load[i]);
+                len += fs_printf(ptr + len, "\n");
+            }
+        }
+    }
+
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        if (device->kernels[i]) {
+            if (device->kernels[i]->hardware) {
+                gckHARDWARE Hardware = device->kernels[i]->hardware;
+                len += fs_printf(ptr,       "core        : %d\n", i);
+                len += fs_printf(ptr + len, "pooling_ms  : %d\n", HARDWARE_USAGE_MEASURE_TIME_MS);
+                len += fs_printf(ptr + len, "curr_load   : %u%%\n", Hardware->load);
                 len += fs_printf(ptr + len, "\n");
             }
         }
@@ -2452,6 +2464,7 @@ threadRoutine(void *ctxt)
 
             return 0;
         }
+
         gckOS_Signal(kernel->os, kernel->hardware->feIdleSignal, gcvTRUE);
 
         gckKERNEL_Notify(kernel, gcvNOTIFY_INTERRUPT);
