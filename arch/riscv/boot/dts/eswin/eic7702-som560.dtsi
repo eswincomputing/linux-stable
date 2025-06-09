@@ -1426,9 +1426,9 @@
 };
 
 &d2d {
-	status = "disabled";
+	status = "okay";
 };
 
 &d1_d2d {
-	status = "disabled";
+	status = "okay";
 };
