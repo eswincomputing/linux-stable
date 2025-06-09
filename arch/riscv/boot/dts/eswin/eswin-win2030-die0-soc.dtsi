@@ -1021,6 +1021,8 @@
 			numa-node-id = <0>;
 			tbus = <WIN2030_TBUID_VDEC>, <WIN2030_TBUID_JDEC>;
 			dma-noncoherent;
+			vdec-core-frequency = <800000000>;
+			jdec-core-frequency = <800000000>;
 
 			vdec_0: vdec0@50100000 {
 				core-name = "video-dec0";
@@ -1070,6 +1072,8 @@
 			vccsr-reg = <0x0 0x501c0000 0x0 0x1000>;
 			numa-node-id = <0>;
 			dma-noncoherent;
+			venc-core-frequency = <800000000>;
+			jenc-core-frequency = <800000000>;
 
 			venc_0: venc0@50110000 {
 				core-name = "video-enc0";

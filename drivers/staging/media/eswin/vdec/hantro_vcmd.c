@@ -749,6 +749,9 @@ struct hantrovcmd_dev {
 	unsigned int mmu_vcmd_reg_mem_bus_address;
 	// size of vcmd registers memory of CMDBUF.
 	u32 vcmd_reg_mem_size;
+
+	/* status statistics*/
+	atomic64_t core_tot_cycles;
 };
 
 /*
@@ -2091,6 +2094,19 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 
 			atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_UNDONE);
 		}
+		/** statistics the total cycles*/
+		u32 *status_base_virt_addr =
+			vcmd_status_buf_mem_pool.virtual_address +
+			cmdbuf_id * CMDBUF_MAX_SIZE / 4 +
+			(dev->vcmd_core_cfg.submodule_main_addr / 2 / 4 + 0);
+		/** Please see dwl_linux_hw.c:1631, how to construct the decoder cmdbuf.
+		 * The performance cycle count register is stored to status_base_virt_addr[5].
+		*/
+		u32 cycles = status_base_virt_addr[5];
+		atomic64_add(cycles, &dev->core_tot_cycles);
+		// LOG_DBG("cmdbuf_id = %u, status_base_virt_addr=0x%llx, cycles = %u, tot_cycles=%llu, hwid = 0x%x\n"
+		// 	, cmdbuf_id, (unsigned long long)status_base_virt_addr
+		// 	, cycles, atomic64_read(&dev->core_tot_cycles), status_base_virt_addr[0]);
 		return 0;
 	}
 	if (check_mc_cmdbuf_irq(filp, cmdbuf_obj, irq_status_ret))
@@ -4100,9 +4116,10 @@ int hantrovcmd_init(void)
 	}
 
 	for (i = 0; i < total_vcmd_core_num; i++) {
-		LOG_INFO("module init - vcore[%d] addr =0x%llx\n",
-			i,
-		       (unsigned long long)vcmd_core_array[i].vcmd_base_addr);
+		LOG_INFO("module init - vcore[%d] addr =0x%llx, freq =%u\n"
+			,i
+			, (unsigned long long)vcmd_core_array[i].vcmd_base_addr
+			, vcmd_core_array[i].freq);
 	}
 	hantrovcmd_data = vmalloc(sizeof(*hantrovcmd_data) * total_vcmd_core_num);
 	if (!hantrovcmd_data) {
@@ -4152,6 +4169,7 @@ int hantrovcmd_init(void)
 		hantrovcmd_data[i].vcmd_reg_mem_size = VCMD_REGISTER_SIZE;
 		memset(hantrovcmd_data[i].vcmd_reg_mem_virtual_address, 0,
 		       VCMD_REGISTER_SIZE);
+		atomic64_set(&hantrovcmd_data[i].core_tot_cycles, 0);
 	}
 	init_waitqueue_head(&mc_wait_queue);
 
@@ -5090,4 +5108,22 @@ int hantrovcmd_wait_core_idle(u32 core_id, long timeout) {
 
 	dev = &hantrovcmd_data[core_id];
 	return wait_event_interruptible_timeout(*dev->wait_queue, check_dev_idle(dev), timeout);
+}
+
+/** get status statistcs*/
+void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *freq)
+{
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("hantrodec_dev_stat, unknown core_id = %u\n", core_id);
+		return;
+	}
+	if (module_type) {
+		*module_type = hantrovcmd_data[core_id].vcmd_core_cfg.sub_module_type;
+	}
+	if (tot_cycles) {
+		*tot_cycles = atomic64_read(&hantrovcmd_data[core_id].core_tot_cycles);
+	}
+	if (freq) {
+		*freq = hantrovcmd_data[core_id].vcmd_core_cfg.freq;
+	}
 }

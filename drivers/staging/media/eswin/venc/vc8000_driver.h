@@ -340,6 +340,7 @@ typedef struct vcmd_config {
 	u16 submodule_L2Cache_addr; // in byte
 	u16 submodule_MMU_addr[2]; // in byte
 	u16 submodule_axife_addr[2]; // in byte
+	u32 freq; // indicate the frequency of the core.
 } VCMD_CONFIG;
 
 typedef struct {

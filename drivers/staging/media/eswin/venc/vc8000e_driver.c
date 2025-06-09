@@ -34,6 +34,7 @@
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <linux/dma-mapping.h>
 #include <linux/eswin-win2030-sid-cfg.h>
+#include <linux/es_proc.h>
 
 #if defined(CONFIG_PM_DEVFREQ)
 #include <linux/devfreq.h>
@@ -101,6 +102,8 @@ extern int hantroenc_wait_core_idle(u32 core_id);
 extern int vc8000e_vcmd_init(void);
 extern int vc8000e_vcmd_cleanup(void);
 extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
+/* proc functions*/
+extern void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *core_freq);
 
 static int venc_dev_open(struct device *dev);
 static int venc_dev_close(struct device *dev);
@@ -217,6 +220,8 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 	static int core_index = 0;
 	struct fwnode_handle *child = NULL;
 	unsigned int vcmd_addr[2] = {0}, axife_addr[2] = {0}, venc_addr[2] = {0};
+	unsigned int venc_freq = 0;
+	unsigned int jenc_freq = 0;
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "vcmd-core", vcmd_addr, 2)) {
 		LOG_ERR("Encoder VCMD core not found\n");
@@ -230,6 +235,16 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "venc-core", venc_addr, 2)) {
 		LOG_ERR("Encoder core not found\n");
+		return -1;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "venc-core-frequency", &venc_freq)) {
+		LOG_ERR("Encoder venc-core-frequency not found\n");
+		return -1;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "jenc-core-frequency", &jenc_freq)) {
+		LOG_ERR("Encoder jenc-core-frequency not found\n");
 		return -1;
 	}
 
@@ -260,14 +275,15 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 		vc8000e_subsys_array[subsys_id].iosize = 0x3000;
 		vc8000e_subsys_array[subsys_id].resource_shared = 0;
 
+		if (strstr(core_name, "jpeg"))
+			hw_type = CORE_VC8000EJ;
+
 		if (vcmd_supported) {
 			venc_vcmd_core_num++;
 			vc8000e_vcmd_core_array[subsys_id].vcmd_base_addr = base_addr + vcmd_addr[0];
 			vc8000e_vcmd_core_array[subsys_id].vcmd_irq = child_irq;
+			vc8000e_vcmd_core_array[subsys_id].freq = hw_type == CORE_VC8000E ? venc_freq : jenc_freq;
 		}
-
-		if (strstr(core_name, "jpeg"))
-			hw_type = CORE_VC8000EJ;
 
 		numa_id_array[subsys_id] = numa_id;
 
@@ -829,6 +845,76 @@ int enc_reset_system(u32 core_id) {
 }
 /** end of interface functions*/
 
+/** status statistics*/
+static int enc_stat_proc_show(es_proc_entry_t *s)
+{
+	int core_id = 0;
+	const static char *module_type_str[] = {
+		"MODULE_TYPE_ENCODER",
+		"MODULE_TYPE_CUTREE",
+		"MODULE_TYPE_DECODER",
+		"MODULE_TYPE_JPEG_ENCODER",
+		"MODULE_TYPE_JPEG_DECODER",
+		"MAX_MODULE_TYPE"
+	};
+	u64 ktm = ktime_get_real_ns();
+
+	for (core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+		u32 module_type = MAX_VCMD_TYPE;
+		u64 tot_cycles = 0;
+		u64 core_freq = 0;
+
+		hantroenc_dev_stat(core_id, &module_type, &tot_cycles, &core_freq);
+		es_seq_printf(s, "enc%d %s(%u) %llu %llu %llu\n"
+			, core_id
+			, module_type_str[module_type]
+			, module_type
+			, tot_cycles
+			, core_freq
+			, ktm);
+	}
+	return 0;
+}
+
+#define PROC_ENTRY_VENC_STAT ("stat")
+static struct es_proc_dir_entry *es_proc_entry_venc = NULL;
+
+int hantroenc_create_procfs(void)
+{
+	LOG_INFO("create proc fs.\n");
+	es_proc_entry_venc = es_proc_mkdir(PROC_ENTRY_VENC, 0555, NULL);
+	if (NULL == es_proc_entry_venc) {
+		LOG_ERR("create proc venc dir err.\n");
+		return -ENOMEM;
+	}
+
+	es_proc_entry_t *es_proc_entry_venc_stat = es_create_proc_entry(PROC_ENTRY_VENC_STAT, 0444, es_proc_entry_venc);
+	if (NULL == es_proc_entry_venc_stat) {
+		LOG_ERR("error create proc venc stat file.\n");
+		goto err_stat;
+	}
+	es_proc_entry_venc_stat->read = enc_stat_proc_show;
+	/*NULL means use the default routine*/
+	es_proc_entry_venc_stat->write = NULL;
+	es_proc_entry_venc_stat->open = NULL;
+
+	LOG_INFO("create proc venc stat file success.\n");
+
+	return 0;
+
+err_stat:
+	es_remove_proc_entry(PROC_ENTRY_VENC, NULL);
+	return -1;
+}
+
+void hantroenc_remove_procfs(void)
+{
+	es_remove_proc_entry(PROC_ENTRY_VENC_STAT, es_proc_entry_venc);
+	es_remove_proc_entry(PROC_ENTRY_VENC, NULL);
+	LOG_INFO("remove proc venc stat file success.\n");
+}
+/** end of status statistics*/
+
 #if defined(CONFIG_PM_DEVFREQ)
 static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
@@ -1013,6 +1099,8 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		}
 	}
 
+	hantroenc_create_procfs();
+
 	return ret;
 }
 
@@ -1024,6 +1112,7 @@ static int hantro_venc_remove(struct platform_device *pdev)
 #endif
 	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
+	hantroenc_remove_procfs();
 	enc_pm_disable(pdev);
 	if (vcmd_supported == 0)
 		hantroenc_normal_cleanup();

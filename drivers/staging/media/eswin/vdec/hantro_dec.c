@@ -99,6 +99,7 @@
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <linux/pm_runtime.h>
+#include <linux/es_proc.h>
 
 #include "subsys.h"
 #include "hantroaxife.h"
@@ -3933,6 +3934,76 @@ static int vdec_smmu_dynm_sid_init(struct platform_device *pdev, int numa_id)
 }
 #endif
 
+/** status statistics*/
+static int dec_stat_proc_show(es_proc_entry_t *s)
+{
+	int core_id = 0;
+	const static char *module_type_str[] = {
+		"MODULE_TYPE_ENCODER",
+		"MODULE_TYPE_CUTREE",
+		"MODULE_TYPE_DECODER",
+		"MODULE_TYPE_JPEG_ENCODER",
+		"MODULE_TYPE_JPEG_DECODER",
+		"MAX_MODULE_TYPE"
+	};
+	u64 ktm = ktime_get_real_ns();
+
+	for (core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+		u32 module_type = MAX_VCMD_TYPE;
+		u64 tot_cycles = 0;
+		u64 core_freq = 0;
+
+		hantrodec_dev_stat(core_id, &module_type, &tot_cycles, &core_freq);
+		es_seq_printf(s, "dec%d %s(%u) %llu %llu %llu\n"
+			, core_id
+			, module_type_str[module_type]
+			, module_type
+			, tot_cycles
+			, core_freq
+			, ktm);
+	}
+	return 0;
+}
+
+#define PROC_ENTRY_VDEC_STAT ("stat")
+static struct es_proc_dir_entry *es_proc_entry_vdec = NULL;
+
+int hantrodec_create_procfs(void)
+{
+	LOG_INFO("create proc fs.\n");
+	es_proc_entry_vdec = es_proc_mkdir(PROC_ENTRY_VDEC, 0555, NULL);
+	if (NULL == es_proc_entry_vdec) {
+		LOG_ERR("create proc vdec dir err.\n");
+		return -ENOMEM;
+	}
+
+	es_proc_entry_t *es_proc_entry_vdec_stat = es_create_proc_entry(PROC_ENTRY_VDEC_STAT, 0444, es_proc_entry_vdec);
+	if (NULL == es_proc_entry_vdec_stat) {
+		LOG_ERR("error create proc vdec stat file.\n");
+		goto err_stat;
+	}
+	es_proc_entry_vdec_stat->read = dec_stat_proc_show;
+	/*NULL means use the default routine*/
+	es_proc_entry_vdec_stat->write = NULL;
+	es_proc_entry_vdec_stat->open = NULL;
+
+	LOG_INFO("create proc vdec stat file success.\n");
+
+	return 0;
+
+err_stat:
+	es_remove_proc_entry(PROC_ENTRY_VDEC, NULL);
+	return -1;
+}
+
+void hantrodec_remove_procfs(void)
+{
+	es_remove_proc_entry(PROC_ENTRY_VDEC_STAT, es_proc_entry_vdec);
+	es_remove_proc_entry(PROC_ENTRY_VDEC, NULL);
+	LOG_INFO("remove proc vcenc stat file success.\n");
+}
+/** end of status statistics*/
+
 #if defined(CONFIG_PM_DEVFREQ)
 static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
@@ -4097,6 +4168,9 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 			LOG_WARN("enable pm for vdec-die1 failed\n");
 		}
 	}
+
+	/** create procfs*/
+	hantrodec_create_procfs();
 	return ret;
 }
 
@@ -4117,6 +4191,9 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 	int ret;
 #endif
 	vdec_clk_rst_t *vcrt;
+
+	/** remove procfs*/
+	hantrodec_remove_procfs();
 
 	pm_runtime_disable(&pdev->dev);
 

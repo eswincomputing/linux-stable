@@ -87,6 +87,7 @@ struct SubsysDesc {
 	int slice_index; /* slice this subsys belongs to */
 	int index; /* subsystem index */
 	long base;
+	unsigned int freq; /* indicate the core frequency*/
 };
 
 struct CoreDesc {
@@ -149,6 +150,7 @@ struct vcmd_config {
 	u16 submodule_MMU_addr; // in byte
 	u16 submodule_MMUWrite_addr; // in byte
 	u16 submodule_axife_addr; // in byte
+	unsigned int freq; /* indicate the core frequency*/
 };
 
 extern unsigned long gBaseDDRHw; /* PCI base register address (memalloc) */
@@ -177,6 +179,8 @@ int hantrovcmd_wait_core_idle(u32 core_id, long timeout);
 struct platform_device *vdec_get_platform_device(u32 core_id);
 int vdec_pm_runtime_sync(u32 core_id);
 int vdec_pm_runtime_put(u32 core_id);
+/** get status statistcs*/
+void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *freq);
 /******************************************************************************/
 /* MMU */
 /******************************************************************************/
