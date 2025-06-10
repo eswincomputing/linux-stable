@@ -34,6 +34,7 @@
 #include <linux/pwm.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 
 
 #define FAN_PWM_CHAN_CNT			(3)
@@ -77,6 +78,7 @@ struct eswin_fan_control_data {
 	u32 *fan_config;
 	struct hwmon_chip_info *chip_info;
 	const struct hwmon_channel_info **channel_info;
+	struct gpio_descs *gpio_vcc;
 };
 
 static inline void fan_iowrite(
@@ -258,9 +260,20 @@ static int eswin_fan_control_write_pwm(
 			dev_err(dev,"%s():line%d pwm range is 0 to 100, val=%ld\n",
 				__func__, __LINE__, val);
 			return -EINVAL;
-		} else {
-			return eswin_fan_control_set_pwm_duty(val, ctl, channel);
 		}
+		if (ctl->gpio_vcc && (channel >= 0)
+			&& (channel < ctl->gpio_vcc->ndescs)) {
+			struct gpio_desc *desc = ctl->gpio_vcc->desc[channel];
+			if (desc) {
+				int current_val = gpiod_get_value(desc);
+				int target_val = val ? 1 : 0;
+				if (current_val != target_val) {
+					gpiod_set_value(desc, target_val);
+				}
+			}
+		}
+		return eswin_fan_control_set_pwm_duty(val, ctl, channel);
+
 	default:
 		return -ENOTSUPP;
 	}
@@ -584,6 +597,17 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 		return PTR_ERR(ctl->base);
 	}
 
+	ctl->gpio_vcc = devm_gpiod_get_array(&pdev->dev, "vcc", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctl->gpio_vcc)) {
+		ret = PTR_ERR(ctl->gpio_vcc);
+		if (ret != -ENOENT) {
+			dev_err(&pdev->dev, "get vcc gpio return %d\n", ret);
+			return ret;
+		} else {
+			ctl->gpio_vcc = NULL;
+		}
+	}
+
 	ctl->clk = devm_clk_get(&pdev->dev, "pclk");
 	if (IS_ERR(ctl->clk)) {
 		dev_err(&pdev->dev, "%s():line%d devm_clk_get pclk error\n",
@@ -727,6 +751,7 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 			__func__, __LINE__);
 		goto err_pwm_disable;
 	}
+
 	dev_info(&pdev->dev, "%s():line%d init success\n", __func__, __LINE__);
 
 	return 0;
@@ -744,12 +769,65 @@ err_clk_disable:
 	return ret;
 }
 
+static void eswin_fan_control_shutdown(struct platform_device *pdev)
+{
+	unsigned int idx = 0;
+	struct eswin_fan_control_data *ctl = platform_get_drvdata(pdev);
+
+	if (!ctl || system_state != SYSTEM_POWER_OFF)
+		return;
+
+	if (ctl->gpio_vcc) {
+		for (idx = 0; idx < ctl->gpio_vcc->ndescs; idx++) {
+			gpiod_set_value(ctl->gpio_vcc->desc[idx], 0);
+		}
+	}
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int eswin_fan_control_suspend(struct device *dev)
+{
+	int idx;
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	for (idx = 0; idx < ctl->inst_cnt; idx++) {
+		if (ctl->pwm_dev[idx] && !IS_ERR(ctl->pwm_dev[idx])) {
+			pwm_disable(ctl->pwm_dev[idx]);
+		}
+	}
+	clk_disable_unprepare(ctl->clk);
+
+	return 0;
+}
+
+static int eswin_fan_control_resume(struct device *dev)
+{
+	int idx;
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	clk_prepare_enable(ctl->clk);
+	for (idx = 0; idx < ctl->inst_cnt; idx++) {
+		if (ctl->pwm_dev[idx] && !IS_ERR(ctl->pwm_dev[idx])) {
+			pwm_enable(ctl->pwm_dev[idx]);
+		}
+	}
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(fan_control_pm_ops, eswin_fan_control_suspend, eswin_fan_control_resume);
+
 static struct platform_driver eswin_fan_control_driver = {
 	.driver = {
 		.name = "eswin_fan_control_driver",
+		.pm = pm_sleep_ptr(&fan_control_pm_ops),
 		.of_match_table = eswin_fan_control_of_match,
 	},
 	.probe = eswin_fan_control_probe,
+	.shutdown = eswin_fan_control_shutdown,
 };
 module_platform_driver(eswin_fan_control_driver);
 

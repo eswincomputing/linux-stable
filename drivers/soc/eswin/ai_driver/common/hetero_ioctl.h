@@ -326,6 +326,7 @@ typedef struct _modelRec {
 #define ES_NPU_IOCTL_UNPREPARE_DMA_BUF ES_NPU_IOWR(0x10, int)
 
 #define ES_NPU_IOCTL_MUTEX_TRYLOCK ES_NPU_IOWR(0x11, int)
+#define ES_NPU_IOCTL_QUERY_TASK_STATUS ES_NPU_IOWR(0x12, int)
 
 #define NPU_HETERO_CMD_BASE 'h'
 #define NPU_HETERO_IOWR(nr, type) _IOWR(NPU_HETERO_CMD_BASE, nr, type)

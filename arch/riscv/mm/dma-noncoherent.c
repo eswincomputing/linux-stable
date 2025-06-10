@@ -12,8 +12,9 @@
 #include <asm/cacheflush.h>
 #include <asm/dma-noncoherent.h>
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-#include <soc/sifive/sifive_ccache.h>
 #include <linux/iommu.h>
+#include <linux/smp.h>
+#include <soc/sifive/sifive_ccache.h>
 #endif
 
 static bool noncoherent_supported __ro_after_init;
@@ -257,46 +258,51 @@ err_pages_alloc:
 #endif
 
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-#ifdef CONFIG_NUMA
-static inline void _do_arch_sync_cache_all_by_hartid(int hartid) {
-	int cpuid;
-	int hardid_mask = BIT(hartid);
-	cpuid = riscv_hartid_to_cpuid(hartid);
-	smp_call_function_single(cpuid, ccache_flush_all, &hardid_mask, true);
+static __always_inline void _do_arch_sync_cache_nodes(unsigned long node_mask) {
+	int node;
+	int cur_cpu, cpu;
+	struct cpumask mask = {0};
+
+	cur_cpu = smp_processor_id();
+	for_each_set_bit(node, &node_mask, MAX_NUMNODES) {
+		if (node == cpu_to_node(cur_cpu))
+			cpu = cur_cpu;
+		else {
+			cpu = cpumask_any(cpumask_of_node(node));
+			if (cpu >= nr_cpu_ids) {
+				WARN_ONCE(1, "WARNING: all CPUS on die%d are offline, online CPUS: %*pbl\n",
+					node, cpumask_pr_args(cpu_online_mask));
+				return;
+			}
+		}
+		cpumask_set_cpu(cpu, &mask);
+	}
+	on_each_cpu_mask(&mask, ccache_flush_all, (void *)&mask, true);
 }
-#endif
+
 void _do_arch_sync_cache_all(EIC770X_LOGICAL_MEM_NODE_E nid)
 {
-#ifdef CONFIG_NUMA
-switch (nid) {
+	unsigned long node_mask = 0;
+
+	switch (nid) {
 	case EIC770X_LOGICAL_FLAT_MEM_NODE_0: {
-		_do_arch_sync_cache_all_by_hartid(0);
+		set_bit(0, &node_mask);
 		break;
 	}
 	case EIC770X_LOGICAL_FLAT_MEM_NODE_1: {
-		_do_arch_sync_cache_all_by_hartid(4);
+		set_bit(1, &node_mask);
 		break;
 	}
 	case EIC770X_LOGICAL_INTERLEAVE_MEM_NODE: {
-		struct cpumask cpus = {0};
-		int hartids = BIT(0) | BIT(4);
-
-		cpumask_set_cpu(riscv_hartid_to_cpuid(0), &cpus);
-		cpumask_set_cpu(riscv_hartid_to_cpuid(4), &cpus);
-		smp_call_function_many(&cpus, ccache_flush_all, &hartids, true);
+		node_mask = GENMASK(1, 0);
 		break;
 	}
 	default: {
-		break;
+		pr_warn("invalid nid %d got, not flush!\n", nid);
+		return;
 	}
-}
-#else
-	int cpuid, hartid_mask;
-
-	cpuid = smp_processor_id();
-	hartid_mask = BIT(cpuid_to_hartid_map(cpuid));
-	ccache_flush_all(&hartid_mask);
-#endif
+	}
+        _do_arch_sync_cache_nodes(node_mask);
 }
 
 void arch_sync_cache_all(phys_addr_t phys, size_t size)

@@ -61,10 +61,14 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/io.h>
+#include <linux/workqueue.h>
 
 #include "gc_hal_kernel_debug_esw.h"
 
+#define MAX_ISR_NOT_HANDLED_CNT 1000
+
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
+#define ESWIN_HAE_VERSION "2026010500"
 
 static gckGALDEVICE     galDevice;
 
@@ -148,6 +152,8 @@ gc_info_show(void *m, void *data)
 
     device = gal_device->devices[0];
 
+    len = fs_printf(ptr, "es_version : %s\n\n", ESWIN_HAE_VERSION);
+
     for (i = 0; i < gcdMAX_GPU_COUNT; i++) {
         if (device->kernels[i]) {
             if (i == gcvCORE_VG) {
@@ -158,11 +164,11 @@ gc_info_show(void *m, void *data)
                 ecoID = device->kernels[i]->hardware->identity.ecoID;
             }
 
-            len = fs_printf(ptr, "gpu      : %d\n", i);
-            len += fs_printf(ptr + len, "model    : %4x\n", chipModel);
-            len += fs_printf(ptr + len, "revision : %4x\n", chipRevision);
-            len += fs_printf(ptr + len, "product  : %4x\n", productID);
-            len += fs_printf(ptr + len, "eco      : %4x\n", ecoID);
+            len += fs_printf(ptr, "gpu        : %d\n", i);
+            len += fs_printf(ptr + len, "model      : %4x\n", chipModel);
+            len += fs_printf(ptr + len, "revision   : %4x\n", chipRevision);
+            len += fs_printf(ptr + len, "product    : %4x\n", productID);
+            len += fs_printf(ptr + len, "eco        : %4x\n", ecoID);
             len += fs_printf(ptr + len, "\n");
         }
     }
@@ -920,6 +926,52 @@ print_ull(char dest[32], unsigned long long u)
         dest += sprintf(dest, ",%03u", t[i]);
 }
 
+static int gc_idle_show_clk_state(void *m, gckDEVICE device)
+{
+    gctUINT32 i;
+    gctINT32 len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+    gctUINT64 on;
+    gctUINT64 off;
+    gctUINT64 idle;
+    gctUINT64 suspend;
+    char str[32];
+
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        if (!device->kernels[i]) {
+            continue;
+        }
+
+        if (!device->kernels[i]->hardware) {
+            continue;
+        }
+
+        gckHARDWARE_QueryStateTimer(device->kernels[i]->hardware, &on, &off, &idle, &suspend);
+        len = fs_printf(ptr,        "dev_id           : %d\n", device->id);
+        len += fs_printf(ptr + len, "dev_core         : %d\n", i);
+        len += fs_printf(ptr + len, "delay_time_ms    : %d\n", device->kernels[i]->hardware->powerOffTimeout);
+        len += fs_printf(ptr + len, "next_power_stat  : 0x%x\n", device->kernels[i]->hardware->nextPowerState);
+        len += fs_printf(ptr + len, "curr_powet_stat  : 0x%x\n", device->kernels[i]->hardware->chipPowerState);
+
+        /* Idle time since last call */
+        print_ull(str, on);
+        len += fs_printf(ptr, "On:      %s ns\n", str);
+        print_ull(str, off);
+        len += fs_printf(ptr + len, "Off:     %s ns\n", str);
+        print_ull(str, idle);
+        len += fs_printf(ptr + len, "Idle:    %s ns\n", str);
+        print_ull(str, suspend);
+        len += fs_printf(ptr + len, "Suspend: %s ns\n", str);
+        len += fs_printf(ptr + len, "\n");
+    }
+
+    return len;
+}
+
 /*******************************************************************************
  **
  ** Show PM state timer.
@@ -937,35 +989,23 @@ print_ull(char dest[32], unsigned long long u)
 static int
 gc_idle_show(void *m, void *data)
 {
-    gckGALDEVICE device = galDevice;
-    gckKERNEL kernel = _GetValidKernel(device);
-    char str[32];
-
-    gctUINT64 on;
-    gctUINT64 off;
-    gctUINT64 idle;
-    gctUINT64 suspend;
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE device = gcvNULL;
+    gctUINT32 i;
     int len = 0;
-#ifdef CONFIG_DEBUG_FS
-    void *ptr = m;
-#else
-    char *ptr = (char *)m;
-#endif
 
-    if (!kernel)
-        return -ENXIO;
+    if (!gal_device) {
+        return 0;
+    }
 
-    gckHARDWARE_QueryStateTimer(kernel->hardware, &on, &off, &idle, &suspend);
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
+        }
 
-    /* Idle time since last call */
-    print_ull(str, on);
-    len = fs_printf(ptr, "On:      %s ns\n", str);
-    print_ull(str, off);
-    len += fs_printf(ptr + len, "Off:     %s ns\n", str);
-    print_ull(str, idle);
-    len += fs_printf(ptr + len, "Idle:    %s ns\n", str);
-    print_ull(str, suspend);
-    len += fs_printf(ptr + len, "Suspend: %s ns\n", str);
+        len += gc_idle_show_clk_state(m, device);
+    }
 
     return len;
 }
@@ -2300,12 +2340,47 @@ OnError:
 /*******************************************************************************
  ****************************** Interrupt Handler ******************************
  *******************************************************************************/
+void hae_routine_work_func(struct work_struct *work)
+{
+    gctUINT32 i = 0;
+    gckDEVICE device = gcvNULL;
+    gckGALDEVICE gal_device = galDevice;
+
+    if (!gal_device) {
+        return;
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
+        }
+
+        for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+            if (!device->kernels[i]) {
+                continue;
+            }
+
+            if (!device->kernels[i]->hardware) {
+                continue;
+            }
+
+            gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_ON_AUTO);
+            hae_print("hae dev: %u, hard: %p force power on.\n", i, device->kernels[i]->hardware);
+        }
+    }
+
+    return;
+}
+
+static DECLARE_WORK(hae_routine_wq, hae_routine_work_func);
 
 static irqreturn_t
 isrRoutine(int irq, void *ctxt)
 {
     gceSTATUS status;
     gckKERNEL kernel = (gckKERNEL)ctxt;
+    static gctUINT32 invalid_io_cnt = 0;
 
     /* Call kernel interrupt notification. */
     status = gckHARDWARE_Interrupt(kernel->hardware);
@@ -2316,8 +2391,12 @@ isrRoutine(int irq, void *ctxt)
     }
 
     if(status == gcvSTATUS_GENERIC_IO){
-        hae_print("irq: %d, core: %d, addr: %llx clock close.\n",
-            irq, kernel->core, kernel->hardware->lastExecuteAddress);
+        if (invalid_io_cnt++ > MAX_ISR_NOT_HANDLED_CNT) {
+            hae_print("hae irq: %d, core: %d, addr: %llx clock close.\n",
+                irq, kernel->core, kernel->hardware->lastExecuteAddress);
+            schedule_work(&hae_routine_wq);
+            invalid_io_cnt = 0;
+        }
     }
 
     return IRQ_NONE;

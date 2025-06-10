@@ -27,6 +27,8 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/pwm.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/gpio/consumer.h>
 
 #define DWC_TIM_LD_CNT(n)	((n) * 0x14)
 #define DWC_TIM_LD_CNT2(n)	(((n) * 4) + 0xb0)
@@ -64,6 +66,7 @@ struct dwc_pwm {
 	struct clk *clk;
 	struct reset_control *rst;
 	struct dwc_pwm_ctx ctx[DWC_TIMERS_TOTAL];
+	struct gpio_descs *gpio_pwm;
 };
 #define to_dwc_pwm(p)	(container_of((p), struct dwc_pwm, chip))
 
@@ -262,27 +265,143 @@ static int dwc_pwm_probe(struct platform_device *pdev)
 
 	ret = reset_control_deassert(dwc->rst);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to deasser reset: %d\n", ret);
+		dev_err(&pdev->dev, "failed to deassert reset: %d\n", ret);
 		return ret;
 	}
 
+	dwc->gpio_pwm = devm_gpiod_get_array(&pdev->dev, "pwm", GPIOD_OUT_LOW);
+	if (IS_ERR(dwc->gpio_pwm)) {
+		dev_info(&pdev->dev, "get pwm gpio return %ld\n",
+			PTR_ERR(dwc->gpio_pwm));
+	}
 
 	ret = devm_pwmchip_add(dev, &dwc->chip);
 	if (ret)
 		return ret;
 
-	pm_runtime_put(dev);
-	pm_runtime_allow(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_get_noresume(dev);
+
+	dev_info(dev, "%s():line%d init success\n", __func__, __LINE__);
 
 	return 0;
+}
+
+static void dwc_pwm_cleanup(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct dwc_pwm *dwc = platform_get_drvdata(pdev);
+	unsigned int idx = 0;
+	int ret = 0;
+
+	for (idx = 0; idx < DWC_TIMERS_TOTAL; idx++) {
+		if (dwc->chip.pwms[idx].state.enabled) {
+			__dwc_pwm_set_enable(dwc, idx, false);
+			dwc->chip.pwms[idx].state.enabled = false;
+		}
+	}
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret) {
+		dev_err(dev, "failed to select sleep state: %d\n", ret);
+	}
+	if (!IS_ERR_OR_NULL(dwc->gpio_pwm)) {
+		for (idx = 0; idx < dwc->gpio_pwm->ndescs; idx++) {
+			gpiod_set_value(dwc->gpio_pwm->desc[idx], 0);
+		}
+	}
+	if (!IS_ERR_OR_NULL(dwc->clk)) {
+		clk_disable_unprepare(dwc->clk);
+	}
+	if (!IS_ERR_OR_NULL(dwc->rst)) {
+		reset_control_assert(dwc->rst);
+	}
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
 }
 
 static int dwc_pwm_remove(struct platform_device *pdev)
 {
 	struct dwc_pwm *dwc = platform_get_drvdata(pdev);
+
 	pwmchip_remove(&dwc->chip);
+	dwc_pwm_cleanup(pdev);
+
+	return 0;
+}
+
+static void dwc_pwm_shutdown(struct platform_device *pdev)
+{
+	dwc_pwm_cleanup(pdev);
+}
+
+static int dwc_pwm_runtime_suspend(struct device *dev)
+{
+	struct dwc_pwm *dwc = dev_get_drvdata(dev);
+	unsigned int idx = 0;
+	int ret = 0;
+
+	dev_dbg(dev, "%s():line%d enter\n", __func__, __LINE__);
+	for (idx = 0; idx < DWC_TIMERS_TOTAL; idx++) {
+		if (dwc->chip.pwms[idx].state.enabled) {
+			dev_err(dev, "%s():line%d PWM %u in use by consumer (%s)\n",
+				__func__, __LINE__, idx, dwc->chip.pwms[idx].label);
+			return -EBUSY;
+		}
+		dwc->ctx[idx].cnt = dwc_pwm_readl(dwc, DWC_TIM_LD_CNT(idx));
+		dwc->ctx[idx].cnt2 = dwc_pwm_readl(dwc, DWC_TIM_LD_CNT2(idx));
+		dwc->ctx[idx].ctrl = dwc_pwm_readl(dwc, DWC_TIM_CTRL(idx));
+	}
+
 	clk_disable_unprepare(dwc->clk);
-	reset_control_assert(dwc->rst);
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret) {
+		dev_err(dev, "%s():line%d failed to select sleep state: %d\n",
+			__func__, __LINE__, ret);
+		clk_prepare_enable(dwc->clk);
+		return ret;
+	}
+
+	if (!IS_ERR_OR_NULL(dwc->gpio_pwm)) {
+		for (idx = 0; idx < dwc->gpio_pwm->ndescs; idx++) {
+			gpiod_set_value(dwc->gpio_pwm->desc[idx], 0);
+		}
+	}
+
+	return 0;
+}
+
+static int dwc_pwm_runtime_resume(struct device *dev)
+{
+	struct dwc_pwm *dwc = dev_get_drvdata(dev);
+	unsigned int idx = 0;
+	int ret = 0;
+
+	dev_dbg(dev, "%s():line%d enter\n", __func__, __LINE__);
+	if (!IS_ERR_OR_NULL(dwc->gpio_pwm)) {
+		for (idx = 0; idx < dwc->gpio_pwm->ndescs; idx++) {
+			gpiod_set_value(dwc->gpio_pwm->desc[idx], 1);
+		}
+	}
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret) {
+		dev_err(dev, "%s():line%d failed to select default state: %d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(dwc->clk);
+	if (ret) {
+		dev_err(dev, "%s():line%d failed to enable clock: %d\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+
+	for (idx = 0; idx < DWC_TIMERS_TOTAL; idx++) {
+		dwc_pwm_writel(dwc, dwc->ctx[idx].cnt, DWC_TIM_LD_CNT(idx));
+		dwc_pwm_writel(dwc, dwc->ctx[idx].cnt2, DWC_TIM_LD_CNT2(idx));
+		dwc_pwm_writel(dwc, dwc->ctx[idx].ctrl, DWC_TIM_CTRL(idx));
+	}
 
 	return 0;
 }
@@ -290,18 +409,16 @@ static int dwc_pwm_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int dwc_pwm_suspend(struct device *dev)
 {
-	struct dwc_pwm *dwc = dev_get_drvdata(dev);
-	int i;
+	int ret = 0;
 
-	for (i = 0; i < DWC_TIMERS_TOTAL; i++) {
-		if (dwc->chip.pwms[i].state.enabled) {
-			dev_err(dev, "PWM %u in use by consumer (%s)\n",
-				i, dwc->chip.pwms[i].label);
-			return -EBUSY;
+	dev_dbg(dev, "%s():line%d enter\n", __func__, __LINE__);
+	if (!pm_runtime_suspended(dev)) {
+		ret = dwc_pwm_runtime_suspend(dev);
+		if (ret) {
+			dev_err(dev, "%s():line%d failed to execute runtime suspend: %d\n",
+				__func__, __LINE__, ret);
+			return ret;
 		}
-		dwc->ctx[i].cnt = dwc_pwm_readl(dwc, DWC_TIM_LD_CNT(i));
-		dwc->ctx[i].cnt2 = dwc_pwm_readl(dwc, DWC_TIM_LD_CNT2(i));
-		dwc->ctx[i].ctrl = dwc_pwm_readl(dwc, DWC_TIM_CTRL(i));
 	}
 
 	return 0;
@@ -309,20 +426,26 @@ static int dwc_pwm_suspend(struct device *dev)
 
 static int dwc_pwm_resume(struct device *dev)
 {
-	struct dwc_pwm *dwc = dev_get_drvdata(dev);
-	int i;
+	int ret = 0;
 
-	for (i = 0; i < DWC_TIMERS_TOTAL; i++) {
-		dwc_pwm_writel(dwc, dwc->ctx[i].cnt, DWC_TIM_LD_CNT(i));
-		dwc_pwm_writel(dwc, dwc->ctx[i].cnt2, DWC_TIM_LD_CNT2(i));
-		dwc_pwm_writel(dwc, dwc->ctx[i].ctrl, DWC_TIM_CTRL(i));
+	dev_dbg(dev, "%s():line%d enter\n", __func__, __LINE__);
+	if (!pm_runtime_suspended(dev)) {
+		ret = dwc_pwm_runtime_resume(dev);
+		if (ret) {
+			dev_err(dev, "%s():line%d failed to execute runtime resume: %d\n",
+				__func__, __LINE__, ret);
+			return ret;
+		}
 	}
 
 	return 0;
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(dwc_pwm_pm_ops, dwc_pwm_suspend, dwc_pwm_resume);
+static const struct dev_pm_ops dwc_pwm_pm_ops = {
+	SET_RUNTIME_PM_OPS(dwc_pwm_runtime_suspend, dwc_pwm_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(dwc_pwm_suspend, dwc_pwm_resume)
+};
 
 static const struct of_device_id dwc_pwm_id_table[] = {
 	{ .compatible = "eswin,pwm-eswin", },
@@ -333,9 +456,10 @@ MODULE_DEVICE_TABLE(of, dwc_pwm_id_table);
 static struct platform_driver dwc_pwm_driver = {
 	.probe = dwc_pwm_probe,
 	.remove = dwc_pwm_remove,
+	.shutdown = dwc_pwm_shutdown,
 	.driver = {
 		.name	= "dwc-pwm",
-		//.pm = &dwc_pwm_pm_ops,
+		.pm = pm_sleep_ptr(&dwc_pwm_pm_ops),
 		.of_match_table = of_match_ptr(dwc_pwm_id_table),
 	},
 };

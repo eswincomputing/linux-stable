@@ -30,6 +30,7 @@
 #define MIN_PERIOD_BYTES 512
 #define MAX_PERIOD_CNT 4
 #define MIN_PERIOD_CNT 2
+#define ESW_PCM_DMA_BUF_SIZE (512 * 1024)
 
 static void esw_pcm_dma_complete(void *arg)
 {
@@ -325,6 +326,9 @@ static int esw_pcm_dma_process(struct snd_soc_component *component,
 	u32 *ptr_32;
 	int i;
 
+	if (bytes > ESW_PCM_DMA_BUF_SIZE)
+		return -ENOMEM;
+
 	if (is_playback) {
 		if (runtime->sample_bits == 32) {
 			if (copy_from_iter(dma_ptr, bytes, iter) != bytes)
@@ -379,12 +383,7 @@ static int esw_pcm_dma_new(struct snd_soc_component *component,
 			     struct snd_soc_pcm_runtime *rtd)
 {
 	struct i2s_dev *chip = container_of(component, struct i2s_dev, pcm_component);
-	size_t prealloc_buffer_size;
-	size_t max_buffer_size;
 	unsigned int i;
-
-	prealloc_buffer_size = 512 * 1024;
-	max_buffer_size = SIZE_MAX;
 
 	for_each_pcm_streams(i) {
 		struct snd_pcm_substream *substream = rtd->pcm->streams[i].substream;
@@ -394,8 +393,8 @@ static int esw_pcm_dma_new(struct snd_soc_component *component,
 		snd_pcm_set_managed_buffer(substream,
 				SNDRV_DMA_TYPE_DEV_IRAM,
 				chip->chan[substream->stream]->device->dev,
-				prealloc_buffer_size,
-				max_buffer_size);
+				ESW_PCM_DMA_BUF_SIZE,
+				SIZE_MAX);
 	}
 
 	return 0;
@@ -420,7 +419,6 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 	const char *channel_names0 = "tx";
 	const char *channel_names1 = "rx";
 	int ret;
-	u32 period_bytes_max;
 
 	dev_dbg(chip->dev, "%s\n", __func__);
 
@@ -434,8 +432,7 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 		dev_warn(chip->dev, "dma channel[%s] is NULL\n", channel_names0);
 	} else {
 		chip->chan[SNDRV_PCM_STREAM_PLAYBACK] = chan0;
-		period_bytes_max = dma_get_max_seg_size(chan0->device->dev);
-		chip->conv_buf[SNDRV_PCM_STREAM_PLAYBACK] = kzalloc(period_bytes_max, GFP_KERNEL);
+		chip->conv_buf[SNDRV_PCM_STREAM_PLAYBACK] = kzalloc(ESW_PCM_DMA_BUF_SIZE, GFP_KERNEL);
 		if (!chip->conv_buf[SNDRV_PCM_STREAM_PLAYBACK]) {
 			ret = -ENOMEM;
 			dev_err(chip->dev, "alloc conv buf0 err:%d\n", ret);
@@ -454,8 +451,7 @@ int esw_pcm_dma_dai_register(struct i2s_dev *chip)
 		dev_warn(chip->dev, "dma channel[%s] is NULL\n", channel_names1);
 	} else {
 		chip->chan[SNDRV_PCM_STREAM_CAPTURE] = chan1;
-		period_bytes_max = dma_get_max_seg_size(chan1->device->dev);
-		chip->conv_buf[SNDRV_PCM_STREAM_CAPTURE] = kzalloc(period_bytes_max, GFP_KERNEL);
+		chip->conv_buf[SNDRV_PCM_STREAM_CAPTURE] = kzalloc(ESW_PCM_DMA_BUF_SIZE, GFP_KERNEL);
 		if (!chip->conv_buf[SNDRV_PCM_STREAM_CAPTURE]) {
 			dev_err(chip->dev, "alloc conv buf0 err:%d\n", ret);
 			ret = -ENOMEM;
@@ -487,7 +483,9 @@ release_chan0:
 		dma_release_channel(chip->chan[0]);
 
 	return ret;
-}void esw_pcm_dma_dai_unregister(struct i2s_dev *chip)
+}
+
+void esw_pcm_dma_dai_unregister(struct i2s_dev *chip)
 {
 	snd_soc_unregister_component_by_driver(chip->dev, chip->pcm_component.driver);
 

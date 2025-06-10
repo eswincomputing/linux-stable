@@ -104,6 +104,7 @@ static const char * const supply_names[ES8328_SUPPLY_NUM] = {
 #define EVB_BOARD   1
 #define DVB_BOARD   2
 #define Z530_BOARD  3
+#define SBC_BOARD   4
 
 struct es8328_priv {
 	struct regmap *regmap;
@@ -1193,6 +1194,7 @@ static irqreturn_t es8328_jack_irq(int irq, void *data)
 
 int es8328_probe(struct device *dev, struct regmap *regmap)
 {
+	unsigned int val = 0;
 	struct es8328_priv *es8328;
 	int ret;
 
@@ -1211,7 +1213,7 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
     if (0 != ret) {
         es8328->eswin_plat = 0;
     }
-	dev_info(dev, "eswin platform:%d\n", es8328->eswin_plat);
+	dev_info(dev, "eswin platform: %d\n", es8328->eswin_plat);
 
 	if (es8328->eswin_plat == DVB_BOARD) {
 		es8328->front_jack_gpio = devm_gpiod_get(dev, "front-jack", GPIOD_IN);
@@ -1238,6 +1240,26 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 					"back jack", es8328);
 		if (ret) {
 			dev_err(dev, "Failed to request back irq[%d], ret:%d\n", gpiod_to_irq(es8328->back_jack_gpio), ret);
+		}
+	} else if (es8328->eswin_plat == SBC_BOARD) {
+		ret = regmap_read(regmap, ES8328_CONTROL1, &val);
+		if (ret != 0) {
+			dev_info(dev, "read control1 register failed\n");
+			return -EIO;
+		}
+		if (val != 0x06) {
+			dev_info(dev, "control1 val mismatching %d\n", val);
+			return -EINVAL;
+		}
+
+		ret = regmap_read(regmap, ES8328_CONTROL2, &val);
+		if (ret != 0) {
+			dev_warn(dev, "read control2 register failed\n");
+			return -EIO;
+		}
+		if ((val&0x0f) != 0x0C) {
+			dev_warn(dev, "control2 val mismatching %d\n", val);
+			return -EINVAL;
 		}
 	}
 

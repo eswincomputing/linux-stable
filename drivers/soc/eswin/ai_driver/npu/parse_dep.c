@@ -27,10 +27,10 @@
 #include <dla_log.h>
 #include "internal_interface.h"
 #include "dla_buffer.h"
+#include "dla_err.h"
 #include "debug.h"
 
-static int config_sequence_setup(struct win_executor *executor, int op_num,
-				 s16 *cfg_seq[])
+static int config_sequence_setup(struct win_executor *executor, int op_num, s16 *cfg_seq[])
 {
 	s16 i, j, pcer, op_type, op_idx;
 	struct dla_task *task = executor->task;
@@ -47,6 +47,11 @@ static int config_sequence_setup(struct win_executor *executor, int op_num,
 	for (i = 0; i < op_num; i++) {
 		op_type = executor->task->common_desc[i].op_type;
 		op_idx = executor->task->common_desc[i].index;
+		if (op_type > DLA_OP_EVENT_SOURCE) {
+			dla_error("error op_type:%d, ip idx:%d\n", op_type, op_idx);
+			return -DLA_ERR_INVALID_PARAM;
+		}
+
 		pcer = processor_dla_convert[op_type];
 		executor->op_num[pcer]++;
 		if (executor->head_op_idx[pcer] == INVALID_OP_IDX) {
@@ -55,15 +60,12 @@ static int config_sequence_setup(struct win_executor *executor, int op_num,
 	}
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
 		total += executor->op_num[i];
-		dla_debug(
-			"%s %d executor->op_num[%d] %d executor->head_op_idx[%d] %d\n",
-			__func__, __LINE__, i, executor->op_num[i], i,
-			executor->head_op_idx[i]);
+		dla_debug("executor->op_num[%d] %d executor->head_op_idx[%d] %d\n",
+				  i, executor->op_num[i], i, executor->head_op_idx[i]);
 	}
 	if (total != op_num) {
-		dla_error("%s %d BUG op sum %d != op_num %d\n", __func__,
-			  __LINE__, total, op_num);
-		return -1;
+		dla_error("BUG op sum %d != op_num %d\n", total, op_num);
+		return -DLA_ERR_INVALID_PARAM;
 	}
 
 	/* cfg_seq pointer offset */
@@ -72,18 +74,12 @@ static int config_sequence_setup(struct win_executor *executor, int op_num,
 	cfg_seq[IDX_SDP] = cfg_seq[IDX_CONV] + executor->op_num[IDX_CONV];
 	cfg_seq[IDX_PDP] = cfg_seq[IDX_SDP] + executor->op_num[IDX_SDP];
 	cfg_seq[IDX_RUBIK] = cfg_seq[IDX_PDP] + executor->op_num[IDX_PDP];
-	cfg_seq[IDX_KMD_DSP0] =
-		cfg_seq[IDX_RUBIK] + executor->op_num[IDX_RUBIK];
-	cfg_seq[IDX_KMD_DSP1] =
-		cfg_seq[IDX_KMD_DSP0] + executor->op_num[IDX_KMD_DSP0];
-	cfg_seq[IDX_KMD_DSP2] =
-		cfg_seq[IDX_KMD_DSP1] + executor->op_num[IDX_KMD_DSP1];
-	cfg_seq[IDX_KMD_DSP3] =
-		cfg_seq[IDX_KMD_DSP2] + executor->op_num[IDX_KMD_DSP2];
-	cfg_seq[IDX_EVENT_SINK] =
-		cfg_seq[IDX_KMD_DSP3] + executor->op_num[IDX_KMD_DSP3];
-	cfg_seq[IDX_EVENT_SOURCE] =
-		cfg_seq[IDX_EVENT_SINK] + executor->op_num[IDX_EVENT_SINK];
+	cfg_seq[IDX_KMD_DSP0] = cfg_seq[IDX_RUBIK] + executor->op_num[IDX_RUBIK];
+	cfg_seq[IDX_KMD_DSP1] = cfg_seq[IDX_KMD_DSP0] + executor->op_num[IDX_KMD_DSP0];
+	cfg_seq[IDX_KMD_DSP2] = cfg_seq[IDX_KMD_DSP1] + executor->op_num[IDX_KMD_DSP1];
+	cfg_seq[IDX_KMD_DSP3] = cfg_seq[IDX_KMD_DSP2] + executor->op_num[IDX_KMD_DSP2];
+	cfg_seq[IDX_EVENT_SINK] = cfg_seq[IDX_KMD_DSP3] + executor->op_num[IDX_KMD_DSP3];
+	cfg_seq[IDX_EVENT_SOURCE] = cfg_seq[IDX_EVENT_SINK] + executor->op_num[IDX_EVENT_SINK];
 
 	for (i = 0; i < op_num; i++) {
 		op_type = executor->task->common_desc[i].op_type;
@@ -93,32 +89,27 @@ static int config_sequence_setup(struct win_executor *executor, int op_num,
 		j = op_type_pos[pcer];
 		cfg_seq[pcer][j] = op_idx;
 		pcer_interface = executor->engine->processors[pcer];
-		ret = pcer_interface->tensor_unfold(executor, op_idx,
-						    &task->op_desc[op_idx],
-						    &task->surface_desc[op_idx],
-						    executor->tensor_set[pcer],
-						    j);
+		ret = pcer_interface->tensor_unfold(executor, op_idx, &task->op_desc[op_idx],
+						    				&task->surface_desc[op_idx],
+						    				executor->tensor_set[pcer],	j);
 		if (ret < 0) {
-			dla_error("%s, %d, tensor unfold error.\n", __func__, __LINE__);
+			dla_error("tensor unfold error.\n");
 			return ret;
 		}
 		if (pcer_interface->rdma_check != NULL) {
-			rdma = pcer_interface->rdma_check(
-				NULL, &task->op_desc[op_idx],
-				&task->surface_desc[op_idx]);
+			rdma = pcer_interface->rdma_check(NULL, &task->op_desc[op_idx], &task->surface_desc[op_idx]);
 		}
 
-		ret = pcer_interface->prepare_prog_data(
-			executor, rdma, j, op_idx, &task->op_desc[op_idx],
-			&task->surface_desc[op_idx]);
+		ret = pcer_interface->prepare_prog_data(executor, rdma, j, op_idx, &task->op_desc[op_idx],
+												&task->surface_desc[op_idx]);
 		if (ret < 0) {
-			dla_error("%s, %d, prepare prog data error.\n", __func__, __LINE__);
+			dla_error("prepare prog data error.\n");
 			return ret;
 		}
 		op_type_pos[pcer]++;
 	}
 
-	dla_debug("%s, %d, done.\n", __func__, __LINE__);
+	dla_debug("done.\n");
 	return 0;
 }
 
@@ -127,8 +118,7 @@ static void npu_set_enable_consumer(npu_dep_info_t *npu_info, u16 cons)
 	npu_info->enable_op_idx = cons;
 }
 
-static void npu_set_completion_consumer(npu_dep_info_t *npu_info, u32 type,
-					u16 consumer_idx, u16 pos)
+static void npu_set_completion_consumer(npu_dep_info_t *npu_info, u32 type, u16 consumer_idx, u16 pos)
 {
 	npu_info->completion_event_bitmap |= 1U << type;
 	npu_info->completion_op_idx[pos] = consumer_idx;
@@ -137,13 +127,11 @@ static void npu_set_completion_consumer(npu_dep_info_t *npu_info, u32 type,
 #define get_npu_info(pcer_t, PCER_T, k)                                   \
 	({                                                                \
 		pcer_t##_dev_t *tmp;                                      \
-		tmp = (pcer_t##_dev_t *)                                  \
-			      executor->prog_data_buf_bobj[IDX_##PCER_T]; \
+		tmp = (pcer_t##_dev_t *)executor->prog_data_buf_bobj[IDX_##PCER_T]; \
 		npu_info = (npu_dep_info_t *)&tmp[k];                     \
 	})
 
-static npu_dep_info_t *npu_get_dep_info(struct win_executor *executor, u8 pcer,
-					int k)
+static npu_dep_info_t *npu_get_dep_info(struct win_executor *executor, u8 pcer, int k)
 {
 	npu_dep_info_t *npu_info;
 	switch (pcer) {
@@ -294,14 +282,20 @@ int generate_small_program(struct win_executor *executor)
 	op_num = executor->network->num_operations;
 	executor->total_op_num = op_num;
 
-	executor->cfg_seq[IDX_START] = vzalloc(op_num * sizeof(u16));
-	if (executor->cfg_seq[IDX_START] == NULL) {
+	if (op_num >= MAX_OP_NUM) {
+		dla_error("op_num(%d) too large.\n", op_num);
 		return -ENOMEM;
 	}
-	dla_debug("%s, %d, op_num=%d.\n", __func__, __LINE__, op_num);
+
+	executor->cfg_seq[IDX_START] = vzalloc(op_num * sizeof(u16));
+	if (executor->cfg_seq[IDX_START] == NULL) {
+		dla_error("alloc cfg seq memory failed.\n");
+		return -ENOMEM;
+	}
+	dla_debug("op_num=%d.\n", op_num);
 	ret = config_sequence_setup(executor, op_num, executor->cfg_seq);
 	if (ret < 0) {
-		dla_error("%s %d config_sequence_setup fail\n", __func__, __LINE__);
+		dla_error("config_sequence_setup fail\n");
 		goto err_free1;
 	}
 	dependency_consumer2producer(executor, executor->task, op_num);
@@ -342,13 +336,9 @@ int generate_event_map(struct win_executor *executor)
 	dla_detail("total_event_sink_num:%d total_event_source_num:%d\n",
 		   executor->total_event_sink_num,
 		   executor->total_event_source_num);
-	executor->event_sink_map = kzalloc(
-		executor->total_event_sink_num * sizeof(s16), GFP_KERNEL);
-	executor->event_source_map = kzalloc(
-		executor->total_event_source_num * sizeof(s16), GFP_KERNEL);
-
-	if (executor->event_sink_map == NULL ||
-	    executor->event_source_map == NULL) {
+	executor->event_sink_map = kzalloc(executor->total_event_sink_num * sizeof(s16), GFP_KERNEL);
+	executor->event_source_map = kzalloc(executor->total_event_source_num * sizeof(s16), GFP_KERNEL);
+	if (executor->event_sink_map == NULL || executor->event_source_map == NULL) {
 		ret = -ENOMEM;
 		return ret;
 	}
@@ -425,14 +415,14 @@ int set_pause_op_done(struct win_executor *executor, kmd_dump_info_t *dump_info)
 			if (op_index == task->common_desc[i].index) {
 				npu_info->notify_op_done = 1;
 				npu_info->pause_op_done = 1;
-				dla_debug("%s, %d, dump op_index:%d\n", __func__, __LINE__, op_index);
+				dla_debug("dump op_index:%d\n", op_index);
 				break;
 			}
 		}
 
 		pcer_cnt[pcer]++;
 	}
-	dla_debug("%s, %d, ret=%d.\n\n", __func__, __LINE__, ret);
+	dla_debug("ret=%d.\n\n", ret);
 
 	return ret;
 }

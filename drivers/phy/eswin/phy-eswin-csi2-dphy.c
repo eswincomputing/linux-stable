@@ -344,7 +344,6 @@ static int csi2_dphy_get_set_fmt(struct v4l2_subdev *sd,
 	 * Do not allow format changes and just relay whatever
 	 * set currently in the sensor.
 	 */
-	pr_info("sensor_sd->name %s:%d \n", __func__, __LINE__);
 	if (!sensor_sd)
 		return -ENODEV;
 	sensor = sd_to_sensor(dphy, sensor_sd);
@@ -639,15 +638,6 @@ static int eswin_csi2_dphy_get_inno_phy_hw(struct csi2_dphy *dphy)
 	struct csi2_dphy_hw *dphy_hw;
 	struct device_node *np;
 	int i = 0;
-
-	// int count = of_count_phandle_with_args(dev->of_node, "eswin,hw", NULL);
-	// if (count < 0) {
-	// 	dev_err(dphy->dev, "failed to get dphy%d hw count\n",
-	// 		dphy->phy_index);
-	// 	return -ENODEV;
-	// }
-
-	// dphy->drv_data->num_inno_phy = count;
 
 	for (i = 0; i < dphy->drv_data->num_inno_phy; i++) {
 		np = of_parse_phandle(dev->of_node, "eswin,hw", i);

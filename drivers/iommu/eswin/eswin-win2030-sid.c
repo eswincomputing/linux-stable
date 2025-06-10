@@ -32,6 +32,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/es_proc.h>
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 
 static void trigger_waveform_ioremap_resource(void);
@@ -62,7 +63,7 @@ struct win2030_sid_soc {
     tcu can be aware of tbu up and down.
 
  */
-struct tbu_reg_cfg_info {
+struct tbu_pwr_cfg_reg_info {
 	unsigned int reg_offset;
 	unsigned int qreqn_pd_bit;
 	unsigned int qacceptn_pd_bit;
@@ -82,12 +83,21 @@ struct tbu_priv {
 	struct mutex tbu_priv_lock;
 };
 
+struct tbu_clk_reset_cfg_reg_info {
+	unsigned int reset_offset;
+	unsigned int reset_bit;
+
+	unsigned int clk_offset;
+	unsigned int clk_bit;
+};
+
 struct win2030_tbu_client {
 	/* tbu_id: bit[3:0] is for major ID, bit[7:4] is for minor ID;
 	   For example, tbu of dsp3 is tbu7_3, the tbu_ID is 0x73. It measn tbu7_3
 	*/
 	u32 tbu_id;
-	struct tbu_reg_cfg_info tbu_reg_info;
+	struct tbu_pwr_cfg_reg_info tbu_pwr_reg_info;
+	struct tbu_clk_reset_cfg_reg_info tbu_clk_reset_info;
 	int (*tbu_power_ctl_register) (struct tbu_priv *tbu_priv_p, bool is_powerUp, struct device *dev);
 };
 
@@ -109,7 +119,8 @@ struct win2030_sid {
 	const struct win2030_sid_soc *soc;
 	struct mutex eswin_dynm_sid_cfg_en_lock;
 	struct tbu_power_soc *tbu_power_soc;
-	struct mutex tbu_reg_lock;
+	spinlock_t tbu_reg_lock;
+	struct regmap *sys_crg_regmap;
 };
 struct win2030_sid *syscon_sid_cfg[MAX_NUMNODES] = {NULL};
 
@@ -119,9 +130,11 @@ static int win2030_tbu_powr_priv_init(struct tbu_power_soc **tbu_power_soc_pp, i
 static int ioremap_tcu_resource(int nid);
 void print_tcu_node_status(const char *call_name, int call_line, int nid);
 static int __init tcu_proc_init(void);
+static int __init eic7700_tbu_debug_init(int nid);
 
 static int g_nodes_cnt = 0;
 static int win2030_tbu_power_all(int nid, bool is_powerUp);
+static void get_reset_clkd_val_of_tbu(int nid, const struct win2030_tbu_client *tbu_client_p, unsigned int *rst_val, unsigned int *clk_val);
 
 int win2030_dynm_sid_enable(int nid)
 {
@@ -133,7 +146,6 @@ int win2030_dynm_sid_enable(int nid)
 		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
 		return -EFAULT;
 	#else
-		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
 		nid = 0;
 	#endif
 	}
@@ -260,7 +272,7 @@ int win2030_dma_sid_cfg(struct device *dev)
 
 	regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,hsp_sp_csr");
 	if (IS_ERR(regmap)) {
-		dev_dbg(dev, "No hsp_sp_csr phandle specified\n");
+		dev_err(dev, "No hsp_sp_csr phandle specified\n");
 		return 0;
 	}
 
@@ -313,56 +325,6 @@ static int of_parse_syscon_nodes(struct device_node *np, int *nid_p)
 
 	return 0;
 }
-
-#if 0
-static int win2030_program_sid(int nid)
-{
-	unsigned int i;
-	u32 rdwr_sid_ssid;
-	struct win2030_sid *mc = NULL;
-	int ret = 0;
-
-	if (nid == NUMA_NO_NODE) {
-	#ifdef CONFIG_NUMA
-		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
-		return -EFAULT;
-	#else
-		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
-		nid = 0;
-	#endif
-	}
-
-	mc = syscon_sid_cfg[nid];
-	if (mc == NULL)
-		return -EFAULT;
-
-	for (i = 0; i < mc->soc->num_clients; i++) {
-		const struct win2030_sid_client *client = &mc->soc->clients[i];
-
-		/* make the reading sid the same as writing sid, ssid is fixed to zero */
-		rdwr_sid_ssid  = FIELD_PREP(AWSMMUSID, client->sid);
-		rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, client->sid);
-		rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
-		rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
-		pr_debug("smmu_dbg, setting SID %u for %s\n", client->sid,
-			client->name);
-		writel(rdwr_sid_ssid, mc->regs + client->reg_offset);
-
-		rdwr_sid_ssid = readl(mc->regs + client->reg_offset);
-
-		pr_debug( "smmu_dbg, client %s: rdwr_sid_ssid: 0x%x\n",
-			client->name, rdwr_sid_ssid);
-	}
-
-	ret = win2030_dynm_sid_enable(nid);
-	if (ret < 0)
-		pr_err( "smmu_dbg, %s 0x%0llx fail!\n", __func__, mc->start);
-	else
-		pr_info( "smmu_dbg, %s 0x%0llx done!\n", __func__, mc->start);
-
-	return ret;
-}
-#endif
 
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
 static const struct win2030_sid_client win2030_sid_clients[] = {
@@ -461,7 +423,7 @@ static int __init win2030_init_streamID(void)
 				WARN_ON(1);
 				break;
 			}
-			mutex_init(&mc->tbu_reg_lock);
+			spin_lock_init(&mc->tbu_reg_lock);
 
 			syscon_sid_cfg[nid] = mc;
 			g_nodes_cnt++;
@@ -473,6 +435,8 @@ static int __init win2030_init_streamID(void)
 	}
 	of_node_put(root);
 
+	eic7700_tbu_debug_init(g_nodes_cnt);
+
 	return ret;
 }
 
@@ -483,67 +447,86 @@ early_initcall(win2030_init_streamID);
 static const struct win2030_tbu_client win2030_tbu_clients[] = {
 	{
 		.tbu_id = WIN2030_TBUID_0x0, // ISP, DW200 share the tbu0
-		.tbu_reg_info = {0x3d8, 7, 6},
+		.tbu_pwr_reg_info = {0x3d8, 7, 6},
+		.tbu_clk_reset_info = {0x4e8, 3, 0x188, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x10, // tbu1_0 is only for video decoder
-		.tbu_reg_info = {0x3d4, 31, 30},
+		.tbu_pwr_reg_info = {0x3d4, 31, 30},
+		.tbu_clk_reset_info = {0x464, 1, 0x1dc, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x11, // tbu1_1 is only video encoder
-		.tbu_reg_info = {0x3d4, 23, 22},
+		.tbu_pwr_reg_info = {0x3d4, 23, 22},
+		.tbu_clk_reset_info = {0x468, 1, 0x1e0, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x12, // tbu1_2 is only Jpeg encoder
-		.tbu_reg_info = {0x3d4, 7, 6},
+		.tbu_pwr_reg_info = {0x3d4, 7, 6},
+		.tbu_clk_reset_info = {0x460, 1, 0x1d4, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x13, // tbu1_3 is only Jpeg decoder
-		.tbu_reg_info = {0x3d4, 15, 14},
+		.tbu_pwr_reg_info = {0x3d4, 15, 14},
+		.tbu_clk_reset_info = {0x45c, 1, 0x1d8, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x2, // Ethernet, sata, usb, dma0, emmc, sd, sdio share the tbu2
-		.tbu_reg_info = {0x3d8, 15, 14},
+		.tbu_pwr_reg_info = {0x3d8, 15, 14},
+		.tbu_clk_reset_info = {0x4e8, 2, 0x148, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x3, // tbu3 is only for pcie
-		.tbu_reg_info = {0x3d8, 23, 22},
+		.tbu_pwr_reg_info = {0x3d8, 23, 22},
+		.tbu_clk_reset_info = {0x4e8, 1, 0x170, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x4, // scpu, crypto, lpcpu, dma1 share the tbu4
-		.tbu_reg_info = {0x3d8, 31, 30},
+		.tbu_pwr_reg_info = {0x3d8, 31, 30},
+		.tbu_clk_reset_info = {0x4e8, 0, 0x1e4, 29},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
-		.tbu_id = WIN2030_TBUID_0x5, // tbu5 is only NPU
-		.tbu_reg_info = {0x3d0, 15, 14},
+		.tbu_id = WIN2030_TBUID_0x5, // tbu5 is llc and NPU driver
+		.tbu_pwr_reg_info = {0x3d0, 15, 14},
+		.tbu_clk_reset_info = {0x418, 0, 0x178, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
+	},
+	{
+		.tbu_id = WIN2030_TBUID_0x6, // placeholder, NOT used
+		.tbu_pwr_reg_info = {0},
+		.tbu_clk_reset_info = {0},
+		.tbu_power_ctl_register = NULL,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x70, // tbu7_0 is only dsp0
-		.tbu_reg_info = {0x3f8, 7, 6},
+		.tbu_pwr_reg_info = {0x3f8, 7, 6},
+		.tbu_clk_reset_info = {0x408, 0, 0x138, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x71, // tbu7_1 is only dsp1
-		.tbu_reg_info = {0x3f8, 15, 14},
+		.tbu_pwr_reg_info = {0x3f8, 15, 14},
+		.tbu_clk_reset_info = {0x408, 0, 0x138, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x72, // tbu7_2 is only dsp2
-		.tbu_reg_info = {0x3f8, 23, 22},
+		.tbu_pwr_reg_info = {0x3f8, 23, 22},
+		.tbu_clk_reset_info = {0x408, 0, 0x138, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
 		.tbu_id = WIN2030_TBUID_0x73, // tbu7_3 is only dsp3
-		.tbu_reg_info = {0x3f8, 31, 30},
+		.tbu_pwr_reg_info = {0x3f8, 31, 30},
+		.tbu_clk_reset_info = {0x408, 0, 0x138, 31},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 };
@@ -553,39 +536,49 @@ static const struct win2030_tbu_soc win2030_tbu_soc = {
 	.tbu_clients = win2030_tbu_clients,
 };
 
-static int __do_win2030_tbu_power_ctl(int nid, bool is_powerUp, const struct tbu_reg_cfg_info *tbu_reg_info_p)
+static int __do_win2030_tbu_power_ctl(int nid, bool is_powerUp, const struct win2030_tbu_client *tbu_client_p)
 {
 	int ret = 0;
 	unsigned long reg_val;
 	struct win2030_sid *mc = NULL;
 	int loop_cnt = 0;
-	// int bitmask; = BIT(clearbit);
+	unsigned long flags;
+	unsigned int clk_val, rst_val;
+	const struct tbu_pwr_cfg_reg_info *tbu_pwr_reg_info_p = &tbu_client_p->tbu_pwr_reg_info;
+
 	mc = syscon_sid_cfg[nid];
 	if (mc == NULL)
 		return -EFAULT;
 
-	mutex_lock(&mc->tbu_reg_lock);
+	/* WIN2030_TBUID_0x6 is NOT used */
+	if (tbu_client_p->tbu_id == WIN2030_TBUID_0x6)
+		return 0;
+
+	spin_lock_irqsave(&mc->tbu_reg_lock, flags);
 	if (is_powerUp) {
-		reg_val = readl(mc->regs + tbu_reg_info_p->reg_offset);
-		set_bit(tbu_reg_info_p->qreqn_pd_bit, &reg_val);
-		writel(reg_val, mc->regs + tbu_reg_info_p->reg_offset);
+		reg_val = readl(mc->regs + tbu_pwr_reg_info_p->reg_offset);
+		set_bit(tbu_pwr_reg_info_p->qreqn_pd_bit, &reg_val);
+		writel(reg_val, mc->regs + tbu_pwr_reg_info_p->reg_offset);
 		pr_debug("reg_offset=0x%03x, tbu_val=0x%x\n",
-			tbu_reg_info_p->reg_offset, readl(mc->regs + tbu_reg_info_p->reg_offset));
+			tbu_pwr_reg_info_p->reg_offset, readl(mc->regs + tbu_pwr_reg_info_p->reg_offset));
 	}
 	else {
-		reg_val = readl(mc->regs + tbu_reg_info_p->reg_offset);
-		clear_bit(tbu_reg_info_p->qreqn_pd_bit, &reg_val);
-		writel(reg_val, mc->regs + tbu_reg_info_p->reg_offset);
+		reg_val = readl(mc->regs + tbu_pwr_reg_info_p->reg_offset);
+		clear_bit(tbu_pwr_reg_info_p->qreqn_pd_bit, &reg_val);
+		writel(reg_val, mc->regs + tbu_pwr_reg_info_p->reg_offset);
 		do {
-			reg_val = readl(mc->regs + tbu_reg_info_p->reg_offset);
+			reg_val = readl(mc->regs + tbu_pwr_reg_info_p->reg_offset);
 			pr_debug("reg_offset=0x%03x, tbu_val=0x%lx, BIT(qacceptn_pd_bit)=0x%lx\n",
-				tbu_reg_info_p->reg_offset, reg_val, BIT(tbu_reg_info_p->qacceptn_pd_bit));
-			if ((reg_val & BIT(tbu_reg_info_p->qacceptn_pd_bit)) == 0) {
+				tbu_pwr_reg_info_p->reg_offset, reg_val, BIT(tbu_pwr_reg_info_p->qacceptn_pd_bit));
+			if ((reg_val & BIT(tbu_pwr_reg_info_p->qacceptn_pd_bit)) == 0) {
 				break;
 			}
 			mdelay(10);
 			loop_cnt++;
 			if (loop_cnt > 10) {
+				get_reset_clkd_val_of_tbu(nid, tbu_client_p, &rst_val, &clk_val);
+				pr_err("Err, failed to power down tbu 0x%02x of nid[%d], rst_bitval %d, clk_bitval %d\n",
+						tbu_client_p->tbu_id, nid, rst_val, clk_val);
 				WARN_ON(1); // it should never happen.
 				break;
 			}
@@ -595,13 +588,13 @@ static int __do_win2030_tbu_power_ctl(int nid, bool is_powerUp, const struct tbu
 			ret = -1;
 		}
 	}
-	mutex_unlock(&mc->tbu_reg_lock);
+	spin_unlock_irqrestore(&mc->tbu_reg_lock, flags);
 
 	return ret;
 }
 
-#define do_win2030_tbu_power_up(nid, tbu_reg_info_p)	__do_win2030_tbu_power_ctl(nid, true, tbu_reg_info_p)
-#define do_win2030_tbu_power_down(nid, tbu_reg_info_p)	__do_win2030_tbu_power_ctl(nid, false, tbu_reg_info_p)
+#define do_win2030_tbu_power_up(nid, tbu_client_p)	__do_win2030_tbu_power_ctl(nid, true, tbu_client_p)
+#define do_win2030_tbu_power_down(nid, tbu_client_p)	__do_win2030_tbu_power_ctl(nid, false, tbu_client_p)
 
 
 
@@ -610,13 +603,13 @@ static int tbu_power_down_ref_release(atomic_t *ref)
 	int ret = 0;
 	struct tbu_priv *tbu_priv_p = container_of(ref, struct tbu_priv, refcount);
 	int nid = tbu_priv_p->nid;
-	const struct tbu_reg_cfg_info *tbu_reg_info_p = &tbu_priv_p->tbu_client_p->tbu_reg_info;
+	const struct win2030_tbu_client *tbu_client_p = tbu_priv_p->tbu_client_p;
 
 	WARN_ON(!tbu_priv_p);
 	if (!tbu_priv_p)
 		return -1;
 
-	ret = do_win2030_tbu_power_down(nid, tbu_reg_info_p);
+	ret = do_win2030_tbu_power_down(nid, tbu_client_p);
 
 	return ret;
 }
@@ -703,7 +696,6 @@ static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_p
 	int ret = 0;
 	int nid = tbu_priv_p->nid;
 	const struct win2030_tbu_client *tbu_client_p = tbu_priv_p->tbu_client_p;
-	const struct tbu_reg_cfg_info *tbu_reg_info_p = &tbu_priv_p->tbu_client_p->tbu_reg_info;
 	unsigned int old_refcount;
 
 	mutex_lock(&tbu_priv_p->tbu_priv_lock);
@@ -711,7 +703,7 @@ static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_p
 
 	if (is_powerUp == false) { //power down
 		if (unlikely(0 == old_refcount)) {
-			pr_debug("tbu 0x%02x(node %d) is down already!\n",
+			dev_dbg(dev, "tbu 0x%02x(node %d) is down already!\n",
 				tbu_client_p->tbu_id, tbu_priv_p->nid);
 			goto tbu_finish;
 		}
@@ -721,16 +713,16 @@ static int win2030_tbu_power_ctl_register(struct tbu_priv *tbu_priv_p, bool is_p
 			ret = tbu_power_down_ref_release(&tbu_priv_p->refcount);
 		}
 		else {
-			pr_debug("tbu 0x%02x(node %d) is used by other module(s) right now!\n",
+			dev_dbg(dev, "tbu 0x%02x(node %d) is used by other module(s) right now!\n",
 				tbu_client_p->tbu_id, tbu_priv_p->nid);
 		}
 	}
 	else { //power up
 		if (0 == old_refcount) {
-			ret = do_win2030_tbu_power_up(nid, tbu_reg_info_p);
+			ret = do_win2030_tbu_power_up(nid, tbu_client_p);
 		}
 		else {
-			pr_debug("tbu 0x%02x(node %d) is already power up!",
+			dev_dbg(dev, "tbu 0x%02x(node %d) is already power up!",
 				tbu_client_p->tbu_id, tbu_priv_p->nid);
 		}
 		atomic_add(1, &tbu_priv_p->refcount);
@@ -774,7 +766,6 @@ static int win2030_tbu_powr_priv_init(struct tbu_power_soc **tbu_power_soc_pp, i
 		tbu_priv_p->tbu_client_p = &win2030_tbu_soc.tbu_clients[i];
 		INIT_LIST_HEAD(&tbu_priv_p->attachments);
 		mutex_init(&tbu_priv_p->tbu_priv_lock);
-		pr_debug("%s, nid %d, tbu 0x%02x, tbu_priv_p(0x%px), sizeof(struct tbu_priv)=0x%lx\n", __func__, nid, tbu_priv_p->tbu_client_p->tbu_id, tbu_priv_p, sizeof(struct tbu_priv));
 		tbu_priv_p++;
 	}
 	tbu_power_soc_p->num_tbuClients = num_tbuClients;
@@ -808,14 +799,9 @@ static int win2030_get_tbu_priv(int nid, u32 tbu_id, struct tbu_priv **tbu_priv_
 	struct tbu_power_soc *tbu_power_soc_p = mc->tbu_power_soc;
 	struct tbu_priv *tbu_priv_p = tbu_power_soc_p->tbu_priv_array;
 
-	pr_debug("%s,  syscon_sid_cfg[%d] addr is 0x%px, tbu_id=0x%02x, tbu_power_soc_p is 0x%px\n",
-		__func__, nid, syscon_sid_cfg[nid], tbu_id, tbu_power_soc_p);
-
 	for (i = 0; i < tbu_power_soc_p->num_tbuClients; i++) {
 		if (tbu_id == tbu_priv_p->tbu_client_p->tbu_id) {
 			*tbu_priv_pp = tbu_priv_p;
-			pr_debug("%s, found tbu_id 0x%02x, tbu_priv_array[%d] tbu_priv_p is 0x%px\n",
-				__func__, tbu_id, i, tbu_priv_p);
 			return 0;
 		}
 		tbu_priv_p++;
@@ -835,8 +821,10 @@ static int win2030_tbu_power_all(int nid, bool is_powerUp)
 
 	for (i = 0; i < tbu_power_soc_p->num_tbuClients; i++) {
 		tbu_client_p = tbu_priv_p->tbu_client_p;
-		pr_debug("%s, tbu 0x%x %s\n", __func__, tbu_client_p->tbu_id, is_powerUp?"power up":"power down");
-		__do_win2030_tbu_power_ctl(nid, is_powerUp, &tbu_client_p->tbu_reg_info);
+		if (tbu_client_p->tbu_id != WIN2030_TBUID_0x6) {
+			pr_info("%s[nid %d], tbu 0x%02x %s\n", __func__, nid, tbu_client_p->tbu_id, is_powerUp?"power up":"power down");
+			__do_win2030_tbu_power_ctl(nid, is_powerUp, tbu_client_p);
+		}
 		tbu_priv_p++;
 	}
 
@@ -870,14 +858,12 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
 		return -EFAULT;
 	#else
-		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
 		nid = 0;
 	#endif
 	}
 
-	dev_dbg(dev, "%s %s!\n", __func__, (is_powerUp == true)? "up":"down");
 	of_property_for_each_u32(node, "tbus", tbu_id) {
-		pr_debug("tbus = <0x%02x>\n", tbu_id);
+		dev_dbg(dev, "%s:tbus = <0x%02x> %s!\n", __func__, tbu_id, (is_powerUp == true)? "up":"down");
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;
 			if (tbu_client_p->tbu_power_ctl_register) {
@@ -886,7 +872,7 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 					return ret;
 			}
 			else {
-				ret = __do_win2030_tbu_power_ctl(nid, is_powerUp, &tbu_client_p->tbu_reg_info);
+				ret = __do_win2030_tbu_power_ctl(nid, is_powerUp, tbu_client_p);
 				if (ret)
 					return ret;
 			}
@@ -924,13 +910,12 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
 		return -EFAULT;
 	#else
-		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
 		nid = 0;
 	#endif
 	}
 
 	of_property_for_each_u32(node, "tbus", tbu_id) {
-		pr_debug("tbus = <0x%02x>\n", tbu_id);
+		dev_dbg(dev, "%s:tbus = <0x%02x> %s!\n", __func__, tbu_id, (is_powerUp == true)? "up":"down");
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;
 			if (tbu_client_p->tbu_power_ctl_register) {
@@ -939,7 +924,7 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 					return ret;
 			}
 			else {
-				ret = __do_win2030_tbu_power_ctl(nid, is_powerUp, &tbu_client_p->tbu_reg_info);
+				ret = __do_win2030_tbu_power_ctl(nid, is_powerUp, tbu_client_p);
 				if (ret)
 					return ret;
 			}
@@ -962,6 +947,41 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 	return ret;
 }
 EXPORT_SYMBOL(win2030_tbu_power_by_dev_and_node);
+
+int win2030_tbu_force_power_by_dev_and_node(struct device *dev, struct device_node *node, bool is_powerUp)
+{
+	int ret = 0;
+	int nid = dev_to_node(dev);
+	u32 tbu_id;
+	const struct win2030_tbu_client *tbu_client_p = NULL;
+	struct tbu_priv *tbu_priv_p;
+
+	if (nid == NUMA_NO_NODE) {
+	#ifdef CONFIG_NUMA
+		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
+		return -EFAULT;
+	#else
+		nid = 0;
+	#endif
+	}
+
+	of_property_for_each_u32(node, "tbus", tbu_id) {
+		dev_dbg(dev, "%s:tbus = <0x%02x> %s!\n", __func__,  tbu_id, (is_powerUp == true)? "up":"down");
+		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
+			tbu_client_p = tbu_priv_p->tbu_client_p;
+			ret = __do_win2030_tbu_power_ctl(nid, is_powerUp, tbu_client_p);
+			if (ret)
+				return ret;
+		}
+		else {
+			pr_err("tbu power ctl failed!, Couldn't find tbu 0x%x\n", tbu_id);
+			return -1;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(win2030_tbu_force_power_by_dev_and_node);
 
 #define WAVE_TRIGGER_REG_OFFSET    0x668
 #define WAVE_TRIGGER_REG_BASE     0x51810000
@@ -1012,6 +1032,95 @@ static int get_tcu_node_status(unsigned long *tcu_node_status_p, int nid)
 	return 0;
 }
 
+void *sidband_mgr_sys_noc_virt[2];
+#define GET_BIT_VALUE(v, bit)		(((v) >> (bit)) & 0x1)
+
+static void get_reset_clkd_val_of_tbu(int nid, const struct win2030_tbu_client *tbu_client_p, unsigned int *rst_val, unsigned int *clk_val)
+{
+	struct win2030_sid *mc;
+	unsigned int reg, val;
+
+	if (nid == NUMA_NO_NODE) {
+#ifdef CONFIG_NUMA
+		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
+		return;
+#else
+		nid = 0;
+#endif
+	}
+
+	mc = syscon_sid_cfg[nid];
+
+	reg = tbu_client_p->tbu_clk_reset_info.reset_offset;
+	regmap_read(mc->sys_crg_regmap, reg, &val);
+	*rst_val = GET_BIT_VALUE(val, tbu_client_p->tbu_clk_reset_info.reset_bit);
+
+	reg = tbu_client_p->tbu_clk_reset_info.clk_offset;
+	regmap_read(mc->sys_crg_regmap, reg, &val);
+	*clk_val = GET_BIT_VALUE(val, tbu_client_p->tbu_clk_reset_info.clk_bit);
+}
+
+void eic7700_tbu_status_check(int nid, unsigned long *org_status, unsigned long *veri_status, unsigned long *sideband)
+{
+	int i;
+	unsigned int clk_val, rst_val;
+	unsigned long reg_val;
+	struct win2030_sid *mc;
+	struct tbu_power_soc *tbu_power_soc_p;
+	struct tbu_priv *tbu_priv_p;
+	const struct win2030_tbu_client *tbu_client_p = NULL;
+
+	if (nid == NUMA_NO_NODE) {
+	#ifdef CONFIG_NUMA
+		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
+		return;
+	#else
+		nid = 0;
+	#endif
+	}
+
+	mc = syscon_sid_cfg[nid];
+	tbu_power_soc_p = mc->tbu_power_soc;
+
+	/* step 1: read sidemanager status for sysnoc first */
+	*sideband = readl(sidband_mgr_sys_noc_virt[nid]);
+
+	/* step 2: read original status of the tbus */
+	get_tcu_node_status(&reg_val, nid);
+	*org_status = reg_val;
+
+	/* step 3: Power off all tbus */
+	win2030_tbu_power_all(nid, 0);
+
+	/* step 4: check which tbu couldn't be powered off */
+	get_tcu_node_status(&reg_val, nid);
+	*veri_status = reg_val;
+
+	tbu_priv_p = tbu_power_soc_p->tbu_priv_array;
+	for (i = 0; i < tbu_power_soc_p->num_tbuClients; i++) {
+		if (test_bit(i, veri_status)) {
+			tbu_client_p = tbu_priv_p->tbu_client_p;
+
+			get_reset_clkd_val_of_tbu(nid, tbu_client_p, &rst_val, &clk_val);
+			pr_err("[nid %d]tbu 0x%02x: rst_bitval %d, clk_bitval %d\n",
+				nid, tbu_client_p->tbu_id, rst_val, clk_val);
+		}
+		tbu_priv_p++;
+	}
+
+	/* step 5: restore tbus to the original status even though some devices may
+	   not work already after all tbus was powered off at step 3
+	*/
+	tbu_priv_p = tbu_power_soc_p->tbu_priv_array;
+	for (i = 0; i < tbu_power_soc_p->num_tbuClients; i++) {
+		if (test_bit(i, org_status)) {
+			tbu_client_p = tbu_priv_p->tbu_client_p;
+			do_win2030_tbu_power_up(nid, tbu_client_p);
+		}
+		tbu_priv_p++;
+	}
+}
+
 void print_tcu_node_status(const char *call_name, int call_line, int nid)
 {
 	unsigned long tcu_node_status = 0;
@@ -1020,7 +1129,6 @@ void print_tcu_node_status(const char *call_name, int call_line, int nid)
 	pr_debug("%s:%d, (node %d) TCU_NODE_STATUS=0x%016lx\n",
 		call_name, call_line, nid, tcu_node_status);
 }
-EXPORT_SYMBOL(print_tcu_node_status);
 
 static int tcu_proc_show(struct seq_file *m, void *v)
 {
@@ -1093,6 +1201,146 @@ static int __init tcu_proc_init(void)
 	pr_debug("%s, proc_name:%s\n", __func__, proc_name);
 	if (NULL == proc_create_single_data(proc_name, 0, NULL, tcu_proc_show, NULL)) {
 		return -1;
+	}
+
+	return 0;
+}
+
+#define SIDEBAND_MGR_SYS_NOC_BASE 0x52004000
+#define SBM_SENSE_IN0 (0xB0)
+
+#define PCIE_ACLK_OFFSET	0x170
+#define PCIE_ACLK_BIT		31
+static int ioremap_sidband_mgr_sysnoc(void)
+{
+	for (int i = 0; i < 2; i++) {
+		sidband_mgr_sys_noc_virt[i] = ioremap(SIDEBAND_MGR_SYS_NOC_BASE + i*0x20000000, 0x1000);
+		if (IS_ERR(sidband_mgr_sys_noc_virt[i])) {
+			pr_err("failed to ioremap sidband manager for sysnoc\n");
+			return PTR_ERR(sidband_mgr_sys_noc_virt[i]);
+		}
+		sidband_mgr_sys_noc_virt[i] += SBM_SENSE_IN0;
+	}
+	return 0;
+}
+
+
+static const struct of_device_id eic7700_sys_crg_of_match[] = {
+	{ .compatible = "eswin,eic7700-sys-crg"},
+	{ /* sentinel */ }
+};
+static int syscon_regmap_sys_crg_init(void)
+{
+	const struct of_device_id *match;
+	struct device_node *root, *child = NULL;
+	struct win2030_sid *mc = NULL;
+	int nid = 0;
+
+	root = of_find_node_by_name(NULL, "soc");
+	for_each_child_of_node(root, child) {
+		match = of_match_node(eic7700_sys_crg_of_match, child);
+		if (match && of_node_get(child)) {
+			mc = syscon_sid_cfg[nid];
+			mc->sys_crg_regmap = syscon_node_to_regmap(child);
+			if (IS_ERR(mc->sys_crg_regmap)) {
+				of_node_put(child);
+				return -ENODEV;
+			}
+			of_node_put(child);
+			pr_err("%s, nid %d, %s\n", __func__, nid, child->full_name);
+			nid++;
+		}
+
+	}
+	of_node_put(root);
+
+	return 0;
+}
+
+/* read pcie_aclk_ctrl.pcie_aclk_clken */
+static int eic7700_pcie_proc_show(es_proc_entry_t *entry)
+{
+	int nid;
+	unsigned int reg_val;
+	struct win2030_sid *mc;
+	struct seq_file *m = (struct seq_file *)(entry->seqfile);
+	char *pcie_proc_name_prefix;
+
+	pcie_proc_name_prefix = kasprintf(GFP_KERNEL, "%s_d", PROC_ENTRY_PCIE);
+	nid = simple_strtol(entry->name + strlen(pcie_proc_name_prefix), NULL, 10);
+
+	mc = syscon_sid_cfg[nid];
+	regmap_read(mc->sys_crg_regmap, PCIE_ACLK_OFFSET, &reg_val);
+	seq_printf(m, "%s[nid %d] bit value %d\n", entry->name, nid, GET_BIT_VALUE(reg_val, PCIE_ACLK_BIT));
+
+	return 0;
+}
+
+static int eic7700_pcie_proc_store(struct es_proc_dir_entry *entry, const char *buf,
+		      int count, long long *ppos)
+{
+	int ret, val, nid;
+	unsigned int reg_val;
+	unsigned long u64_reg_val;
+	struct win2030_sid *mc;
+	char *pcie_proc_name_prefix;
+
+	ret = kstrtoint_from_user(buf, count, 0, &val);
+	if (ret) {
+		pr_err("Invalide input: %s\n", buf);
+		return count;
+	}
+
+	pcie_proc_name_prefix = kasprintf(GFP_KERNEL, "%s_d", PROC_ENTRY_PCIE);
+	nid = simple_strtol(entry->name + strlen(pcie_proc_name_prefix), NULL, 10);
+
+	mc = syscon_sid_cfg[nid];
+	regmap_read(mc->sys_crg_regmap, PCIE_ACLK_OFFSET, &reg_val);
+	pr_info("%s[nid %d] orginal value %d\n", entry->name, nid, GET_BIT_VALUE(reg_val, PCIE_ACLK_BIT));
+
+	u64_reg_val = reg_val;
+	if (val)
+		set_bit(PCIE_ACLK_BIT, &u64_reg_val);
+	else
+		clear_bit(PCIE_ACLK_BIT, &u64_reg_val);
+
+	reg_val = (unsigned int)u64_reg_val;
+	regmap_write(mc->sys_crg_regmap, PCIE_ACLK_OFFSET, reg_val);
+
+	regmap_read(mc->sys_crg_regmap, PCIE_ACLK_OFFSET, &reg_val);
+	pr_info("%s[nid %d] set value %d\n", entry->name, nid, GET_BIT_VALUE(reg_val, PCIE_ACLK_BIT));
+
+	return count;
+}
+
+static int __init eic7700_tbu_debug_init(int nodes_cnt)
+{
+	int ret;
+	char *pcie_proc_name;
+	es_proc_entry_t *proc = NULL;
+
+	ret = syscon_regmap_sys_crg_init();
+	if (ret) {
+		WARN_ON(1);
+	}
+
+	ret = ioremap_sidband_mgr_sysnoc();
+	if (ret) {
+		WARN_ON(1);
+	}
+
+	for (int i = 0; i < nodes_cnt; i++) {
+		pcie_proc_name = kasprintf(GFP_KERNEL, "%s_d%d", PROC_ENTRY_PCIE, i);
+		proc = es_create_proc_entry(pcie_proc_name, 0666, NULL);
+
+		if (proc == NULL) {
+			pr_err("Kernel: Register %s proc failed!\n", pcie_proc_name);
+			return -1;
+		}
+		proc->read = eic7700_pcie_proc_show;
+		/*NULL means use the default routine*/
+		proc->write = eic7700_pcie_proc_store;
+		proc->open = NULL;
 	}
 
 	return 0;

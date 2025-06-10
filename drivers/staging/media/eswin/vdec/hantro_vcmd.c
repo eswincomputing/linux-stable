@@ -1622,7 +1622,7 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	if (!new_cmdbuf_node) {
 		UNLOCK_CMDBUF_NODE(cmdbuf_id, flags);
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	global_cmdbuf_node[cmdbuf_id] = NULL;
@@ -1631,7 +1631,7 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 	if (cmdbuf_obj->filp != filp) {
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	module_type = cmdbuf_obj->module_type;
@@ -1768,13 +1768,13 @@ static long link_and_run_cmdbuf(struct file *filp,
 	new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 	if (!new_cmdbuf_node) {
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 	if (cmdbuf_obj->filp != filp) {
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	cmdbuf_obj->cmdbuf_data_loaded = 1;
@@ -1825,19 +1825,30 @@ static long link_and_run_cmdbuf(struct file *filp,
 		return -1;
 
 	if (down_interruptible(
-		    &vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]))
+			&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]))
 		return -ERESTARTSYS;
 
 	return_value = select_vcmd(new_cmdbuf_node, input_para->nid);
-	if (return_value)
+	if (return_value) {
+		/** release vcmd_reserve_cmdbuf_sem if return, avoid dead lock.*/
+		up(&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]);
+		LOG_ERR("vcmd: error return from select_vcmd\n");
 		return return_value;
+	}
 
 	dev = &hantrovcmd_data[cmdbuf_obj->core_id];
 	input_para->core_id = cmdbuf_obj->core_id;
 	LOG_TRACE("Vdec Allocate cmd buffer [%d] to core [%d]\n", cmdbuf_id, input_para->core_id);
 	if (filp) {
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
-		vdec_pm_runtime_sync(dev->core_id);
+
+		return_value = vdec_pm_runtime_get(dev->core_id);
+		/** check if the device be resumed ok*/
+		if (return_value < 0) {
+			up(&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]);
+			LOG_ERR("pm_runtime_get_sync failed, return %d\n", return_value);
+			return return_value;
+		}
 		atomic_inc(&(fp_priv->core_tasks[dev->core_id]));
 	}
 	//set ddr address for vcmd registers copy.
@@ -1910,6 +1921,8 @@ static long link_and_run_cmdbuf(struct file *filp,
 		vcmd_start(dev, last_cmdbuf_node);
 	} else {
 		//just update cmdbuf ready number
+		LOG_DBG("trigger vcmd fetch cmdbuf if record_last_cmdbuf_rdy_num(%u) != sw_cmdbuf_rdy_num(%u)\n"
+			, record_last_cmdbuf_rdy_num, dev->sw_cmdbuf_rdy_num);
 		if (record_last_cmdbuf_rdy_num != dev->sw_cmdbuf_rdy_num)
 			vcmd_write_register_value((const void *)dev->hwregs,
 						  dev->reg_mirror,
@@ -1999,26 +2012,26 @@ void hantrovcmd_trigger_irq(struct timer_list *timer)
 #endif
 #endif
 
-static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
+static long wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 				      u32 *irq_status_ret)
 {
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
 	bi_list_node *new_cmdbuf_node = NULL;
 	struct hantrovcmd_dev *dev = NULL;
-	unsigned int ret = 0;
+	long ret = 0;
 
 	if (cmdbuf_id != ANY_CMDBUF_ID) {
 		LOG_DBG("wait_cmdbuf_ready\n");
 		new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 		if (!new_cmdbuf_node) {
 			//should not happen
-			LOG_ERR("ERROR cmdbuf_id !!\n");
+			LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 			return -1;
 		}
 		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 		if (cmdbuf_obj->filp != filp) {
 			//should not happen
-			LOG_ERR("ERROR cmdbuf_id !!\n");
+			LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 			return -1;
 		}
 		dev = &hantrovcmd_data[cmdbuf_obj->core_id];
@@ -2086,7 +2099,7 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 		if (wait_event_interruptible(*dev->wait_queue,
 					     check_cmdbuf_irq(dev, cmdbuf_obj,
 							      irq_status_ret))) {
-			LOG_DBG("vcmd_wait_queue_0 interrupted\n");
+			LOG_ERR("vcmd_wait_queue_0 interrupted, cmdbuf_id=%u\n", cmdbuf_id);
 			return -ERESTARTSYS;
 		}
 		if (filp) {
@@ -2267,7 +2280,6 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 	}
 	case HANTRO_VCMD_IOCH_RESERVE_CMDBUF: {
-		int ret;
 		struct exchange_parameter input_para;
 
 		retval = copy_from_user(&input_para,
@@ -2277,8 +2289,8 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			LOG_DBG("copy_from_user failed, returned %li\n", retval);
 			return -EFAULT;
 		}
-		ret = reserve_cmdbuf(filp, &input_para);
-		if (ret == 0) {
+		retval = reserve_cmdbuf(filp, &input_para);
+		if (retval == 0) {
 			retval = copy_to_user((struct exchange_parameter __user *)arg,
 					&input_para,
 					sizeof(struct exchange_parameter));
@@ -2288,12 +2300,11 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 		}
 		LOG_DBG("VCMD Reserve CMDBUF %d\n", input_para.cmdbuf_id);
-		return ret;
+		return retval;
 	}
 
 	case HANTRO_VCMD_IOCH_LINK_RUN_CMDBUF: {
 		struct exchange_parameter input_para;
-		long ret;
 
 		LOG_DBG(" VCMD Reserve CMDBUF\n");
 		retval = copy_from_user(&input_para,
@@ -2305,7 +2316,7 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		LOG_DBG("VCMD link and run cmdbuf\n");
-		ret = link_and_run_cmdbuf(filp, &input_para);
+		retval = link_and_run_cmdbuf(filp, &input_para);
 		retval = copy_to_user((struct exchange_parameter __user *)arg,
 			     &input_para, sizeof(struct exchange_parameter));
 		if (retval) {
@@ -2313,13 +2324,12 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-		return ret;
+		return retval;
 		//break;
 	}
 
 	case HANTRO_VCMD_IOCH_WAIT_CMDBUF: {
 		u16 cmdbuf_id;
-		unsigned int tmp;
 		u32 irq_status_ret = 0;
 
 		__get_user(cmdbuf_id, (u16 __user *)arg);
@@ -2328,17 +2338,17 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		LOG_DBG("VCMD wait for CMDBUF finishing.\n");
 
 		//TODO
-		tmp = wait_cmdbuf_ready(filp, cmdbuf_id, &irq_status_ret);
+		retval = wait_cmdbuf_ready(filp, cmdbuf_id, &irq_status_ret);
 		LOG_TRACE("wait_cmdbuf_ready for decoder [pid=%d][%u], status:%x\n", current->pid, cmdbuf_id, irq_status_ret);
 		cmdbuf_id = (u16)irq_status_ret;
-		if (tmp == 0) {
+		if (retval == 0) {
 			__put_user(cmdbuf_id, (u16 __user *)arg);
-			return tmp; //return core_id
+			return retval; //return core_id
 		}
 		//__put_user(0, (u16 __user *)arg);
-		return -1;
+		return retval;
 
-		break;
+		// break;
 	}
 	case HANTRO_VCMD_IOCH_RELEASE_CMDBUF: {
 		u16 cmdbuf_id;
@@ -3837,6 +3847,7 @@ static void vcmd_start(struct hantrovcmd_dev *dev,
 
 			printk_vcmd_register_debug((const void *)dev->hwregs,
 						   "vcmd_start exits ");
+			LOG_INFO("vcmd start completed, core_id = %u\n", dev->core_id);
 		}
 	}
 }
@@ -4081,6 +4092,29 @@ static void read_main_module_all_registers(u32 main_module_type)
 	}
 }
 
+static int check_dev_idle(struct hantrovcmd_dev *dev) {
+	int idle = 0;
+	unsigned long flags;
+	u32 exe_cmdbuf_cnt = 0xffffffff;
+	u32 rdy_cmdbuf_cnt = 0xffffffff;
+
+	spin_lock_irqsave(dev->spinlock, flags);
+	u8 vcmd_state = vcmd_get_register_value((const void *)dev->hwregs,
+						dev->reg_mirror, HWIF_VCMD_WORK_STATE);
+	if (WORKING_STATE_STALL != vcmd_state && WORKING_STATE_WORKING != vcmd_state) {
+		idle = 1;
+
+		exe_cmdbuf_cnt = vcmd_read_reg((const void *)dev->hwregs, 3*4);
+		rdy_cmdbuf_cnt = vcmd_read_reg((const void *)dev->hwregs, 24*4);
+	} else {
+		// LOG_WARN("check_dev_idle, vcmd_state = %u\n", vcmd_state);
+	}
+	spin_unlock_irqrestore(dev->spinlock, flags);
+	LOG_INFO("check_dev_idle for core %u, vcmd_state = %u, exe_cnt = 0x%x, rdy_cnt = 0x%x\n"
+		, dev->core_id, vcmd_state, exe_cmdbuf_cnt, rdy_cmdbuf_cnt);
+	return idle;
+}
+
 int hantrovcmd_init(void)
 {
 	int i, k;
@@ -4181,7 +4215,9 @@ int hantrovcmd_init(void)
 	if (result < 0)
 		goto err;
 
-	vcmd_reset_asic(hantrovcmd_data);
+	for (i = 0; i < total_vcmd_core_num; i++) {
+		vcmd_reset_asic(&hantrovcmd_data[i]);
+	}
 
 	/* get the IRQ line */
 	for (i = 0; i < total_vcmd_core_num; i++) {
@@ -4385,6 +4421,106 @@ void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup)
 	return;
 }
 
+void hantrovcmd_abort(u32 core_id) {
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = NULL;
+
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("hantrovcmd_abort, invalid core_id = %u, total_vcmd_core_num = %u\n"
+			, core_id, total_vcmd_core_num);
+		return;
+	}
+	LOG_INFO("hantrovcmd_abort for core_id %u\n", core_id);
+
+	dev = &hantrovcmd_data[core_id];
+	spin_lock_irqsave(dev->spinlock, flags);
+
+	u32 state = vcmd_get_register_value((const void *)dev->hwregs,
+		dev->reg_mirror, HWIF_VCMD_WORK_STATE);
+
+	if (state == WORKING_STATE_IDLE) {
+		LOG_INFO("hantrovcmd_abort, working_state = %u\n", dev->working_state);
+		spin_unlock_irqrestore(dev->spinlock, flags);
+		return;
+	}
+	/**stop when met JMP or END command(very safy) */
+	vcmd_set_register_mirror_value(dev->reg_mirror, HWIF_VCMD_ABORT_MODE, 0);
+	vcmd_write_register_value((const void *)dev->hwregs,
+			dev->reg_mirror,
+			HWIF_VCMD_START_TRIGGER, 0);
+	spin_unlock_irqrestore(dev->spinlock, flags);
+}
+
+int hantrovcmd_wait_core_idle(u32 core_id, long timeout) {
+	struct hantrovcmd_dev *dev = NULL;
+
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("invalid core_id = %u, vcmd_core_num = %u\n", core_id, total_vcmd_core_num);
+		return -ERESTARTSYS;
+	}
+
+	dev = &hantrovcmd_data[core_id];
+	return wait_event_interruptible_timeout(*dev->wait_abort_queue, check_dev_idle(dev), timeout);
+}
+
+int hantrovcmd_reset(u32 core_id) {
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = NULL;
+
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("hantrovcmd_reset, invalid core_id = %u, total_vcmd_core_num = %u\n"
+			, core_id, total_vcmd_core_num);
+		return -1;
+	}
+	dev = &hantrovcmd_data[core_id];
+
+	spin_lock_irqsave(dev->spinlock, flags);
+	/** reset asic*/
+	vcmd_reset_asic(dev);
+
+	/** re-initialize the dev state.*/
+	u32 working_state = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_WORK_STATE);
+	u32 rdy_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT);
+	u32 exe_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_EXE_CMDBUF_COUNT);
+
+	LOG_INFO("hantrovcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
+		, core_id, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
+	dev->working_state = working_state;
+	dev->sw_cmdbuf_rdy_num = rdy_cmdbuf_count;
+	/** reset the sw_exe_cmdbuf_count, because the vcmd was aborted*/
+	if (exe_cmdbuf_count > dev->sw_cmdbuf_rdy_num) {
+		LOG_WARN("hantrovcmd_reset, unexpected vcmd cmdbuf count, exe_cmdbuf_count > rdy_cmdbuf_count, 0x%x > 0x%x\n"
+			, exe_cmdbuf_count, dev->sw_cmdbuf_rdy_num);
+	}
+	spin_unlock_irqrestore(dev->spinlock, flags);
+
+	return 0;
+}
+
+void hantrovcmd_restart(u32 core_id) {
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = NULL;
+	bi_list_node *last_linked_node = NULL;
+
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("hantrovcmd_restart, invalid core_id = %u, total_vcmd_core_num = %u\n"
+			, core_id, total_vcmd_core_num);
+		return;
+	}
+	dev = &hantrovcmd_data[core_id];
+
+	LOG_INFO("hantrovcmd_restart for core_id %u\n", dev->core_id);
+	spin_lock_irqsave(dev->spinlock, flags);
+	/** restart vcmd*/
+	last_linked_node = find_last_linked_cmdbuf(dev->list_manager.tail);
+	if (last_linked_node) {
+		vcmd_link_cmdbuf(dev, last_linked_node);
+	}
+	if (dev->sw_cmdbuf_rdy_num != 0)
+		vcmd_start(dev, last_linked_node);
+	spin_unlock_irqrestore(dev->spinlock, flags);
+}
+
 static int vcmd_reserve_IO(void)
 {
 	u32 hwid;
@@ -4577,6 +4713,8 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			//reset error,all cmdbuf that is
 			//not done will be run again.
 			new_cmdbuf_node = dev->list_manager.head;
+			LOG_INFO("HWIF_VCMD_IRQ_RESET, working state from %u to idle, cmdbuf_id = %u\n"
+				, dev->working_state, cmdbuf_id);
 			dev->working_state = WORKING_STATE_IDLE;
 			//find the first run_done=0
 			while (1) {
@@ -4604,11 +4742,13 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 					   HWIF_VCMD_IRQ_ABORT)) {
 		//abort error,don't need to reset
 		new_cmdbuf_node = dev->list_manager.head;
+		LOG_INFO("VCMD_IRQ_ABORT, working state from %u to idle, cmdbuf_id = %u, core_id = %u\n"
+			, dev->working_state, cmdbuf_id, dev->core_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 			if (!new_cmdbuf_node) {
-				LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
+				LOG_ERR("VCMD_IRQ_ABORT, cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 				spin_unlock_irqrestore(dev->spinlock, flags);
 				return IRQ_HANDLED;
 			}
@@ -4672,6 +4812,8 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 					   HWIF_VCMD_IRQ_BUSERR)) {
 		//bus error, don't need to reset where to record status?
 		new_cmdbuf_node = dev->list_manager.head;
+		LOG_INFO("VCMD_IRQ_BUSERR, working state from %u to idle, cmdbuf_id = %u\n"
+			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
@@ -4748,6 +4890,8 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 					   HWIF_VCMD_IRQ_TIMEOUT)) {
 		//time out,need to reset
 		new_cmdbuf_node = dev->list_manager.head;
+		LOG_INFO("VCMD_IRQ_TIMEOUT, working state from %u to idle, cmdbuf_id = %u\n"
+			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
@@ -4821,6 +4965,8 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 					   HWIF_VCMD_IRQ_CMDERR)) {
 		//command error,don't need to reset
 		new_cmdbuf_node = dev->list_manager.head;
+		LOG_INFO("VCMD_IRQ_CMDERR, working state from %u to idle, cmdbuf_id = %u\n"
+			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
@@ -4900,6 +5046,8 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 					   HWIF_VCMD_IRQ_ENDCMD)) {
 		//end command interrupt
 		new_cmdbuf_node = dev->list_manager.head;
+		LOG_INFO("VCMD_IRQ_ENDCMD, working state from %u to idle, cmdbuf_id = %u\n"
+			, dev->working_state, cmdbuf_id);
 		dev->working_state = WORKING_STATE_IDLE;
 		if (dev->hw_version_id > HW_ID_1_0_C) {
 			new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
@@ -5010,38 +5158,39 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 
 static void vcmd_reset_asic(struct hantrovcmd_dev *dev)
 {
-	int i, n;
+	int i;
 	u32 result;
 
-	for (n = 0; n < total_vcmd_core_num; n++) {
-		if (dev[n].hwregs) {
-			//disable interrupt at first
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_INT_CTL_OFFSET, 0x0000);
-			//reset core
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_CONTROL_OFFSET, 0x0004);
-			//read status register
-			result = vcmd_read_reg((const void *)dev[n].hwregs,
-					       VCMD_REGISTER_INT_STATUS_OFFSET);
-			//clean status register
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_INT_STATUS_OFFSET, result);
-			for (i = VCMD_REGISTER_CONTROL_OFFSET;
-			     i < dev[n].vcmd_core_cfg.vcmd_iosize; i += 4) {
-				//set all register 0
-				vcmd_write_reg((const void *)dev[n].hwregs, i,
-					       0x0000);
-			}
-			//enable all interrupt
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_INT_CTL_OFFSET,
-				       0xffffffff);
-			// gate all external interrupts
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_EXT_INT_GATE_OFFSET,
-				       0xffffffff);
+	if (dev->hwregs) {
+		//disable interrupt at first
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_INT_CTL_OFFSET, 0x0000);
+		//reset core
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_CONTROL_OFFSET, 0x0004);
+		//read status register
+		result = vcmd_read_reg((const void *)dev->hwregs,
+						VCMD_REGISTER_INT_STATUS_OFFSET);
+		//clean status register
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_INT_STATUS_OFFSET, result);
+		//set register sw_exe_cmdbuf_count be 0
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_EXE_CMDBUF_COUNT, 0x0000);
+		for (i = VCMD_REGISTER_CONTROL_OFFSET;
+				i < dev->vcmd_core_cfg.vcmd_iosize; i += 4) {
+			//set all register 0
+			vcmd_write_reg((const void *)dev->hwregs, i,
+						0x0000);
 		}
+		//enable all interrupt
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_INT_CTL_OFFSET,
+					0xffffffff);
+		// gate all external interrupts
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_EXT_INT_GATE_OFFSET,
+					0xffffffff);
 	}
 }
 
@@ -5076,32 +5225,6 @@ static void printk_vcmd_register_debug(const void *hwregs, char *info)
 			fordebug);
 	}
 #endif
-}
-
-static int check_dev_idle(struct hantrovcmd_dev *dev) {
-	int idle = 0;
-
-	u8 vcmd_state = vcmd_get_register_value((const void *)dev->hwregs,
-						dev->reg_mirror, HWIF_VCMD_WORK_STATE);
-	if (WORKING_STATE_STALL != vcmd_state && WORKING_STATE_WORKING != vcmd_state) {
-        idle = 1;
-    } else {
-        // LOG_WARN("check_dev_idle, vcmd_state = %u\n", vcmd_state);
-    }
-    LOG_WARN("check_dev_idle, vcmd_state = %u\n", vcmd_state);
-	return idle;
-}
-
-int hantrovcmd_wait_core_idle(u32 core_id, long timeout) {
-	struct hantrovcmd_dev *dev = NULL;
-
-	if (core_id >= total_vcmd_core_num) {
-		LOG_ERR("invalid core_id = %u, vcmd_core_num = %u\n", core_id, total_vcmd_core_num);
-		return -ERESTARTSYS;
-	}
-
-	dev = &hantrovcmd_data[core_id];
-	return wait_event_interruptible_timeout(*dev->wait_queue, check_dev_idle(dev), timeout);
 }
 
 /** get status statistcs*/

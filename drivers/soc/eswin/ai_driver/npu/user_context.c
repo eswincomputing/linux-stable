@@ -88,8 +88,7 @@ static void npu_put_model_bobj(struct user_model *model)
 
 static void npu_model_release(struct khandle *handle)
 {
-	struct user_model *model =
-		container_of(handle, struct user_model, handle);
+	struct user_model *model = container_of(handle, struct user_model, handle);
 	struct user_context *uctx;
 	uctx = model->uctx;
 
@@ -150,27 +149,19 @@ err_dmabuf_bobj:
 
 static int npu_check_model_version(struct user_model *model)
 {
-	if (model->network->version.major_version !=
-		    NPU_INTERFACE_MAJOR_VERSION ||
-	    model->network->version.minor_version !=
-		    NPU_INTERFACE_MINOR_VERSION ||
-	    model->network->version.subminor_version !=
-		    NPU_INTERFACE_SUBMINOR_VERSION) {
-		dla_error(
-			"error:model's version(%d.%d.%d) not equal npu interface version(%d.%d.%d)\n",
-			model->network->version.major_version,
-			model->network->version.minor_version,
-			model->network->version.subminor_version,
-			NPU_INTERFACE_MAJOR_VERSION,
-			NPU_INTERFACE_MINOR_VERSION,
-			NPU_INTERFACE_SUBMINOR_VERSION);
+	if (model->network->version.major_version != NPU_INTERFACE_MAJOR_VERSION ||
+	    model->network->version.minor_version != NPU_INTERFACE_MINOR_VERSION ||
+	    model->network->version.subminor_version != NPU_INTERFACE_SUBMINOR_VERSION) {
+		dla_error("error:model's version(%d.%d.%d) not equal npu interface version(%d.%d.%d)\n",
+				  model->network->version.major_version, model->network->version.minor_version,
+				  model->network->version.subminor_version, NPU_INTERFACE_MAJOR_VERSION,
+				  NPU_INTERFACE_MINOR_VERSION, NPU_INTERFACE_SUBMINOR_VERSION);
 		return -EFAULT;
 	}
 	return 0;
 }
 
-static int submit_model(struct nvdla_device *nvdla_dev,
-			struct user_context *uctx, void *arg)
+static int submit_model(struct nvdla_device *nvdla_dev, struct user_context *uctx, void *arg)
 {
 	int ret;
 	struct user_model *model;
@@ -180,15 +171,14 @@ static int submit_model(struct nvdla_device *nvdla_dev,
 
 	model = kzalloc(sizeof(struct user_model), GFP_KERNEL);
 	if (model == NULL) {
-		dla_error("%s %d nomem\n", __func__, __LINE__);
+		dla_error("nomem\n");
 		return -ENOMEM;
 	}
 	model->uctx = uctx;
 	model->nvdla_dev = nvdla_dev;
 	model->engine = npu_get_win_engine(nvdla_dev);
 
-	dla_detail("model=0x%px model_size=%ld\n", model,
-		   sizeof(struct user_model));
+	dla_detail("model=0x%px model_size=%ld\n", model, sizeof(struct user_model));
 
 	ret = npu_get_model_bobj(shm_fd, model);
 	if (ret < 0) {
@@ -200,9 +190,8 @@ static int submit_model(struct nvdla_device *nvdla_dev,
 		goto err_dmabuf_model;
 	}
 
-	ret = dla_data_get_vaddr(&model->mem_handles,
-				 model->model_shm->kmdNetworkAddrId,
-				 (void **)&model->network);
+	ret = dla_data_get_vaddr(&model->mem_handles, model->model_shm->kmdNetworkAddrId,
+							 (void **)&model->network);
 
 	if (ret < 0) {
 		dla_error("err:get network vaddr failed!\n");
@@ -221,8 +210,7 @@ static int submit_model(struct nvdla_device *nvdla_dev,
 	}
 
 	ret = create_executor(&model->task, model->network, &model->executor,
-			      &model->mem_handles, model->engine, nvdla_dev,
-			      model);
+			      &model->mem_handles, model->engine, nvdla_dev, model);
 	if (ret < 0) {
 		dla_error("Failed to extract executor\n");
 		goto err_netowrk;
@@ -236,7 +224,7 @@ static int submit_model(struct nvdla_device *nvdla_dev,
 		goto err_init_handle;
 	}
 	idx = model->handle.fd;
-	dla_debug("%s, %d, model id=%d, done.\n", __func__, __LINE__, idx);
+	dla_debug("model id=%d, done.\n", idx);
 	kernel_handle_decref(&model->handle);
 	return idx;
 
@@ -257,13 +245,12 @@ static struct user_model *npu_get_model_by_id(struct user_context *uctx, int id)
 	struct user_model *model;
 
 	spin_lock(&uctx->model_lock);
-	dla_debug("%s, %d, id=%d.\n", __func__, __LINE__, id);
+	dla_debug("id=%d.\n", id);
 	m_handle =
 		find_kernel_handle(&uctx->handle, id, NPU_MODEL_KHANDLE_MAGIC);
 	if (m_handle == NULL) {
 		spin_unlock(&uctx->model_lock);
-		dla_error("%s, %d, invalid model id = 0x%x.\n", __func__,
-			  __LINE__, id);
+		dla_error("invalid model id = 0x%x.\n", id);
 		return NULL;
 	}
 	model = container_of(m_handle, struct user_model, handle);
@@ -288,7 +275,7 @@ static int release_model(struct user_context *uctx, void *arg)
 
 	kernel_handle_release_family(&model->handle);
 	npu_put_model(model);
-	dla_debug("%s, %d, done.\n", __func__, __LINE__);
+	dla_debug("done.\n");
 	return 0;
 }
 
@@ -329,16 +316,13 @@ static int get_event_from_cache(struct user_context *uctx)
 		return -1;
 	}
 
-	event_idx =
-		uctx->event_desc.event_sinks[(uctx->event_desc.consumer_idx++) %
-					     MAX_EVENT_SINK_SAVE_NUM];
+	event_idx = uctx->event_desc.event_sinks[(uctx->event_desc.consumer_idx++) % MAX_EVENT_SINK_SAVE_NUM];
 	uctx->event_desc.len--;
 
 	return event_idx;
 }
 
-void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
-				u16 op_index, u32 hw_error)
+void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok, u16 op_index, u32 hw_error)
 {
 	struct host_frame_desc *f;
 	struct user_model *model;
@@ -369,21 +353,20 @@ void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
 		return;
 	}
 	if (!executor) {
-		dla_error("%s, %d, executor is null.\n", __func__, __LINE__);
+		dla_error("executor is null.\n");
 		return;
 	}
 	dla_detail("op_index:%d event_idx:%d, exec_status:%x.\n", op_index, event_idx, hw_error);
 	if(f->sync_flag) {
 		f->sync_event_id = event_idx;
-		complete(&f->synctask_comp);
+		// complete(&f->synctask_comp);
 		return;
 	}
 	spin_lock_irqsave(&model->uctx->event_desc.spinlock, flags);
 
 	if (save_event_to_cache(model->uctx, event_idx, hw_error)) {
 		dla_error("err:save event failed.\n");
-		spin_unlock_irqrestore(&model->uctx->event_desc.spinlock,
-				       flags);
+		spin_unlock_irqrestore(&model->uctx->event_desc.spinlock, flags);
 		return;
 	}
 	spin_unlock_irqrestore(&model->uctx->event_desc.spinlock, flags);
@@ -392,8 +375,7 @@ void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
 	wake_up_interruptible(&npu_waitq);
 }
 
-static int get_event_sink_val(struct user_context *uctx,
-			      struct win_ioctl_args *win_arg)
+static int get_event_sink_val(struct user_context *uctx, struct win_ioctl_args *win_arg)
 {
 	unsigned long flags;
 	union event_union event;
@@ -403,7 +385,8 @@ static int get_event_sink_val(struct user_context *uctx,
 	event.event_data = -1ULL;
 	spin_lock_irqsave(&uctx->event_desc.spinlock, flags);
 	for (i = 0; i < sizeof(union event_union) / sizeof(u16); i++) {
-		event_ret.event_sinks[i] = uctx->event_desc.hw_error[(uctx->event_desc.consumer_idx) % MAX_EVENT_SINK_SAVE_NUM];
+		event_ret.event_sinks[i] =
+			uctx->event_desc.hw_error[(uctx->event_desc.consumer_idx) % MAX_EVENT_SINK_SAVE_NUM];
 		event.event_sinks[i] = get_event_from_cache(uctx);
 		if (event.event_sinks[i] < 0) {
 			break;
@@ -418,16 +401,15 @@ static int get_event_sink_val(struct user_context *uctx,
 
 	dla_detail("get event sink:0x%llx, state:%llx\n", event.event_data, event_ret.event_data);
 
-	if (copy_to_user((void __user *)(win_arg->data), &event.event_data, sizeof(u64))
-		|| copy_to_user((void __user *)(win_arg->pret), &event_ret.event_data, sizeof(u64))) {
+	if (copy_to_user((void __user *)(win_arg->data), &event.event_data, sizeof(u64)) ||
+		copy_to_user((void __user *)(win_arg->pret), &event_ret.event_data, sizeof(u64))) {
 		dla_error("err:bad user data address.\n");
 		return -EFAULT;
 	}
 	return 0;
 }
 
-static void send_event_source_req_to_hw(struct win_engine *engine, u8 tiktok,
-					u16 op_index)
+static void send_event_source_req_to_hw(struct win_engine *engine, u8 tiktok, u16 op_index)
 {
 	msg_payload_t payload;
 	payload.type = DEC_OP_REF;
@@ -438,8 +420,8 @@ static void send_event_source_req_to_hw(struct win_engine *engine, u8 tiktok,
 }
 
 #define NPU_SET_BIT(bitmap, pos) (bitmap[pos / 8] |= (1 << (pos % 8)))
-int send_event_source_to_e31(struct user_context *ctx, int model_id,
-			     u16 event_val)
+
+int send_event_source_to_e31(struct user_context *ctx, int model_id, u16 event_val)
 {
 	struct user_model *model;
 	struct win_engine *engine;
@@ -471,19 +453,14 @@ int send_event_source_to_e31(struct user_context *ctx, int model_id,
 
 	frame = engine->tiktok_frame[tiktok];
 	NPU_SET_BIT(frame->is_event_source_done, event_val);
-	dla_detail("%s, %d, event_id=%hu.\n", __func__, __LINE__, event_val);
+	dla_detail("event_id=%hu.\n", event_val);
 
 #if (NPU_DEV_SIM == NPU_REAL_ENV)
 	send_event_source_req_to_hw(engine, tiktok, op_index);
-	// send_event_source_req(tiktok, op_index,
-	// 		(void *)((struct nvdla_device *)engine->nvdla_dev)
-	// 				->e31_mmio_base,
-	// 			engine->host_node);
 #elif (NPU_DEV_SIM == NPU_MCU_HOST)
 	hetero_send_event_source_req(tiktok, op_index);
 #else
-	dla_error("%s, %d, Wrong NPU_DEV_SIM = %d.\n", __func__, __LINE__,
-		  NPU_DEV_SIM);
+	dla_error("Wrong NPU_DEV_SIM = %d.\n", NPU_DEV_SIM);
 	npu_put_model(model);
 	return -1;
 #endif
@@ -498,19 +475,14 @@ static int set_dump_info(struct win_executor *executor, void *arg)
 	kmd_dump_info_t dump_info;
 
 	if (win_arg->dump_enable) {
-		if (copy_from_user(&dump_info,
-				   (void __user *)win_arg->dump_info,
-				   sizeof(kmd_dump_info_t))) {
-			dla_error("%s %d bad user data address\n", __func__,
-				  __LINE__);
+		if (copy_from_user(&dump_info, (void __user *)win_arg->dump_info, sizeof(kmd_dump_info_t))) {
+			dla_error("bad user data address\n");
 			return -EFAULT;
 		}
 
 		if (copy_from_user(executor->dump_info.op_idx_list,
-				   (void __user *)dump_info.op_idx_list,
-				   sizeof(u16) * dump_info.list_size)) {
-			dla_error("%s %d bad user data address\n", __func__,
-				  __LINE__);
+				   (void __user *)dump_info.op_idx_list, sizeof(u16) * dump_info.list_size)) {
+			dla_error("bad user data address\n");
 			return -EFAULT;
 		}
 		executor->dump_info.process_id = dump_info.process_id;
@@ -542,24 +514,20 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 
 	model = npu_get_model_by_id(uctx, idx);
 	if (model == NULL) {
-		dla_error("%s, %d, invalid model id = 0x%x.\n", __func__,
-			  __LINE__, idx);
+		dla_error("invalid model id = 0x%x.\n", idx);
 		ret = -EINVAL;
 		return ret;
 	}
 
 	ret = create_new_frame(model->executor, &f, model, sync_flag);
 	if (unlikely(ret != win_arg->tensor_size)) {
-		dla_error(
-			"%s %d model %d io_tensor_size %d != win_arg->tensor_size %d\n",
-			__func__, __LINE__, idx, ret, win_arg->tensor_size);
+		dla_error("model %d io_tensor_size %d != win_arg->tensor_size %d\n", idx, ret, win_arg->tensor_size);
 		npu_put_model(model);
 		return ret;
 	}
 	kernel_handle_release_family(&f->handle);
-	if (copy_from_user(f->io_tensor_list, (void __user *)win_arg->data,
-			   ret)) {
-		dla_error("%s %d bad user data address\n", __func__, __LINE__);
+	if (copy_from_user(f->io_tensor_list, (void __user *)win_arg->data, ret)) {
+		dla_error("bad user data address\n");
 		ret = -EFAULT;
 		goto clean_out;
 	}
@@ -589,21 +557,18 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 		ret = result;
 		goto clean_out;
 	}
-	dla_debug("%s, %d, done.\n", __func__, __LINE__);
-	if(sync_flag) {
-		ret = wait_for_completion_interruptible(&f->synctask_comp);
-		if (ret) {
-			ret = -EINTR;
-			goto clean_out;
-		}
-		if (copy_to_user((void __user *)(win_arg->data), &f->sync_event_id, sizeof(u64)) &&
-			copy_to_user((void __user *)(win_arg->pret), &f->hw_error, sizeof(u64))) {
-			dla_error("err:bad user data address.\n");
-			return -EFAULT;
-		}
-	}
-	return 0;
 
+	dla_debug("%s, %d, done.\n", __func__, __LINE__);
+	if(!sync_flag) {
+		return 0;
+	}
+	ret = wait_for_completion_interruptible(&f->synctask_comp);
+	if (ret) {
+		return -EINTR;
+	} else if (copy_to_user((void __user *)(win_arg->data), &f->sync_event_id, sizeof(u64)) &&
+		copy_to_user((void __user *)(win_arg->pret), &f->hw_error, sizeof(u64))) {
+		dla_error("err:bad user data address.\n");
+	}
 clean_out:
 	kernel_handle_decref(&f->handle);
 	return ret;
@@ -623,12 +588,29 @@ static int runtime_try_lock(struct user_context *uctx, struct file *file)
 	BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
 	atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
 	atomic64_set(&ndev->start_lock_time, ktime_get_real_ns());
-	dla_debug("try %s, %d locked\n", __func__, __LINE__);
+	dla_debug("try locked\n");
 	return 0;
 }
 
-static int runtime_lock_request(struct user_context *uctx, struct file *file,
-				unsigned int cmd)
+static int get_npu_task_status(struct file *file, struct win_ioctl_args *win_arg)
+{
+	struct win_engine *engine;
+	engine = get_engine_from_file(file);
+
+	bool task_status = false;
+	if (engine->tiktok_frame[0] != NULL || engine->tiktok_frame[1] != NULL) {
+		task_status = true;
+	}
+
+	if (copy_to_user((void __user *)(win_arg->data), &task_status, sizeof(task_status))) {
+		dla_error("err:get_npu_task_status failed.\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int runtime_lock_request(struct user_context *uctx, struct file *file, unsigned int cmd)
 {
 	unsigned long last_state;
 	struct win_engine *engine;
@@ -644,24 +626,21 @@ static int runtime_lock_request(struct user_context *uctx, struct file *file,
 		BUG_ON(atomic_read(&uctx->lock_status) != NPU_RT_MUTX_IDLE);
 		atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
 		atomic64_set(&ndev->start_lock_time, ktime_get_real_ns());
-		dla_debug("%s, %d locked\n", __func__, __LINE__);
+		dla_debug("locked\n");
 	} else {
-		last_state = atomic_fetch_and(~NPU_RT_MUTX_LOCKED,
-					      &uctx->lock_status);
+		last_state = atomic_fetch_and(~NPU_RT_MUTX_LOCKED, &uctx->lock_status);
 		if (last_state == NPU_RT_MUTX_LOCKED) {
 			atomic64_set(&ndev->end_lock_time, ktime_get_real_ns());
-			atomic64_add(ktime_get_real_ns()-atomic64_read(&ndev->start_lock_time),
-			             &ndev->total_lock_time);
+			atomic64_add(ktime_get_real_ns()-atomic64_read(&ndev->start_lock_time), &ndev->total_lock_time);
 			up(&engine->runtime_sem);
-			dla_debug("%s, %d unlocked\n", __func__, __LINE__);
+			dla_debug("unlocked\n");
 		}
 	}
 
 	return 0;
 }
 
-static int get_sram_fd(struct nvdla_device *nvdla_dev,
-		       struct win_ioctl_args *win_arg)
+static int get_sram_fd(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
 	int dmabuf_fd;
 	struct dma_buf *sram_dmabuf;
@@ -678,13 +657,11 @@ static int get_sram_fd(struct nvdla_device *nvdla_dev,
 		return dmabuf_fd;
 	}
 
-	dla_detail("sram_dmabuf fd:%d size:0x%x.\n", dmabuf_fd,
-		   nvdla_dev->spram_bobj->size);
+	dla_detail("sram_dmabuf fd:%d size:0x%x.\n", dmabuf_fd, nvdla_dev->spram_bobj->size);
 	sram_info.fd = dmabuf_fd;
 	sram_info.size = nvdla_dev->spram_bobj->size;
 
-	if (copy_to_user((void __user *)(win_arg->data), &sram_info,
-			 sizeof(sram_info_t))) {
+	if (copy_to_user((void __user *)(win_arg->data), &sram_info, sizeof(sram_info_t))) {
 		dla_error("err:bad user data address.\n");
 		return -EFAULT;
 	}
@@ -692,8 +669,7 @@ static int get_sram_fd(struct nvdla_device *nvdla_dev,
 	return 0;
 }
 
-static int handle_perf(struct nvdla_device *nvdla_dev,
-		       struct win_ioctl_args *win_arg)
+static int handle_perf(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
 	bool enable;
 
@@ -703,8 +679,7 @@ static int handle_perf(struct nvdla_device *nvdla_dev,
 	return 0;
 }
 
-static int send_perf_data_to_usr(struct nvdla_device *nvdla_dev,
-				 struct win_ioctl_args *win_arg)
+static int send_perf_data_to_usr(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
 	struct win_engine *engine;
 	void *buf = NULL;
@@ -722,8 +697,7 @@ static int send_perf_data_to_usr(struct nvdla_device *nvdla_dev,
 	if (ret)
 		goto fail;
 
-	if (copy_to_user((void __user *)(win_arg->data), buf,
-	                sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
+	if (copy_to_user((void __user *)(win_arg->data), buf, sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
 		dla_error("err:bad user data address.\n");
 		ret = -EFAULT;
 		goto fail;
@@ -753,8 +727,7 @@ struct npu_cdev_t *get_npu_dev_by_devid(int major, int minor)
 	int i = 0;
 
 	for (i = 0; i < 2; i++) {
-		if ((npu_cdev[i].major == major) &&
-		    (npu_cdev[i].minor == minor)) {
+		if ((npu_cdev[i].major == major) && (npu_cdev[i].minor == minor)) {
 			return &npu_cdev[i];
 		}
 	}
@@ -764,14 +737,12 @@ struct npu_cdev_t *get_npu_dev_by_devid(int major, int minor)
 
 static void npu_dma_buf_release(struct khandle *h)
 {
-	struct npu_dma_buf_ex *entry =
-		container_of(h, struct npu_dma_buf_ex, handle);
+	struct npu_dma_buf_ex *entry = container_of(h, struct npu_dma_buf_ex, handle);
 	dla_unmapdma_buf_to_dev(&entry->obj);
 	kfree(entry);
 }
 
-int npu_prepare_dma_buf(struct nvdla_device *ndev, struct user_context *uctx,
-			void *arg)
+int npu_prepare_dma_buf(struct nvdla_device *ndev, struct user_context *uctx, void *arg)
 {
 	int ret;
 	ES_DEV_BUF_S buf;
@@ -779,17 +750,15 @@ int npu_prepare_dma_buf(struct nvdla_device *ndev, struct user_context *uctx,
 	struct khandle *khandle;
 
 	if (copy_from_user(&buf, (void *)arg, sizeof(buf))) {
-		dla_error("%s, %d, copy_from_user err.\n", __func__,
-			  __LINE__) return -EINVAL;
+		dla_error("copy_from_user err.\n");
+		return -EINVAL;
 	}
 	mutex_lock(&uctx->dma_lock);
 	entry = xa_load(&uctx->buf_xrray, (int)buf.memFd);
 	if (entry) {
-		khandle = find_kernel_handle(&uctx->handle, entry->handle.fd,
-					     NPU_DMABUF_HANDLE_MAGIC);
+		khandle = find_kernel_handle(&uctx->handle, entry->handle.fd, NPU_DMABUF_HANDLE_MAGIC);
 		if (khandle) {
-			dla_debug("find 0x%x entry, handle fd=%d.\n",
-				  (int)entry->buf_info.memFd, entry->handle.fd);
+			dla_debug("find 0x%x entry, handle fd=%d.\n", (int)entry->buf_info.memFd, entry->handle.fd);
 			kernel_handle_addref(&entry->handle);
 			mutex_unlock(&uctx->dma_lock);
 			return 0;
@@ -799,26 +768,21 @@ int npu_prepare_dma_buf(struct nvdla_device *ndev, struct user_context *uctx,
 	}
 	entry = kzalloc(sizeof(struct npu_dma_buf_ex), GFP_KERNEL);
 	if (!entry) {
-		dla_error("%s, %d, alloc npu dma buf ex err.\n", __func__,
-			  __LINE__);
+		dla_error("alloc npu dma buf ex err.\n");
 		mutex_unlock(&uctx->dma_lock);
 		return -ENOMEM;
 	}
 	ret = init_kernel_handle(&entry->handle, npu_dma_buf_release,
 				 NPU_DMABUF_HANDLE_MAGIC, &uctx->handle);
 	if (ret) {
-		dla_error(
-			"%s, %d, init kernel handle for npu dma buf ex err.\n",
-			__func__, __LINE__);
+		dla_error("init kernel handle for npu dma buf ex err.\n");
 		kfree(entry);
 		mutex_unlock(&uctx->dma_lock);
 		return ret;
 	}
 	xa_store(&uctx->buf_xrray, (int)buf.memFd, entry, GFP_KERNEL);
-	dla_debug("%s, %d, entry handle_fd=%d.\n", __func__, __LINE__,
-		  entry->handle.fd);
-	ret = dla_mapdma_buf_to_dev((int)buf.memFd, &entry->obj,
-				    &ndev->pdev->dev);
+	dla_debug("entry handle_fd=%d.\n", entry->handle.fd);
+	ret = dla_mapdma_buf_to_dev((int)buf.memFd, &entry->obj, &ndev->pdev->dev);
 	if (ret) {
 		ret = -ENODEV;
 		goto err;
@@ -826,8 +790,7 @@ int npu_prepare_dma_buf(struct nvdla_device *ndev, struct user_context *uctx,
 	entry->buf_info = buf;
 	kernel_handle_decref(&entry->handle);
 	mutex_unlock(&uctx->dma_lock);
-	dla_debug("%s, %d, entry fd=0x%x.\n", __func__, __LINE__,
-		  (int)entry->buf_info.memFd);
+	dla_debug("entry fd=0x%x.\n", (int)entry->buf_info.memFd);
 	return 0;
 err:
 	mutex_unlock(&uctx->dma_lock);
@@ -843,14 +806,13 @@ int npu_unprepare_dma_buf(struct user_context *uctx, void *arg)
 	struct npu_dma_buf_ex *entry;
 
 	if (copy_from_user(&fd, arg, sizeof(u32))) {
-		dla_error("%s, %d, copy_from_user err.\n", __func__, __LINE__);
+		dla_error("copy_from_user err.\n");
 		return -EINVAL;
 	}
 	mutex_lock(&uctx->dma_lock);
 	entry = xa_load(&uctx->buf_xrray, fd);
 	if (!entry) {
-		dla_error("%s, %d, ,cannot find %d dma buf entry.\n", __func__,
-			  __LINE__, fd);
+		dla_error("cannot find %d dma buf entry.\n", fd);
 		mutex_unlock(&uctx->dma_lock);
 		return -EINVAL;
 	}
@@ -860,8 +822,7 @@ int npu_unprepare_dma_buf(struct user_context *uctx, void *arg)
 	khandle = find_kernel_handle(&uctx->handle, entry->handle.fd,
 				     NPU_DMABUF_HANDLE_MAGIC);
 	if (!khandle) {
-		dla_error("%s, %d, cannot find dmabuf=%d handle.\n", __func__,
-			  __LINE__, (int)entry->buf_info.memFd);
+		dla_error("cannot find dmabuf=%d handle.\n", (int)entry->buf_info.memFd);
 		return 0;
 	}
 	kernel_handle_release_family(khandle);
@@ -869,8 +830,7 @@ int npu_unprepare_dma_buf(struct user_context *uctx, void *arg)
 	return 0;
 }
 
-static long npu_dev_ioctl(struct file *file, unsigned int cmd,
-			  unsigned long arg)
+static long npu_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	int major = 0;
@@ -885,7 +845,7 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 
 	npu_cdev = get_npu_dev_by_devid(major, minor);
 	if (npu_cdev == NULL) {
-		dla_error("%s %d nodev\n", __func__, __LINE__);
+		dla_error("nodev\n");
 		return -EFAULT;
 	}
 	uctx = file->private_data;
@@ -894,13 +854,18 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 		return -EFAULT;
 	}
 
-	if (copy_from_user(&win_arg, (void *)arg,
-			   sizeof(struct win_ioctl_args))) {
+	if (copy_from_user(&win_arg, (void *)arg, sizeof(struct win_ioctl_args))) {
 		dla_error("bad user data address\n");
 		return -EFAULT;
 	}
 
 	switch (cmd) {
+	case ES_NPU_IOCTL_GET_VERSION:
+		if (copy_to_user((void __user *)arg, NPU_VERSION, sizeof(NPU_VERSION))) {
+			dla_error("copy NPU version to user failed!\n");
+			return -EFAULT;
+		}
+		break;
 	case ES_NPU_IOCTL_MODEL_LOAD:
 		ret = submit_model(npu_cdev->nvdla_dev, uctx, &win_arg);
 		data = ret;
@@ -908,16 +873,13 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 			dla_error("bad user data address\n");
 			return -EFAULT;
 		}
-
 		break;
 	case ES_NPU_IOCTL_MODEL_UNLOAD:
 		ret = release_model(uctx, &win_arg);
 		break;
 	case ES_NPU_IOCTL_SET_EVENT:
-		dla_debug("model_idx=%d event_source_val=%d\n",
-			  win_arg.model_idx, win_arg.event_source_val);
-		ret = send_event_source_to_e31(uctx, win_arg.model_idx,
-					       win_arg.event_source_val);
+		dla_debug("model_idx=%d event_source_val=%d\n", win_arg.model_idx, win_arg.event_source_val);
+		ret = send_event_source_to_e31(uctx, win_arg.model_idx, win_arg.event_source_val);
 		break;
 	case ES_NPU_IOCTL_GET_EVENT:
 		ret = get_event_sink_val(uctx, &win_arg);
@@ -949,6 +911,9 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 	case ES_NPU_IOCTL_UNPREPARE_DMA_BUF:
 		ret = npu_unprepare_dma_buf(uctx, (void *)arg);
 		break;
+	case ES_NPU_IOCTL_QUERY_TASK_STATUS:
+		ret = get_npu_task_status(file, &win_arg);
+		break;
 	default:
 		dla_error("err:ioctl cmd err!cmd=0x%x\n", cmd);
 		ret = -EFAULT;
@@ -964,16 +929,14 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd,
 
 static void npu_uctx_release(struct khandle *h)
 {
-	struct user_context *uctx =
-		container_of(h, struct user_context, handle);
+	struct user_context *uctx = container_of(h, struct user_context, handle);
 	struct nvdla_device *ndev;
 
 	if (uctx == NULL) {
 		return;
 	}
 	ndev = uctx->ndev;
-	dla_debug("npu_uctx_release ok. pid=%d, uctx=0x%px.\n", current->pid,
-		  uctx);
+	dla_debug("npu_uctx_release ok. pid=%d, uctx=0x%px.\n", current->pid, uctx);
 	kfree(uctx);
 	npu_pm_put(ndev);
 	module_put(THIS_MODULE);
@@ -990,14 +953,13 @@ int npu_dev_open(struct inode *inode, struct file *file)
 	int ret;
 	unsigned long flags;
 
-	dla_debug("%s, %d, current pid=%d.\n\n", __func__, __LINE__,
-		  current->pid);
+	dla_debug("current pid=%d.\n", current->pid);
 
 	major = imajor(file->f_inode);
 	minor = iminor(file->f_inode);
 	npu_cdev = get_npu_dev_by_devid(major, minor);
 	if (npu_cdev == NULL) {
-		dla_error("cannot find npu device. \n");
+		dla_error("cannot find npu device.\n");
 		return -ENODEV;
 	}
 
@@ -1005,8 +967,7 @@ int npu_dev_open(struct inode *inode, struct file *file)
 	engine = ndev->win_engine;
 	ret = npu_pm_get(ndev);
 	if (ret < 0) {
-		dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
-			  __LINE__, ret);
+		dla_error("pm get sync err, ret=%d.\n", ret);
 		return ret;
 	}
 
@@ -1019,19 +980,18 @@ int npu_dev_open(struct inode *inode, struct file *file)
 	spin_unlock_irqrestore(&engine->executor_lock, flags);
 
 	if (!try_module_get(THIS_MODULE)) {
-		dla_error("%s, %d, cannot get module.\n", __func__, __LINE__);
+		dla_error("cannot get module.\n");
 		return -ENODEV;
 	}
 
 	uctx = kzalloc(sizeof(struct user_context), GFP_KERNEL);
 	if (uctx == NULL) {
 		module_put(THIS_MODULE);
-		dla_error("%s %d nomem\n", __func__, __LINE__);
+		dla_error("nomem\n");
 		return -ENOMEM;
 	}
 	spin_lock_init(&uctx->model_lock);
-	ret = init_kernel_handle(&uctx->handle, npu_uctx_release,
-				 NPU_UCTX_KHANDLE_MAGIC, NULL);
+	ret = init_kernel_handle(&uctx->handle, npu_uctx_release, NPU_UCTX_KHANDLE_MAGIC, NULL);
 	if (ret != 0) {
 		dla_error("init kernel handle for user context error.\n");
 		module_put(THIS_MODULE);
@@ -1062,7 +1022,7 @@ static struct win_engine *get_engine_from_file(struct file *file)
 
 	npu_cdev = get_npu_dev_by_devid(major, minor);
 	if (npu_cdev == NULL) {
-		dla_error("%s %d nodev\n", __func__, __LINE__);
+		dla_error("nodev\n");
 		return NULL;
 	}
 
@@ -1071,6 +1031,7 @@ static struct win_engine *get_engine_from_file(struct file *file)
 }
 
 #define NPU_CHECK_BIT(bitmap, pos) ((bitmap[pos / 8]) & (1 << (pos % 8)))
+
 int npu_dev_release(struct inode *inode, struct file *file)
 {
 	struct user_context *uctx = file->private_data;
@@ -1092,23 +1053,12 @@ int npu_dev_release(struct inode *inode, struct file *file)
 			model_id = model->handle.fd;
 			if (model && model_id != -1 && uctx == model->uctx) {
 				executor = model->executor;
-				for (eid = 0;
-				     eid < executor->total_event_source_num;
-				     eid++) {
-					if (!NPU_CHECK_BIT(
-						    frame->is_event_source_done,
-						    eid)) {
-						dla_debug(
-							"%s %d addr of is_event_source_done=0x%px, src_done_val=0x%x\n",
-							__func__, __LINE__,
-							frame->is_event_source_done,
-							*(u32 *)frame
-								 ->is_event_source_done);
-						send_event_source_to_e31(
-							uctx, model_id, eid);
-						dla_info("%s %d: eid=%hu\n",
-							 __FUNCTION__, __LINE__,
-							 eid);
+				for (eid = 0; eid < executor->total_event_source_num; eid++) {
+					if (!NPU_CHECK_BIT(frame->is_event_source_done, eid)) {
+						dla_debug("addr of is_event_source_done=0x%px, src_done_val=0x%x\n",
+							frame->is_event_source_done, *(u32 *)frame->is_event_source_done);
+						send_event_source_to_e31(uctx, model_id, eid);
+						dla_info("eid=%hu\n", eid);
 					}
 				}
 			}
@@ -1118,30 +1068,27 @@ int npu_dev_release(struct inode *inode, struct file *file)
 	last_state = atomic_fetch_and(~NPU_RT_MUTX_LOCKED, &uctx->lock_status);
 	if (last_state == NPU_RT_MUTX_LOCKED) {
 		up(&engine->runtime_sem);
-		dla_debug("%s, %d unlocked\n", __func__, __LINE__);
+		dla_debug("unlocked.\n");
 	}
 
 	kernel_handle_release_family(&uctx->handle);
-
 	file->private_data = NULL;
-	dla_debug("%s, %d, Done, pid=%d.\n", __func__, __LINE__, current->pid);
+	dla_debug("Done, pid=%d.\n", current->pid);
+
 	return 0;
 }
 
-static ssize_t npu_dev_write(struct file *file, const char __user *buf,
-			     size_t size, loff_t *ppos)
+static ssize_t npu_dev_write(struct file *file, const char __user *buf, size_t size, loff_t *ppos)
 {
 	return 0;
 }
-static ssize_t npu_dev_read(struct file *file, char __user *buf, size_t size,
-			    loff_t *ppos)
+static ssize_t npu_dev_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
 	return 0;
 }
 
 #ifdef CONFIG_COMPAT
-static long npu_dev_ioctl_compat(struct file *flip, unsigned int cmd,
-				 unsigned long arg)
+static long npu_dev_ioctl_compat(struct file *flip, unsigned int cmd, unsigned long arg)
 {
 	return npu_dev_ioctl(flip, cmd, (unsigned long)compat_ptr(arg));
 }
@@ -1195,8 +1142,7 @@ int create_npu_dev(int node_id, struct nvdla_device *nvdla_dev)
 		npu_cdev[node_id].major = MAJOR(npu_cdev[node_id].devid);
 		npu_cdev[node_id].minor = MINOR(npu_cdev[node_id].devid);
 
-		dla_debug("major=%d, minor=%d!\n", npu_cdev[node_id].major,
-			  npu_cdev[node_id].minor);
+		dla_debug("major=%d, minor=%d!\n", npu_cdev[node_id].major, npu_cdev[node_id].minor);
 	}
 
 	if (ret < 0) {
@@ -1220,8 +1166,7 @@ int create_npu_dev(int node_id, struct nvdla_device *nvdla_dev)
 	}
 
 	npu_cdev[node_id].device = device_create(npu_cdev[node_id].class, NULL,
-						 npu_cdev[node_id].devid, NULL,
-						 name);
+											 npu_cdev[node_id].devid, NULL, name);
 	if (IS_ERR(npu_cdev[node_id].device)) {
 		dla_error("device_create failed for npu%d\n", node_id);
 		goto device_err;

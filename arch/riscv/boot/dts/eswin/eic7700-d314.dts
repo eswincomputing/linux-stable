@@ -50,16 +50,6 @@
 	};
 };
 
-/*
-&dsi_panel {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio82_default &pinctrl_gpio85_default>;
-	backlight0-gpios = <&portc 18 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&portc 21 GPIO_ACTIVE_HIGH>;
-};
-*/
-
 &d0_i2s1 {
 	status = "okay";
 	d0_i2s1_port: port {
@@ -85,12 +75,20 @@
 	status = "disabled";
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "okay";
 };
 
 &isp_1 {
-	status = "disabled";
+	status = "okay";
+};
+
+&dewarp {
+	status = "okay";
 };
 
 &sdio0 {
@@ -313,7 +311,7 @@
 &pinctrl {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio6_default &pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default
+	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default
 			&pinctrl_gpio10_default &pinctrl_gpio17_default &pinctrl_gpio35_default &pinctrl_gpio36_default
 			&pinctrl_gpio37_default &pinctrl_gpio38_default &pinctrl_gpio39_default &pinctrl_gpio40_default
 			&pinctrl_gpio41_default &pinctrl_gpio46_default &pinctrl_gpio52_default
@@ -326,6 +324,13 @@
        I2C1 (SCL,SDA): GPIO 46,47
        UART3(TX,RX): GPIO 92,93
     */
+};
+
+&d0_lpcpu {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio6_default>;
+	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 };
 
 /*

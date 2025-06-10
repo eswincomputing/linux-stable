@@ -184,6 +184,7 @@ struct win_engine {
 	struct host_frame_desc *tiktok_frame[NUM_TIKTOK];
 	u32 tiktok;
 	u32 frame_seq;
+	u32 task_count;
 
 	bool engine_is_alive;
 	struct workqueue_struct *work_queue;
@@ -212,7 +213,7 @@ enum frame_state_list {
 	frame_state_orphan = 0xfe,
 };
 
-#define ES_TASK_MAX_FD_CNT 10
+#define ES_TASK_MAX_FD_CNT 16
 
 struct host_frame_desc {
 	struct khandle handle;

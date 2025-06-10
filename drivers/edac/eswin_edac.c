@@ -204,14 +204,27 @@ extern int eswin_get_cpu_temp(const char *name, int numa_id, long *val);
 #define ECC_POISON1_ROW_MASK 0x3FFFF
 
 /* DDR Memory type defines */
-#define MEM_TYPE_DDR3 0x1
+//#define MEM_TYPE_DDR3 0x1
+#define MEM_TYPE_LPDDR4 0x2
+#define MEM_TYPE_LPDDR5 0x8
+#define MEM_TYPE_LPDDR5X 0x800
+
 #define MEM_TYPE_LPDDR3 0x8
-#define MEM_TYPE_DDR2 0x4
-#define MEM_TYPE_DDR4 0x10
-#define MEM_TYPE_LPDDR4 0x20
+
+//#define MEM_TYPE_DDR2 0x4
+//#define MEM_TYPE_DDR4 0x10
+//#define MEM_TYPE_LPDDR4 0x20
 
 /* DDRC Software control register */
 #define DDRC_SWCTL 0x10C80
+#define MR_TYPE_READ 1
+#define MR_TYPE_WRITE 0
+#define DDR_CTRL_MSTR0	0x10000
+#define DDR_CTRL_MRCTRL0 0x10080
+#define DDR_CTRL_MRCTRL1 0x10084
+#define DDR_CTRL_MRSTAT 0x10090
+#define DDR_CTRL_MRRDATA0 0x10094
+#define DDR_CTRL_MRRDATA1 0x10098
 
 /* DDRC ECC CE & UE poison mask */
 #define ECC_CEPOISON_MASK 0x3
@@ -335,6 +348,7 @@ struct synps_ecc_status
 struct synps_edac_priv
 {
 	void __iomem *baseaddr;
+	void __iomem *sys_crg_base;
 	resource_size_t start;
 	char message[SYNPS_EDAC_MSG_SIZE];
 	struct synps_ecc_status stat;
@@ -471,13 +485,13 @@ static int eswin_get_error_info(struct synps_edac_priv *priv)
 
 	p->ce_cnt = (regval & ECC_STAT_CECNT_MASK) >> ECC_STAT_CECNT_SHIFT;
 	p->ue_cnt = (regval & ECC_STAT_UECNT_MASK) >> ECC_STAT_UECNT_SHIFT;
-	pr_err("ctrl 0x%llx ecc state:%x,sbr_read_ecc_ue:%d,sbr_read_ecc_ue:%d,"
+	pr_err_ratelimited("ctrl 0x%llx ecc state:%x,sbr_read_ecc_ue:%d,sbr_read_ecc_ue:%d,"
 		   "ecc_uncorrected_err:0x%08x,ecc_corrected_err:0x%08x,ecc_corrected_bit_num:0x%x\n",
 		   priv->start, regval, (regval >> 25) & 0x1, (regval >> 24) & 0x1, p->ue_cnt,
 		   p->ce_cnt, regval & 0x7f);
 
 	cache = readl(base + ECC_ERRCNT_OFST);
-	pr_err("ctrl 0x%llx uncorr_cnt:0x%04x,corr_cnt:0x%04x\n", priv->start, (cache >> 16) & 0xffff, cache & 0xffff);
+	pr_err_ratelimited("ctrl 0x%llx uncorr_cnt:0x%04x,corr_cnt:0x%04x\n", priv->start, (cache >> 16) & 0xffff, cache & 0xffff);
 
 	if (!p->ce_cnt)
 		goto ue_err;
@@ -492,16 +506,14 @@ static int eswin_get_error_info(struct synps_edac_priv *priv)
 
 	priv->stat.ceinfo.sys_base = eswin_get_sysaddr(priv, &priv->stat.ceinfo);
 	priv->stat.ceinfo.ecc_base = eswin_get_eccaddr(priv, &priv->stat.ceinfo);
-	pr_err("ECC_CEADDR0: 0x%08X ECC_CEADDR1: 0x%08X ECC_BITMASK0: 0x%08X ECC_BITMASK1: 0x%08X ECC_BITMASK2: 0x%08X\n",
+	pr_err_ratelimited("ECC_CEADDR0: 0x%08X ECC_CEADDR1: 0x%08X ECC_BITMASK0: 0x%08X ECC_BITMASK1: 0x%08X ECC_BITMASK2: 0x%08X\n",
 		   readl(base + ECC_CEADDR0_OFST), readl(base + ECC_CEADDR1_OFST),
 		   readl(base + ECC_BITMASK0_OFST), readl(base + ECC_BITMASK1_OFST),
 		   readl(base + ECC_BITMASK2_OFST));
-
-	pr_err("CE_DATA System Base = 0x%llx, ECC Base=0x%llx.\n", priv->stat.ceinfo.sys_base, priv->stat.ceinfo.ecc_base);
-	pr_err("ECCCSYN0: 0x%08X ECCCSYN1: 0x%08X ECCCSYN2: 0x%08X\n",
-
+	pr_err_ratelimited("ECCCSYN0: 0x%08X ECCCSYN1: 0x%08X ECCCSYN2: 0x%08X\n",
 		   readl(base + ECC_CSYND0_OFST), readl(base + ECC_CSYND1_OFST),
 		   readl(base + ECC_CSYND2_OFST));
+	pr_err_ratelimited("CE_DATA System Base = 0x%llx, ECC Base=0x%llx.\n", priv->stat.ceinfo.sys_base, priv->stat.ceinfo.ecc_base);
 ue_err:
 	if (!p->ue_cnt)
 		goto out;
@@ -517,11 +529,11 @@ ue_err:
 	priv->stat.ueinfo.sys_base = eswin_get_sysaddr(priv, &priv->stat.ueinfo);
 	priv->stat.ueinfo.ecc_base = eswin_get_eccaddr(priv, &priv->stat.ueinfo);
 
-	pr_err("ECC_UEADDR0: 0x%08X ECC_UEADDR1: 0x%08X ECUCSYN0: 0x%08X ECUCSYN1: 0x%08X ECUCSYN2: 0x%08X\n",
+	pr_err_ratelimited("ECC_UEADDR0: 0x%08X ECC_UEADDR1: 0x%08X ECUCSYN0: 0x%08X ECUCSYN1: 0x%08X ECUCSYN2: 0x%08X\n",
 		   readl(base + ECC_UEADDR0_OFST), readl(base + ECC_UEADDR1_OFST),
 		   readl(base + ECC_UESYND0_OFST), readl(base + ECC_UESYND1_OFST),
 		   readl(base + ECC_UESYND2_OFST));
-	pr_err("UE_DATA System Base = 0x%llx, ECC Base=0x%llx.\n", priv->stat.ueinfo.sys_base, priv->stat.ueinfo.ecc_base);
+	pr_err_ratelimited("UE_DATA System Base = 0x%llx, ECC Base=0x%llx.\n", priv->stat.ueinfo.sys_base, priv->stat.ueinfo.ecc_base);
 out:
 	clearval = ECC_CTRL_CLR_CE_ERR | ECC_CTRL_CLR_CE_ERRCNT;
 	clearval |= ECC_CTRL_CLR_UE_ERR | ECC_CTRL_CLR_UE_ERRCNT;
@@ -551,19 +563,23 @@ static void handle_error(struct mem_ctl_info *mci, struct synps_ecc_status *p)
 	{
 		pinf = &p->ceinfo;
 		if (priv->p_data->quirks & DDR_ECC_INTR_SUPPORT)
-		{
-			snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
+		{	
+			if (printk_ratelimit()) {
+				snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
 					 "DDR ECC error type:%s Row %d Col %d Rank %d Bank %d BankGroup Number %d Cid %d Bit Position: %d Data: 0x%08x",
 					 "CE", pinf->row, pinf->col, pinf->rank, pinf->bank,
 					 pinf->bankgrpnr, pinf->cid,
 					 pinf->bitpos, pinf->data);
+			}
 		}
 		else
 		{
-			snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
+			if(printk_ratelimit()) {
+				snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
 					 "DDR ECC error type:%s Row %d Bank %d Col %d Bit Position: %d Data: 0x%08x",
 					 "CE", pinf->row, pinf->bank, pinf->col,
 					 pinf->bitpos, pinf->data);
+			}
 		}
 
 		edac_mc_handle_error(HW_EVENT_ERR_CORRECTED, mci,
@@ -576,16 +592,20 @@ static void handle_error(struct mem_ctl_info *mci, struct synps_ecc_status *p)
 		pinf = &p->ueinfo;
 		if (priv->p_data->quirks & DDR_ECC_INTR_SUPPORT)
 		{
-			snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
+			if (printk_ratelimit()) {
+				snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
 					 "DDR ECC error type :%s Row %d Col %d Rank %d Bank %d BankGroup Number %d Cid %d",
 					 "UE", pinf->row, pinf->col, pinf->rank, pinf->bank,
 					 pinf->bankgrpnr, pinf->cid);
+			}
 		}
 		else
 		{
-			snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
+			if (printk_ratelimit()) {
+				snprintf(priv->message, SYNPS_EDAC_MSG_SIZE,
 					 "DDR ECC error type :%s Row %d Bank %d Col %d ",
 					 "UE", pinf->row, pinf->bank, pinf->col);
+			}
 		}
 
 		edac_mc_handle_error(HW_EVENT_ERR_UNCORRECTED, mci,
@@ -613,7 +633,7 @@ static irqreturn_t intr_handler(int irq, void *dev_id)
 	priv = mci->pvt_info;
 	p_data = priv->p_data;
 
-	dev_warn(&mci->dev, "ddr ecc interrupt\n");
+	dev_warn_ratelimited(&mci->dev, "ddr ecc interrupt\n");
 
 	/*
 	 * v3.0 of the controller has the ce/ue bits cleared automatically,
@@ -761,12 +781,10 @@ static enum mem_type eswin_get_mtype(const void __iomem *base)
 
 	memtype = readl(base + CTRL_OFST);
 
-	if ((memtype & MEM_TYPE_DDR3) || (memtype & MEM_TYPE_LPDDR3))
-		mt = MEM_DDR3;
-	else if (memtype & MEM_TYPE_DDR2)
-		mt = MEM_RDDR2;
-	else if ((memtype & MEM_TYPE_LPDDR4) || (memtype & MEM_TYPE_DDR4))
-		mt = MEM_DDR4;
+	if ((memtype & MEM_TYPE_LPDDR4))
+		mt = MEM_LPDDR4;
+	else if ((memtype & MEM_TYPE_LPDDR5) || (memtype & MEM_TYPE_LPDDR5X))
+		mt = MEM_DDR5;
 	else
 		mt = MEM_EMPTY;
 
@@ -826,7 +844,7 @@ static void mc_init(struct mem_ctl_info *mci, struct platform_device *pdev)
 	platform_set_drvdata(pdev, mci);
 
 	/* Initialize controller capabilities and configuration */
-	mci->mtype_cap = MEM_FLAG_DDR3 | MEM_FLAG_DDR2;
+	mci->mtype_cap = MEM_FLAG_LPDDR4 | MEM_FLAG_LRDDR5;
 	mci->edac_ctl_cap = EDAC_FLAG_NONE | EDAC_FLAG_SECDED;
 	mci->scrub_cap = SCRUB_HW_SRC;
 	mci->scrub_mode = SCRUB_NONE;
@@ -1398,6 +1416,283 @@ static void eswin_resolve_addr_shift(struct synps_edac_priv *priv)
 	priv->row_num = priv->col[7] - priv->row_base - 1;
 }
 
+static int get_pll0_reg(void *sys_crg_base, u32 *pll0, u32 *pll1, u32 *pll2)
+{
+	*pll0 = readl(sys_crg_base + 0x78);
+	*pll1 = readl(sys_crg_base + 0x7c);
+	*pll2 = readl(sys_crg_base + 0x80);
+	return 0;
+}
+
+int mr_operation(void *base_addr, u8 mr_type, u8 rank, u8 addr)
+{
+	u32 value = 0;
+	u32 data = 0;
+
+	volatile void *ctrl_base_addr = (volatile void *)base_addr;
+
+	value = readl(ctrl_base_addr + DDR_CTRL_MRCTRL0);
+	value = value | (1 << 24);
+	writel(value, (ctrl_base_addr + DDR_CTRL_MRCTRL0));
+	while (1) {
+		value = readl(ctrl_base_addr + DDR_CTRL_MRSTAT);
+		if (0x0 == (value & 0x1)) {
+			break;
+		}
+	}
+
+	value = readl(ctrl_base_addr + DDR_CTRL_MRCTRL0);
+	value = value & 0xFFFF0FFE;
+	value = value | (mr_type & 0x1) | ((rank & 0x3) << 4);
+	writel(value, (ctrl_base_addr + DDR_CTRL_MRCTRL0));
+	value = ((addr & 0xff) << 8) | (data & 0xff);
+	writel(value, (ctrl_base_addr + DDR_CTRL_MRCTRL1));
+	value = readl(ctrl_base_addr + DDR_CTRL_MRCTRL0);
+	value = value | (1u << 31);
+	writel(value, (ctrl_base_addr + DDR_CTRL_MRCTRL0));
+	if (MR_TYPE_READ == mr_type) {
+		while (1) {
+			value = readl(ctrl_base_addr + DDR_CTRL_MRSTAT);
+			if (0x1 == ((value >> 16) & 0x1)) {
+				break;
+			}
+		}
+		value = readl(ctrl_base_addr + DDR_CTRL_MRRDATA0);
+	}
+	return value;
+}
+
+u32 ddr_sw_mr_size_mb(u8 mr_value, u32 rank_num)
+{
+	u32 chip_num = 0;
+	u32 density = 0;
+	u8 cache = ((mr_value >> 6) & 0x3);
+	u32 chn_ddr_size_mb = 0;
+	/*0:X16     1:X8  others:reserved*/
+	if (0 == cache) {
+		chip_num = 2; /* 32/16 */
+	} else if (1 == cache) {
+		chip_num = 4; /* 32/8 */
+	}
+	cache = ((mr_value >> 2) & 0xf);
+
+	switch (cache) {
+	case 0:
+		density = 2;
+		break;
+	case 1:
+		density = 3;
+		break;
+	case 2:
+		density = 4;
+		break;
+	case 3:
+		density = 6;
+		break;
+	case 4:
+		density = 8;
+		break;
+	case 5:
+		density = 12;
+		break;
+	case 6:
+		density = 16;
+		break;
+	case 7:
+		density = 24;
+		break;
+	case 8:
+		density = 32;
+		break;
+	default:
+		density = 0;
+		break;
+	}
+	chn_ddr_size_mb = (density * 1024 /* gb to mb */ * chip_num * rank_num /* rank */) >> 3;
+	return chn_ddr_size_mb;
+}
+
+static int get_ddr_size(struct synps_edac_priv *priv, u32 rank_num)
+{
+	int size_mb;
+	size_mb = (ddr_sw_mr_size_mb(mr_operation(priv->baseaddr, MR_TYPE_READ, 0x1, 0x8), rank_num));
+	return size_mb;
+}
+static int get_ddr_rank_num(void __iomem *baseaddr)
+{
+	u32 mstr0, rank;
+
+	mstr0 = readl(baseaddr + CTRL_OFST);
+	rank = (mstr0 >> 24) & 0xf;
+	switch (rank) {
+	case 0x1:
+		rank = 1;
+		break;
+	case 0x3:
+		rank = 2;
+		break;
+	case 0xf:
+		rank = 4;
+		break;
+	default:
+		rank = -1;
+		break;
+	}
+	return rank;
+}
+/*
+ddr_type, ddr_rate,ddr_rank_num
+*/
+static ssize_t ddr_info_show(struct device *dev, struct device_attribute *attr, char *data)
+{
+	struct mem_ctl_info *mci = to_mci(dev);
+	struct synps_edac_priv *priv = mci->pvt_info;
+	u32 mstr0, width, rank, speed;
+	u32 ecccfg0, ecc;
+	u32 pll0, pll1, pll2;
+	u32 rate0, rate1, rate2;
+	ssize_t len = 0;
+	char *dt, *ddr_type, *ecc_mode, *ddr_rate;
+	u32 ddr_size;
+	int rc;
+	u32 bl;
+
+	width = mr_operation(priv->baseaddr, MR_TYPE_READ, 0x1, 0x8);
+	width = (width  >> 6) & 0x3;
+	switch (width)
+	{
+	case 0x0:
+		dt = "X16";
+		break;
+	case 0x1:
+		dt = "X8";
+		break;
+	default:
+		dt = "UNKOWN";
+		break;
+	}
+	len += sysfs_emit_at(data, len, "DDR_DQ_WIDTH: %s\n", dt);
+
+	mstr0 = readl(priv->baseaddr + CTRL_OFST);
+	rank = (mstr0 >> 24) & 0xf;
+	switch (rank) {
+	case 0x1:
+		rank = 1;
+		break;
+	case 0x3:
+		rank = 2;
+		break;
+	case 0xf:
+		rank = 4;
+		break;
+	default:
+		rank = -1;
+		break;
+	}
+	len += sysfs_emit_at(data, len, "NUM Rank: %d\n", rank);
+
+	speed = mstr0 & 0xfff;
+	switch (speed) {
+	case 0x800:
+		ddr_type = "LPDDR5X";
+		break;
+	case 0x8:
+		ddr_type = "LPDDR5";
+		break;
+	case 0x2:
+		ddr_type = "LPDDR4";
+		break;
+	default:
+		ddr_type = "UNKOWN TYPE";
+		break;
+	}
+	len += sysfs_emit_at(data, len, "DDR_TYPE: %s\n", ddr_type);
+
+	ecccfg0 = readl(priv->baseaddr + ECC_CFG0_OFST);
+	ecc = ecccfg0 & 0x7;
+	switch (ecc) {
+	case 0x0:
+		ecc_mode = "Disable";
+		break;
+	case 0x4:
+		ecc_mode = "ECC SEC/DED";
+		break;
+	case 0x5:
+		ecc_mode = "Advance ECC";
+		break;
+	default:
+		ecc_mode = "UNKOWN ECC INFO";
+		break;
+	}
+
+	len += sysfs_emit_at(data, len, "ECC_MODE: %s\n", ecc_mode);
+	bl = (mstr0 >> 16) & 0x1f;
+	if (bl == 0x4) {
+		len += sysfs_emit_at(data, len, "BL: 8\n");
+	} else if (bl == 0x8){
+		len += sysfs_emit_at(data, len, "BL: 16\n");
+	}
+	ddr_size = get_ddr_size(priv, rank);
+	len += sysfs_emit_at(data, len, "DDR_SIZE: %uMB\n", ddr_size);
+
+	rc = get_pll0_reg(priv->sys_crg_base, &pll0, &pll1, &pll2);
+	if (rc) {
+		len += sysfs_emit_at(data, len, "DDR_RATE: Cannot Get DDR RATE\n");
+	} else {
+		rate0 = (pll0 >> 16) & 0xffff;
+		rate1 = (pll1 >> 16) & 0xffff;
+		rate2 = pll2 & 0xffff;
+		switch (rate0) {
+		case 0x02c0:
+			ddr_rate = "1066MT";
+			break;
+		case 0x0850:
+			if (rate2 == 0x104) {
+				ddr_rate = "1600MT";
+			} else {
+				ddr_rate = "3200MT";
+			}
+			break;
+		case 0x0b10:
+			ddr_rate = "4266MT";
+			break;
+		case 0x0e50:
+			ddr_rate = "5500MT";
+			break;
+		case 0xfa0:
+			ddr_rate = "6000MT";
+			break;
+		case 0x10a0:
+			ddr_rate = "6400MT";
+			break;
+		default:
+			ddr_rate = "UNKOWN";
+			break;
+		}
+		len += sysfs_emit_at(data, len, "DDR_RATE: %s\n", ddr_rate);
+	
+	}
+	return len;
+}
+
+static DEVICE_ATTR_RO(ddr_info);
+static int edac_create_sysfs_ddr_info(struct mem_ctl_info *mci)
+{
+	int rc;
+
+	rc = device_create_file(&mci->dev, &dev_attr_ddr_info);
+	if (rc < 0) {
+		return rc;
+	}
+
+	return 0;
+}
+
+static void edac_remove_sysfs_ddr_info(struct mem_ctl_info *mci)
+{
+	device_remove_file(&mci->dev, &dev_attr_ddr_info);
+}
+
 /**
  * mc_probe - Check controller and bind driver.
  * @pdev:	platform device.
@@ -1410,13 +1705,15 @@ static void eswin_resolve_addr_shift(struct synps_edac_priv *priv)
 static int mc_probe(struct platform_device *pdev)
 {
 	const struct synps_platform_data *p_data;
-	struct edac_mc_layer layers[2];
+	struct edac_mc_layer layers[1];
 	struct synps_edac_priv *priv;
 	struct mem_ctl_info *mci;
 	void __iomem *baseaddr;
+	void __iomem *sys_crg_base;
 	struct resource *res;
 	int rc;
 	int nid;
+	u32 rank_num;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
@@ -1428,6 +1725,11 @@ static int mc_probe(struct platform_device *pdev)
 	if (IS_ERR(baseaddr))
 		return PTR_ERR(baseaddr);
 
+	sys_crg_base = devm_ioremap(&pdev->dev, 0x51828000, 0x1000);
+	if (IS_ERR(sys_crg_base)) {
+		return PTR_ERR(sys_crg_base);
+	}
+
 	p_data = of_device_get_match_data(&pdev->dev);
 	if (!p_data)
 		return -ENODEV;
@@ -1438,16 +1740,14 @@ static int mc_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+	rank_num = get_ddr_rank_num(baseaddr);
 	layers[0].type = EDAC_MC_LAYER_CHIP_SELECT;
-	layers[0].size = SYNPS_EDAC_NR_CSROWS;
+	layers[0].size = rank_num; //SYNPS_EDAC_NR_CSROWS;
 	layers[0].is_virt_csrow = true;
-	layers[1].type = EDAC_MC_LAYER_CHANNEL;
-	layers[1].size = SYNPS_EDAC_NR_CHANS;
-	layers[1].is_virt_csrow = false;
 
 	device_property_read_u32(&pdev->dev, "ctrl-id", &rc);
 
-	mci = edac_mc_alloc(rc, ARRAY_SIZE(layers), layers,
+	mci = edac_mc_alloc(nid * 2 + rc, ARRAY_SIZE(layers), layers,
 						sizeof(struct synps_edac_priv));
 	if (!mci)
 	{
@@ -1458,6 +1758,7 @@ static int mc_probe(struct platform_device *pdev)
 
 	priv = mci->pvt_info;
 	priv->baseaddr = baseaddr;
+	priv->sys_crg_base = sys_crg_base;
 	priv->start = res->start;
 	priv->p_data = p_data;
 	priv->numa_id = nid;
@@ -1472,14 +1773,19 @@ static int mc_probe(struct platform_device *pdev)
 			goto free_edac_mc;
 	}
 
-	// rc = edac_mc_add_mc(mci);
-	// if (rc)
-	// {
-	// 	edac_printk(KERN_ERR, EDAC_MC,
-	// 				"Failed to register with EDAC core\n");
-	// 	goto free_edac_mc;
-	// }
-
+	rc = edac_mc_add_mc(mci);
+	if (rc)
+	{
+	 	edac_printk(KERN_ERR, EDAC_MC,
+	 				"Failed to register with EDAC core\n");
+	 	goto free_edac_mc;
+	}
+	
+	rc = edac_create_sysfs_ddr_info(mci);
+	if (rc) {
+		edac_printk(KERN_ERR, EDAC_MC, "failed to create sysfs for ddr info\n");
+		goto free_edac_mc;
+	}
 #ifdef CONFIG_EDAC_DEBUG
 	if (priv->p_data->quirks & DDR_ECC_DATA_POISON_SUPPORT)
 	{
@@ -1488,7 +1794,7 @@ static int mc_probe(struct platform_device *pdev)
 		{
 			edac_printk(KERN_ERR, EDAC_MC,
 						"Failed to create sysfs entries\n");
-			goto free_edac_mc;
+			goto free_edac_info;
 		}
 	}
 	if (priv->p_data->quirks & DDR_ECC_INTR_SUPPORT)
@@ -1504,6 +1810,11 @@ static int mc_probe(struct platform_device *pdev)
 	edac_printk(KERN_INFO, EDAC_MC, "%s init succ\n",pdev->name);
 	return rc;
 
+
+#ifdef CONFIG_EDAC_DEBUG
+free_edac_info:
+	edac_remove_sysfs_ddr_info(mci);
+#endif
 free_edac_mc:
 	edac_mc_free(mci);
 
@@ -1529,6 +1840,7 @@ static int mc_remove(struct platform_device *pdev)
 		edac_remove_sysfs_attributes(mci);
 #endif
 
+	edac_remove_sysfs_ddr_info(mci);
 	edac_mc_del_mc(&pdev->dev);
 	edac_mc_free(mci);
 

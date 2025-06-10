@@ -429,7 +429,7 @@ err:
 extern void npu_frame_timeout_tok(struct timer_list *t);
 extern void npu_frame_timeout_tik(struct timer_list *t);
 
-#define HOST_NODE_IOVA 0xf0000000
+#define HOST_NODE_IOVA 0x90000000
 int npu_init_ipc(struct nvdla_device *ndev)
 {
 	struct win_engine *engine = (struct win_engine *)ndev->win_engine;
@@ -439,15 +439,15 @@ int npu_init_ipc(struct nvdla_device *ndev)
 	engine->host_node = iommu_map_rsv_iova(&ndev->pdev->dev, HOST_NODE_IOVA,
 					       sizeof(host_node_t), GFP_KERNEL,
 					       IOMMU_MMIO);
-	dla_debug("%s, %d, host_node_iova=0x%llx.\n", __func__, __LINE__,
-		  engine->host_node_iova);
+	dla_debug("host_node_iova=0x%llx size=0x%lx.\n",
+			  engine->host_node_iova, sizeof(host_node_t));
 
 #else
 	engine->host_node =
 		dma_alloc_coherent(&ndev->pdev->dev, sizeof(host_node_t),
 				   &engine->host_node_iova, GFP_KERNEL);
-	dla_debug("%s, %d, host_node_iova=0x%llx.\n", __func__, __LINE__,
-		  engine->host_node_iova);
+	dla_debug("%s, %d, host_node_iova=0x%llx size=0x%llx.\n", __func__, __LINE__,
+		  engine->host_node_iova, sizeof(host_node_t));
 #endif
 
 	if (!engine->host_node) {
@@ -700,18 +700,17 @@ static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
 	struct win_executor *executor = pexecutor;
 	u32 size[NUM_OP_TYPE];
 
-	if (input_num > 0) {
+	if (input_num == 0 || input_num > MAX_INPUTS) {
+		dla_error("input num[%d] invalid\n", input_num);
+		return -DLA_ERR_INVALID_PARAM;
+	} else {
 		executor->input_num = input_num;
-	} else {
-		dla_error("%s %d no input\n", __func__, __LINE__);
-		return -EINVAL;
 	}
-	if (output_num > 0) {
-		executor->output_num = output_num;
+	if (output_num == 0 || output_num > MAX_OUTPUTS) {
+		dla_error("output num[%d] invalid\n", output_num);
+		return -DLA_ERR_INVALID_PARAM;
 	} else {
-		dla_error("%s %d no output\n", __func__, __LINE__);
-		ret = -EINVAL;
-		return ret;
+		executor->output_num = output_num;
 	}
 	executor->io_mem_handle_size = (executor->input_num + executor->output_num) * sizeof(addrDesc_t);
 	executor->frame_size = sizeof(struct host_frame_desc) + executor->io_mem_handle_size +

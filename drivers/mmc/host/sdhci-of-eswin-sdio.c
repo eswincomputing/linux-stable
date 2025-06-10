@@ -363,6 +363,8 @@ static int eswin_sdhci_sdio_suspend(struct device *dev)
 	win2030_tbu_power(dev, false);
 	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
+	clk_disable_unprepare(eswin_sdhci_sdio->cfg_clk);
+	clk_disable_unprepare(eswin_sdhci_sdio->aclk);
 
 	return 0;
 }
@@ -384,10 +386,20 @@ static int eswin_sdhci_sdio_resume(struct device *dev)
 	int ret;
 
 	pm_runtime_put_sync(dev);
+	ret = clk_prepare_enable(eswin_sdhci_sdio->aclk);
+	if (ret) {
+		dev_err(dev, "can't enable aclk clock.\n");
+		return ret;
+	}
+	ret = clk_prepare_enable(eswin_sdhci_sdio->cfg_clk);
+	if (ret) {
+		dev_err(dev, "can't enable cfg_clk clock.\n");
+		goto clk_aclk_disable;
+	}
 	ret = clk_prepare_enable(eswin_sdhci_sdio->clk_ahb);
 	if (ret) {
-		dev_err(dev, "can't enable clk_ahb.\n");
-		return ret;
+		dev_err(dev, "can't enable clk_ahb\n");
+		goto clk_cfg_disable;
 	}
 	ret = clk_prepare_enable(pltfm_host->clk);
 	if (ret) {
@@ -407,10 +419,16 @@ clk_disable:
 	clk_disable_unprepare(pltfm_host->clk);
 clk_ahb_disable:
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
+clk_cfg_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->cfg_clk);
+clk_aclk_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->aclk);
 
 	return ret;
 }
+#endif
 
+#ifdef CONFIG_PM
 static int eswin_sdhci_sdio_runtime_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -428,6 +446,8 @@ static int eswin_sdhci_sdio_runtime_suspend(struct device *dev)
 	win2030_tbu_power(dev, false);
 	clk_disable_unprepare(pltfm_host->clk);
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
+	clk_disable_unprepare(eswin_sdhci_sdio->cfg_clk);
+	clk_disable_unprepare(eswin_sdhci_sdio->aclk);
 
 	return 0;
 }
@@ -439,10 +459,20 @@ static int eswin_sdhci_sdio_runtime_resume(struct device *dev)
 	struct eswin_sdhci_data *eswin_sdhci_sdio = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
+	ret = clk_prepare_enable(eswin_sdhci_sdio->aclk);
+	if (ret) {
+		dev_err(dev, "can't enable aclk clock.\n");
+		return ret;
+	}
+	ret = clk_prepare_enable(eswin_sdhci_sdio->cfg_clk);
+	if (ret) {
+		dev_err(dev, "can't enable cfg_clk clock.\n");
+		goto clk_aclk_disable;
+	}
 	ret = clk_prepare_enable(eswin_sdhci_sdio->clk_ahb);
 	if (ret) {
 		dev_err(dev, "can't enable clk_ahb\n");
-		return ret;
+		goto clk_cfg_disable;
 	}
 
 	ret = clk_prepare_enable(pltfm_host->clk);
@@ -463,7 +493,10 @@ clk_disable:
 	clk_disable_unprepare(pltfm_host->clk);
 clk_ahb_disable:
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
-
+clk_cfg_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->cfg_clk);
+clk_aclk_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->aclk);
 	return ret;
 }
 
@@ -834,6 +867,20 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 	sdhci_get_of_property(pdev);
 
 	eswin_sdhci_sdio->clk_ops = data->clk_ops;
+
+	eswin_sdhci_sdio->aclk = devm_clk_get(dev, "aclk");
+	if (IS_ERR(eswin_sdhci_sdio->aclk)) {
+		ret = dev_err_probe(dev, PTR_ERR(eswin_sdhci_sdio->aclk),
+				    "aclk clock not found.\n");
+		goto err_pltfm_free;
+	}
+
+	eswin_sdhci_sdio->cfg_clk = devm_clk_get(dev, "cfg_clk");
+	if (IS_ERR(eswin_sdhci_sdio->cfg_clk)) {
+		ret = dev_err_probe(dev, PTR_ERR(eswin_sdhci_sdio->cfg_clk),
+				    "cfg_clk clock not found.\n");
+		goto err_pltfm_free;
+	}
 	eswin_sdhci_sdio->clk_ahb = devm_clk_get(dev, "clk_ahb");
 	if (IS_ERR(eswin_sdhci_sdio->clk_ahb)) {
 		ret = dev_err_probe(dev, PTR_ERR(eswin_sdhci_sdio->clk_ahb),
@@ -867,10 +914,22 @@ static int eswin_sdhci_sdio_probe(struct platform_device *pdev)
 		clk_set_parent(clk_mux, clk_spll2_fout3);
 	}
 
+	ret = clk_prepare_enable(eswin_sdhci_sdio->aclk);
+	if (ret) {
+		dev_err(dev, "Unable to enable aclk clock.\n");
+		goto err_pltfm_free;
+	}
+
+	ret = clk_prepare_enable(eswin_sdhci_sdio->cfg_clk);
+	if (ret) {
+		dev_err(dev, "Unable to enable cfg_clk clock.\n");
+		goto clk_aclk_disable;
+	}
+
 	ret = clk_prepare_enable(eswin_sdhci_sdio->clk_ahb);
 	if (ret) {
 		dev_err(dev, "Unable to enable AHB clock.\n");
-		goto err_pltfm_free;
+		goto clk_cfg_disable;
 	}
 	/* If clock-frequency property is set, use the provided value */
 	if (pltfm_host->clock && pltfm_host->clock != clk_get_rate(clk_xin)) {
@@ -997,6 +1056,10 @@ clk_disable_all:
 	clk_disable_unprepare(clk_xin);
 clk_dis_ahb:
 	clk_disable_unprepare(eswin_sdhci_sdio->clk_ahb);
+clk_cfg_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->cfg_clk);
+clk_aclk_disable:
+	clk_disable_unprepare(eswin_sdhci_sdio->aclk);
 err_pltfm_free:
 	sdhci_pltfm_free(pdev);
 	return ret;
@@ -1040,6 +1103,8 @@ static int eswin_sdhci_sdio_remove(struct platform_device *pdev)
 
 	eswin_sdhci_sdio_unregister_sdclk(&pdev->dev);
 	clk_disable_unprepare(clk_ahb);
+	clk_disable_unprepare(eswin_sdhci_sdio->cfg_clk);
+	clk_disable_unprepare(eswin_sdhci_sdio->aclk);
 
 	return 0;
 }
@@ -1055,7 +1120,7 @@ static struct platform_driver eswin_sdhci_sdio_driver = {
 		.name = "eswin-sdhci-sdio",
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = eswin_sdhci_sdio_of_match,
-		.pm = &eswin_sdhci_sdio_pmops,
+		.pm = pm_sleep_ptr(&eswin_sdhci_sdio_pmops),
 	},
 	.probe = eswin_sdhci_sdio_probe,
 	.remove = eswin_sdhci_sdio_remove,

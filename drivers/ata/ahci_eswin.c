@@ -308,7 +308,7 @@ static struct platform_driver ahci_driver = {
         .name = DRV_NAME,
         .of_match_table = ahci_of_match,
         .acpi_match_table = ahci_acpi_match,
-        .pm = &ahci_pm_ops,
+        .pm = pm_sleep_ptr(&ahci_pm_ops),
     },
 };
 module_platform_driver(ahci_driver);

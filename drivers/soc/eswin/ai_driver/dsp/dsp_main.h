@@ -38,6 +38,8 @@
 #include "dsp_perf.h"
 #include "dsp_mailbox.h"
 
+#define DSP_VERSION "1.0.0"
+
 #if DSP_ENV_SIM
 static inline ES_U32 get_perf_timer_cnt()
 {
@@ -134,6 +136,7 @@ struct es_dsp {
 	spinlock_t send_lock;
 	int wait_running;
 	dsp_request_t *current_task;
+	wait_queue_head_t event_wq;
 	int task_reboot_cnt;
 
 	u64 sram_phy_addr;
@@ -190,9 +193,7 @@ struct es_dsp {
 	int op_idx;
 	dsp_fw_perf_t op_cur_perf;
 	atomic_t dmabuf_mapped_cnt;
-#if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df;
-#endif
 };
 
 #define DSP_FIRMWARE_IOVA 0xfe000000
