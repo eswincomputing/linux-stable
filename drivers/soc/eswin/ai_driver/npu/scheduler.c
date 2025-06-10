@@ -79,7 +79,6 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 		dla_error("%s, %d, send mailbox to npu error=%d.\n", __func__,
 			  __LINE__, ret);
 	}
-	atomic64_set(&ndev->start_hwexec_time, ktime_get_real_ns());
 	return ret;
 }
 
@@ -305,18 +304,7 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	engine->tiktok_frame[f->tiktok] = NULL;
 	unset_current(engine, executor, f->tiktok);
 	spin_unlock_irqrestore(&engine->executor_lock, flags);
-	atomic64_add(ktime_get_real_ns() - atomic64_read(&ndev->start_hwexec_time),
-	             &ndev->total_hwexec_time);
 	npu_frame_done_process(f);
-
 	atomic64_add(model->model_shm->batch_num, &ndev->total_frame_done);
-	last_state = atomic_fetch_and(~NPU_RT_MUTX_FRAME_DONE,
-				      &model->uctx->lock_status);
-	if (last_state == NPU_RT_MUTX_FRAME_DONE) {
-		up(&engine->runtime_sem);
-		dla_debug("%s, %d unlocked, last_state:0x%lx\n", __func__,
-			  __LINE__, last_state);
-	}
-
 	dla_debug("%s, %d.\n", __func__, __LINE__);
 }

@@ -531,19 +531,12 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 	bool result;
 	int new_state;
 
-	new_state = (NPU_RT_MUTX_LOCKED | NPU_RT_MUTX_FRAME_DONE);
-	if (atomic_cmpxchg(&uctx->lock_status, NPU_RT_MUTX_LOCKED, new_state) !=
-	    NPU_RT_MUTX_LOCKED) {
-		dla_error("%s, %d, invalid status\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
 	model = npu_get_model_by_id(uctx, idx);
 	if (model == NULL) {
 		dla_error("%s, %d, invalid model id = 0x%x.\n", __func__,
 			  __LINE__, idx);
 		ret = -EINVAL;
-		goto err_model_id;
+		return ret;
 	}
 
 	ret = create_new_frame(model->executor, &f, model);
@@ -552,7 +545,7 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 			"%s %d model %d io_tensor_size %d != win_arg->tensor_size %d\n",
 			__func__, __LINE__, idx, ret, win_arg->tensor_size);
 		npu_put_model(model);
-		goto err_model_id;
+		return ret;
 	}
 	kernel_handle_release_family(&f->handle);
 	if (copy_from_user(f->io_tensor_list, (void __user *)win_arg->data,
@@ -592,9 +585,6 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 
 clean_out:
 	kernel_handle_decref(&f->handle);
-err_model_id:
-	atomic_set(&uctx->lock_status, NPU_RT_MUTX_LOCKED);
-
 	return ret;
 }
 

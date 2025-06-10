@@ -98,8 +98,6 @@ struct nvdla_device {
 	atomic64_t start_lock_time;
 	atomic64_t end_lock_time;
 	atomic64_t total_lock_time;
-	atomic64_t start_hwexec_time;
-	atomic64_t total_hwexec_time;
 	atomic64_t total_frame_done;
 };
 

@@ -38,6 +38,7 @@ static host_node_t *g_host_node[2] = { NULL };
 static wait_queue_head_t g_perf_wait_list[2];
 static u32 g_stat_titok[2] = { -1 };
 
+extern  u32 get_perf_timer_cnt(u32 numa_id);
 void handle_perf_switch(struct nvdla_device *ndev, bool enable)
 {
 	struct win_engine *engine;
@@ -190,18 +191,35 @@ static int npu_stat_show(struct seq_file *m, void *p)
 {
 	int i = 0;
 	struct nvdla_device *ndev;
+	emission_node_t *pemission_node;
+	u64 total_hwexec_time = 0;
+	u32 frame_start = 0;
+	u64 gap_adjust = 0 ;
+	u32 curr_rtc = 0;
 	uint64_t start_stat_time = ktime_get_real_ns();
 	for (i = 0; i < 2; i++) {
 		ndev = get_nvdla_dev(i);
-		if (!ndev) {
+		if (!ndev || !ndev->emission_base) {
 			continue;
 		}
-		if(atomic64_read(&ndev->start_lock_time) > atomic64_read(&ndev->end_lock_time)){
-			start_stat_time = atomic64_read(&ndev->start_lock_time);
+		gap_adjust = 0;
+		pemission_node = (emission_node_t *)ndev->emission_base;
+		total_hwexec_time = pemission_node->total_ran_time;
+		frame_start = pemission_node->frame_start_ts;
+		if(frame_start)
+		{
+			curr_rtc = get_perf_timer_cnt(i);
+			if(curr_rtc > frame_start) {
+				gap_adjust = (curr_rtc - frame_start) * 1000 /24;
+			} else {
+				gap_adjust = (-1U - frame_start + curr_rtc) * 1000 /24;
+			}
 		}
-		seq_printf(m, "npu%d %llu %llu %llu %llu\n",i, start_stat_time,
-		           atomic64_read(&ndev->total_lock_time), atomic64_read(&ndev->total_hwexec_time),
-				   atomic64_read(&ndev->total_frame_done));
+
+		seq_printf(m, "npu%d %llu %llu %llu\n",i, start_stat_time,
+		           (total_hwexec_time * 1000) /24 + gap_adjust,
+		           (total_hwexec_time * 1000) /24),
+		           atomic64_read(&ndev->total_frame_done);
 	}
 	return 0;
 }
@@ -212,11 +230,30 @@ static int npu_info_show(struct seq_file *m, void *p)
 	npu_e31_perf_t *op_stat;
 	s16 op_idx;
 	unsigned long flags;
+	u32 task_count[2] = { 0 };
+	struct host_frame_desc *frame = NULL;
+	struct nvdla_device *ndev;
+	struct win_engine *engine;
 
+	for (i = 0; i < 2; i++) {
+		ndev = get_nvdla_dev(i);
+		if (!ndev || !ndev->win_engine) {
+			continue;
+		}
+		engine = (struct win_engine *)ndev->win_engine;
+		spin_lock_irqsave(&engine->executor_lock, flags);
+		list_for_each_entry(frame, &engine->sched_frame_list, sched_node)
+		{
+			task_count[i]++;
+		}
+		spin_unlock_irqrestore(&engine->executor_lock, flags);
+	}
+
+	seq_printf(m, "current task queue count:%u, %u\n",task_count[0], task_count[1]);
 	if (g_perf == 0) {
-		seq_printf(
-			m,
-			"The perf is not turned on, pls first turn on the perf.\n");
+		// seq_printf(
+		// 	m,
+		// 	"The perf is not turned on, pls first turn on the perf.\n");
 		return 0;
 	}
 

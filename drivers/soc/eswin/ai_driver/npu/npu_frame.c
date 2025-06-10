@@ -358,17 +358,7 @@ static void npu_process_timeout(struct win_engine *engine, u32 tiktok)
 	spin_unlock_irqrestore(&engine->executor_lock, flags);
 
 	npu_dump_dtim(engine, f);
-
 	npu_frame_done_process(f);
-	model = f->model;
-	last_state = atomic_fetch_and(~NPU_RT_MUTX_FRAME_DONE,
-				      &model->uctx->lock_status);
-	if (last_state == NPU_RT_MUTX_FRAME_DONE) {
-		dla_debug("%s, %d unlocked, last_state:0x%lx\n", __func__,
-			  __LINE__, last_state);
-		up(&engine->runtime_sem);
-	}
-
 	dla_debug("%s, %d, timeout frame free done.\n", __func__, __LINE__);
 }
 

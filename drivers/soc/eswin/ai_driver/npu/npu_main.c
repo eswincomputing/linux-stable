@@ -329,7 +329,7 @@ irqreturn_t npu_mbox_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static struct nvdla_device *static_nvdla_dev[2];
+static struct nvdla_device *static_nvdla_dev[2] = { NULL };
 
 struct nvdla_device *get_nvdla_dev(int i)
 {
