@@ -710,7 +710,7 @@
 
 		d1_fan_control: fan_control@70b50000 {
 			compatible = "eswin-fan-control";
-			reg = <0x0 0x70b50000 0x0 0x10000>;
+			reg = <0x0 0x70b50000 0x0 0x10000>, <0x0 0x51810668 0x0 0x4>;
 			clocks = <&d1_clock EIC7700_CLK_LSP_FAN_PCLK>;
 			clock-names = "pclk";
 			resets = <&d1_reset FAN_RST_CTRL SW_FAN_RST_N>;
@@ -1675,7 +1675,7 @@
 			dma-noncoherent;
 		};
 
-		d1_ssi0: spi1@70810000 {
+		d1_ssi0: spi@70810000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;

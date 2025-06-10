@@ -301,17 +301,6 @@ void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
     uint32_t val1, val2, val3;
     uint32_t stride, shnum;
 
-    // /* initalize global control */
-    // memset(dvp2axi_out_dvp_vch_fid, 0, VI_DVP2AXI_DVP_CHANNELS * VI_DVP2AXI_VIRTUAL_CHANNELS * sizeof(uint32_t));
-    // memset(dvp2axi_out_dvp_vch_enable, 0, VI_DVP2AXI_DVP_CHANNELS * VI_DVP2AXI_VIRTUAL_CHANNELS * sizeof(uint8_t));
-    // memset(dvp2axi_out_dvp_vch_done, 1, VI_DVP2AXI_DVP_CHANNELS * VI_DVP2AXI_VIRTUAL_CHANNELS * sizeof(uint8_t));
-    // memset(dvp2axi_out_dvp_ch_done, 1, VI_DVP2AXI_DVP_CHANNELS * sizeof(uint8_t));
-
-    // memset(dvp2axi_out_dvp_ch_flush_mask, 0, VI_DVP2AXI_DVP_CHANNELS * sizeof(uint32_t));
-    // memset(dvp2axi_out_dvp_ch_done_mask, 0, VI_DVP2AXI_DVP_CHANNELS * sizeof(uint32_t));
-
-    /* no bit shift, burst length 16 */
-
     /* DVP0-1 16bit, IO_DVP disable */
     val1 = DVP2AXI_IO_DVP_DIS;
 #ifdef DVP2AXI_DVP0_ENABLE
@@ -324,18 +313,6 @@ void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
 
     /* outstanding 16 */
     val1 = (DVP2AXI_OUTSTANDING_SIZE-1) << 24;
-    // #ifdef DVP2AXI_DVP2_ENABLE
-    // val1 |= (DVP2AXI_DVP2_PWIDTH);
-    // #endif
-    // #ifdef DVP2AXI_DVP3_ENABLE
-    // val1 |= (DVP2AXI_DVP3_PWIDTH << 5);
-    // #endif
-    // #ifdef DVP2AXI_DVP4_ENABLE
-    // val1 |= (DVP2AXI_DVP4_PWIDTH << 10);
-    // #endif
-    // #ifdef DVP2AXI_DVP5_ENABLE
-    // val1 |= (DVP2AXI_DVP5_PWIDTH << 15);
-    // #endif
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, val1);
 
     /* 240p or 480p */
@@ -344,25 +321,7 @@ void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
     DPRINTK("DVP0 Size 0x%x\n", DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR));
 #endif
     
-#ifdef DVP2AXI_DVP0_ENABLE
-    /* DVP0 Address */
-    // DVP2AXI_HalWriteReg(dvp2axi_hw, dvp2axi_out_addr_csr[0][0], dvp2axi_out_addr[0][0]);
-    // DVP2AXI_HalWriteReg(dvp2axi_hw, dvp2axi_out_addr_csr[0][1], dvp2axi_out_addr[0][1]);
-    // DVP2AXI_HalWriteReg(dvp2axi_hw, dvp2axi_out_addr_csr[0][2], dvp2axi_out_addr[0][2]);
-    // DVP2AXI_HalWriteReg(dvp2axi_hw, dvp2axi_out_addr_csr[0][3], dvp2axi_out_addr[0][3]);
-    /*
-	dvp2axi_out_dvp_vch_enable[0][0] = 1;
-    dvp2axi_out_dvp_vch_done[0][0] = 0;
-    dvp2axi_out_dvp_ch_done[0] = 0;
-	*/
-#endif
 
-    /* DVP0,1 stride: 16bytes aligned */
-    // #ifdef SENSOR_OUT_12BIT
-    // val1 = SENSOR_OUT_H * 3 / 2;
-    // #else
-    // val1 = SENSOR_OUT_H * 5 / 4;
-    // #endif
     val1 = 0;
     val2 = 0;
 #ifdef DVP2AXI_DVP0_ENABLE
@@ -375,9 +334,6 @@ void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
         DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR, val2);
 #endif
 
-// #if defined(DVP2AXI_DVP4_ENABLE) || defined(DVP2AXI_DVP5_ENABLE)
-//     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL35_CSR, val2);
-// #endif
 
     stride = (SENSOR_OUT_H + SENSOR_OUT_H_PAD)*2 + 15;
     stride = stride & 0xfff0;
@@ -396,7 +352,6 @@ void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
 #endif
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL37, val2);  //for embedded
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL40, val3);  //for embedded
-    DPRINTK("###########0x84:0x%x, 0x88:0x%x, 0x94:0x%x, 0xe0:0x%x\n",DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR),DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL34_CSR), DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL37), DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL40));
 #endif	//#if defined(DVP2AXI_DVP0_ENABLE) || defined(DVP2AXI_DVP1_ENABLE)
 #if defined(DVP2AXI_DVP2_ENABLE) || defined(DVP2AXI_DVP3_ENABLE)
     val2 = 0;
@@ -426,14 +381,6 @@ void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL39, val2);  //for embedded
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL42, val3);  //for embedded
 #endif 	//#if defined(DVP2AXI_DVP4_ENABLE) || defined(DVP2AXI_DVP5_ENABLE)
-
-	// //dvp0_hs_stride_cfg
-	// DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR, 0x1a00);
-	// DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR, 0x09a00cd8);
-	// DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR, 0x1a00);
-
-    /* virtual channel 0 only */
-    // DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL36_CSR, 0);
 }
 
 void bmtest_dvp2axi_hw_int_setup(struct es_dvp2axi_hw *dvp2axi_hw)
@@ -446,23 +393,12 @@ void bmtest_dvp2axi_hw_int_setup(struct es_dvp2axi_hw *dvp2axi_hw)
     dvp2axi_int2_err_dvp_mask |= (1 << 2);
     val1 |= 7;
     val2 |= (1 << 9);
-	
-    // dvp2axi_out_dvp_ch_flush_mask[0] = 1;
-    // dvp2axi_out_dvp_ch_done_mask[0] = (1 << 9);
-    // DPRINTK("dvp0 %x %x\n", dvp2axi_out_dvp_ch_flush_mask[0], dvp2axi_out_dvp_ch_done_mask[0]);
-    
-	// #ifdef VI_DVP2AXI_IRQ_ENABLE
-    // metal_external_interrupt_register(VI_DVP2AXI_DVP0_IRQ_NUM, bmtest_dvp2axi_irq_handler, VI_DVP2AXI_IRQ_PRIORITY, NULL);
-    // #endif
     #endif
 
     dvp2axi_int0_flush_mask = val1;
     dvp2axi_int0_done_mask = val2;
     dvp2axi_int1_flush_mask = val3;
     dvp2axi_int1_done_mask = val4;
-    DPRINTK("int0_mask=0x%x\n", val1 | val2);
-    DPRINTK("int1_mask=0x%x\n", val3 | val4);
-    DPRINTK("int2_mask=0x%x\n", dvp2axi_int2_err_dvp_mask | dvp2axi_int2_err_global_mask);
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR, val1 | val2);
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, val3 | val4);
     DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, dvp2axi_int2_err_global_mask | dvp2axi_int2_err_dvp_mask);
@@ -530,54 +466,10 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	bmtest_dvp2axi_hw_program(dvp2axi_hw);
-	bmtest_dvp2axi_hw_int_setup(dvp2axi_hw);
-	// bmtest_dvp2axi_hw_enable(dvp2axi_hw);
-
-	// if (of_property_read_bool(np, "eic770x,android-usb-camerahal-enable")) {
-	// 	dev_info(dev, "config dvp2axi adapt to android usb camera hal!\n");
-	// 	dvp2axi_hw->adapt_to_usbcamerahal = true;
-	// }
-
-	// dvp2axi_hw->grf = syscon_regmap_lookup_by_phandle(np, "eic770x,grf");
-	// if (IS_ERR(dvp2axi_hw->grf))
-	// 	dev_warn(dev, "unable to get eic770x,grf\n");
-
-	// if (data->clks_num > ES_DVP2AXI_MAX_BUS_CLK ||
-	//     data->rsts_num > ES_DVP2AXI_MAX_RESET) {
-	// 	dev_err(dev, "out of range: clks(%d %d) rsts(%d %d)\n",
-	// 		data->clks_num, ES_DVP2AXI_MAX_BUS_CLK,
-	// 		data->rsts_num, ES_DVP2AXI_MAX_RESET);
-	// 	return -EINVAL;
-	// }
-
-	// for (i = 0; i < data->clks_num; i++) {
-	// 	struct clk *clk = devm_clk_get(dev, data->clks[i]);
-
-	// 	if (IS_ERR(clk)) {
-	// 		dev_err(dev, "failed to get %s\n", data->clks[i]);
-	// 		return PTR_ERR(clk);
-	// 	}
-	// 	dvp2axi_hw->clks[i] = clk;
-	// }
-	// dvp2axi_hw->clk_size = data->clks_num;
-
-	// for (i = 0; i < data->rsts_num; i++) {
-	// 	struct reset_control *rst = NULL;
-
-	// 	if (data->rsts[i])
-	// 		rst = devm_reset_control_get(dev, data->rsts[i]);
-	// 	if (IS_ERR(rst)) {
-	// 		dvp2axi_hw->dvp2axi_rst[i] = NULL;
-	// 		dev_err(dev, "failed to get %s\n", data->rsts[i]);
-	// 	} else {
-	// 		dvp2axi_hw->dvp2axi_rst[i] = rst;
-	// 	}
-	// }
+	// bmtest_dvp2axi_hw_program(dvp2axi_hw);
 
 	dvp2axi_hw->dvp2axi_regs = data->dvp2axi_regs;
 
-	// dvp2axi_hw->is_dma_sg_ops = true;
 	dvp2axi_hw->is_dma_sg_ops = false;
 	dvp2axi_hw->is_dma_contig = true;
 	mutex_init(&dvp2axi_hw->dev_lock);

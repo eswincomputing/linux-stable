@@ -270,6 +270,7 @@ static int eswin_pcie_host_init(struct dw_pcie_rp *pp)
 
 	if (!ret) {
 		dev_info(pcie->pci.dev, "No clock exist.\n");
+		win2030_tbu_power(pcie->pci.dev, false);
 		eswin_pcie_power_off(pcie);
 		eswin_pcie_clk_disable(pcie);
 		return -ENODEV;

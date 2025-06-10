@@ -20,7 +20,7 @@
 
 /dts-v1/;
 
-#include "eic7702-som560.dtsi"
+#include "eic7702-som560-interleave.dtsi"
 
 / {
 	#address-cells = <2>;
@@ -68,9 +68,6 @@
 	disable-wp;
 	no-sdio;
 	no-mmc;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio13_default>;
-	cd-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
 };
 
 &d1_sdio0 {
@@ -175,10 +172,6 @@
 		compatible = "atmel,24c02";
 		reg = <0x50>;
 	};
-};
-
-&fan_control {
-	status = "okay";
 };
 
 &d0_i2c1 {
@@ -292,10 +285,6 @@
 };
 &d1_timer1 {
 	status = "disabled";
-};
-
-&pwm0 {
-	status = "okay";
 };
 
 &pinctrl {

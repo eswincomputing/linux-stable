@@ -853,6 +853,8 @@
     status = "disabled";
     eswin-plat = <0>;
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		port@2 {
 			reg = <2>;
 			hdmi_in_i2s: endpoint@1 {

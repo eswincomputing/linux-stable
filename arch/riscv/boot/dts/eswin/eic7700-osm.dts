@@ -48,8 +48,7 @@
 		serial0 = &d0_uart0;
 		ethernet0 = &d0_gmac0;
 		ethernet1 = &d0_gmac1;
-		rtc0 = &die0_rtc;
-		rtc1 = &pcf_rtc;
+		rtc0 = &pcf_rtc;
 	};
 
 	chosen {
@@ -116,7 +115,7 @@
 			no-map;
 		};
 
-		dvp2axi_mem: dvp2axi-mem@0x90000000 {
+		dvp2axi_mem: dvp2axi-mem@90000000 {
 			compatible = "shared-dma-pool";
 			reg = <0x0 0x90000000 0x0 0x10000000>;
 			no-map;
@@ -512,6 +511,7 @@
 	drive-impedance-ohm = <50>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	disable-wp;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_emmc_led_control_default>;
 	no-sdio;
@@ -525,8 +525,12 @@
 	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
+	disable-wp;
 	no-sdio;
 	no-mmc;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio13_default>;
+	cd-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
 };
 
 &sdio1 {
@@ -596,6 +600,9 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio55_default>;
+	hub-rst-gpios = <&portb 23 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -708,22 +715,11 @@
 
 &fan_control {
 	status = "okay";
+	eswin,pwm_inverted;
 };
 
 &d0_i2c0 {
-	/* codec es8388 */
 	status = "disabled";
-	d0_es8388_0: es8388-0@10 {
-		compatible = "eswin,es8388";
-		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s1_endpoint>;
-			};
-		};
-	};
 };
 
 &d0_i2c1 {
@@ -737,7 +733,7 @@
 		compatible = "ti,tlv320aic3106";
 		reg = <0x1b>;
 		status = "okay";
-		ai3x-ocmv = <2>; /* Common-Mode Voltage 1.65V */
+		ai3x-ocmv = <0>; /* Common-Mode Voltage 1.35V */
 		ai3x-micbias-vg = <2>; /* MICBIAS_2_5V */
 		#sound-dai-cells = <0>;
 		pinctrl-names = "default";
@@ -754,7 +750,7 @@
 
 &d0_i2c3 {
 	/* unused */
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_i2c4 {
@@ -809,12 +805,11 @@
 				regulator-min-microamp=<20000000>;
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
-				regulator-always-on;
 			};
 		};
 	};
 	pcf_rtc:rtc@51 {
-		compatible = "nxp,pcf8563";
+		compatible = "nxp,pcf85063a";
 		reg = <0x51>;
 	};
 };
@@ -870,8 +865,13 @@
 
 &pinctrl {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default &pinctrl_gpio10_default
+			&pinctrl_gpio71_default &pinctrl_gpio73_default &pinctrl_gpio74_default &pinctrl_gpio75_default
+			&pinctrl_gpio76_default &pinctrl_gpio77_default &pinctrl_gpio79_default &pinctrl_gpio80_default
+			&pinctrl_gpio83_default &pinctrl_gpio84_default &pinctrl_gpio85_default &pinctrl_gpio86_default
+			&pinctrl_gpio87_default &pinctrl_gpio89_default &pinctrl_gpio91_default &pinctrl_gpio92_default>;
 };
-
 &gpio0 {
 	status = "okay";
 };

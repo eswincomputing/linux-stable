@@ -29,7 +29,7 @@
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
-#include "eic7700-dvb-dsi-panel.dtsi"
+//#include "eic7700-dvb-dsi-panel.dtsi"
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -307,12 +307,12 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dc_out_dpi: endpoint@0 {
-			reg = <0>;
+		dc_out_dpi: endpoint@1 {
+			reg = <1>;
 			remote-endpoint = <&vd_input>;
 		};
-		dc_out_hdmi: endpoint@1 {
-			reg = <1>;
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
 			remote-endpoint = <&hdmi_in_dc>;
 		};
 	};
@@ -436,6 +436,9 @@
 	enable-data-pullup;
 	no-sdio;
 	no-mmc;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio13_default>;
+	cd-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
 };
 
 &sdio1 {

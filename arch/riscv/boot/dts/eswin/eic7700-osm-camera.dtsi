@@ -13,7 +13,7 @@
 				#size-cells = <0>;
 				reg = <0>;
 				vvcam_isp_input_port: endpoint@0 {
-					remote-endpoint = <&mipi2_csi2_output>;
+					remote-endpoint = <&mipi2_csi2_output1>;
 				};
 			};
 
@@ -166,8 +166,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipi2_csi2_input: endpoint@1 {
-				reg = <1>;
+			mipi2_csi2_input: endpoint@0 {
+				reg = <0>;
 				remote-endpoint = <&csidphy0_out>;
 			};
 		};
@@ -177,9 +177,20 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipi2_csi2_output: endpoint@0 {
-				reg = <0>;
+			mipi2_csi2_output: endpoint@1 {
+				reg = <1>;
 				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
+
+		port@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_output1: endpoint@2 {
+				reg = <2>;
+				remote-endpoint = <&vvcam_isp_input_port>;
 			};
 		};
 	};

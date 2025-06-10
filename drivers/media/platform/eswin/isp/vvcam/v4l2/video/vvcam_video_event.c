@@ -100,7 +100,6 @@ int vvcam_video_post_event(struct vvcam_video_dev *vvcam_vdev,
     memcpy(event.u.data, &event_pkg->head, sizeof(event_pkg->head));
 
     if (!vvcam_video_event_subscribed(vvcam_vdev, event.type, event.id)) {
-        printk("vvcam_video_event_subscribed failed\n");
         return -EINVAL;
     }
 
