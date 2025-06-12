@@ -1711,7 +1711,7 @@ void mmz_vb_vb_dbg_init(void)
 {
 	es_proc_entry_t *proc = NULL;
 
-	proc = es_create_proc_entry(PROC_ENTRY_VB, NULL);
+	proc = es_create_proc_entry(PROC_ENTRY_VB, 0666, NULL);
 
 	if (proc == NULL) {
 		vb_err("Kernel: Register vb proc failed!\n");

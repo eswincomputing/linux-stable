@@ -10,16 +10,23 @@
 
 #ifndef __ES_PROC__
 #define __ES_PROC__
+#include <linux/types.h>
+#include <linux/list.h>
 
-#define PROC_ENTRY_VI "vi"
-#define PROC_ENTRY_VO "vo"
-#define PROC_ENTRY_VB "vb"
-#define PROC_ENTRY_ISP "isp"
+#define PROC_ENTRY_VI		"vi"
+#define PROC_ENTRY_VO		"vo"
+#define PROC_ENTRY_VB		"vb"
+#define PROC_ENTRY_ISP		"isp"
+#define PROC_ENTRY_VDEC		"vdec"
+#define PROC_ENTRY_VENC		"venc"
+#define PROC_ENTRY_HAE		"hae"
+#define PROC_ENTRY_DEWARP 	"dewarp"
 
 // proc
 typedef struct es_proc_dir_entry {
 	char name[50];
 	void *proc_dir_entry;
+	struct es_proc_dir_entry *parent;
 	int (*open)(struct es_proc_dir_entry *entry);
 	int (*read)(struct es_proc_dir_entry *entry);
 	int (*write)(struct es_proc_dir_entry *entry, const char *buf,
@@ -29,9 +36,9 @@ typedef struct es_proc_dir_entry {
 	struct list_head node;
 } es_proc_entry_t;
 
-extern es_proc_entry_t *es_create_proc_entry(const char *name,
+extern es_proc_entry_t *es_create_proc_entry(const char *name, umode_t mode,
 					es_proc_entry_t *parent);
-extern es_proc_entry_t *es_proc_mkdir(const char *name,
+extern es_proc_entry_t *es_proc_mkdir(const char *name, umode_t mode,
 					es_proc_entry_t *parent);
 extern void es_remove_proc_entry(const char *name, es_proc_entry_t *parent);
 extern int es_seq_printf(es_proc_entry_t *entry, const char *fmt, ...)

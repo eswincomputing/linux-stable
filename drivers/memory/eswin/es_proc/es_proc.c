@@ -27,7 +27,7 @@ static int es_seq_show(struct seq_file *s, void *p)
 	es_proc_entry_t sentry;
 
 	if (oldsentry == NULL) {
-		pr_err("%s %d- parameter invalid!\n", __func__,__LINE__);
+		pr_err("parameter invalid!\n");
 		return -1;
 	}
 	memset(&sentry, 0, sizeof(es_proc_entry_t));
@@ -68,132 +68,135 @@ static const struct proc_ops es_proc_ops = {
 	.proc_release = single_release
 };
 
-es_proc_entry_t *es_create_proc(const char *name, es_proc_entry_t *parent)
+es_proc_entry_t *es_create_proc(const char *name, umode_t mode, es_proc_entry_t *parent)
 {
 	struct proc_dir_entry *entry = NULL;
 	es_proc_entry_t *sentry = NULL;
 
 	sentry = kzalloc(sizeof(struct es_proc_dir_entry), GFP_KERNEL);
 	if (sentry == NULL) {
-		pr_err("%s %d - kmalloc failed!\n",__func__,__LINE__);
+		pr_err("kmalloc failed!\n");
 		return NULL;
 	}
 
 	strncpy(sentry->name, name, sizeof(sentry->name) - 1);
-
+	pr_debug("create file %s with mode %o\n", name, (unsigned)mode);
 	if (parent == NULL) {
-		entry = proc_create_data(name, 0, NULL, &es_proc_ops, sentry);
+		entry = proc_create_data(name, mode, NULL, &es_proc_ops, sentry);
 	} else {
-		entry = proc_create_data(name, 0, parent->proc_dir_entry, &es_proc_ops, sentry);
+		entry = proc_create_data(name, mode, parent->proc_dir_entry, &es_proc_ops, sentry);
 	}
 	if (entry == NULL) {
-		pr_err("%s %d - create_proc_entry failed!\n",__func__,__LINE__);
+		pr_err("create_proc_entry failed!\n");
 		kfree(sentry);
 		sentry = NULL;
 		return NULL;
 	}
 	sentry->proc_dir_entry = entry;
 	sentry->open = NULL;
+	sentry->parent = parent;
 
 	list_add_tail(&(sentry->node), &list);
 	return sentry;
 }
 
-void es_remove_proc(const char *name, es_proc_entry_t *parent)
-{
-	struct es_proc_dir_entry *sproc = NULL;
-
-	if (name == NULL) {
-		pr_err("%s %d - parameter invalid!\n",__func__,__LINE__);
-		return;
-	}
-	if (parent != NULL) {
-		remove_proc_entry(name, parent->proc_dir_entry);
-	} else {
-		remove_proc_entry(name, NULL);
-	}
-	list_for_each_entry(sproc, &list, node) {
-		if (strncmp(sproc->name, name, sizeof(sproc->name)) == 0) {
-			list_del(&(sproc->node));
-			break;
-		}
-	}
-	if (sproc != NULL) {
-		kfree(sproc);
-	}
-}
-
-es_proc_entry_t *es_create_proc_entry(const char *name,
+es_proc_entry_t *es_create_proc_entry(const char *name, umode_t mode,
 					  es_proc_entry_t *parent)
 {
-	parent = proc_entry;
+	/* If NULL, create entry under the eswin dir, otherwise under the specified parent*/
+	if (parent == NULL)
+		parent = proc_entry;
 
-	return es_create_proc(name, parent);
+	return es_create_proc(name, mode, parent);
 }
 EXPORT_SYMBOL(es_create_proc_entry);
 
+void _es_remove_proc_entry(const char *name, es_proc_entry_t *parent)
+{
+    struct es_proc_dir_entry *sproc, *tmp;
+    struct es_proc_dir_entry *child, *child_tmp;
+	bool remove = false;
+
+    if (name == NULL) {
+        pr_err("parameter invalid!\n");
+        return;
+    }
+
+    list_for_each_entry_safe(sproc, tmp, &list, node) {
+        if (strncmp(sproc->name, name, sizeof(sproc->name)) == 0) {
+
+            list_for_each_entry(child, &list, node) {
+                if (child->parent == sproc) {
+					// some node's parent point to target entry, do not remove.
+					pr_err("Error: directory %s is not empty!\n", name);
+					return;
+                }
+            }
+
+			// remove
+			remove = true;
+            remove_proc_entry(name, parent == NULL ? NULL : parent->proc_dir_entry);
+            list_del(&sproc->node);
+            kfree(sproc);
+            break;
+        }
+    }
+	if (remove)
+		pr_debug("entry %s with parent=%s removed\n", name, parent ? parent->name : "eswin");
+	else
+		pr_err("entry %s with parent=%s not found\n", name, parent ? parent->name : "eswin");
+}
+
 void es_remove_proc_entry(const char *name, es_proc_entry_t *parent)
 {
-	parent = proc_entry;
-	es_remove_proc(name, parent);
-	return;
+	/* If NULL, remove entry under the eswin dir, otherwise under the specified parent*/
+    if (parent == NULL)
+        parent = proc_entry;
+
+	return _es_remove_proc_entry(name, parent);
 }
 EXPORT_SYMBOL(es_remove_proc_entry);
 
-es_proc_entry_t *es_proc_mkdir(const char *name, es_proc_entry_t *parent)
+es_proc_entry_t *_es_proc_mkdir(const char *name, umode_t mode, es_proc_entry_t *parent)
 {
 	struct proc_dir_entry *proc = NULL;
 	struct es_proc_dir_entry *sproc = NULL;
 
 	sproc = kzalloc(sizeof(struct es_proc_dir_entry), GFP_KERNEL);
 	if (sproc == NULL) {
-		pr_err("%s %d - kmalloc failed!\n",__func__,__LINE__);
+		pr_err("kmalloc failed!\n");
 		return NULL;
 	}
 
 	strncpy(sproc->name, name, sizeof(sproc->name) - 1);
 
 	if (parent != NULL) {
-		proc = proc_mkdir_data(name, 0, parent->proc_dir_entry, sproc);
+		proc = proc_mkdir_data(name, mode, parent->proc_dir_entry, sproc);
 	} else {
-		proc = proc_mkdir_data(name, 0, NULL, sproc);
+		proc = proc_mkdir_data(name, mode, NULL, sproc);
 	}
 	if (proc == NULL) {
-		pr_err("%s %d - proc_mkdir failed!\n",__func__,__LINE__);
+		pr_err("proc_mkdir failed!\n");
 		kfree(sproc);
 		sproc = NULL;
 		return NULL;
 	}
 	sproc->proc_dir_entry = proc;
+	sproc->parent = parent;
 
 	list_add_tail(&(sproc->node), &list);
 	return sproc;
 }
-EXPORT_SYMBOL(es_proc_mkdir);
 
-void es_remove_proc_root(const char *name, es_proc_entry_t *parent)
+es_proc_entry_t *es_proc_mkdir(const char *name, umode_t mode, es_proc_entry_t *parent)
 {
-	struct es_proc_dir_entry *sproc = NULL;
+	/* If NULL, create entry under the eswin dir, otherwise under the specified parent*/
+	if (parent == NULL)
+		parent = proc_entry;
 
-	if (name == NULL) {
-		pr_err("%s %d - parameter invalid!\n",__func__,__LINE__);
-		return;
-	}
-	if (parent != NULL) {
-		remove_proc_entry(name, parent->proc_dir_entry);
-	} else {
-		remove_proc_entry(name, NULL);
-	}
-	list_for_each_entry(sproc, &list, node) {
-		if (strncmp(sproc->name, name, sizeof(sproc->name)) == 0) {
-			list_del(&(sproc->node));
-			break;
-		}
-	}
-	if (sproc != NULL) {
-		kfree(sproc);
-	}
+	return  _es_proc_mkdir(name, mode, parent);
 }
+EXPORT_SYMBOL(es_proc_mkdir);
 
 int es_seq_printf(es_proc_entry_t *entry, const char *fmt, ...)
 {
@@ -212,7 +215,7 @@ EXPORT_SYMBOL(es_seq_printf);
 static int __init es_proc_init(void)
 {
 	INIT_LIST_HEAD(&list);
-	proc_entry = es_proc_mkdir("umap", NULL);
+	proc_entry = _es_proc_mkdir("eswin", 0755, NULL);
 	if (proc_entry == NULL) {
 		pr_err("init, proc mkdir error!\n");
 		return -EPERM;
@@ -222,7 +225,7 @@ static int __init es_proc_init(void)
 
 static void __exit es_proc_exit(void)
 {
-	es_remove_proc_root("umap", NULL);
+	_es_remove_proc_entry("eswin", NULL);
 }
 
 module_init(es_proc_init);
