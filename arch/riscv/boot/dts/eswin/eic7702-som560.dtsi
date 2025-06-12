@@ -941,7 +941,7 @@
 &d0_gmac1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio34_default>;
-	rst-gpios = <&porta 34 GPIO_ACTIVE_LOW>;
+	rst-gpios = <&portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 	dly-param-1000m = <0x20202020 0x46205020 0x20202020>;
@@ -953,7 +953,7 @@
 &d1_gmac1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_gpio34_default>;
-	rst-gpios = <&d1_porta 34 GPIO_ACTIVE_LOW>;
+	rst-gpios = <&d1_portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 	dly-param-1000m = <0x20202020 0x46205A20 0x20202020>;
