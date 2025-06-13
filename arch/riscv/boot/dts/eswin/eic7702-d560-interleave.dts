@@ -245,13 +245,6 @@
 	/* pin header */
 };
 
-&pvt0 {
-	status = "disabled";
-};
-&d1_pvt0 {
-	status = "disabled";
-};
-
 &wdt0 {
 	status = "disabled";
 };

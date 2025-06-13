@@ -1369,9 +1369,13 @@
 
 &pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d0_sys_con 0x0668>;
 };
 &d1_pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d1_sys_con 0x0668>;
 };
 
 &pvt1 {
