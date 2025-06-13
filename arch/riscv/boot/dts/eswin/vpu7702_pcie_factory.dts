@@ -376,6 +376,7 @@
 
 &d0_npu{
 	status = "okay";
+	apply_npu_1G_freq;
 	npu-supply=<&npu_vcc1>;
 };
 
