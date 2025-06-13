@@ -521,6 +521,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	nvdla_dev->rate = target_rate;
 	nvdla_dev->volt = target_volt;
 	mutex_unlock(&nvdla_dev->devfreq_lock);
+	dev_info(dev, "Set voltage %lu uV, frequency %lu.\n", target_volt, target_rate);
 	return 0;
 
 err_rate:
@@ -549,8 +550,8 @@ static int eswin_get_dev_status(struct device *dev,
 				     struct devfreq_dev_status *stat)
 {
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(dev);
-	unsigned long rate;
-	stat->busy_time = 1024;	
+
+	stat->busy_time = 1024;
 	stat->total_time = 1024;
 	stat->current_frequency = nvdla_dev->rate;
 
