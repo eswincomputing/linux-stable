@@ -2,7 +2,7 @@
 	board_compat = "eic7700,dvb_vi";
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
-	phy_mode = <2>;
+	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
@@ -280,15 +280,15 @@
 	status = "disabled";
 	imx219_0: imx219@10 {
 			compatible = "sony,imx219";
-			status = "okay";
+			status = "disabled";
 			address-cells = <1>;
 			size-cells = <0>;
 			reg = <0x10>;
-
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio72_default &pinctrl_gpio70_default>;
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;
+			// open bellow pinctrl-0 and gpio if you only want to use this camera
+			//pinctrl-names = "default";
+			//pinctrl-0 = <&pinctrl_gpio72_default &pinctrl_gpio70_default>;
+			//mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+			//xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;
 			eswin,camera-module-index = <0>;
 			eswin,camera-module-facing = "back";
 			eswin,camera-module-name = "rpi-camera-v2";
