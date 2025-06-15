@@ -405,7 +405,7 @@
 };
 
 &gc820 {
-	status = "disabled";
+	status = "okay";
 };
 
 &vdec0 {
