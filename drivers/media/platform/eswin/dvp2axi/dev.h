@@ -7,7 +7,7 @@
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, version 2.
+ * the Free Software Foundation, version 2.yy
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,10 +36,7 @@
 #include "../../../../phy/eswin/es-dvp2axi-config.h"
 
 #include "regs.h"
-#include "version.h"
-#include "dvp2axi-luma.h"
 #include "hw.h"
-#include "subdev-itf.h"
 
 #define DVP2AXI_DRIVER_NAME		"es_dvp2axi"
 #define DVP2AXI_VIDEODEVICE_NAME	"stream_dvp2axi"
@@ -224,7 +221,6 @@ struct es_dvp2axi_buffer {
 
 struct es_dvp2axi_tools_buffer {
 	struct vb2_v4l2_buffer *vb;
-	struct esisp_rx_buf *dbufs;
 	struct list_head list;
 	u32 frame_idx;
 	u64 timestamp;
@@ -477,9 +473,7 @@ struct es_dvp2axi_rx_buffer {
 	int buf_idx;
 	struct list_head list;
 	struct list_head list_free;
-	struct esisp_rx_buf dbufs;
 	struct es_dvp2axi_dummy_buffer dummy;
-	struct esisp_thunderboot_shmem shmem;
 	u64 fe_timestamp;
 };
 
@@ -536,7 +530,7 @@ struct es_dvp2axi_stream {
 	enum es_dvp2axi_state		state;
 	wait_queue_head_t		wq_stopped;
 	unsigned int			frame_idx;
-	int				frame_phase;
+	enum dvp2axi_frame_ready	frame_phase;
 	int				frame_phase_cache;
 	unsigned int			crop_mask;
 	/* lock between irq and buf_queue */
@@ -574,7 +568,6 @@ struct es_dvp2axi_stream {
 	int				buf_replace_cnt;
 	struct list_head		rx_buf_head_vicap;
 	unsigned int			cur_stream_mode;
-	struct es_dvp2axi_rx_buffer		rx_buf[ESISP_VICAP_BUF_CNT_MAX];
 	struct list_head		rx_buf_head;
 	int				total_buf_num;
 	int				rx_buf_num;
@@ -583,6 +576,7 @@ struct es_dvp2axi_stream {
 	unsigned int			buf_wake_up_cnt;
 	struct es_dvp2axi_skip_info		skip_info;
 	struct tasklet_struct		vb_done_tasklet;
+	struct tasklet_struct		dvp2axi_err_tasklet;
 	struct list_head		vb_done_list;
 	int				last_rx_buf_idx;
 	int				last_frame_idx;
@@ -763,12 +757,6 @@ struct es_dvp2axi_scale_vdev *to_es_dvp2axi_scale_vdev(struct es_dvp2axi_vdev_no
 	return container_of(vnode, struct es_dvp2axi_scale_vdev, vnode);
 }
 
-void es_dvp2axi_init_scale_vdev(struct es_dvp2axi_device *dvp2axi_dev, u32 ch);
-int es_dvp2axi_register_scale_vdevs(struct es_dvp2axi_device *dvp2axi_dev,
-				int stream_num,
-				bool is_multi_input);
-void es_dvp2axi_unregister_scale_vdevs(struct es_dvp2axi_device *dvp2axi_dev,
-				   int stream_num);
 
 #define TOOLS_DRIVER_NAME		"es_dvp2axi_tools"
 
@@ -902,14 +890,12 @@ struct es_dvp2axi_device {
 	struct esmodule_hdr_cfg		hdr;
 	struct es_dvp2axi_buffer		*rdbk_buf[RDBK_MAX];
 	struct es_dvp2axi_rx_buffer		*rdbk_rx_buf[RDBK_MAX];
-	struct es_dvp2axi_luma_vdev		luma_vdev;
 	struct es_dvp2axi_lvds_subdev	lvds_subdev;
 	struct es_dvp2axi_dvp_sof_subdev	dvp_sof_subdev;
 	struct es_dvp2axi_hw *hw_dev;
 	irqreturn_t (*isr_hdl)(int irq, struct es_dvp2axi_device *dvp2axi_dev);
 	int inf_id;
 
-	struct sditf_priv		*sditf[ES_DVP2AXI_MAX_SDITF];
 	struct proc_dir_entry		*proc_dir;
 	struct es_dvp2axi_irq_stats		irq_stats;
 	spinlock_t			hdr_lock; /* lock for hdr buf sync */
@@ -924,7 +910,6 @@ struct es_dvp2axi_device {
 	unsigned int			wait_line_bak;
 	unsigned int			wait_line_cache;
 	struct completion		cmpl_ntf;
-	struct csi2_dphy_hw		*dphy_hw;
 	phys_addr_t			resmem_pa;
 	dma_addr_t			resmem_addr;
 	size_t				resmem_size;
@@ -957,12 +942,13 @@ struct es_dvp2axi_device {
 	int				sensor_state;
 	u32				intr_mask;
 	struct delayed_work		work_deal_err;
+	u32						dvp2axi_id;
 };
 
 
 void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *es_dvp2axi_hw);
 
-void dvp2axi_hw_int_mask(struct es_dvp2axi_hw *dvp2axi_hw, int mask);
+void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, struct es_dvp2axi_stream *stream, int mask);
 
 extern struct platform_driver es_dvp2axi_plat_drv;
 void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps *fps);
@@ -976,7 +962,10 @@ void es_dvp2axi_buf_queue(struct vb2_buffer *vb);
 
 void es_dvp2axi_vb_done_tasklet(struct es_dvp2axi_stream *stream, struct es_dvp2axi_buffer *buf);
 
+void dvp2axi_interrupt_handler(struct device *dev);
+
 void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
+void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
 
 void es_irq_oneframe_new(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
 
@@ -1031,7 +1020,6 @@ void es_dvp2axi_vb_done_oneframe(struct es_dvp2axi_stream *stream,
 			    struct vb2_v4l2_buffer *vb_done);
 
 int es_dvp2axi_init_rx_buf(struct es_dvp2axi_stream *stream, int buf_num);
-void es_dvp2axi_free_rx_buf(struct es_dvp2axi_stream *stream, int buf_num);
 
 int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		       struct v4l2_pix_format_mplane *pixm,
@@ -1050,7 +1038,6 @@ int es_dvp2axi_get_linetime(struct es_dvp2axi_stream *stream);
 
 void es_dvp2axi_assign_check_buffer_update_toisp(struct es_dvp2axi_stream *stream);
 
-struct es_dvp2axi_rx_buffer *to_dvp2axi_rx_buf(struct esisp_rx_buf *dbufs);
 
 int es_dvp2axi_clr_unready_dev(void);
 

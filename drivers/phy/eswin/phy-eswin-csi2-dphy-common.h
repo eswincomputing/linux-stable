@@ -1,6 +1,7 @@
 #ifndef _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 #define _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 
+#include <media/eswin/eswin_vi.h>
 #include "es-camera-module.h"
 #include "es-dvp2axi-config.h"
 
@@ -38,6 +39,9 @@ struct csi2dphy_reg {
 
 #define MAX_DPHY_SENSORS	(2)
 #define MAX_NUM_CSI2_DPHY	(0x2)
+#define CSI2_DPHY_4LANES	(0x4)
+#define CSI2_DPHY_2LANES	(0x2)
+
 
 struct csi2_sensor {
 	struct v4l2_subdev *sd;
@@ -73,6 +77,7 @@ struct csi2_dphy {
 	int lane_mode;
 	const struct dphy_drv_data *drv_data;
 	struct esmodule_csi_dphy_param dphy_param;
+	int phy_num;
 };
 
 struct dphy_hw_drv_data {
@@ -100,9 +105,12 @@ struct csi2_dphy_hw {
 	phys_addr_t dphy_hw_phy_addr;
 	u32 phy_cfg_addr;
 	u32 csi_addr;
+	u32 combine_dphy_phy_addr;
 	void __iomem *hw_base_addr;
-	void __iomem *hw_base_phy0_addr;
+	void __iomem *phy_cfg_base_addr;
 	void __iomem *csi_base_addr;
+	void __iomem *combine_dphy_base_addr;
+
 	struct clk_bulk_data	*clks_bulk;
 	struct reset_control	*rsts_bulk;
 	struct csi2_dphy *dphy_dev[MAX_NUM_CSI2_DPHY];
@@ -113,6 +121,10 @@ struct csi2_dphy_hw {
 	int num_sensors;
 	int dphy_dev_num;
 	enum csi2_dphy_lane_mode lane_mode;
+	enum eswin_vi_board_compat board_compat;
+
+	int num_lanes;
+	int lanes_array[4];
 
 	int (*stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);

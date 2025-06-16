@@ -745,7 +745,8 @@
 	pinctrl-0 = <&pinctrl_gpio1_default &pinctrl_gpio2_default &pinctrl_gpio3_default &pinctrl_gpio4_default
 			&pinctrl_gpio5_default &pinctrl_gpio6_default &pinctrl_gpio7_default &pinctrl_gpio8_default
 			&pinctrl_gpio9_default &pinctrl_gpio10_default &pinctrl_gpio17_default &pinctrl_gpio27_default
-			&pinctrl_gpio64_default	&pinctrl_gpio65_default &pinctrl_gpio66_default &pinctrl_gpio67_default >;
+			&pinctrl_gpio64_default	&pinctrl_gpio65_default &pinctrl_gpio66_default &pinctrl_gpio67_default
+			&pinctrl_gpio72_default >;
 
     /* pin header default function for GPIO
        SPI1 (CS0,SCLK,MOSI,MISO,D2,D3,CS1): GPIO 35,36,37,38,39,40,41

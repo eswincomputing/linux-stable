@@ -113,16 +113,13 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 	unsigned int reg_value;
 
     pr_debug("ISP Top Setting ...\n");
-    #ifdef SENSOR_OUT_2LANES
-	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, 5);
-    #else
-	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, 3);
-    #endif
+    
+    vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, es_vi_dev->phy_mode);
 
     vi_top_register_write(es_vi_dev, VI_TOP_CONTROLLER_SELECT, 0);
 	
 	val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
-    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
+    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP3_SEL_OFFSET);
     val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP1_SEL_OFFSET);
     val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
 
@@ -187,19 +184,19 @@ static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
     syscrg_register_write(regmap, 0x184, 0x80000020);///vi_dwclk_ctl
     syscrg_register_write(regmap, 0x188, 0xc0000020);///vi_aclk_ctl
     syscrg_register_write(regmap, 0x18c, 0x80000020);///vi_dig_isp_clk_ctl
-	#ifdef CONFIG_EIC7700_EVB_VI
-    syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
-	#else
-    syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
-	#endif
+
+    if(es_vi_dev->board_compat == EIC7700_EVB_VI_COMPAT)
+        syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
+	else
+        syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
     
-	#ifdef CONFIG_EIC7700_EVB_VI
-    syscrg_register_write(regmap, 0x194, 0x80000100);///vi_shutter0
-    syscrg_register_write(regmap, 0x198, 0x80000100);///vi_shutter1
-	#else
-	syscrg_register_write(regmap, 0x194, 0x80000180);///vi_shutter0
-	syscrg_register_write(regmap, 0x198, 0x80000180);///vi_shutter1
-	#endif
+    if(es_vi_dev->board_compat == EIC7700_EVB_VI_COMPAT) {
+        syscrg_register_write(regmap, 0x194, 0x80000100);///vi_shutter0
+        syscrg_register_write(regmap, 0x198, 0x80000100);///vi_shutter1
+    } else {
+	    syscrg_register_write(regmap, 0x194, 0x80000180);///vi_shutter0
+	    syscrg_register_write(regmap, 0x198, 0x80000180);///vi_shutter1
+	}
 
     syscrg_register_write(regmap, 0x19c, 0x80000100);///vi_shutter2
     syscrg_register_write(regmap, 0x1a0, 0x80000100);///vi_shutter3
@@ -350,7 +347,6 @@ UNUSED_FUNC static int eswin_vi_sys_reset_release(struct eswin_vi_clk_rst *vi_cr
 
 static int eswin_open(struct inode *inode, struct file *file)
 {
-    pr_info(DRIVER_NAME ": Device opened\n");
     struct eswin_vi_device *es_vi_dev = container_of(inode->i_cdev, struct eswin_vi_device, es_vi_cdev);
     file->private_data = es_vi_dev;
     return 0;
@@ -358,19 +354,16 @@ static int eswin_open(struct inode *inode, struct file *file)
 
 static int eswin_release(struct inode *inode, struct file *file)
 {
-    pr_info(DRIVER_NAME ": Device closed\n");
     return 0;
 }
 
 static ssize_t eswin_read(struct file *file, char __user *buffer, size_t len, loff_t *offset)
 {
-    pr_info(DRIVER_NAME ": Read operation not implemented\n");
     return 0;
 }
 
 static ssize_t eswin_write(struct file *file, const char __user *buffer, size_t len, loff_t *offset)
 {
-    pr_info(DRIVER_NAME ": Write operation not implemented\n");
     return len;
 }
 
@@ -387,7 +380,6 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     struct eswin_vi_device *es_vi_dev = file->private_data;
     struct soc_control_context soc_ctrl;
     struct isp_control_HxV isp_control_h_v;
-    pr_info(DRIVER_NAME ": IOCTL In\n");
 
     switch (cmd) {
         case VI_IOCTL_RESET:
@@ -406,8 +398,6 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             pr_err(DRIVER_NAME ": Invalid IOCTL command\n");
             return -EINVAL;
     }
-
-    pr_info(DRIVER_NAME ": IOCTL Out\n");
 
     return ret;
 }
@@ -434,13 +424,10 @@ static int eswin_vi_probe(struct platform_device *pdev)
     struct media_device *media_dev;
     struct device_node *np = pdev->dev.of_node;
     struct resource* res;
+    const char *dts_board_compat;
     __maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
 
-    pr_info("%s: enter\n", __func__);
     es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
-    
-    es_vi_dev->isp_dvp0_hor = SENSOR_OUT_H;
-    es_vi_dev->isp_dvp0_ver = SENSOR_OUT_V;
 
 #if 1
     //TODO: next step is to get the vi clk and rst from the device tree
@@ -544,6 +531,42 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		}
 	}
 
+    ret = of_property_read_string(np, "board_compat", &dts_board_compat);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read board_compat property! Use Default EVB board_compat!\n");
+        dts_board_compat = "eic7700,evb_vi";
+    }
+    dev_dbg(dev, ": board_compat: %s\n", dts_board_compat);
+
+    if(!strcmp(dts_board_compat, "eic7700,evb_vi")) {
+        es_vi_dev->board_compat = EIC7700_EVB_VI_COMPAT;
+    } else if(!strcmp(dts_board_compat, "eic7700,dvb_vi")) {
+        es_vi_dev->board_compat = EIC7700_DVB_VI_COMPAT;
+    } else {
+        pr_warn(DRIVER_NAME ": Unknown board_compat! Use Default EVB board_compat!\n");
+        es_vi_dev->board_compat = EIC7700_EVB_VI_COMPAT;
+    }
+
+    ret = of_property_read_u32(np, "eswin,isp_dvp0_hor", &es_vi_dev->isp_dvp0_hor);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read isp_dvp0_hor property! Use Default 3280!\n");
+        es_vi_dev->isp_dvp0_hor = 3280;
+    }
+    ret = of_property_read_u32(np, "eswin,isp_dvp0_ver", &es_vi_dev->isp_dvp0_ver);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read isp_dvp0_ver property! Use Default 2464!\n");
+        es_vi_dev->isp_dvp0_ver = 2464;
+    }
+
+    dev_dbg(dev, "isp_dvp0_hor: %d\n", es_vi_dev->isp_dvp0_hor);
+    dev_dbg(dev,  "isp_dvp0_ver: %d\n", es_vi_dev->isp_dvp0_ver);
+
+    ret = of_property_read_u32(np, "phy_mode", &es_vi_dev->phy_mode);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read phy_mode property! Use Default 5!\n");
+        es_vi_dev->phy_mode = 5;
+    }
+
     es_vi_dev->syscrg_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscrg_csr");
     if (IS_ERR(es_vi_dev->syscrg_regmap)) {
         dev_err(dev, "No syscrg_csr phandle specified\n");
@@ -552,7 +575,7 @@ static int eswin_vi_probe(struct platform_device *pdev)
 
 
     eic770x_vi_init(es_vi_dev);
-    pr_info(DRIVER_NAME ": Probe successful\n");
+    dev_info(dev, "Probe successful\n");
 
 
     return 0;

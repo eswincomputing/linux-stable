@@ -22,17 +22,6 @@
 // #define SENSOR_HDR_HCG_VS  // HCG:0, VS:2
 // #define SENSOR_HDR_CDCG_VS // L:0 16bit, VS:2 12bit
 
-#ifdef CONFIG_EIC7700_EVB_VI
-#define SENSOR_OUT_H 1280
-#define SENSOR_OUT_V 720
-#define SENSOR_OUT_H_PAD 0
-#else
-#define SENSOR_OUT_H 3280
-#define SENSOR_OUT_V 2464
-#define SENSOR_OUT_H_PAD 0
-#endif
-
-
 #define DVP2AXI_MAX_CHANNEL 6
 
 // i2c master id and controller id used
@@ -47,8 +36,8 @@
 #define I2C_MASTER_ID1 1
 
 
-#define DVP2AXI_DVP0_ENABLE
 #if 0
+#define DVP2AXI_DVP0_ENABLE
 #define DVP2AXI_DVP1_ENABLE
 #define DVP2AXI_DVP2_ENABLE
 #define DVP2AXI_DVP3_ENABLE

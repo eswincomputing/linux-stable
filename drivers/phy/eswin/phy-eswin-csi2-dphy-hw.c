@@ -16,6 +16,7 @@
 #include <media/v4l2-device.h>
 #include <linux/reset.h>
 #include <media/eswin/common-def.h>
+#include <media/eswin/eswin_vi.h>
 #include "phy-eswin-csi2-dphy-common.h"
 
 /* eic770x */
@@ -272,10 +273,10 @@ static inline void write_csi2_dphy_reg(struct csi2_dphy_hw *hw, int index,
 		// DPRINTK("t1 dbg write reg:0x%lx, val:0x%x\n", (uintptr_t)hw->hw_base_addr + reg->offset, value);
 }
 
-static inline void eic770x_write_csi2_dphy_reg(struct csi2_dphy_hw *hw, u32 offset,
+static inline void eic770x_write_csi2_dphy_reg(void __iomem *hw_base_addr, u32 offset,
 				       u32 value)
 {
-		writel(value, hw->hw_base_addr + 4 * offset);
+		writel(value, hw_base_addr + 4 * offset);
 		// pr_info("%s :dbg write reg:0x%x, val:0x%x\n", __func__, hw->hw_base_addr + 4 * offset, value);
 }
 
@@ -518,410 +519,294 @@ static void csi2_dphy_config_dual_mode(struct csi2_dphy *dphy,
 
 #endif
 
-
-static int eic770x_csi2_dphy_init(struct csi2_dphy_hw *dphy_hw)
+static int eic770x_csi2_dphy_init(enum eswin_vi_board_compat board_compat, void __iomem * hw)
 {
-
-	struct csi2_dphy_hw *hw = dphy_hw;
-	dev_info(dphy_hw->dev, "start phy init \n");
+	// struct csi2_dphy_hw *hw = dphy_hw;
+	pr_info("start phy init \n");
 
 	// 400Mbps
-#ifndef CONFIG_EIC7700_EVB_VI
-	dev_info(dphy_hw->dev, "config dvb dphy \n");
-
-	eic770x_write_csi2_dphy_reg(hw, 0xc10, 0x30);
-	eic770x_write_csi2_dphy_reg(hw, 0x1cf2, 0x444);
-	eic770x_write_csi2_dphy_reg(hw, 0x1cf2, 0x1444);
-	eic770x_write_csi2_dphy_reg(hw, 0x1cf0, 0x1bfd);
-	eic770x_write_csi2_dphy_reg(hw, 0xc11, 0x233);
-	eic770x_write_csi2_dphy_reg(hw, 0xc06, 0x27);
-	eic770x_write_csi2_dphy_reg(hw, 0xc26, 0x1f4);
-	eic770x_write_csi2_dphy_reg(hw, 0xe02, 0x320);
-	eic770x_write_csi2_dphy_reg(hw, 0xe03, 0x1b);
-	eic770x_write_csi2_dphy_reg(hw, 0xe05, 0xfec8);
-
-	eic770x_write_csi2_dphy_reg(hw, 0xe06, 0x646e);
-	eic770x_write_csi2_dphy_reg(hw, 0xe06, 0x646e);
-	eic770x_write_csi2_dphy_reg(hw, 0xe06, 0x646e);
-	eic770x_write_csi2_dphy_reg(hw, 0xe08, 0x105);
-	eic770x_write_csi2_dphy_reg(hw, 0xe36, 0x3);
-	eic770x_write_csi2_dphy_reg(hw, 0xc02, 0x5);
-	eic770x_write_csi2_dphy_reg(hw, 0xe40, 0x17);
-	eic770x_write_csi2_dphy_reg(hw, 0xe50, 0x4);
-	eic770x_write_csi2_dphy_reg(hw, 0xe01, 0x5f);
-	eic770x_write_csi2_dphy_reg(hw, 0xe05, 0xfe1d);
-
-	eic770x_write_csi2_dphy_reg(hw, 0xe06, 0xeee);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c20, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c21, 0x400);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c21, 0x400);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c23, 0x41f6);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c20, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c23, 0x43f6);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c26, 0x2000);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c27, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c26, 0x3000);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x1c27, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c26, 0x7000);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c27, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c25, 0x4000);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c40, 0xf4);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c40, 0xf4);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c47, 0x14);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c47, 0x10);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c47, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0xc08, 0x50);
-
-	eic770x_write_csi2_dphy_reg(hw, 0xc07, 0x68);
-	eic770x_write_csi2_dphy_reg(hw, 0x3040, 0x473c);///oops
-	eic770x_write_csi2_dphy_reg(hw, 0x3240, 0x473c);
-	eic770x_write_csi2_dphy_reg(hw, 0x1022, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1222, 0x1);
-	eic770x_write_csi2_dphy_reg(hw, 0x1422, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c46, 0x9);
-	eic770x_write_csi2_dphy_reg(hw, 0x1c46, 0x9);
-	eic770x_write_csi2_dphy_reg(hw, 0x102c, 0x802);
-	eic770x_write_csi2_dphy_reg(hw, 0x122c, 0x802);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x142c, 0x802);
-	eic770x_write_csi2_dphy_reg(hw, 0x102d, 0x2);
-	eic770x_write_csi2_dphy_reg(hw, 0x122d, 0x2);
-	eic770x_write_csi2_dphy_reg(hw, 0x142d, 0x2);
-	eic770x_write_csi2_dphy_reg(hw, 0x102c, 0x802);
-	eic770x_write_csi2_dphy_reg(hw, 0x122c, 0x802);
-	eic770x_write_csi2_dphy_reg(hw, 0x142c, 0x802);
-	eic770x_write_csi2_dphy_reg(hw, 0x102d, 0xa);
-	eic770x_write_csi2_dphy_reg(hw, 0x122d, 0xa);
-	eic770x_write_csi2_dphy_reg(hw, 0x142d, 0xa);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x1229, 0xa70);
-	eic770x_write_csi2_dphy_reg(hw, 0x102a, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x122a, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x142a, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x102f, 0x4);
-	eic770x_write_csi2_dphy_reg(hw, 0x122f, 0x4);
-	eic770x_write_csi2_dphy_reg(hw, 0x142f, 0x4);
-	eic770x_write_csi2_dphy_reg(hw, 0x3880, 0x91c);
-	eic770x_write_csi2_dphy_reg(hw, 0x3887, 0x3b06);
-	eic770x_write_csi2_dphy_reg(hw, 0x3080, 0xe1d);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x3280, 0xe1d);
-	eic770x_write_csi2_dphy_reg(hw, 0x3001, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x3201, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x3001, 0x8);
-	eic770x_write_csi2_dphy_reg(hw, 0x3201, 0x8);
-	eic770x_write_csi2_dphy_reg(hw, 0x3082, 0xe69b);
-	eic770x_write_csi2_dphy_reg(hw, 0x3282, 0xe69b);
-	eic770x_write_csi2_dphy_reg(hw, 0x3040, 0x173c);
-	eic770x_write_csi2_dphy_reg(hw, 0x3240, 0x173c);
-	eic770x_write_csi2_dphy_reg(hw, 0x3042, 0x0);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x3242, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x3840, 0x163c);
-	eic770x_write_csi2_dphy_reg(hw, 0x3842, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x3082, 0xe69b);
-	eic770x_write_csi2_dphy_reg(hw, 0x3282, 0xe69b);
-	eic770x_write_csi2_dphy_reg(hw, 0x3081, 0x4010);
-	eic770x_write_csi2_dphy_reg(hw, 0x3281, 0x4010);
-	eic770x_write_csi2_dphy_reg(hw, 0x3082, 0xe69b);
-	eic770x_write_csi2_dphy_reg(hw, 0x3282, 0xe69b);
-	eic770x_write_csi2_dphy_reg(hw, 0x3083, 0x9209);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x3283, 0x9209);
-	eic770x_write_csi2_dphy_reg(hw, 0x3084, 0x96);
-	eic770x_write_csi2_dphy_reg(hw, 0x3284, 0x96);
-	eic770x_write_csi2_dphy_reg(hw, 0x3085, 0x100);
-	eic770x_write_csi2_dphy_reg(hw, 0x3285, 0x100);
-	eic770x_write_csi2_dphy_reg(hw, 0x3085, 0x100);
-	eic770x_write_csi2_dphy_reg(hw, 0x3285, 0x100);
-	eic770x_write_csi2_dphy_reg(hw, 0x3086, 0x2d02);
-	eic770x_write_csi2_dphy_reg(hw, 0x3086, 0x2d02);
-	eic770x_write_csi2_dphy_reg(hw, 0x3087, 0x1b06);
-
-	eic770x_write_csi2_dphy_reg(hw, 0x3087, 0x1b06);
-	eic770x_write_csi2_dphy_reg(hw, 0x3087, 0x1b06);
-	eic770x_write_csi2_dphy_reg(hw, 0x3087, 0x1b06);
-	eic770x_write_csi2_dphy_reg(hw, 0x3083, 0x9201);
-	eic770x_write_csi2_dphy_reg(hw, 0x3283, 0x9201);
-	eic770x_write_csi2_dphy_reg(hw, 0x3089, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x3289, 0x0);
-	eic770x_write_csi2_dphy_reg(hw, 0x3086, 0x2);
-	eic770x_write_csi2_dphy_reg(hw, 0x3286, 0x2);
-
-#else
-	dev_info(dphy_hw->dev, "config evb dphy \n");
-	// eic770x_write_csi2_dphy_reg(hw, 0xc10       , 0x30  ) ;//PPI_STARTUP_RW_COMMON_DPHY_10
-    eic770x_write_csi2_dphy_reg(hw, 0x1cf2      , 0x444 ) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_2
-    eic770x_write_csi2_dphy_reg(hw, 0x1cf2      , 0x1444) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_2
-    eic770x_write_csi2_dphy_reg(hw, 0x1cf0      , 0x1bfd) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_0
-    eic770x_write_csi2_dphy_reg(hw, 0xc11       , 0x233 ) ;//PPI_STARTUP_RW_COMMON_STARTUP_1_1
-    eic770x_write_csi2_dphy_reg(hw, 0xc06       , 0x27  ) ;//PPI_STARTUP_RW_COMMON_DPHY_6
-    eic770x_write_csi2_dphy_reg(hw, 0xc26       , 0x1f4 ) ;//PPI_CALIBCTRL_RW_COMMON_BG_0
-    eic770x_write_csi2_dphy_reg(hw, 0xe02       , 0x320 ) ;//PPI_RW_LPDCOCAL_NREF
-    eic770x_write_csi2_dphy_reg(hw, 0xe03       , 0x1b  ) ;//PPI_RW_LPDCOCAL_NREF_RANGE
-    eic770x_write_csi2_dphy_reg(hw, 0xe05       , 0xfec8) ;//PPI_RW_LPDCOCAL_TWAIT_CONFIG
+	eic770x_write_csi2_dphy_reg(hw, 0xc10       , 0x30  ) ;//PPI_STARTUP_RW_COMMON_DPHY_10
+	eic770x_write_csi2_dphy_reg(hw, 0x1cf2      , 0x444 ) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_2
+	eic770x_write_csi2_dphy_reg(hw, 0x1cf2      , 0x1444) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_2
+	eic770x_write_csi2_dphy_reg(hw, 0x1cf0      , 0x1bfd) ;//CORE_DIG_ANACTRL_RW_COMMON_ANACTRL_0
+	eic770x_write_csi2_dphy_reg(hw, 0xc11       , 0x233 ) ;//PPI_STARTUP_RW_COMMON_STARTUP_1_1
+	eic770x_write_csi2_dphy_reg(hw, 0xc06       , 0x27  ) ;//PPI_STARTUP_RW_COMMON_DPHY_6
+	eic770x_write_csi2_dphy_reg(hw, 0xc26       , 0x1f4 ) ;//PPI_CALIBCTRL_RW_COMMON_BG_0
+	eic770x_write_csi2_dphy_reg(hw, 0xe02       , 0x320 ) ;//PPI_RW_LPDCOCAL_NREF
+	eic770x_write_csi2_dphy_reg(hw, 0xe03       , 0x1b  ) ;//PPI_RW_LPDCOCAL_NREF_RANGE
+	eic770x_write_csi2_dphy_reg(hw, 0xe05       , 0xfec8) ;//PPI_RW_LPDCOCAL_TWAIT_CONFIG
 	
-    eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0x646e) ;//PPI_RW_LPDCOCAL_VT_CONFIG
-    eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0x646e) ;//PPI_RW_LPDCOCAL_VT_CONFIG
-    eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0x646e) ;//PPI_RW_LPDCOCAL_VT_CONFIG
-    eic770x_write_csi2_dphy_reg(hw, 0xe08       , 0x105 ) ;//PPI_RW_LPDCOCAL_COARSE_CFG
-    eic770x_write_csi2_dphy_reg(hw, 0xe36       , 0x3   ) ;//PPI_RW_COMMON_CFG
-    eic770x_write_csi2_dphy_reg(hw, 0xc02       , 0x5   ) ;//PPI_STARTUP_RW_COMMON_DPHY_2
-    eic770x_write_csi2_dphy_reg(hw, 0xe40       , 0x17  ) ;//PPI_RW_TERMCAL_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0xe50       , 0x4   ) ;//PPI_RW_OFFSETCAL_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0xe01       , 0x5f  ) ;//PPI_RW_LPDCOCAL_TIMEBASE
-    eic770x_write_csi2_dphy_reg(hw, 0xe05       , 0xfe1d) ;//PPI_RW_LPDCOCAL_TWAIT_CONFIG
+	eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0x646e) ;//PPI_RW_LPDCOCAL_VT_CONFIG
+	eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0x646e) ;//PPI_RW_LPDCOCAL_VT_CONFIG
+	eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0x646e) ;//PPI_RW_LPDCOCAL_VT_CONFIG
+	eic770x_write_csi2_dphy_reg(hw, 0xe08       , 0x105 ) ;//PPI_RW_LPDCOCAL_COARSE_CFG
+	eic770x_write_csi2_dphy_reg(hw, 0xe36       , 0x3   ) ;//PPI_RW_COMMON_CFG
+	eic770x_write_csi2_dphy_reg(hw, 0xc02       , 0x5   ) ;//PPI_STARTUP_RW_COMMON_DPHY_2
+	eic770x_write_csi2_dphy_reg(hw, 0xe40       , 0x17  ) ;//PPI_RW_TERMCAL_CFG_0
+	eic770x_write_csi2_dphy_reg(hw, 0xe50       , 0x4   ) ;//PPI_RW_OFFSETCAL_CFG_0
+	eic770x_write_csi2_dphy_reg(hw, 0xe01       , 0x5f  ) ;//PPI_RW_LPDCOCAL_TIMEBASE
+	eic770x_write_csi2_dphy_reg(hw, 0xe05       , 0xfe1d) ;//PPI_RW_LPDCOCAL_TWAIT_CONFIG
 	
-    eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0xeee ) ;//PPI_RW_LPDCOCAL_VT_CONFIG
-    eic770x_write_csi2_dphy_reg(hw, 0x1c20      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_0
-    eic770x_write_csi2_dphy_reg(hw, 0x1c21      , 0x400 ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_1
-    eic770x_write_csi2_dphy_reg(hw, 0x1c21      , 0x400 ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_1
-    eic770x_write_csi2_dphy_reg(hw, 0x1c23      , 0x41f6) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_3
-    eic770x_write_csi2_dphy_reg(hw, 0x1c20      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_0
-    eic770x_write_csi2_dphy_reg(hw, 0x1c23      , 0x43f6) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_3
-    eic770x_write_csi2_dphy_reg(hw, 0x1c26      , 0x2000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6
-    eic770x_write_csi2_dphy_reg(hw, 0x1c27      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_7
-    eic770x_write_csi2_dphy_reg(hw, 0x1c26      , 0x3000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6
+	eic770x_write_csi2_dphy_reg(hw, 0xe06       , 0xeee ) ;//PPI_RW_LPDCOCAL_VT_CONFIG
+	eic770x_write_csi2_dphy_reg(hw, 0x1c20      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_0
+	eic770x_write_csi2_dphy_reg(hw, 0x1c21      , 0x400 ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_1
+	eic770x_write_csi2_dphy_reg(hw, 0x1c21      , 0x400 ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_1
+	eic770x_write_csi2_dphy_reg(hw, 0x1c23      , 0x41f6) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_3
+	eic770x_write_csi2_dphy_reg(hw, 0x1c20      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_0
+	eic770x_write_csi2_dphy_reg(hw, 0x1c23      , 0x43f6) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_3
+	eic770x_write_csi2_dphy_reg(hw, 0x1c26      , 0x2000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6
+	eic770x_write_csi2_dphy_reg(hw, 0x1c27      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_7
+	eic770x_write_csi2_dphy_reg(hw, 0x1c26      , 0x3000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x1c27      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_7
-    eic770x_write_csi2_dphy_reg(hw, 0x1c26      , 0x7000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6
-    eic770x_write_csi2_dphy_reg(hw, 0x1c27      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_7
-    eic770x_write_csi2_dphy_reg(hw, 0x1c25      , 0x4000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_5
-    eic770x_write_csi2_dphy_reg(hw, 0x1c40      , 0xf4  ) ;//CORE_DIG_RW_COMMON_0
-    eic770x_write_csi2_dphy_reg(hw, 0x1c40      , 0xf4  ) ;//CORE_DIG_RW_COMMON_0
-    eic770x_write_csi2_dphy_reg(hw, 0x1c47      , 0x14  ) ;//CORE_DIG_RW_COMMON_7
-    eic770x_write_csi2_dphy_reg(hw, 0x1c47      , 0x10  ) ;//CORE_DIG_RW_COMMON_7
-    eic770x_write_csi2_dphy_reg(hw, 0x1c47      , 0x0   ) ;//CORE_DIG_RW_COMMON_7
-    eic770x_write_csi2_dphy_reg(hw, 0xc08       , 0x50  ) ;//PPI_STARTUP_RW_COMMON_DPHY_8
+	eic770x_write_csi2_dphy_reg(hw, 0x1c27      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_7
+	eic770x_write_csi2_dphy_reg(hw, 0x1c26      , 0x7000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6
+	eic770x_write_csi2_dphy_reg(hw, 0x1c27      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_7
+	eic770x_write_csi2_dphy_reg(hw, 0x1c25      , 0x4000) ;//CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_5
+	eic770x_write_csi2_dphy_reg(hw, 0x1c40      , 0xf4  ) ;//CORE_DIG_RW_COMMON_0
+	eic770x_write_csi2_dphy_reg(hw, 0x1c40      , 0xf4  ) ;//CORE_DIG_RW_COMMON_0
+	eic770x_write_csi2_dphy_reg(hw, 0x1c47      , 0x14  ) ;//CORE_DIG_RW_COMMON_7
+	eic770x_write_csi2_dphy_reg(hw, 0x1c47      , 0x10  ) ;//CORE_DIG_RW_COMMON_7
+	eic770x_write_csi2_dphy_reg(hw, 0x1c47      , 0x0   ) ;//CORE_DIG_RW_COMMON_7
+	eic770x_write_csi2_dphy_reg(hw, 0xc08       , 0x50  ) ;//PPI_STARTUP_RW_COMMON_DPHY_8
 	
-    eic770x_write_csi2_dphy_reg(hw, 0xc07       , 0x68  ) ;//PPI_STARTUP_RW_COMMON_DPHY_7
-    eic770x_write_csi2_dphy_reg(hw, 0x3040      , 0x473c) ;//CORE_DIG_DLANE_0_RW_LP_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3240      , 0x473c) ;//CORE_DIG_DLANE_1_RW_LP_0
-    eic770x_write_csi2_dphy_reg(hw, 0x1022      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_2
-    eic770x_write_csi2_dphy_reg(hw, 0x1222      , 0x1   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_2
-    eic770x_write_csi2_dphy_reg(hw, 0x1422      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_2
-    eic770x_write_csi2_dphy_reg(hw, 0x1c46      , 0x9   ) ;//CORE_DIG_RW_COMMON_6
-    eic770x_write_csi2_dphy_reg(hw, 0x1c46      , 0x9   ) ;//CORE_DIG_RW_COMMON_6
-    eic770x_write_csi2_dphy_reg(hw, 0x102c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_12
-    eic770x_write_csi2_dphy_reg(hw, 0x122c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_12
+	eic770x_write_csi2_dphy_reg(hw, 0xc07       , 0x68  ) ;//PPI_STARTUP_RW_COMMON_DPHY_7
+	eic770x_write_csi2_dphy_reg(hw, 0x3040      , 0x473c) ;//CORE_DIG_DLANE_0_RW_LP_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3240      , 0x473c) ;//CORE_DIG_DLANE_1_RW_LP_0
+	eic770x_write_csi2_dphy_reg(hw, 0x1022      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_2
+	eic770x_write_csi2_dphy_reg(hw, 0x1222      , 0x1   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_2
+	eic770x_write_csi2_dphy_reg(hw, 0x1422      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_2
+	eic770x_write_csi2_dphy_reg(hw, 0x1c46      , 0x9   ) ;//CORE_DIG_RW_COMMON_6
+	eic770x_write_csi2_dphy_reg(hw, 0x1c46      , 0x9   ) ;//CORE_DIG_RW_COMMON_6
+	eic770x_write_csi2_dphy_reg(hw, 0x102c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_12
+	eic770x_write_csi2_dphy_reg(hw, 0x122c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_12
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x142c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_12
-    eic770x_write_csi2_dphy_reg(hw, 0x102d      , 0x2   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_13
-    eic770x_write_csi2_dphy_reg(hw, 0x122d      , 0x2   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_13
-    eic770x_write_csi2_dphy_reg(hw, 0x142d      , 0x2   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_13
-    eic770x_write_csi2_dphy_reg(hw, 0x102c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_12
-    eic770x_write_csi2_dphy_reg(hw, 0x122c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_12
-    eic770x_write_csi2_dphy_reg(hw, 0x142c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_12
-    eic770x_write_csi2_dphy_reg(hw, 0x102d      , 0xa   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_13
-    eic770x_write_csi2_dphy_reg(hw, 0x122d      , 0xa   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_13
-    eic770x_write_csi2_dphy_reg(hw, 0x142d      , 0xa   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_13
+	eic770x_write_csi2_dphy_reg(hw, 0x142c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_12
+	eic770x_write_csi2_dphy_reg(hw, 0x102d      , 0x2   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_13
+	eic770x_write_csi2_dphy_reg(hw, 0x122d      , 0x2   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_13
+	eic770x_write_csi2_dphy_reg(hw, 0x142d      , 0x2   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_13
+	eic770x_write_csi2_dphy_reg(hw, 0x102c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_12
+	eic770x_write_csi2_dphy_reg(hw, 0x122c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_12
+	eic770x_write_csi2_dphy_reg(hw, 0x142c      , 0x802 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_12
+	eic770x_write_csi2_dphy_reg(hw, 0x102d      , 0xa   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_13
+	eic770x_write_csi2_dphy_reg(hw, 0x122d      , 0xa   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_13
+	eic770x_write_csi2_dphy_reg(hw, 0x142d      , 0xa   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_13
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x1229      , 0xa70 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9
-    eic770x_write_csi2_dphy_reg(hw, 0x102a      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_10
-    eic770x_write_csi2_dphy_reg(hw, 0x122a      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_10
-    eic770x_write_csi2_dphy_reg(hw, 0x142a      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_10
-    eic770x_write_csi2_dphy_reg(hw, 0x102f      , 0x4   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_15
-    eic770x_write_csi2_dphy_reg(hw, 0x122f      , 0x4   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_15
-    eic770x_write_csi2_dphy_reg(hw, 0x142f      , 0x4   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_15
-    eic770x_write_csi2_dphy_reg(hw, 0x3880      , 0x91c ) ;//CORE_DIG_DLANE_CLK_RW_HS_RX_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3887      , 0x3b06) ;//CORE_DIG_DLANE_CLK_RW_HS_RX_7
-    eic770x_write_csi2_dphy_reg(hw, 0x3080      , 0xe1d ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x1229      , 0xa70 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9
+	eic770x_write_csi2_dphy_reg(hw, 0x102a      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_10
+	eic770x_write_csi2_dphy_reg(hw, 0x122a      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_10
+	eic770x_write_csi2_dphy_reg(hw, 0x142a      , 0x0   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_10
+	eic770x_write_csi2_dphy_reg(hw, 0x102f      , 0x4   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_15
+	eic770x_write_csi2_dphy_reg(hw, 0x122f      , 0x4   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_15
+	eic770x_write_csi2_dphy_reg(hw, 0x142f      , 0x4   ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_15
+	eic770x_write_csi2_dphy_reg(hw, 0x3880      , 0x91c ) ;//CORE_DIG_DLANE_CLK_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3887      , 0x3b06) ;//CORE_DIG_DLANE_CLK_RW_HS_RX_7
+	eic770x_write_csi2_dphy_reg(hw, 0x3080      , 0xe1d ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x3280      , 0xe1d ) ;//CORE_DIG_DLANE_1_RW_HS_RX_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3001      , 0x0   ) ;//CORE_DIG_DLANE_0_RW_CFG_1
-    eic770x_write_csi2_dphy_reg(hw, 0x3201      , 0x0   ) ;//CORE_DIG_DLANE_1_RW_CFG_1
-    eic770x_write_csi2_dphy_reg(hw, 0x3001      , 0x8   ) ;//CORE_DIG_DLANE_0_RW_CFG_1
-    eic770x_write_csi2_dphy_reg(hw, 0x3201      , 0x8   ) ;//CORE_DIG_DLANE_1_RW_CFG_1
-    eic770x_write_csi2_dphy_reg(hw, 0x3082      , 0xe69b) ;//CORE_DIG_DLANE_0_RW_HS_RX_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3282      , 0xe69b) ;//CORE_DIG_DLANE_1_RW_HS_RX_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3040      , 0x173c) ;//CORE_DIG_DLANE_0_RW_LP_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3240      , 0x173c) ;//CORE_DIG_DLANE_1_RW_LP_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3042      , 0x0   ) ;//CORE_DIG_DLANE_0_RW_LP_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3280      , 0xe1d ) ;//CORE_DIG_DLANE_1_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3001      , 0x0   ) ;//CORE_DIG_DLANE_0_RW_CFG_1
+	eic770x_write_csi2_dphy_reg(hw, 0x3201      , 0x0   ) ;//CORE_DIG_DLANE_1_RW_CFG_1
+	eic770x_write_csi2_dphy_reg(hw, 0x3001      , 0x8   ) ;//CORE_DIG_DLANE_0_RW_CFG_1
+	eic770x_write_csi2_dphy_reg(hw, 0x3201      , 0x8   ) ;//CORE_DIG_DLANE_1_RW_CFG_1
+	eic770x_write_csi2_dphy_reg(hw, 0x3082      , 0xe69b) ;//CORE_DIG_DLANE_0_RW_HS_RX_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3282      , 0xe69b) ;//CORE_DIG_DLANE_1_RW_HS_RX_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3040      , 0x173c) ;//CORE_DIG_DLANE_0_RW_LP_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3240      , 0x173c) ;//CORE_DIG_DLANE_1_RW_LP_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3042      , 0x0   ) ;//CORE_DIG_DLANE_0_RW_LP_2
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x3242      , 0x0   ) ;//CORE_DIG_DLANE_1_RW_LP_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3840      , 0x163c) ;//CORE_DIG_DLANE_CLK_RW_LP_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3842      , 0x0   ) ;//CORE_DIG_DLANE_CLK_RW_LP_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3082      , 0xe69b) ;//CORE_DIG_DLANE_0_RW_HS_RX_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3282      , 0xe69b) ;//CORE_DIG_DLANE_1_RW_HS_RX_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3081      , 0x4010) ;//CORE_DIG_DLANE_0_RW_HS_RX_1
-    eic770x_write_csi2_dphy_reg(hw, 0x3281      , 0x4010) ;//CORE_DIG_DLANE_1_RW_HS_RX_1
-    eic770x_write_csi2_dphy_reg(hw, 0x3082      , 0xe69b) ;//CORE_DIG_DLANE_0_RW_HS_RX_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3282      , 0xe69b) ;//CORE_DIG_DLANE_1_RW_HS_RX_2
-    eic770x_write_csi2_dphy_reg(hw, 0x3083      , 0x9209) ;//CORE_DIG_DLANE_0_RW_HS_RX_3
+	eic770x_write_csi2_dphy_reg(hw, 0x3242      , 0x0   ) ;//CORE_DIG_DLANE_1_RW_LP_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3840      , 0x163c) ;//CORE_DIG_DLANE_CLK_RW_LP_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3842      , 0x0   ) ;//CORE_DIG_DLANE_CLK_RW_LP_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3082      , 0xe69b) ;//CORE_DIG_DLANE_0_RW_HS_RX_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3282      , 0xe69b) ;//CORE_DIG_DLANE_1_RW_HS_RX_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3081      , 0x4010) ;//CORE_DIG_DLANE_0_RW_HS_RX_1
+	eic770x_write_csi2_dphy_reg(hw, 0x3281      , 0x4010) ;//CORE_DIG_DLANE_1_RW_HS_RX_1
+	eic770x_write_csi2_dphy_reg(hw, 0x3082      , 0xe69b) ;//CORE_DIG_DLANE_0_RW_HS_RX_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3282      , 0xe69b) ;//CORE_DIG_DLANE_1_RW_HS_RX_2
+	eic770x_write_csi2_dphy_reg(hw, 0x3083      , 0x9209) ;//CORE_DIG_DLANE_0_RW_HS_RX_3
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x3283      , 0x9209) ;//CORE_DIG_DLANE_1_RW_HS_RX_3
-    eic770x_write_csi2_dphy_reg(hw, 0x3084      , 0x96  ) ;//CORE_DIG_DLANE_0_RW_HS_RX_4
-    eic770x_write_csi2_dphy_reg(hw, 0x3284      , 0x96  ) ;//CORE_DIG_DLANE_1_RW_HS_RX_4
-    eic770x_write_csi2_dphy_reg(hw, 0x3085      , 0x100 ) ;//CORE_DIG_DLANE_0_RW_HS_RX_5
-    eic770x_write_csi2_dphy_reg(hw, 0x3285      , 0x100 ) ;//CORE_DIG_DLANE_1_RW_HS_RX_5
-    eic770x_write_csi2_dphy_reg(hw, 0x3085      , 0x100 ) ;//CORE_DIG_DLANE_0_RW_HS_RX_5
-    eic770x_write_csi2_dphy_reg(hw, 0x3285      , 0x100 ) ;//CORE_DIG_DLANE_1_RW_HS_RX_5
-    eic770x_write_csi2_dphy_reg(hw, 0x3086      , 0x2d02) ;//CORE_DIG_DLANE_0_RW_HS_RX_6
-    eic770x_write_csi2_dphy_reg(hw, 0x3286      , 0x2d02) ;//CORE_DIG_DLANE_1_RW_HS_RX_6
-    eic770x_write_csi2_dphy_reg(hw, 0x3087      , 0x1b06) ;//CORE_DIG_DLANE_0_RW_HS_RX_7
+	eic770x_write_csi2_dphy_reg(hw, 0x3283      , 0x9209) ;//CORE_DIG_DLANE_1_RW_HS_RX_3
+	eic770x_write_csi2_dphy_reg(hw, 0x3084      , 0x96  ) ;//CORE_DIG_DLANE_0_RW_HS_RX_4
+	eic770x_write_csi2_dphy_reg(hw, 0x3284      , 0x96  ) ;//CORE_DIG_DLANE_1_RW_HS_RX_4
+	eic770x_write_csi2_dphy_reg(hw, 0x3085      , 0x100 ) ;//CORE_DIG_DLANE_0_RW_HS_RX_5
+	eic770x_write_csi2_dphy_reg(hw, 0x3285      , 0x100 ) ;//CORE_DIG_DLANE_1_RW_HS_RX_5
+	eic770x_write_csi2_dphy_reg(hw, 0x3085      , 0x100 ) ;//CORE_DIG_DLANE_0_RW_HS_RX_5
+	eic770x_write_csi2_dphy_reg(hw, 0x3285      , 0x100 ) ;//CORE_DIG_DLANE_1_RW_HS_RX_5
+	eic770x_write_csi2_dphy_reg(hw, 0x3086      , 0x2d02) ;//CORE_DIG_DLANE_0_RW_HS_RX_6
+	eic770x_write_csi2_dphy_reg(hw, 0x3286      , 0x2d02) ;//CORE_DIG_DLANE_1_RW_HS_RX_6
+	eic770x_write_csi2_dphy_reg(hw, 0x3087      , 0x1b06) ;//CORE_DIG_DLANE_0_RW_HS_RX_7
 	
-    eic770x_write_csi2_dphy_reg(hw, 0x3287      , 0x1b06) ;//CORE_DIG_DLANE_1_RW_HS_RX_7
-    eic770x_write_csi2_dphy_reg(hw, 0x3087      , 0x1b06) ;//CORE_DIG_DLANE_0_RW_HS_RX_7
-    eic770x_write_csi2_dphy_reg(hw, 0x3287      , 0x1b06) ;//CORE_DIG_DLANE_1_RW_HS_RX_7
-    eic770x_write_csi2_dphy_reg(hw, 0x3083      , 0x9201) ;//CORE_DIG_DLANE_0_RW_HS_RX_3
-    eic770x_write_csi2_dphy_reg(hw, 0x3283      , 0x9201) ;//CORE_DIG_DLANE_1_RW_HS_RX_3
-    eic770x_write_csi2_dphy_reg(hw, 0x3089      , 0x0   ) ;//CORE_DIG_DLANE_0_RW_HS_RX_9
-    eic770x_write_csi2_dphy_reg(hw, 0x3289      , 0x0   ) ;//CORE_DIG_DLANE_1_RW_HS_RX_9
-    eic770x_write_csi2_dphy_reg(hw, 0x3086      , 0x2   ) ;//CORE_DIG_DLANE_0_RW_HS_RX_6
-    eic770x_write_csi2_dphy_reg(hw, 0x3286      , 0x2   ) ;//CORE_DIG_DLANE_1_RW_HS_RX_6
-	
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x404 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x40c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x414 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x41c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x423 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x429 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x430 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x43a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x445 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x44a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x450 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x45a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x465 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x469 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x472 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x47a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x485 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x489 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x490 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x49a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x504 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x50c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x514 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x51c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x523 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x529 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x530 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x53a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x545 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x54a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x550 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x55a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x565 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x569 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x572 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x57a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x585 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x589 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x590 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x59a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x604 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x60c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x614 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x61c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x623 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x629 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x632 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x63a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x645 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x64a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x650 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x65a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x665 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x669 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x672 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x67a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x685 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x689 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x690 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x69a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x704 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x70c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x714 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x71c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x723 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x72a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x730 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x73a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x745 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x74a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x750 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x75a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x765 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x769 ) ;//CORE_DIG_CO:MMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x772 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x77a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x785 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x789 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x790 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x79a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
-    
-    eic770x_write_csi2_dphy_reg(hw, 0x3800      , 0x3   ) ;//CORE_DIG_DLANE_CLK_RW_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3800      , 0x3   ) ;//CORE_DIG_DLANE_CLK_RW_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3000      , 0x3   ) ;//CORE_DIG_DLANE_0_RW_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3200      , 0x3   ) ;//CORE_DIG_DLANE_1_RW_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3000      , 0x3   ) ;//CORE_DIG_DLANE_0_RW_CFG_0
-    eic770x_write_csi2_dphy_reg(hw, 0x3200      , 0x3   ) ;//CORE_DIG_DLANE_1_RW_CFG_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3287      , 0x1b06) ;//CORE_DIG_DLANE_1_RW_HS_RX_7
+	eic770x_write_csi2_dphy_reg(hw, 0x3087      , 0x1b06) ;//CORE_DIG_DLANE_0_RW_HS_RX_7
+	eic770x_write_csi2_dphy_reg(hw, 0x3287      , 0x1b06) ;//CORE_DIG_DLANE_1_RW_HS_RX_7
+	eic770x_write_csi2_dphy_reg(hw, 0x3083      , 0x9201) ;//CORE_DIG_DLANE_0_RW_HS_RX_3
+	eic770x_write_csi2_dphy_reg(hw, 0x3283      , 0x9201) ;//CORE_DIG_DLANE_1_RW_HS_RX_3
+	eic770x_write_csi2_dphy_reg(hw, 0x3089      , 0x0   ) ;//CORE_DIG_DLANE_0_RW_HS_RX_9
+	eic770x_write_csi2_dphy_reg(hw, 0x3289      , 0x0   ) ;//CORE_DIG_DLANE_1_RW_HS_RX_9
+	eic770x_write_csi2_dphy_reg(hw, 0x3086      , 0x2   ) ;//CORE_DIG_DLANE_0_RW_HS_RX_6
+	eic770x_write_csi2_dphy_reg(hw, 0x3286      , 0x2   ) ;//CORE_DIG_DLANE_1_RW_HS_RX_6
+	if(board_compat == EIC7700_EVB_VI_COMPAT) {
+		pr_debug("CYY[D] EVB OWN CONFIG\n");
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x404 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x40c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x414 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x41c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x423 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x429 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x430 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x43a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x445 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x44a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x450 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x45a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x465 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x469 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x472 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x47a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x485 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x489 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x490 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x49a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x4fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x504 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x50c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x514 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x51c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x523 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x529 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x530 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x53a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x545 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x54a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x550 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x55a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x565 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x569 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x572 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x57a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x585 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x589 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x590 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x59a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x5fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x604 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x60c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x614 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x61c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x623 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x629 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x632 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x63a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x645 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x64a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x650 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x65a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x665 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x669 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x672 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x67a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x685 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x689 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x690 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x69a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x6fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x704 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x70c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x714 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x71c ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x723 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x72a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x730 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x73a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x745 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x74a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x750 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x75a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x765 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x769 ) ;//CORE_DIG_CO:MMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x772 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x77a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x785 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x789 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x790 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x79a ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7a4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7ac ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7b4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7bc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7c4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7cc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7d4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7dc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7e4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7ec ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7f4 ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
+		eic770x_write_csi2_dphy_reg(hw, 0x1ff0      , 0x7fc ) ;//CORE_DIG_COMMON_RW_DESKEW_FINE_MEM
 
-    eic770x_write_csi2_dphy_reg(hw, 0x1029      , 0xbf0 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_9
-    eic770x_write_csi2_dphy_reg(hw, 0x1229      , 0xb70 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9
-    eic770x_write_csi2_dphy_reg(hw, 0x1429      , 0xbf0 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_9
+		eic770x_write_csi2_dphy_reg(hw, 0x3800      , 0x3   ) ;//CORE_DIG_DLANE_CLK_RW_CFG_0
+		eic770x_write_csi2_dphy_reg(hw, 0x3800      , 0x3   ) ;//CORE_DIG_DLANE_CLK_RW_CFG_0
+		eic770x_write_csi2_dphy_reg(hw, 0x3000      , 0x3   ) ;//CORE_DIG_DLANE_0_RW_CFG_0
+		eic770x_write_csi2_dphy_reg(hw, 0x3200      , 0x3   ) ;//CORE_DIG_DLANE_1_RW_CFG_0
+		eic770x_write_csi2_dphy_reg(hw, 0x3000      , 0x3   ) ;//CORE_DIG_DLANE_0_RW_CFG_0
+		eic770x_write_csi2_dphy_reg(hw, 0x3200      , 0x3   ) ;//CORE_DIG_DLANE_1_RW_CFG_0
 
-#endif
+		eic770x_write_csi2_dphy_reg(hw, 0x1029      , 0xbf0 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_9
+		eic770x_write_csi2_dphy_reg(hw, 0x1229      , 0xb70 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9
+		eic770x_write_csi2_dphy_reg(hw, 0x1429      , 0xbf0 ) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_9
+	}
 	return 0;
+}
+
+static void eic770x_csi2_dphy_init_4lane(u32 phy_addr, void __iomem  *hw) 
+{
+
+    eic770x_write_csi2_dphy_reg(hw, 0x102a      , 0x4) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_10
+    eic770x_write_csi2_dphy_reg(hw, 0x122a      , 0x4) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_10
+    eic770x_write_csi2_dphy_reg(hw, 0x142a      , 0x4) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_10
+    eic770x_write_csi2_dphy_reg(hw, 0x102f      , 0x1c) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_15
+    if(phy_addr == VI_COMBO_PHY0_REGISTER_BASE_ADDRESS || phy_addr == VI_COMBO_PHY2_REGISTER_BASE_ADDRESS
+    || phy_addr == VI_COMBO_PHY4_REGISTER_BASE_ADDRESS ) {//phy0/2/4 only 
+        eic770x_write_csi2_dphy_reg(hw, 0x122f      , 0x1c) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_15
+		pr_info("phy0/2/4 only, phy_addr 0x%x\n", phy_addr);
+	} 
+    eic770x_write_csi2_dphy_reg(hw, 0x142f      , 0x1c) ;//CORE_DIG_IOCTRL_RW_AFE_LANE2_CTRL_2_15
+    eic770x_write_csi2_dphy_reg(hw, 0x1c40      , 0xf6) ;//CORE_DIG_RW_COMMON_0    
 }
 
 int eic770x_csi0_cfg(struct csi2_dphy_hw *dphy_hw )
 {
-#ifdef CONFIG_EIC7700_EVB_VI
-	writel(1, dphy_hw->csi_base_addr + 0x18);
-#else
-	writel(0, dphy_hw->csi_base_addr + 0x18);
-#endif
 	writel(1, dphy_hw->csi_base_addr + 0x40);  //phy shutdownz
 	writel(1, dphy_hw->csi_base_addr + 0x44); //phy reset
 	writel(0x1010100, dphy_hw->csi_base_addr + 0x80); 
@@ -939,6 +824,7 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 	struct csi2_sensor *sensor;
 	struct csi2_dphy_hw *hw = dphy->dphy_hw;
 	u32 phy_ready = 0;
+	int ret;
 
 	if (!sensor_sd)
 		return -ENODEV;
@@ -950,28 +836,53 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 
 	dev_info(hw->dev, "stream on\n");
 	dev_info(hw->dev, "%s:%d: dphy phy addr 0x%llx \n", __func__, __LINE__, hw->dphy_hw_phy_addr);
-	#ifdef CONFIG_EIC7700_EVB_VI
-	writel(0x2c3f5, hw->hw_base_phy0_addr + 0x0);
-	#else
-    writel(0x2c3f0, hw->hw_base_phy0_addr + 0x0); 
-	#endif
+	
+	writel(0x2c3f5, hw->phy_cfg_base_addr + 0x0);
 
-	eic770x_csi2_dphy_init(hw);
+	eic770x_csi2_dphy_init(hw->board_compat, hw->hw_base_addr);
+
+	if(hw->num_lanes == CSI2_DPHY_4LANES) {
+		eic770x_csi2_dphy_init_4lane(hw->dphy_hw_phy_addr, hw->hw_base_addr);
+		// combine phy
+		pr_info("start combine phy, combine phy phy addr 0x%x, combine phy base addr %p \n", 
+			hw->combine_dphy_phy_addr, hw->combine_dphy_base_addr);
+		eic770x_csi2_dphy_init(hw->board_compat, hw->combine_dphy_base_addr);
+		eic770x_csi2_dphy_init_4lane(hw->combine_dphy_phy_addr, hw->combine_dphy_base_addr);
+	}
 	udelay(2000);
-	eic770x_csi0_cfg(hw);
+	ret = eic770x_csi0_cfg(hw);
+	if (ret) {
+		dev_err(hw->dev, "Failed to configure csi0 phy\n");
+		mutex_unlock(&hw->mutex);
+		return ret;
+	}
 	int count = 20;
 	while (count-- && phy_ready != 0x3) {
 		//TODO
-		phy_ready = readl(hw->hw_base_phy0_addr + 0x4); 
+		phy_ready = readl(hw->phy_cfg_base_addr + 0x4); 
         dev_info(hw->dev, "0x%x: csi phy status 0x%x\n", hw->phy_cfg_addr, phy_ready);
         udelay(200000);
     }
-	#ifdef CONFIG_EIC7700_EVB_VI
-	writel(0x2c075, hw->hw_base_phy0_addr + 0x0);
-	#else
-    writel(0x2c070, hw->hw_base_phy0_addr + 0x0);
-	#endif
+
+	if(hw->num_lanes == CSI2_DPHY_4LANES) {
+		count = 20;
+		phy_ready = 0x0;
+		while (count-- && phy_ready != 0x3) {
+			//TODO
+			phy_ready = readl(hw->combine_dphy_base_addr +0x18000 + 0x4); 
+			dev_info(hw->dev, "0x%x: csi phy status 0x%x\n", hw->combine_dphy_phy_addr+0x18000, phy_ready);
+			udelay(200000);
+		}
+	}
 	
+	writel(0x2c075, hw->phy_cfg_base_addr + 0x0);
+
+	if(hw->num_lanes == CSI2_DPHY_4LANES) {
+		pr_info("start combine phy, combine phy phy addr 0x%x, combine phy base addr %p \n", 
+			hw->combine_dphy_phy_addr, hw->combine_dphy_base_addr);
+		writel(0x2c065, hw->combine_dphy_base_addr + 0x18000);
+	}
+
 	atomic_inc(&hw->stream_cnt);
 
 	mutex_unlock(&hw->mutex);
@@ -1067,9 +978,13 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 	struct resource *res;
 	const struct of_device_id *of_id;
 	const struct dphy_hw_drv_data *drv_data;
+	struct eswin_vi_device* es_vi_dev;
+	struct device *parent = pdev->dev.parent;
 	u32 ret;
 	
 	dev_info(dev, "csi2 dphy hw probe in!\n");
+
+	es_vi_dev = dev_get_drvdata(parent);
 
 	dphy_hw = devm_kzalloc(dev, sizeof(*dphy_hw), GFP_KERNEL);
 	if (!dphy_hw)
@@ -1112,23 +1027,56 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
         return ret;
     }
 
-    dphy_hw->hw_base_phy0_addr = devm_ioremap(dev, dphy_hw->phy_cfg_addr, sizeof(u32));
-    if (IS_ERR(dphy_hw->hw_base_phy0_addr)) {
+    dphy_hw->phy_cfg_base_addr = devm_ioremap(dev, dphy_hw->phy_cfg_addr, sizeof(u32));
+    if (IS_ERR(dphy_hw->phy_cfg_base_addr)) {
         dev_err(dev, "Failed to map PHY address\n");
-        return PTR_ERR(dphy_hw->hw_base_phy0_addr);
+        return PTR_ERR(dphy_hw->phy_cfg_base_addr);
     }
 
-	ret = of_property_read_u32(dev->of_node, "csi_base", &dphy_hw->csi_addr);
+	ret = of_property_read_u32(dphy_hw->dev->of_node, "csi_base", &dphy_hw->csi_addr);
     if (ret) {
-        dev_err(dev, "Failed to read csi_base address\n");
+        dev_err(dphy_hw->dev, "Failed to read csi_base address\n");
         return ret;
     }
 
-    dphy_hw->csi_base_addr = devm_ioremap(dev, dphy_hw->csi_addr, sizeof(u32));
+	//TODO check the size
+    dphy_hw->csi_base_addr = devm_ioremap(dphy_hw->dev, dphy_hw->csi_addr, 0x1000);
     if (IS_ERR(dphy_hw->csi_base_addr)) {
-        dev_err(dev, "Failed to map csi address\n");
+        dev_err(dphy_hw->dev, "Failed to map PHY address\n");
         return PTR_ERR(dphy_hw->csi_base_addr);
     }
+
+	dphy_hw->num_lanes = of_property_count_elems_of_size(dev->of_node, "lanes", sizeof(u32));
+	if(dphy_hw->num_lanes < 0) {
+		dev_warn(dev, "Failed to get lanes count, use default 2 lanes\n");
+		dphy_hw->num_lanes = 2;
+	} else {
+		ret = of_property_read_u32_array(dev->of_node, "lanes", dphy_hw->lanes_array, dphy_hw->num_lanes);
+		if (ret) {
+			dev_err(dev, "Failed to read lanes array\n");
+			return ret;
+		}
+	}
+	
+	
+	
+	pr_info("%s: num_lanes = %d\n", __func__, dphy_hw->num_lanes);
+
+	if(dphy_hw->num_lanes == CSI2_DPHY_4LANES) {
+		ret = of_property_read_u32(dphy_hw->dev->of_node, "combine_phy", &dphy_hw->combine_dphy_phy_addr);
+		if (ret) {
+			dev_err(dphy_hw->dev, "Failed to read combine_phy address\n");
+			return ret;
+		}
+		u32 combine_phy_addr_size = 0x20000;
+	
+		dphy_hw->combine_dphy_base_addr = devm_ioremap(dphy_hw->dev, dphy_hw->combine_dphy_phy_addr, combine_phy_addr_size);
+		if (IS_ERR(dphy_hw->combine_dphy_base_addr)) {
+			dev_err(dphy_hw->dev, "Failed to map Combine PHY address\n");
+			return PTR_ERR(dphy_hw->combine_dphy_base_addr);
+		}
+		pr_info("%s: combine_phy = 0x%x\n", __func__, dphy_hw->combine_dphy_phy_addr);
+	}
 
 	atomic_set(&dphy_hw->stream_cnt, 0);
 
@@ -1136,6 +1084,8 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dphy_hw);
 
+	dphy_hw->board_compat = es_vi_dev->board_compat;
+	pr_info("%s: board_compat = %d\n", __func__, dphy_hw->board_compat);
 	dev_info(dev, "csi2 dphy hw probe successfully!\n");
 	// eswin_csi2_dphy_init();
 	return 0;

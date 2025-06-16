@@ -84,7 +84,7 @@ struct interrupt_type csi_int = {
 };
 
 #define dw_print(VAR) \
-	dev_info(csi_dev->dev, "%s: 0x%x: %X\n", "##VAR##",\
+	dev_dbg(csi_dev->dev, "%s: 0x%x: %X\n", "##VAR##",\
 	VAR, dw_mipi_csi_read(csi_dev, VAR))
 
 void dw_mipi_csi_write_part(struct dw_csi *dev, u32 address, u32 data,
@@ -289,9 +289,20 @@ void dw_mipi_csi_fill_timings(struct dw_csi *dev)
 	dev->hw.ipi_auto_flush = 0;
 	dev->hw.ipi_mode = CAMERA_TIMING;
 	dev->hw.ipi_cut_through = CTACTIVE;
-	dev->hw.ipi_line_event = LINE_EVENT_SELECTION(EVSELPROG) | EN_VIDEO |  EN_EMBEDDED;
+
+#ifdef ESWIN_MOD
+    dev->hw.ipi_line_event = EN_VIDEO | EN_BLANKING | LINE_EVENT_SELECTION(EVSELPROG);
+#else
+    dev->hw.ipi_line_event = LINE_EVENT_SELECTION(EVSELPROG) | EN_VIDEO |  EN_EMBEDDED;
+#endif
+
 	dev->hw.output = 0;
+
+#ifdef ESWIN_MOD
+	dev->hw.frame_det = 0;
+#else
 	dev->hw.frame_det = 1;
+#endif
 
 	dev->hw.hsa = 1;
 	dev->hw.hbp = 1;
@@ -336,7 +347,7 @@ void dw_mipi_csi_start(struct dw_csi *csi_dev)
         /* TODO: Configure line event selection */
         dw_mipi_csi_write(csi_dev, reg.IPI_ADV_FEATURES, csi_dev->hw.ipi_line_event);
         /* Configure ipi sync event mode */
-        //dw_mipi_csi_write_part(csi_dev, reg.IPI_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
+        // dw_mipi_csi_write_part(csi_dev, reg.IPI_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
     }
 
     // dw_mipi_csi_write_part(csi_dev, reg.IPI_SOFTRSTN, 1, 0, 1);
@@ -399,7 +410,7 @@ void dw_mipi_csi_start(struct dw_csi *csi_dev)
 			/* TODO: Configure line event selection */
 			dw_mipi_csi_write(csi_dev, reg.IPI2_ADV_FEATURES, csi_dev->hw.ipi_line_event);
 			/* Configure ipi sync event mode */
-			//dw_mipi_csi_write_part(csi_dev, reg.IPI2_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
+			// dw_mipi_csi_write_part(csi_dev, reg.IPI2_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
 		}
 		dw_mipi_csi_write(csi_dev,
 					reg.IPI2_HSA_TIME, csi_dev->hw.hsa);
@@ -434,7 +445,7 @@ void dw_mipi_csi_start(struct dw_csi *csi_dev)
 			/* TODO: Configure line event selection */
 			dw_mipi_csi_write(csi_dev, reg.IPI3_ADV_FEATURES, csi_dev->hw.ipi_line_event);
 			/* Configure ipi sync event mode */
-			//dw_mipi_csi_write_part(csi_dev, reg.IPI3_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
+			// dw_mipi_csi_write_part(csi_dev, reg.IPI3_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
 		}
 		dw_mipi_csi_write(csi_dev,
 					reg.IPI3_HSA_TIME, csi_dev->hw.hsa);

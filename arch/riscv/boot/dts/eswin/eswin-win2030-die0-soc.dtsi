@@ -2068,23 +2068,22 @@
 						<&d0_clock EIC7700_SPLL0_FOUT1>,
 						<&d0_clock EIC7700_VPLL_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
-						"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
-						"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
+							"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
+							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
 			resets = <&d0_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-					 <&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-					 <&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
-					 <&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
-					 <&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
-					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
-					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
-					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
-					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
-					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
-					 <&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
+						<&d0_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
+						<&d0_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
+						<&d0_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
+						<&d0_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
+						<&d0_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
 			reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
 			tbus = <WIN2030_TBUID_DW>;
 			numa-node-id = <0>;
-
 			ranges;
 			status = "okay";
 			
@@ -2200,12 +2199,16 @@
 				reg-names = "dvp2axi_regs";
 				interrupt-parent = <&plic0>;
 				eswin,syscrg_csr = <&d0_sys_crg>;
-				eswin,vi_top_csr = <&vi_top_csr>;
+				eswin,vi_top_csr = <&vi_top_csr 0x100c>;
 				interrupts = <368 369 370 371 372 373 374 375>;
 				interrupt-names = "dvp0_frame_int", "dvp1_frame_int", "dvp2_frame_int",
 									"dvp3_frame_int", "dvp4_frame_int", "dvp5_frame_int",
 									"dvp2axi_error_int","dvp2axi_afull_int";
 				dma-noncoherent;
+				numa-node-id = <0>;
+				#size-cells = <2>;
+				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+				iommus = <&smmu0 WIN2030_SID_DW>;
 				status = "disabled";
 			};
 
@@ -2214,7 +2217,6 @@
 				eswin,hw = <&dvp2axi>;
 				status = "disabled";
 			};
-			
 			dvp2axi_mipi_lvds1: dvp2axi_mipi_lvds1 {
 				compatible = "eswin,dvp2axi-mipi-lvds";
 				eswin,hw = <&dvp2axi>;
@@ -2227,6 +2229,24 @@
 				status = "disabled";
 			};
 			
+			dvp2axi_mipi_lvds3: dvp2axi_mipi_lvds3 {
+				compatible = "eswin,dvp2axi-mipi-lvds";
+				eswin,hw = <&dvp2axi>;
+				status = "disabled";
+			};
+
+			dvp2axi_mipi_lvds4: dvp2axi_mipi_lvds4 {
+				compatible = "eswin,dvp2axi-mipi-lvds";
+				eswin,hw = <&dvp2axi>;
+				status = "disabled";
+			};
+
+			dvp2axi_mipi_lvds5: dvp2axi_mipi_lvds5 {
+				compatible = "eswin,dvp2axi-mipi-lvds";
+				eswin,hw = <&dvp2axi>;
+				status = "disabled";
+			};
+
 			mipi_csi2_0: mipi-csi2-0@51050000 {
 				#address-cells = <2>;
 				#size-cells = <2>;
@@ -2235,11 +2255,15 @@
 				reg-names = "csihost_regs";
 				eswin,syscrg_csr = <&d0_sys_crg>;
 				eswin,vi_top_csr = <&vi_top_csr>;
-				//eswin,hw = <&mipi_csi2_hw>;
 				interrupt-parent = <&plic0>;
 				interrupts = <29>;
 				interrupt-names = "csi-intr1";
 				index = <0>;
+
+				ipi2_en = <0>;/* for virtual channel */
+				ipi2_vcid = <0>;/* virtual channel id */
+				ipi3_en = <0>;
+				ipi3_vcid = <0>;
 				status = "disabled";
 			};
 
@@ -2251,7 +2275,6 @@
 				reg-names = "csihost_regs";
 				eswin,syscrg_csr = <&d0_sys_crg>;
 				eswin,vi_top_csr = <&vi_top_csr>;
-				//eswin,hw = <&mipi_csi2_hw>;
 				interrupt-parent = <&plic0>;
 				interrupts = <30>;
 				interrupt-names = "csi-intr1";
@@ -2267,7 +2290,6 @@
 				reg-names = "csihost_regs";
 				eswin,syscrg_csr = <&d0_sys_crg>;
 				eswin,vi_top_csr = <&vi_top_csr>;
-				//eswin,hw = <&mipi_csi2_hw>;
 				interrupt-parent = <&plic0>;
 				interrupts = <31>;
 				interrupt-names = "csi-intr1";
@@ -2283,7 +2305,6 @@
 				reg-names = "csihost_regs";
 				eswin,syscrg_csr = <&d0_sys_crg>;
 				eswin,vi_top_csr = <&vi_top_csr>;
-				//eswin,hw = <&mipi_csi2_hw>;
 				interrupt-parent = <&plic0>;
 				interrupts = <32>;
 				interrupt-names = "csi-intr1";
@@ -2299,7 +2320,6 @@
 				reg-names = "csihost_regs";
 				eswin,syscrg_csr = <&d0_sys_crg>;
 				eswin,vi_top_csr = <&vi_top_csr>;
-				//eswin,hw = <&mipi_csi2_hw>;
 				interrupt-parent = <&plic0>;
 				interrupts = <33>;
 				interrupt-names = "csi-intr1";
@@ -2315,7 +2335,6 @@
 				reg-names = "csihost_regs";
 				eswin,syscrg_csr = <&d0_sys_crg>;
 				eswin,vi_top_csr = <&vi_top_csr>;
-				//eswin,hw = <&mipi_csi2_hw>;
 				interrupt-parent = <&plic0>;
 				interrupts = <34>;
 				interrupt-names = "csi-intr1";
@@ -2326,23 +2345,16 @@
 			csi2_dphy_hw: csi2-dphy-hw@510c0000 {
 				compatible = "eswin,eic770x-csi2-dphy-hw";
 				reg = <0x0 0x510c0000 0x0 0x20000>;
-				//clocks = <&cru PCLK_MIPICSIPHY>;
-				//clock-names = "pclk";
-				//eswin,grf = <&grf>;
 				phy_cfg = <0x510d8000>;
-				// eswin,mipi_csi2_hw = <&mipi_csi2_hw>;
 				csi_base = <0x51050000>;
+				combine_phy = <0x510e0000>;
 				status = "disabled";
 			};
 
 			csi2_dphy_hw1: csi2-dphy-hw1@510e0000 {
 				compatible = "eswin,eic770x-csi2-dphy-hw";
 				reg = <0x0 0x510e0000 0x0 0x20000>;
-				//clocks = <&cru PCLK_MIPICSIPHY>;
-				//clock-names = "pclk";
-				//eswin,grf = <&grf>;
 				phy_cfg = <0x510f8000>;
-				// eswin,mipi_csi2_hw = <&mipi_csi2_hw>;
 				csi_base = <0x51060000>;
 				status = "disabled";
 			};
@@ -2350,33 +2362,76 @@
 			csi2_dphy_hw2: csi2-dphy-hw2@51100000 {
 				compatible = "eswin,eic770x-csi2-dphy-hw";
 				reg = <0x0 0x51100000 0x0 0x20000>;
-				//clocks = <&cru PCLK_MIPICSIPHY>;
-				//clock-names = "pclk";
-				//eswin,grf = <&grf>;
-				phy_cfg = <0x51180000>;
-				// eswin,mipi_csi2_hw = <&mipi_csi2_hw>;
+				phy_cfg = <0x51118000>;
 				csi_base = <0x51070000>;
+				combine_phy = <0x51120000>;
+				status = "disabled";
+			};
+
+			csi2_dphy_hw3: csi2-dphy-hw3@51120000 {
+				compatible = "eswin,eic770x-csi2-dphy-hw";
+				reg = <0x0 0x51120000 0x0 0x20000>;
+				phy_cfg = <0x51138000>;
+				csi_base = <0x51080000>;
+				status = "disabled";
+			};
+
+			csi2_dphy_hw4: csi2-dphy-hw4@51140000 {
+				compatible = "eswin,eic770x-csi2-dphy-hw";
+				reg = <0x0 0x51140000 0x0 0x20000>;
+				phy_cfg = <0x51158000>;
+				csi_base = <0x51090000>;
+				combine_phy = <0x51160000>;
+				status = "disabled";
+			};
+
+			csi2_dphy_hw5: csi2-dphy-hw5@51160000 {
+				compatible = "eswin,eic770x-csi2-dphy-hw";
+				reg = <0x0 0x51160000 0x0 0x20000>;
+				phy_cfg = <0x51178000>;
+				csi_base = <0x510a0000>;
 				status = "disabled";
 			};
 
 			csi2_dphy0: csi2-dphy0 {
 				compatible = "eswin,eic770x-csi2-dphy";
-				eswin,hw = <&csi2_dphy_hw>, <&csi2_dphy_hw1>,<&csi2_dphy_hw2>;
+				eswin,hw = <&csi2_dphy_hw>;
 				index = <0>;
 				status = "disabled";
 			};
 			
 			csi2_dphy1: csi2-dphy1 {
 				compatible = "eswin,eic770x-csi2-dphy";
-				eswin,hw = <&csi2_dphy_hw>, <&csi2_dphy_hw1>,<&csi2_dphy_hw2>;
+				eswin,hw = <&csi2_dphy_hw1>;
 				index = <1>;
 				status = "disabled";
 			};
 
 			csi2_dphy2: csi2-dphy2 {
 				compatible = "eswin,eic770x-csi2-dphy";
-				eswin,hw =  <&csi2_dphy_hw>, <&csi2_dphy_hw1>,<&csi2_dphy_hw2>;
+				eswin,hw = <&csi2_dphy_hw2>;
 				index = <2>;
+				status = "disabled";
+			};
+
+			csi2_dphy3: csi2-dphy3 {
+				compatible = "eswin,eic770x-csi2-dphy";
+				eswin,hw = <&csi2_dphy_hw3>;
+				index = <3>;
+				status = "disabled";
+			};
+
+			csi2_dphy4: csi2-dphy4 {
+				compatible = "eswin,eic770x-csi2-dphy";
+				eswin,hw = <&csi2_dphy_hw4>;
+				index = <4>;
+				status = "disabled";
+			};
+
+			csi2_dphy5: csi2-dphy5 {
+				compatible = "eswin,eic770x-csi2-dphy";
+				eswin,hw = <&csi2_dphy_hw5>;
+				index = <5>;
 				status = "disabled";
 			};
 
@@ -2439,10 +2494,6 @@
 				/*phys = <&mipi_dphy_rx 1>;*/
 				numa-node-id = <0>;
 
-				/* MIPI CONFIG */
-				snps,en-ppi-width = <0>;/* 0: ppi8, 1: ppi16 */
-				snps,en-phy-mode = <0>;/* 0: D-PHY, 1: C-PHY */
-
 				ipi2_en = <0>;/* for virtual channel */
 				ipi2_vcid = <0>;/* virtual channel id */
 				ipi3_en = <0>;
@@ -2485,10 +2536,6 @@
 				reg = <0x0 0x51060000 0x0 0x1000>;
 				/*phys = <&mipi_dphy_rx 1>;*/
 				numa-node-id = <0>;
-
-				/* MIPI CONFIG */
-				snps,en-ppi-width = <0>;/* 0: ppi8, 1: ppi16 */
-				snps,en-phy-mode = <0>;/* 0: D-PHY, 1: C-PHY */
 
 				ipi2_en = <0>;/* for virtual channel */
 				ipi2_vcid = <0>;/* virtual channel id */

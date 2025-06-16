@@ -122,12 +122,6 @@
 			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
 		};
-		
-		dvp2axi_mem: dvp2axi-mem@90000000 {
-			compatible = "shared-dma-pool";
-			reg = <0x0 0x90000000 0x0 0x10000000>;
-			no-map;
-		};
 	};
 
 
@@ -912,9 +906,3 @@
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
-
-&dvp2axi {
-	memory-region = <&dvp2axi_mem>;
-};
-
-//#include "eic7700-evb-camera.dtsi"

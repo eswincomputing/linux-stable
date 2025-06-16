@@ -466,7 +466,7 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 	// 	ret = -ENXIO;
 	// 	goto err;
 	// }
-	dev->hw.num_lanes = 2;//vep.bus.mipi_csi2.num_data_lanes;
+	// dev->hw.num_lanes = 2;//vep.bus.mipi_csi2.num_data_lanes;
 
 // err:
 // 	pr_info("%s:%d \n", __func__, __LINE__);
@@ -509,6 +509,7 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 		return -ENXIO;
 	}
 
+//TODO 为什么这里创建了link，但是没有enable
 	ret = media_create_pad_link(
 		&sensor->sd->entity, pad, &csi2->sd.entity, DWC_CSI2_PAD_SINK,
 		0 /* csi2->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED */);

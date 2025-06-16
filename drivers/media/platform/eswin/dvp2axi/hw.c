@@ -42,19 +42,23 @@
 #include <linux/mfd/syscon.h>
 #include "common.h"
 
+#include <linux/bitfield.h>
+#include <linux/eswin-win2030-sid-cfg.h>
+
 /* eic770x */
 #include <media/eswin/common-def.h>
-// #include "dw-mipi-csi-hal.h"
 #include "../vi_top/vitop.h"
-#include "dw-mipi-csi-hal.h"
-
 #include "dvp2axi.h"
-// #include "common-def.h"
 
+#define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
+#define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
+#define ARSMMUSID	GENMASK(15, 8)	// The sid of read operation
+#define ARSMMUSSID	GENMASK(7, 0)	// The ssid of read operation
+
+u32 devm_irq_num[6] = {0};
 static inline void DVP2AXI_HalWriteReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address, u32 data) {
     writel(data, dvp2axi_hw->base_addr + address);
 }
-
 static inline u32 DVP2AXI_HalReadReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address) {
     u32 val;
     val = readl(dvp2axi_hw->base_addr + address);
@@ -196,19 +200,10 @@ static const struct dvp2axi_reg eic770x_dvp2axi_regs[] = {
 	[DVP2AXI_REG_GRF_DVP2AXIIO_CON] = DVP2AXI_REG(DVP2AXI_GRF_SOC_CON2),
 };
 
-static const struct es_dvp2axi_hw_match_data eic770x_dvp2axi_match_data = {
-	.chip_id = CHIP_EIC770X_DVP2AXI,
-	.clks = eic770x_dvp2axi_clks,
-	.clks_num = ARRAY_SIZE(eic770x_dvp2axi_clks),
-	.rsts = eic770x_dvp2axi_rsts,
-	.rsts_num = ARRAY_SIZE(eic770x_dvp2axi_rsts),
-	.dvp2axi_regs = eic770x_dvp2axi_regs,
-};
 
 static const struct of_device_id es_dvp2axi_plat_of_match[] = {
 	{
 		.compatible = "eswin,dvp2axi",
-		.data = &eic770x_dvp2axi_match_data,
 	},
 	{},
 };
@@ -222,7 +217,29 @@ static irqreturn_t es_dvp2axi_irq_handler(int irq, void *ctx)
 	// int i;
 
 	irq_start = ktime_get_ns();
-	es_irq_oneframe(dev, dvp2axi_hw->dvp2axi_dev[0]);
+	for(int i = 0; i < 6; i++) {
+		if(irq == dvp2axi_hw->devm_irq_num[i]) {
+			es_irq_oneframe(dev, dvp2axi_hw->dvp2axi_dev[i]);
+		}
+	}
+
+	irq_stop = ktime_get_ns();
+	dvp2axi_hw->irq_time = irq_stop - irq_start;
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t es_dvp2axi_err_irq_handler(int irq, void *ctx)
+{
+	struct device *dev = ctx;
+	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
+	u64 irq_start, irq_stop;
+
+	irq_start = ktime_get_ns();
+	for(int i = 0; i < ES_DVP2AXI_IRQ_NUM; i++) {
+		if(irq == dvp2axi_hw->devm_irq_num[i]) {
+			es_irq_err_handle(dev, dvp2axi_hw->dvp2axi_dev[i]);
+		}
+	}
 
 	irq_stop = ktime_get_ns();
 	dvp2axi_hw->irq_time = irq_stop - irq_start;
@@ -289,140 +306,69 @@ void es_dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *dvp2axi_hw, bool is_rst_iomm
 #define DVP2AXI_OUTSTANDING_SIZE 16
 #define DVP2AXI_WQOS_CFG 0
 
-static uint32_t dvp2axi_int0_done_mask = 0;
-static uint32_t dvp2axi_int0_flush_mask = 0;
-static uint32_t dvp2axi_int1_done_mask = 0;
-static uint32_t dvp2axi_int1_flush_mask = 0;
-static uint32_t dvp2axi_int2_err_global_mask = 0;
-static uint32_t dvp2axi_int2_err_dvp_mask = 0;
 
-void bmtest_dvp2axi_hw_program(struct es_dvp2axi_hw *dvp2axi_hw)
-{   
-    uint32_t val1, val2, val3;
-    uint32_t stride, shnum;
-
-    /* DVP0-1 16bit, IO_DVP disable */
-    val1 = DVP2AXI_IO_DVP_DIS;
-#ifdef DVP2AXI_DVP0_ENABLE
-    val1 |= (DVP2AXI_DVP0_PWIDTH << 20);
-#endif
-#ifdef DVP2AXI_DVP1_ENABLE
-    val1 |= (DVP2AXI_DVP1_PWIDTH << 25);
-#endif
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR, val1);
-
-    /* outstanding 16 */
-    val1 = (DVP2AXI_OUTSTANDING_SIZE-1) << 24;
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, val1);
-
-    /* 240p or 480p */
-#ifdef DVP2AXI_DVP0_ENABLE
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR, SENSOR_OUT_H | (SENSOR_OUT_V << 16));//DVP0
-    DPRINTK("DVP0 Size 0x%x\n", DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR));
-#endif
-    
-
-    val1 = 0;
-    val2 = 0;
-#ifdef DVP2AXI_DVP0_ENABLE
-    val1 = SENSOR_OUT_H * (DVP2AXI_DVP0_PWIDTH / 8);
-    val1 = (val1 + 15) & 0xfff0;
-    val2 |= val1;
-#endif
-
-#if defined(DVP2AXI_DVP0_ENABLE) || defined(DVP2AXI_DVP1_ENABLE)
-        DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR, val2);
-#endif
-
-
-    stride = (SENSOR_OUT_H + SENSOR_OUT_H_PAD)*2 + 15;
-    stride = stride & 0xfff0;
-    shnum = SENSOR_OUT_H + SENSOR_OUT_H_PAD;
-    val2 = 0;
-    val3 = 0;
-#if defined(DVP2AXI_DVP0_ENABLE) || defined(DVP2AXI_DVP1_ENABLE)
-    val2 = 0;
-#ifdef DVP2AXI_DVP0_ENABLE
-    val2 |= stride;
-    val3 |= shnum;
-#endif
-#ifdef DVP2AXI_DVP1_ENABLE
-    val2 |= (stride << 16);
-    val3 |= (shnum << 16);
-#endif
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL37, val2);  //for embedded
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL40, val3);  //for embedded
-#endif	//#if defined(DVP2AXI_DVP0_ENABLE) || defined(DVP2AXI_DVP1_ENABLE)
-#if defined(DVP2AXI_DVP2_ENABLE) || defined(DVP2AXI_DVP3_ENABLE)
-    val2 = 0;
-    val3 = 0;
-#ifdef DVP2AXI_DVP2_ENABLE
-    val2 |= stride;
-    val3 |= shnum;
-#endif
-#ifdef DVP2AXI_DVP3_ENABLE
-    val2 |= (stride << 16);
-    val3 |= (shnum << 16);
-#endif
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL38, val2);  //for embedded
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL41, val3);  //for embedded
-#endif
-#if defined(DVP2AXI_DVP4_ENABLE) || defined(DVP2AXI_DVP5_ENABLE)
-    val2 = 0;
-    val3 = 0;
-#ifdef DVP2AXI_DVP4_ENABLE
-    val2 |= stride;
-    val3 |= shnum;
-#endif
-#ifdef DVP2AXI_DVP5_ENABLE
-    val2 |= (stride << 16);
-    val3 |= (shnum << 16);
-#endif
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL39, val2);  //for embedded
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL42, val3);  //for embedded
-#endif 	//#if defined(DVP2AXI_DVP4_ENABLE) || defined(DVP2AXI_DVP5_ENABLE)
-}
-
-void bmtest_dvp2axi_hw_int_setup(struct es_dvp2axi_hw *dvp2axi_hw)
+static int dvp2axi_smmu_sid_cfg(struct device* dev)
 {
-    uint32_t val1 = 0, val2 = 0, val3 = 0, val4 = 0;
+    int ret = 0;
+    struct regmap* regmap = NULL;
+    int mmu_tbu0_vi_dvp2axi_reg = 0;
+    u32 rdwr_sid_ssid = 0;
+    u32 sid = 0;
+	u32 val;
 
-    dvp2axi_int2_err_global_mask = 0x103;
-    /* DVP0 interrupt */
-    #ifdef DVP2AXI_DVP0_ENABLE
-    dvp2axi_int2_err_dvp_mask |= (1 << 2);
-    val1 |= 7;
-    val2 |= (1 << 9);
-    #endif
+    struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
-    dvp2axi_int0_flush_mask = val1;
-    dvp2axi_int0_done_mask = val2;
-    dvp2axi_int1_flush_mask = val3;
-    dvp2axi_int1_done_mask = val4;
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR, val1 | val2);
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, val3 | val4);
-    DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, dvp2axi_int2_err_global_mask | dvp2axi_int2_err_dvp_mask);
+    if (fwspec == NULL) {
+        pr_info("Device is not behind SMMU, using default streamID(0)\n");
+        return 0;
+    }
+
+	if (fwspec->num_ids == 0) {
+		dev_err(dev, "No Stream IDs configured!\n");
+		return -EINVAL;
+	}
+
+    sid = fwspec->ids[0];
+
+    regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,vi_top_csr");
+    if (IS_ERR(regmap)) {
+        pr_err("No vi_top_csr phandle specified, regmap=%ld\n", PTR_ERR(regmap));
+		return PTR_ERR(regmap);
+    }
+
+    ret = of_property_read_u32_index(dev->of_node, "eswin,vi_top_csr", 1,
+                                    &mmu_tbu0_vi_dvp2axi_reg);
+    if (ret) {
+        pr_err("Failed to get sid cfg reg offset, ret=%d\n", ret);
+        return ret;
+    }
+
+    rdwr_sid_ssid  = FIELD_PREP(AWSMMUSID, sid);
+    rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, sid);
+    rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
+    rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
+
+    regmap_write(regmap, mmu_tbu0_vi_dvp2axi_reg, rdwr_sid_ssid);
+
+
+	regmap_read(regmap, mmu_tbu0_vi_dvp2axi_reg, &val);
+
+    ret = win2030_dynm_sid_enable(dev_to_node(dev));
+    if (ret < 0)
+        pr_err("Failed to enable dynamic SID for sid=%u, ret=%d\n", sid, ret);
+
+    return ret;
 }
 
 static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 {
-	const struct of_device_id *match;
-	struct device_node *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
-	// struct device_node *np = dev->of_no8de;
 	struct es_dvp2axi_hw *dvp2axi_hw;
-	// struct es_dvp2axi_device *dvp2axi_dev;
-	const struct es_dvp2axi_hw_match_data *data;
 	struct resource *res;
 	int ret, irq;
-	// bool is_mem_reserved = false;
-	struct notifier_block *notifier;
-	// int package = 0;
-
-	match = of_match_node(es_dvp2axi_plat_of_match, node);
-	if (IS_ERR(match))
-		return PTR_ERR(match);
-	data = match->data;
+#ifdef CONFIG_NUMA
+	u32 numa_id = 0;
+#endif
 
 	dvp2axi_hw = devm_kzalloc(dev, sizeof(*dvp2axi_hw), GFP_KERNEL);
 	if (!dvp2axi_hw)
@@ -430,21 +376,38 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, dvp2axi_hw);
 	dvp2axi_hw->dev = dev;
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
 
-	ret = devm_request_irq(dev, irq, es_dvp2axi_irq_handler,
-			       IRQF_SHARED,
-			       dev_driver_string(dev), dev);
-	if (ret < 0) {
-		dev_err(dev, "request irq failed: %d\n", ret);
+	ret = dvp2axi_smmu_sid_cfg(dev);
+	if (ret) {
+		dev_err(dev, "SMMU SID config failed: %d\n", ret);
 		return ret;
 	}
 
+	for(int i = 0; i < ES_DVP2AXI_IRQ_NUM; i++) {
+		irq = platform_get_irq(pdev, i);
+		dvp2axi_hw->devm_irq_num[i] = irq;
+		if (irq < 0)
+			return irq;
+		if(i == ES_DVP2AXI_ERR_IRQ || i == ES_DVP2AXI_AFULL_IRQ) 
+			ret = devm_request_irq(dev, irq, es_dvp2axi_err_irq_handler,
+			       IRQF_SHARED,
+			       dev_driver_string(dev), dev);
+		else
+			ret = devm_request_irq(dev, irq, es_dvp2axi_irq_handler,
+			       IRQF_SHARED,
+			       dev_driver_string(dev), dev);
+	
+		if (ret < 0) {
+			dev_err(dev, "request irq failed: %d\n", ret);
+			return ret;
+		}
+	}
+
+	for(int i = 0; i < ES_DVP2AXI_ERRIRQ_NUM; i++)
+		atomic_set(&dvp2axi_hw->dvp2axi_errirq_cnts[i], 0);
+
 	dvp2axi_hw->irq = irq;
-	dvp2axi_hw->match_data = data;
-	dvp2axi_hw->chip_id = data->chip_id;
+
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM,
 		"dvp2axi_regs");
@@ -460,34 +423,35 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = of_reserved_mem_device_init(dev);
-	if(ret) {
-		dev_err(dev, "Could not get reserved memory\n");
-		return ret;
-	}
-
-	// bmtest_dvp2axi_hw_program(dvp2axi_hw);
-
-	dvp2axi_hw->dvp2axi_regs = data->dvp2axi_regs;
-
+	// dvp2axi_hw->is_dma_sg_ops = true;
 	dvp2axi_hw->is_dma_sg_ops = false;
 	dvp2axi_hw->is_dma_contig = true;
 	mutex_init(&dvp2axi_hw->dev_lock);
-	spin_lock_init(&dvp2axi_hw->group_lock);
-	atomic_set(&dvp2axi_hw->power_cnt, 0);
+	mutex_init(&dvp2axi_hw->dev_multi_chn_lock);
 
-	mutex_init(&dvp2axi_hw->dev_lock);
+	spin_lock_init(&dvp2axi_hw->group_lock);
+	spin_lock_init(&dvp2axi_hw->intr_spinlock);
+	atomic_set(&dvp2axi_hw->power_cnt, 0);
 
 	pm_runtime_enable(&pdev->dev);
 
-	platform_driver_register(&es_dvp2axi_plat_drv);
-	platform_driver_register(&es_dvp2axi_subdev_driver);
+#ifdef CONFIG_NUMA
+	ret = of_property_read_u32(node, "numa-node-id", &numa_id);
+	if(ret) {
+		dev_warn(dev, "Could not get numa-node-id, use default 0\n");
+		numa_id = 0;
+	}
+#endif
 
-	notifier = &dvp2axi_hw->reset_notifier;
-	notifier->priority = 1;
-	notifier->notifier_call = es_dvp2axi_reset_notifier;
-	// es_dvp2axi_csi2_register_notifier(notifier); 
-	pr_info("%s success! \n", __func__);
+#ifdef CONFIG_NUMA
+	if(numa_id == 0) {
+		platform_driver_register(&es_dvp2axi_plat_drv);
+	} else {
+		platform_driver_register(&es_dvp2axi_plat_drv_d1);
+	}
+#else
+	platform_driver_register(&es_dvp2axi_plat_drv);
+#endif
 	return 0;
 }
 
@@ -496,10 +460,9 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 	struct es_dvp2axi_hw *dvp2axi_hw = platform_get_drvdata(pdev);
 
 	pm_runtime_disable(&pdev->dev);
-	// if (dvp2axi_hw->iommu_en)
-	// 	es_dvp2axi_iommu_cleanup(dvp2axi_hw);
 
 	mutex_destroy(&dvp2axi_hw->dev_lock);
+	mutex_destroy(&dvp2axi_hw->dev_multi_chn_lock);
 
 	return 0;
 }
@@ -507,8 +470,6 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 static void es_dvp2axi_hw_shutdown(struct platform_device *pdev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = platform_get_drvdata(pdev);
-	// struct es_dvp2axi_device *dvp2axi_dev = NULL;
-	// int i = 0;
 
 	if (pm_runtime_get_if_in_use(&pdev->dev) <= 0)
 		return;

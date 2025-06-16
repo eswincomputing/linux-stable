@@ -1,0 +1,353 @@
+&d1_vi_subsys {
+	board_compat = "eic7700,dvb_vi";
+	eswin,isp_dvp0_hor = <3280>;
+	eswin,isp_dvp0_ver = <2464>;
+    d1_vvcam_isp_0: d1-vvcam_isp@0 {
+        compatible = "verisilicon,isp-v4l2";
+        id = <0>;
+        status = "okay";
+		dma-noncoherent;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				d1_vvcam_isp_input_port: endpoint@0 {
+					remote-endpoint = <&d1_mipi2_csi2_output1>;
+				};
+			};
+
+            port@1 {
+                reg = <1>;
+                d1_vvcam_isp_port0_mp: endpoint {
+                    remote-endpoint = <&d1_vvcam_video0>;
+                };
+            };
+
+            port@2 {
+                reg = <2>;
+                d1_vvcam_isp_port0_sp1: endpoint {
+                    remote-endpoint = <&d1_vvcam_video1>;
+                };
+            };
+
+            port@3 {
+                reg = <3>;
+                d1_vvcam_isp_port0_sp2: endpoint {
+                    remote-endpoint = <&d1_vvcam_video2>;
+                };
+            };
+
+            port@4 {
+                reg = <4>;
+                d1_vvcam_isp_port0_raw: endpoint {
+                    remote-endpoint = <&d1_vvcam_video3>;
+                };
+            };
+        };
+    };
+
+	d1_vvcam_vb: d1-vvcam-vb@0 {
+		compatible = "verisilicon,vb";
+		status = "okay";
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu1 WIN2030_SID_ISP0>;
+	};
+
+    d1_vvcam_video_0: d1-vvcam_video@0 {
+        compatible = "verisilicon,video";
+        id = <0>;
+        status = "okay";
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu1 WIN2030_SID_ISP0>;
+
+        ports {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            port@0 {
+                reg = <0>;
+                d1_vvcam_video0: endpoint {
+                    remote-endpoint = <&d1_vvcam_isp_port0_mp>;
+                };
+            };
+
+            port@1 {
+                reg = <1>;
+                d1_vvcam_video1: endpoint {
+                    remote-endpoint = <&d1_vvcam_isp_port0_sp1>;
+                };
+            };
+
+            port@2 {
+                reg = <2>;
+                d1_vvcam_video2: endpoint {
+                    remote-endpoint = <&d1_vvcam_isp_port0_sp2>;
+                };
+            };
+
+            port@3 {
+                reg = <3>;
+                d1_vvcam_video3: endpoint {
+                    remote-endpoint = <&d1_vvcam_isp_port0_raw>;
+                };
+            };
+        };
+    };
+};
+
+
+
+
+
+&d1_mipi_csi2_0 {
+	data-lanes = <1 2>;
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipi2_csi2_input: endpoint@0 {
+				remote-endpoint = <&d1_csidphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipi2_csi2_output0: endpoint@1 {
+				remote-endpoint = <&d1_axi2dvp_mipi2_in0>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipi2_csi2_output1: endpoint@2 {
+				remote-endpoint = <&d1_vvcam_isp_input_port>;
+			};
+		};
+	};
+};
+
+
+&d1_dvp2axi {
+	status = "okay";
+};
+
+&d1_dvp2axi_mipi_lvds {
+	status = "okay";
+	port@0 {
+		d1_axi2dvp_mipi2_in0: endpoint@0 {
+			remote-endpoint = <&d1_mipi2_csi2_output0>;
+		};
+	};
+};
+
+&d1_csi2_dphy_hw {
+	status = "okay";
+};
+
+&d1_csi2_dphy0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipidphy0_in_ucam0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&d1_imx219_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_csidphy0_out: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&d1_mipi2_csi2_input>;
+			};
+		};
+	};
+};
+
+
+
+&d1_i2c3 {
+	status = "okay";
+
+
+	/* i2c-sda-hold-time-ns = <1000>; */
+	/* clock-frequency = <0x186a0>; */
+			d1_camera_imx219: d1-camera-imx219@10 {
+				status = "okay";
+				compatible = "sony,imx219";
+				reg = <0x10>;
+
+				//clocks = <&clk_cam_24m>;
+				//clock-names = "xvclk";
+
+                eswin,board-type = "d560";
+				eswin,camera-module-index = <0>;
+				eswin,camera-module-facing = "back";
+				eswin,camera-module-name = "rpi-camera-v2";
+				eswin,camera-module-lens-name = "default";
+
+				power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+				power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
+				mclk-en-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
+				port {
+					d1_imx219_out0: endpoint {
+						remote-endpoint = <&d1_mipidphy0_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <456000000>;
+					};
+				};
+			};
+};
+
+&d1_i2c4 {
+	status = "okay";
+	/* d0 csi2-3 */
+
+			d1_camera_imx219_1: d1-camera-imx219-1@10 {
+				status = "okay";
+				compatible = "sony,imx219";
+				reg = <0x10>;
+
+				//clocks = <&clk_cam_24m>;
+				//clock-names = "xvclk";
+
+                eswin,board-type = "d560";
+				eswin,camera-module-index = <0>;
+				eswin,camera-module-facing = "back";
+				eswin,camera-module-name = "rpi-camera-v2";
+				eswin,camera-module-lens-name = "default";
+
+				power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+				power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
+				mclk-en-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
+
+				port {
+					d1_imx219_out2: endpoint {
+						remote-endpoint = <&d1_mipidphy2_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <456000000>;
+					};
+				};
+			};
+};
+
+
+&d1_mipi_csi2_2 {
+	data-lanes = <1 2>;
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipi_csi2_2_input: endpoint@0 {
+				remote-endpoint = <&d1_csidphy2_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipi_csi2_2_output0: endpoint@1 {
+				remote-endpoint = <&d1_axi2dvp_mipi2_in2>;
+			};
+		};
+	};
+};
+
+&d1_csi2_dphy_hw2 {
+	status = "okay";
+};
+&d1_csi2_dphy2 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_mipidphy2_in_ucam0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&d1_imx219_out2>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			d1_csidphy2_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&d1_mipi_csi2_2_input>;
+			};
+		};
+	};
+};
+
+
+
+&d1_dvp2axi_mipi_lvds1 {
+	status = "okay";
+	dvp2axi_id = <1>;
+};
+
+&d1_dvp2axi_mipi_lvds2 {
+	status = "okay";
+	dvp2axi_id = <2>;
+
+	port@0 {
+		d1_axi2dvp_mipi2_in2: endpoint@0 {
+			remote-endpoint = <&d1_mipi_csi2_2_output0>;
+		};
+	};
+};
+
+
+
+&d1_isp_0 {
+	status = "okay";
+};
+
+&d1_isp_1 {
+	status = "disabled";
+};

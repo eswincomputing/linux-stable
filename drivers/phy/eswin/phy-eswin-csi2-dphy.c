@@ -908,7 +908,11 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 	if (csi2dphy->drv_data->chip_id == CHIP_ID_EIC7700) {
 		csi2dphy->csi_info.csi_num = 1;
 		csi2dphy->csi_info.dphy_vendor[0] = PHY_VENDOR_INNO;
-		eswin_csi2_dphy_attach_hw(csi2dphy, 0, 0);
+		for (size_t i = 0; i < csi2dphy->csi_info.csi_num; i++)
+		{
+			eswin_csi2_dphy_attach_hw(csi2dphy, i, i);
+		}
+		
 	} else {
 		csi2dphy->csi_info.csi_num = 0;
 	}
