@@ -51,11 +51,11 @@
  * and the thresholds bit fields.
  */
 static const struct pvt_sensor_info pvt_info_cpu[] = {
-	PVT_SENSOR_INFO(0, "CPU Core Temperature", hwmon_temp, TEMP, TTHRES),
-	PVT_SENSOR_INFO(0, "CPU Core Voltage", hwmon_in, VOLT, VTHRES),
-	PVT_SENSOR_INFO(1, "CPU Core Low-Vt", hwmon_in, LVT, LTHRES),
-	PVT_SENSOR_INFO(2, "CPU Core UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
-	PVT_SENSOR_INFO(3, "CPU Core Standard-Vt", hwmon_in, SVT, STHRES),
+	PVT_SENSOR_INFO(0, "SoC Temperature", hwmon_temp, TEMP, TTHRES),
+	PVT_SENSOR_INFO(0, "SoC Voltage", hwmon_in, VOLT, VTHRES),
+	PVT_SENSOR_INFO(1, "SoC Low-Vt", hwmon_in, LVT, LTHRES),
+	PVT_SENSOR_INFO(2, "SoC UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
+	PVT_SENSOR_INFO(3, "SoC Standard-Vt", hwmon_in, SVT, STHRES),
 };
 
 static const struct pvt_sensor_info pvt_info_ddr[] = {
