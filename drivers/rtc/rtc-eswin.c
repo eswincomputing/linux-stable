@@ -58,6 +58,7 @@ struct eswin_rtc_dev {
 	unsigned long alarm_time;
 	void __iomem *csr_base;
 	struct clk *clk;
+	struct clk *cfg_clk;
 	unsigned int irq_wake;
 	struct reset_control *rst_rtc;
 };
@@ -219,6 +220,18 @@ static int eswin_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to enable RTC clock: %d\n", ret);
 		return -ENODEV;
 	}
+	/* get RTC clock */
+	pdata->cfg_clk = devm_clk_get(&pdev->dev, "cfgclk");
+	if (IS_ERR(pdata->cfg_clk)) {
+		dev_err(&pdev->dev, "Couldn't get the clock for RTC\n");
+		return -ENODEV;
+	}
+	/* Enable the clock */
+	clk_prepare_enable(pdata->cfg_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable RTC clock: %d\n", ret);
+		return -ENODEV;
+	}
 	/* reset rtc */
 	ret = reset_control_assert(pdata->rst_rtc);
 	WARN_ON(0 != ret);
@@ -240,6 +253,7 @@ static int eswin_rtc_probe(struct platform_device *pdev)
                      &eswin_rtc_ops, THIS_MODULE);
 	if (IS_ERR(pdata->rtc)) {
 		clk_disable_unprepare(pdata->clk);
+		clk_disable_unprepare(pdata->cfg_clk);
 		return PTR_ERR(pdata->rtc);
 	}
 
@@ -253,6 +267,7 @@ static int eswin_rtc_remove(struct platform_device *pdev)
 	eswin_rtc_alarm_irq_enable(&pdev->dev, 0);
 	device_init_wakeup(&pdev->dev, 0);
 	clk_disable_unprepare(pdata->clk);
+	clk_disable_unprepare(pdata->cfg_clk);
 	return 0;
 }
 
@@ -262,13 +277,13 @@ static int eswin_rtc_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct eswin_rtc_dev *pdata = platform_get_drvdata(pdev);
 	int irq;
-
 	irq = platform_get_irq(pdev, 0);
 	if (device_may_wakeup(&pdev->dev)) {
 		if (!enable_irq_wake(irq))
 			pdata->irq_wake = 1;
 	} else {
 		eswin_rtc_alarm_irq_enable(dev, 0);
+		clk_disable(pdata->cfg_clk);
 		clk_disable(pdata->clk);
 	}
 
@@ -289,6 +304,7 @@ static int eswin_rtc_resume(struct device *dev)
 		}
 	} else {
 		clk_enable(pdata->clk);
+		clk_enable(pdata->cfg_clk);
 		eswin_rtc_alarm_irq_enable(dev, 1);
 	}
 

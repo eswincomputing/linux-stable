@@ -1125,12 +1125,23 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
 
     if (command->feType == gcvHW_FE_END) {
         gctUINT idle = 0;
+        gctUINT try_cnt = 0;
+        gceSTATUS ret;
         /* Make sure FE is idle. */
         do {
             gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                                0x00004, &idle));
             if (idle != 0x7FFFFFFF) {
-                gcmkONERROR(gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvTRUE, gcdGPU_2D_TIMEOUT));
+                ret = gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvTRUE, gcdGPU_2D_TIMEOUT);
+                if (ret != gcvSTATUS_OK) {
+                    if (try_cnt++ < 5) {
+                        hae_print("core: %d, addr:(0x%llx)0x%llx ret: %d, try: %d",
+                            Hardware->core, Hardware->lastExecuteAddress, Address, ret, try_cnt);
+                    } else {
+                        hae_print("core: %d, addr:(0x%llx)0x%llx ret: %d, wait sig timeout!", Hardware->core, Hardware->lastExecuteAddress, Address, ret);
+                        return ret;
+                    }
+                }
             }
         } while (idle != 0x7FFFFFFF);
     }

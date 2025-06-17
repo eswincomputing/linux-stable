@@ -81,9 +81,6 @@ typedef struct {
 	venc_clk_rst_t vcrt;
 
 	u8 numa_id;
-	atomic_t dev_close_gate;
-	atomic_t dev_open_gate;
-	u8 dev_closed;
 } venc_dev_prvdata;
 
 SUBSYS_CONFIG vc8000e_subsys_array[4] = {0};
@@ -100,6 +97,7 @@ extern void hantroenc_normal_cleanup(void);
 extern int hantroenc_wait_core_idle(u32 core_id);
 extern int vc8000e_vcmd_init(void);
 extern int vc8000e_vcmd_cleanup(void);
+extern int vc8000e_vcmd_reset(u32 core_id);
 extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
 
 static int venc_dev_open(struct device *dev);
@@ -682,7 +680,7 @@ static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
 		}
 
 		if (!strcmp(core_name, core_name_tag)) {
-			LOG_DBG("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
+			LOG_DBG("%s tbu power on = %u, mod_type = %u\n", core_name_tag, powerUp, mod_type);
 			win2030_tbu_power_by_dev_and_node(dev, chi, powerUp);
 		}
 	}
@@ -693,7 +691,7 @@ static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
 static int venc_pm_enable(struct platform_device *pdev) {
 	/** enable runtime PM */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -707,15 +705,14 @@ static void enc_pm_disable(struct platform_device *pdev) {
 
 static int venc_dev_open(struct device *dev)
 {
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
 	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 	int ret = -1;
+	u32 core_id = 0;
 
-	if (atomic_dec_return(&prvdata->dev_open_gate) < 0) {
-		LOG_DBG("The device is opening\n");
-		atomic_inc(&prvdata->dev_open_gate);
-		return 0;
-	}
+	LOG_DBG("dev open, enter\n");
+
 	ret = venc_sys_clk_enable(vcrt);
 	if (ret) {
 		LOG_ERR("open device, venc enable clock failed\n");
@@ -731,11 +728,32 @@ static int venc_dev_open(struct device *dev)
 		LOG_ERR("je: open device, tbu power up failed\n");
 		goto end;
 	}
-	prvdata->dev_closed = 0;
+#ifdef SUPPORT_DMA_HEAP
+	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_ENCODER);
+	if (ret < 0) {
+		LOG_ERR("ve: dynamic smmu sid set failed");
+		return -1;
+	}
+	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_JPEG_ENCODER);
+	if (ret < 0) {
+		LOG_ERR("je: dynamic smmu sid set failed");
+		return -1;
+	}
+#endif
+
+	if (vcmd_supported == 0) {
+		/** <todo> for normal*/
+	} else {
+		/** reset vc8000e vcmd*/
+		for (core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+			if (numa_id_array[core_id] == prvdata->numa_id) {
+				vc8000e_vcmd_reset(core_id);
+			}
+		}
+	}
 
 end:
 	LOG_DBG("dev open, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
-	atomic_inc(&prvdata->dev_open_gate);
 	return ret;
 }
 
@@ -746,11 +764,8 @@ static int venc_dev_close(struct device *dev)
 	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 	int ret;
 
-	if (atomic_dec_return(&prvdata->dev_close_gate) < 0) {
-		LOG_DBG("The device is closing\n");
-		atomic_inc(&prvdata->dev_close_gate);
-		return 0;
-	}
+	LOG_DBG("dev close, enter\n");
+
 	/** check the device be idle*/
 	ret = venc_wait_device_idle(pdev);
 	if (0 == ret) {
@@ -763,6 +778,7 @@ static int venc_dev_close(struct device *dev)
 		ret = -ERESTARTSYS;
 		goto end;
 	}
+
 	ret = enc_tbu_power(dev, VCMD_TYPE_ENCODER, false);
 	if (ret != 0) {
 		LOG_ERR("ve: close device, tbu power down failed\n");
@@ -778,16 +794,14 @@ static int venc_dev_close(struct device *dev)
 		LOG_ERR("close device, venc disable clock failed\n");
 		goto end;
 	}
-	prvdata->dev_closed = 1;
 
 end:
 	LOG_DBG("dev closed, numa_id = %u, ret = %d\n", prvdata->numa_id, ret);
-	atomic_inc(&prvdata->dev_close_gate);
 	return ret;
 }
 
 /** interface functions might be called by others files*/
-int enc_pm_runtime_sync(u32 core_id) {
+int enc_pm_runtime_get(u32 core_id) {
 	struct platform_device *pdev = venc_get_platform_device(core_id);
 
 	if (!pdev) {
@@ -804,7 +818,8 @@ int enc_pm_runtime_put(u32 core_id) {
 		LOG_ERR("get platform device failed for pm put, core_id = %u\n", core_id);
 	}
 
-	return pm_runtime_put(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
+	return pm_runtime_put_autosuspend(&pdev->dev);
 }
 
 int enc_reset_system(u32 core_id) {
@@ -1010,9 +1025,6 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		LOG_ERR("41bit esdma dev: No suitable DMA available\n");
 #endif
 
-	atomic_set(&prvdata->dev_open_gate, 1);
-	atomic_set(&prvdata->dev_close_gate, 1);
-	prvdata->dev_closed = 1;
 	prvdata->numa_id = numa_id;
 
 	pdev_count++;
@@ -1064,29 +1076,10 @@ static int hantro_venc_remove(struct platform_device *pdev)
 	}
 	vcrt = &prvdata->vcrt;
 	venc_hardware_reset(vcrt);
+	venc_clk_disable(vcrt);
 #endif
 
 	return 0;
-}
-
-int venc_pm_runtime_sync(u32 core_id) {
-	struct platform_device *pdev = venc_get_platform_device(core_id);
-
-	if (!pdev) {
-		LOG_ERR("get platform device failed for pm sync, core_id = %u\n", core_id);
-	}
-
-	return pm_runtime_get_sync(&pdev->dev);
-}
-
-int venc_pm_runtime_put(u32 core_id) {
-	struct platform_device *pdev = venc_get_platform_device(core_id);
-
-	if (!pdev) {
-		LOG_ERR("get platform device failed for pm put, numa_id = %u\n", core_id);
-	}
-
-	return pm_runtime_put(&pdev->dev);
 }
 
 static int venc_runtime_suspend(struct device *dev) {

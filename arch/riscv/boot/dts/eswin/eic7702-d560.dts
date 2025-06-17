@@ -230,7 +230,8 @@
 		compatible = "fcs,fusb303b";
 		status = "okay";
 		reg = <0x21>;
-		eswin,syscfg = <&d1_sys_con 0x3C0 12>;
+		// Do not clear gpio_sel bit, gpio0-7 interrupts should be routed to lpcpu
+		// eswin,syscfg = <&d1_sys_con 0x3C0 12>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_die1_gpio30_default>;
@@ -255,13 +256,6 @@
 };
 &d1_i2c9 {
 	/* pin header */
-};
-
-&pvt0 {
-	status = "disabled";
-};
-&d1_pvt0 {
-	status = "disabled";
 };
 
 &wdt0 {
@@ -313,15 +307,14 @@
 				 &pinctrl_die0_gpio37_default &pinctrl_die0_gpio38_default &pinctrl_die0_gpio74_default &pinctrl_die0_gpio92_default
 				 &pinctrl_die0_gpio93_default>;
 
-
-    /* pin header default function for GPIO
-       D0_SPI1 (CS0,SCLK,MOSI,MISO,D2,D3): GPIO 35,36,37,38,39,40
+	/* pin header default function for GPIO
+	   D0_SPI1 (CS0,SCLK,MOSI,MISO,D2,D3): GPIO 35,36,37,38,39,40
 	   D0_I2C1 (SCL,SDA): GPIO 46,47
-       D0_I2C5 (SCL,SDA): GPIO 54,55
+	   D0_I2C5 (SCL,SDA): GPIO 54,55
 	   D1_SPI1 (CS0,SCLK,D0,D1,D2): GPIO 35,36,37,38,39
-       D1_UART3(TX,RX): GPIO 92,93
+	   D1_UART3(TX,RX): GPIO 92,93
 	   D0_UART3(TX,RX): GPIO 92,93
-    */
+	*/
 };
 
 &d1_pinctrl {

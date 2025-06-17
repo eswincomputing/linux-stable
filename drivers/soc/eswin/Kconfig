@@ -32,4 +32,18 @@ config EIC770X_OTP
        This driver provides access to the One-Time Programmable (OTP)
        memory on the Eswin EIC770X platform via debugfs.
        If unsure, say N.
+
+config ESWIN_LPCPU
+	tristate "Eswin LPCPU"
+	depends on ESWIN_MBOX
+	help
+	  Lpcpu driver implementation for the eswin platform. Say Y here if
+	  you want to build the eswin lpcpu driver.
+
+config ESWIN_BUS_ERROR
+	bool "ESWIN_BUS_ERROR"
+	help
+	  bus error driver implementation for the eswin Bus-Error Unit. Say Y here if
+	  you want to build the driver.
+
 endif

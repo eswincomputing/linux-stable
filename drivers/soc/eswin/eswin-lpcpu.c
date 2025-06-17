@@ -40,6 +40,9 @@
 #include <linux/iommu.h>
 // #include <linux/mailbox/eswin-ipc-scpu.h>
 #include <linux/eswin-win2030-sid-cfg.h>
+#include <soc/eswin/eswin-lpcpu.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 
 #define LPCPU_FW_RESERVED
 #define FW_BOOT_ADDR 0x80000000
@@ -72,6 +75,7 @@ struct lpcpu_dev {
 	struct reset_control *dbg_rst;
 	void __iomem *mmio;
 	size_t fw_size;
+	struct gpio_desc *irq_gpio;
 };
 
 static struct lpcpu_dev *lpcpu;
@@ -138,7 +142,6 @@ static int eswin_lpcpu_open(struct inode *inode, struct file *filp)
 	struct device *dev = NULL;
 
 	dev = lpcpu->mdev.parent;
-
 	dev_info(dev, "%s\n", __func__);
 
 	return ret;
@@ -166,6 +169,7 @@ static ssize_t eswin_lpcpu_write(struct file *filp,
 		ret = -EAGAIN;
 		// dev_dbg(dev, "Failed to send message via mailbox\r\n");
 	}
+	mbox_client_txdone(lpcpu->mbox_channel, 0);
 	return count;
 }
 
@@ -222,12 +226,49 @@ static long eswin_lpcpu_ioctl(struct file *filp, unsigned int cmd,
 				ret = -EAGAIN;
 				dev_dbg(dev, "Failed to send message via mailbox\r\n");
 			}
+			mbox_client_txdone(lpcpu->mbox_channel, 0);
 
 			break;
 		}
 
 		default: {
 			dev_err(dev, "Invalid IOCTL command %u\n", cmd);
+			return -ENOTTY;
+		}
+	}
+
+	return ret;
+}
+
+int eswin_lpcpu_service_ctl(int fid)
+{
+	u8 msg[8];
+	int ret = 0;
+
+	if(NULL == lpcpu)
+	{
+		ret = -EINVAL;
+		return ret;
+	}
+
+	switch (fid) {
+		/* alloc memory by driver using dmabuf heap helper API  */
+		case PM_SUSPEND_MEM_ENTER: {
+			msg[0] = 0xcb;
+			msg[1] = 0xec;
+			msg[2] = 0x55;
+
+			ret = mbox_send_message(lpcpu->mbox_channel, msg);
+			if (ret < 0){
+				ret = -EAGAIN;
+				printk("Failed to send message via mailbox\r\n");
+			}
+			mbox_client_txdone(lpcpu->mbox_channel, 0);
+
+			break;
+		}
+
+		default: {
 			return -ENOTTY;
 		}
 	}
@@ -245,13 +286,16 @@ static const struct file_operations eswin_lpcpu_ops = {
 	.unlocked_ioctl = eswin_lpcpu_ioctl,
 };
 
-static int lpcpu_boot_status(struct mbox_chan *mbox_channel)
+static int lpcpu_boot_status(struct mbox_chan *mbox_channel, u32 vdd_config_msg)
 {
 	int ret = 0;
 	u8 msg[8];
 	msg[0] = 0xca;
 	msg[1] = 0xec;
 	msg[2] = 0x55;
+    // vdd config msg
+    msg[4] = vdd_config_msg & 0xff;
+    msg[7] = (vdd_config_msg >> 24) & 0xff;
 
 	ret = mbox_send_message(mbox_channel, msg);
 	if (ret < 0){
@@ -259,6 +303,7 @@ static int lpcpu_boot_status(struct mbox_chan *mbox_channel)
 		printk("Failed to send message via mailbox\r\n");
 		return ret;
 	}
+	mbox_client_txdone(lpcpu->mbox_channel, 0);
 
 	return 0;
 }
@@ -268,18 +313,23 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	const char *mbox_channel_name;
-	const struct firmware *lpcpu_fw;
 	int numa_id = 0;
 	int ret;
-	struct device_node *node;
-	struct resource res_fw;
-	void __iomem *mem_fw;
 	long timeout;
+    u32 vdd_config_gpio = 0, vdd_config_die = 0, vdd_config_polarity = 0;
+    u32 buff[3], vdd_config_msg = 0;
 
 	lpcpu = devm_kzalloc(dev, sizeof(*lpcpu), GFP_KERNEL);
 	if (!lpcpu)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, lpcpu);
+
+	lpcpu->irq_gpio = devm_gpiod_get(dev, "irq", GPIOD_IN);
+	if (IS_ERR(lpcpu->irq_gpio)) {
+		dev_err(dev, "Failed to get IRQ GPIO\n");
+		return PTR_ERR(lpcpu->irq_gpio);
+	}
+	enable_irq_wake(gpiod_to_irq(lpcpu->irq_gpio));
 
 	lpcpu->mdev.minor = MISC_DYNAMIC_MINOR;
 	lpcpu->mdev.name = "lpcpu";
@@ -307,6 +357,33 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		dev_err(dev, "given arguments are not valid: %d\n", ret);
 		goto err_mailbox;
 	}
+
+    /* soc vdd config
+     * vdd_config_msg:  31      can not be used
+     *                  30      vdd config exists 1: exist 0: not exist
+     *                  29:25   reserved
+     *                  24      soc vdd polarity 0: positive 1: negative
+     *                  23:8    reserved
+     *                  7       die number 0-1, ignored on single die chips
+     *                  6:0     gpio number 0-127
+     * of_property:     vddctrl = <GPIO [POLARITY] [DIE]>;
+     *                  GPIO:       gpio port number which vdd control uses, range: 0-127
+     *                  POLARITY:   gpio level polarity, default: 0
+     *                              0: positive, high -> high vdd, low -> low vdd
+     *                              1: negative, high -> low vdd, low -> high vdd
+     *                  DIE:        die number, range 0-1, default: 0 */
+    ret = of_property_read_variable_u32_array(pdev->dev.of_node, "vddctrl", buff, 1, 3);
+    if (ret > 0) {
+        vdd_config_gpio = buff[0] & 0x7f;
+        if (ret > 1)
+            vdd_config_polarity = buff[1] ? 1 : 0;
+        if (ret > 2)
+            vdd_config_die = buff[2] ? 1 : 0;
+        vdd_config_msg = vdd_config_gpio | (vdd_config_die << 7) |
+            (vdd_config_polarity << 24) | (1 << 30);
+        dev_info(dev, "vdd config gpio: die %d, port %d, polarity %s\n", vdd_config_die,
+                vdd_config_gpio, !vdd_config_polarity ? "positive" : "negative");
+    }
 
 	mutex_init(&lpcpu->lock);
 	init_waitqueue_head(&lpcpu->waitq);
@@ -352,7 +429,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		goto err_mmio;
 	}
 
-	ret = lpcpu_boot_status(lpcpu->mbox_channel);
+	ret = lpcpu_boot_status(lpcpu->mbox_channel, vdd_config_msg);
 	if (ret < 0) {
 		dev_err(dev, "Send message to lpcpu via mailbox failed!\n");
 		goto err_mmio;
@@ -377,6 +454,7 @@ err_mailbox:
 	misc_deregister(&lpcpu->mdev);
 err_misc:
 	devm_kfree(&pdev->dev,lpcpu);
+	lpcpu = NULL;
 	return ret;
 }
 

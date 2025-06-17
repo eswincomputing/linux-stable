@@ -437,7 +437,11 @@
 
 &d0_lpcpu {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio0_default &pinctrl_die1_gpio7_on_default>;
+	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
 };
+
 &d1_lpcpu {
 	status = "disabled";
 };
@@ -1529,6 +1533,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_die0_pwm0_default>;
+	pinctrl-1 = <&pinctrl_die0_gpio68_default>;
+	fan-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 };
 &d1_pwm0 {
 	status = "disabled";

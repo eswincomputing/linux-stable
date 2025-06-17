@@ -497,8 +497,13 @@
 };
 
 &d0_lpcpu {
-	status = "disabled";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio0_default &pinctrl_die1_gpio7_on_default>;
+	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
+	vddctrl = <21 0 0>;
 };
+
 &d1_lpcpu {
 	status = "disabled";
 };
@@ -1369,9 +1374,13 @@
 
 &pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d0_sys_con 0x0668>;
 };
 &d1_pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d1_sys_con 0x0668>;
 };
 
 &pvt1 {

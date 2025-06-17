@@ -4123,7 +4123,7 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 static int vdec_pm_enable(struct platform_device *pdev) {
 	/* The code below assumes runtime PM to be disabled. */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -4173,8 +4173,10 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 }
 
 static int eswin_vdec_runtime_resume(struct device *dev) {
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
+	u8 numa_id = (pdev == platformdev) ? 0 : 1;
 
 	vcrt = dev_get_drvdata(dev);
 	if (vcrt) {
@@ -4188,6 +4190,24 @@ static int eswin_vdec_runtime_resume(struct device *dev) {
 		if (ret != 0) {
 			LOG_ERR("tbu power down failed, %d\n", __LINE__);
 			return -1;
+		}
+#ifdef SUPPORT_DMA_HEAP
+		ret = vdec_smmu_dynm_sid_init(pdev, numa_id);
+		if (ret < 0) {
+			LOG_ERR("rumtime_resume: dynamic smmu sid set failed");
+			return -1;
+		}
+#endif
+
+		if (vcmd == 0) {
+			/** <todo> for normal*/
+		} else {
+			/** reset vc8000d vcmd*/
+			for (u32 core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+				if (numa_id_array[core_id] == numa_id) {
+					hantrovcmd_reset(core_id);
+				}
+			}
 		}
 	}
 	return ret;

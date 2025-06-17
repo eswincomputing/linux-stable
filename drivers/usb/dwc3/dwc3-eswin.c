@@ -86,6 +86,10 @@ struct dwc3_eswin {
 	struct device *child_dev;
 	enum usb_role new_usb_role;
 	struct gpio_desc *hub_gpio;
+	bool wakeup_irq_flag;
+	bool soure_wakeup_flag;
+	struct workqueue_struct *soure_wakeup_workqueue;
+	struct delayed_work soure_wakeup_work;
 };
 
 static ssize_t dwc3_mode_show(struct device *device,
@@ -386,6 +390,26 @@ int dwc3_sid_cfg(struct device *dev)
 	return ret;
 }
 
+static void soure_wakeup_func(struct work_struct *work)
+{
+	struct dwc3_eswin *eswin;
+
+	eswin = container_of(work, struct dwc3_eswin,soure_wakeup_work.work);
+
+	if(IS_ERR_OR_NULL(eswin->dwc->xhci->dev.driver))
+	{
+		queue_delayed_work(eswin->soure_wakeup_workqueue,
+			&eswin->soure_wakeup_work,  msecs_to_jiffies(100));
+	}
+	else
+	{
+		if((true == eswin->soure_wakeup_flag)&&(!IS_ENABLED(CONFIG_ESWIN_LPCPU)))
+		{
+			eswin->dwc->xhci->dev.driver->pm = NULL;
+		}
+	}
+}
+
 static int dwc3_eswin_probe(struct platform_device *pdev)
 {
 	struct dwc3_eswin *eswin;
@@ -412,8 +436,10 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 	if (!count)
 		return -ENOENT;
 
+	eswin->soure_wakeup_flag = of_property_read_bool(np, "wakeup-source");
 	eswin->num_clocks = count;
 	eswin->force_mode = false;
+	eswin->wakeup_irq_flag = false;
 	eswin->clks = devm_kcalloc(dev, eswin->num_clocks, sizeof(struct clk *),
 				   GFP_KERNEL);
 	if (!eswin->clks)
@@ -434,12 +460,12 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 			ret = PTR_ERR(clk);
 			goto err0;
 		}
+		eswin->clks[i] = NULL;
 		ret = clk_prepare_enable(clk);
 		if (ret < 0) {
-			clk_put(clk);
+			dev_err(dev, "failed to enable clk %s\n", __clk_get_name(clk));
 			goto err0;
 		}
-
 		eswin->clks[i] = clk;
 	}
 
@@ -451,7 +477,6 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 
 	dwc3_eswin_deassert(eswin);
 	dwc_usb_clk_init(dev);
-
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
@@ -504,11 +529,21 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(dev, "failed to create sysfs group: %d\n", ret);
 
+	if((true == eswin->soure_wakeup_flag)&&(!IS_ENABLED(CONFIG_ESWIN_LPCPU)))
+	{
+		dev_info(dev, "enable usb dev wakeup system\n");
+		eswin->soure_wakeup_workqueue = create_workqueue("soure_wakeup_workqueue");
+
+		INIT_DELAYED_WORK(&eswin->soure_wakeup_work, soure_wakeup_func);
+		queue_delayed_work(eswin->soure_wakeup_workqueue, &eswin->soure_wakeup_work,
+						msecs_to_jiffies(100));
+	}
+
 	return ret;
 err3:
 	ret = win2030_tbu_power(eswin->child_dev, false);
 	if (ret) {
-		dev_err(dev, "tbu power2 off failed %d\n", ret);
+		dev_err(dev, "tbu power off failed %d\n", ret);
 	}
 err2:
 	cancel_work_sync(&eswin->otg_work);
@@ -520,12 +555,12 @@ err1:
 	dwc3_eswin_assert(eswin);
 err0:
 	for (i = 0; i < eswin->num_clocks && eswin->clks[i]; i++) {
-		if (!pm_runtime_status_suspended(dev))
-			clk_disable(eswin->clks[i]);
-		clk_unprepare(eswin->clks[i]);
+		if (!eswin->clks[i]) {
+			continue;
+		}
+		clk_disable_unprepare(eswin->clks[i]);
 		clk_put(eswin->clks[i]);
 	}
-
 	mutex_unlock(&eswin->lock);
 
 	return ret;
@@ -537,14 +572,22 @@ static int dwc3_eswin_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int i = 0;
 	int ret = 0;
-	cancel_work_sync(&eswin->otg_work);
+	struct usb_hcd *hcd = dev_get_drvdata(&eswin->dwc->xhci->dev);
 
+	if((true == eswin->soure_wakeup_flag)&&(!IS_ENABLED(CONFIG_ESWIN_LPCPU)))
+	{
+		cancel_delayed_work_sync(&eswin->soure_wakeup_work);
+
+	}
+	if(true == eswin->wakeup_irq_flag)
+	{
+		disable_irq_wake(hcd->irq);
+	}
+	cancel_work_sync(&eswin->otg_work);
 	sysfs_remove_group(&dev->kobj, &dwc3_eswin_attr_group);
 
 	/* Restore hcd state before unregistering xhci */
 	if (eswin->edev && !eswin->connected) {
-		struct usb_hcd *hcd = dev_get_drvdata(&eswin->dwc->xhci->dev);
-
 		pm_runtime_get_sync(dev);
 
 		/*
@@ -574,9 +617,10 @@ static int dwc3_eswin_remove(struct platform_device *pdev)
 
 	dwc3_eswin_assert(eswin);
 	for (i = 0; i < eswin->num_clocks; i++) {
-		if (!pm_runtime_status_suspended(dev))
-			clk_disable(eswin->clks[i]);
-		clk_unprepare(eswin->clks[i]);
+		if (!eswin->clks[i]) {
+			continue;
+		}
+		clk_disable_unprepare(eswin->clks[i]);
 		clk_put(eswin->clks[i]);
 	}
 
@@ -588,12 +632,15 @@ static int dwc3_eswin_runtime_suspend(struct device *dev)
 {
 	struct dwc3_eswin *eswin = dev_get_drvdata(dev);
 	int i;
+	int ret = 0;
 
-	for (i = 0; i < eswin->num_clocks; i++)
-		clk_disable(eswin->clks[i]);
-
-	device_init_wakeup(dev, false);
-
+	ret = win2030_tbu_power(eswin->child_dev, false);
+	if (ret) {
+		dev_err(dev, "tbu power off failed %d\n", ret);
+	}
+	for (i = 0; i < eswin->num_clocks; i++) {
+		clk_disable_unprepare(eswin->clks[i]);
+	}
 	return 0;
 }
 
@@ -601,11 +648,21 @@ static int dwc3_eswin_runtime_resume(struct device *dev)
 {
 	struct dwc3_eswin *eswin = dev_get_drvdata(dev);
 	int i;
+	int ret = 0;
 
-	for (i = 0; i < eswin->num_clocks; i++)
-		clk_enable(eswin->clks[i]);
+	for (i = 0; i < eswin->num_clocks; i++) {
+		ret = clk_prepare_enable(eswin->clks[i]);
+		if (ret < 0) {
+			dev_err(dev, "failed to enable clk %s\n", __clk_get_name(eswin->clks[i]));
+			return ret;
+		}
+	}
 
-	device_init_wakeup(dev, true);
+	ret = win2030_tbu_power(eswin->child_dev, true);
+	if (ret) {
+		dev_err(dev, "tbu power on failed %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -614,10 +671,20 @@ static int __maybe_unused dwc3_eswin_suspend(struct device *dev)
 {
 	struct dwc3_eswin *eswin = dev_get_drvdata(dev);
 	struct dwc3 *dwc = eswin->dwc;
-
+	int ret = 0;
+	int i = 0;
+	struct usb_hcd *hcd = dev_get_drvdata(&eswin->dwc->xhci->dev);
+	if((true == eswin->soure_wakeup_flag)&&(!IS_ENABLED(CONFIG_ESWIN_LPCPU)))
+	{
+		enable_irq_wake(hcd->irq);
+		eswin->wakeup_irq_flag = true;
+	}
 	eswin->suspended = true;
 	cancel_work_sync(&eswin->otg_work);
-
+	ret = win2030_tbu_power(eswin->child_dev, false);
+	if (ret) {
+		dev_err(dev, "tbu power off failed %d\n", ret);
+	}
 	/*
 	 * The flag of is_phy_on is only true if
 	 * the DWC3 is in Host mode.
@@ -634,7 +701,15 @@ static int __maybe_unused dwc3_eswin_suspend(struct device *dev)
 		if (dwc->link_state == DWC3_LINK_STATE_RX_DET)
 			phy_power_off(dwc->usb3_generic_phy);
 	}
-
+	for (i = 0; i < eswin->num_clocks; i++) {
+		if (!pm_runtime_status_suspended(dev))
+			{
+				if(strcmp(__clk_get_name(eswin->clks[i]),"clk_hsp_aclk"))
+				{
+					clk_disable_unprepare(eswin->clks[i]);
+				}
+			}
+	}
 	return 0;
 }
 
@@ -642,9 +717,25 @@ static int __maybe_unused dwc3_eswin_resume(struct device *dev)
 {
 	struct dwc3_eswin *eswin = dev_get_drvdata(dev);
 	struct dwc3 *dwc = eswin->dwc;
+	int ret = 0;
+	int i = 0;
 
+	for (i = 0; i < eswin->num_clocks; i++) {
+		if(strcmp(__clk_get_name(eswin->clks[i]),"clk_hsp_aclk"))
+		{
+			ret = clk_prepare_enable(eswin->clks[i]);
+			if (ret < 0) {
+				dev_err(dev, "failed to enable clk %s\n", __clk_get_name(eswin->clks[i]));
+				return ret;
+			}
+		}
+	}
 	eswin->suspended = false;
-
+	ret = win2030_tbu_power(eswin->child_dev, true);
+	if (ret) {
+		dev_err(dev, "tbu power on failed %d\n", ret);
+		return ret;
+	}
 	if (eswin->is_phy_on) {
 		phy_power_on(dwc->usb2_generic_phy);
 

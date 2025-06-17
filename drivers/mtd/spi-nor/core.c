@@ -3280,6 +3280,9 @@ static int spi_nor_suspend(struct mtd_info *mtd)
 	struct spi_nor *nor = mtd_to_spi_nor(mtd);
 	int ret;
 
+	struct spi_mem_op op = SPI_NOR_POWERDUWM_OP;
+	spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
+	spi_mem_exec_op(nor->spimem, &op);
 	/* Disable octal DTR mode if we enabled it. */
 	ret = spi_nor_set_octal_dtr(nor, false);
 	if (ret)
@@ -3299,6 +3302,9 @@ static void spi_nor_resume(struct mtd_info *mtd)
 	ret = spi_nor_init(nor);
 	if (ret)
 		dev_err(dev, "resume() failed\n");
+	struct spi_mem_op op = SPI_NOR_RELEASE_POWERDUWM_OP;
+	spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
+	spi_mem_exec_op(nor->spimem, &op);
 }
 
 static int spi_nor_get_device(struct mtd_info *mtd)

@@ -27,6 +27,8 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/pwm.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/gpio/consumer.h>
 
 #define DWC_TIM_LD_CNT(n)	((n) * 0x14)
 #define DWC_TIM_LD_CNT2(n)	(((n) * 4) + 0xb0)
@@ -63,6 +65,7 @@ struct dwc_pwm {
 	struct clk *clk;
 	struct reset_control *rst;
 	struct dwc_pwm_ctx ctx[DWC_TIMERS_TOTAL];
+	struct gpio_desc *gpio_fan;
 };
 #define to_dwc_pwm(p)	(container_of((p), struct dwc_pwm, chip))
 
@@ -269,13 +272,20 @@ static int dwc_pwm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	dwc->gpio_fan = devm_gpiod_get(&pdev->dev, "fan", GPIOD_OUT_LOW);
+	if (IS_ERR(dwc->gpio_fan)) {
+		dev_err(&pdev->dev, "failed to get fan gpio, err: %ld\n", PTR_ERR(dwc->gpio_fan));
+		return PTR_ERR(dwc->gpio_fan);
+	}
+
 
 	ret = devm_pwmchip_add(dev, &dwc->chip);
 	if (ret)
 		return ret;
 
-	pm_runtime_put(dev);
-	pm_runtime_allow(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_get_noresume(dev);
 
 	return 0;
 }
@@ -290,11 +300,65 @@ static int dwc_pwm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dwc_pwm_runtime_suspend(struct device *dev)
+{
+	struct dwc_pwm *dwc = dev_get_drvdata(dev);
+	int ret, i;
+
+	for (i = 0; i < DWC_TIMERS_TOTAL; i++) {
+		if (dwc->chip.pwms[i].state.enabled) {
+			dev_err(dev, "PWM %u in use by consumer (%s)\n",
+				i, dwc->chip.pwms[i].label);
+			return -EBUSY;
+		}
+	}
+
+	clk_disable_unprepare(dwc->clk);
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret) {
+		dev_err(dev, "failed to select sleep state: %d\n", ret);
+		clk_prepare_enable(dwc->clk);
+		return ret;
+	}
+
+	gpiod_set_value(dwc->gpio_fan, 0);
+
+	return 0;
+}
+
+static int dwc_pwm_runtime_resume(struct device *dev)
+{
+	struct dwc_pwm *dwc = dev_get_drvdata(dev);
+	int ret;
+
+	gpiod_set_value(dwc->gpio_fan, 1);
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret) {
+		dev_err(dev, "failed to select default state: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(dwc->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable clock: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int dwc_pwm_suspend(struct device *dev)
 {
 	struct dwc_pwm *dwc = dev_get_drvdata(dev);
-	int i;
+	int i, ret;
+
+	dev_dbg(dev, "%s\n", __func__);
+	if (pm_runtime_status_suspended(dev)) {
+		ret = dwc_pwm_runtime_resume(dev);
+		if (ret)
+			return ret;
+	}
 
 	for (i = 0; i < DWC_TIMERS_TOTAL; i++) {
 		if (dwc->chip.pwms[i].state.enabled) {
@@ -307,13 +371,37 @@ static int dwc_pwm_suspend(struct device *dev)
 		dwc->ctx[i].ctrl = dwc_pwm_readl(dwc, DWC_TIM_CTRL(i));
 	}
 
+	clk_disable_unprepare(dwc->clk);
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret) {
+		dev_err(dev, "failed to select sleep state: %d\n", ret);
+		clk_prepare_enable(dwc->clk);
+		return ret;
+	}
+
+	gpiod_set_value(dwc->gpio_fan, 0);
+
 	return 0;
 }
 
 static int dwc_pwm_resume(struct device *dev)
 {
 	struct dwc_pwm *dwc = dev_get_drvdata(dev);
-	int i;
+	int ret, i;
+
+	dev_dbg(dev, "%s\n", __func__);
+	gpiod_set_value(dwc->gpio_fan, 1);
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret) {
+		dev_err(dev, "failed to select default state: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(dwc->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable clock: %d\n", ret);
+		return ret;
+	}
 
 	for (i = 0; i < DWC_TIMERS_TOTAL; i++) {
 		dwc_pwm_writel(dwc, dwc->ctx[i].cnt, DWC_TIM_LD_CNT(i));
@@ -321,11 +409,17 @@ static int dwc_pwm_resume(struct device *dev)
 		dwc_pwm_writel(dwc, dwc->ctx[i].ctrl, DWC_TIM_CTRL(i));
 	}
 
+	if (pm_runtime_status_suspended(dev))
+		dwc_pwm_runtime_suspend(dev);
+
 	return 0;
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(dwc_pwm_pm_ops, dwc_pwm_suspend, dwc_pwm_resume);
+static const struct dev_pm_ops dwc_pwm_pm_ops = {
+	SET_RUNTIME_PM_OPS(dwc_pwm_runtime_suspend, dwc_pwm_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(dwc_pwm_suspend, dwc_pwm_resume)
+};
 
 static const struct of_device_id dwc_pwm_id_table[] = {
 	{ .compatible = "eswin,pwm-eswin", },
@@ -338,7 +432,7 @@ static struct platform_driver dwc_pwm_driver = {
 	.remove = dwc_pwm_remove,
 	.driver = {
 		.name	= "dwc-pwm",
-		//.pm = &dwc_pwm_pm_ops,
+		.pm = &dwc_pwm_pm_ops,
 		.of_match_table = of_match_ptr(dwc_pwm_id_table),
 	},
 };

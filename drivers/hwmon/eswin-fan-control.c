@@ -106,7 +106,7 @@ static ssize_t eswin_fan_pwm_ctl_show(struct device *dev, struct device_attribut
 		if(1 ==  ctl->pwm_inverted)
 		{
 			period = pwm_get_period(ctl->pwm);
-			temp =  period- temp;
+			temp = period - temp;
 		}
 	}
 	else if (FAN_PWM_PERIOD == attr->index) {
@@ -661,15 +661,43 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 							 ctl,
 							 &eswin_chip_info,
 							 eswin_fan_control_groups);
+	dev_set_drvdata(&pdev->dev, ctl);
 	mutex_init(&ctl->fan_lock);
 	dev_err(&pdev->dev, "eswin fan control init exit\n");
 
 	return PTR_ERR_OR_ZERO(ctl->hdev);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int eswin_fan_control_suspend(struct device *dev)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	pwm_disable(ctl->pwm);
+	clk_disable_unprepare(ctl->clk);
+
+	return 0;
+}
+
+static int eswin_fan_control_resume(struct device *dev)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	clk_prepare_enable(ctl->clk);
+	pwm_enable(ctl->pwm);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(fan_control_pm_ops, eswin_fan_control_suspend, eswin_fan_control_resume);
+
 static struct platform_driver eswin_fan_control_driver = {
 	.driver = {
 		.name = "eswin_fan_control_driver",
+		.pm = &fan_control_pm_ops,
 		.of_match_table = eswin_fan_control_of_match,
 	},
 	.probe = eswin_fan_control_probe,

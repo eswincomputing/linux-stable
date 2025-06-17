@@ -272,9 +272,11 @@
 
 &d0_pmu {
 	status = "okay";
+	npu-supply=<&d0_npu_vcc>;
 };
 &d1_pmu {
 	status = "okay";
+	npu-supply=<&d1_npu_vcc>;
 };
 
 &ddr0 {
@@ -460,8 +462,13 @@
 };
 
 &d0_lpcpu {
-	status = "disabled";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio0_default &pinctrl_die1_gpio7_on_default>;
+	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
+	vddctrl = <21 0 0>;
 };
+
 &d1_lpcpu {
 	status = "disabled";
 };
@@ -825,59 +832,59 @@
 };
 
 &isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dewarp {
-	status = "okay";
+	status = "disabled";
 };
 &d1_dewarp {
-	status = "okay";
+	status = "disabled";
 };
 
 &mipi_dphy_rx {
-	status = "okay";
+	status = "disabled";
 };
 &d1_mipi_dphy_rx {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi_dma0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi_dma0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi_dma1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi_dma1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi2_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi2_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi2_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi2_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -1031,7 +1038,7 @@
 };
 
 &d1_uart0 {
-	status = "okay";
+	status = "disable";
 };
 
 &d0_uart1 {
@@ -1330,9 +1337,13 @@
 
 &pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d0_sys_con 0x0668>;
 };
 &d1_pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d1_sys_con 0x0668>;
 };
 
 &pvt1 {
@@ -1385,10 +1396,10 @@
 };
 
 &timer1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_timer1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer2 {

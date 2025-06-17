@@ -30,4 +30,5 @@
 #define EIC770X_PD_CODEC        4
 #define EIC770X_PD_DSP2         5
 #define EIC770X_PD_DSP3         6
+#define EIC770X_PD_NPU          7
 #endif

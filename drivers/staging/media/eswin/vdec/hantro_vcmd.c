@@ -1618,7 +1618,7 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	if (!new_cmdbuf_node) {
 		UNLOCK_CMDBUF_NODE(cmdbuf_id, flags);
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	global_cmdbuf_node[cmdbuf_id] = NULL;
@@ -1627,7 +1627,7 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 	if (cmdbuf_obj->filp != filp) {
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	module_type = cmdbuf_obj->module_type;
@@ -1764,13 +1764,13 @@ static long link_and_run_cmdbuf(struct file *filp,
 	new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 	if (!new_cmdbuf_node) {
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 	if (cmdbuf_obj->filp != filp) {
 		//should not happen
-		LOG_ERR("ERROR cmdbuf_id !!\n");
+		LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 		return -1;
 	}
 	cmdbuf_obj->cmdbuf_data_loaded = 1;
@@ -1834,7 +1834,7 @@ static long link_and_run_cmdbuf(struct file *filp,
 	LOG_TRACE("Vdec Allocate cmd buffer [%d] to core [%d]\n", cmdbuf_id, input_para->core_id);
 	if (filp) {
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
-		vdec_pm_runtime_sync(dev->core_id);
+		vdec_pm_runtime_get(dev->core_id);
 		atomic_inc(&(fp_priv->core_tasks[dev->core_id]));
 	}
 	//set ddr address for vcmd registers copy.
@@ -2025,13 +2025,13 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 		new_cmdbuf_node = global_cmdbuf_node[cmdbuf_id];
 		if (!new_cmdbuf_node) {
 			//should not happen
-			LOG_ERR("ERROR cmdbuf_id !!\n");
+			LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 			return -1;
 		}
 		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 		if (cmdbuf_obj->filp != filp) {
 			//should not happen
-			LOG_ERR("ERROR cmdbuf_id !!\n");
+			LOG_ERR("ERROR cmdbuf_id line=%d, cmdbuf_id=%u!!\n", __LINE__, cmdbuf_id);
 			return -1;
 		}
 		dev = &hantrovcmd_data[cmdbuf_obj->core_id];
@@ -2099,7 +2099,7 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 		if (wait_event_interruptible(*dev->wait_queue,
 					     check_cmdbuf_irq(dev, cmdbuf_obj,
 							      irq_status_ret))) {
-			LOG_DBG("vcmd_wait_queue_0 interrupted\n");
+			LOG_ERR("vcmd_wait_queue_0 interrupted, cmdbuf_id=%u\n", cmdbuf_id);
 			return -ERESTARTSYS;
 		}
 		return 0;
@@ -4171,7 +4171,9 @@ int hantrovcmd_init(void)
 	if (result < 0)
 		goto err;
 
-	vcmd_reset_asic(hantrovcmd_data);
+	for (i = 0; i < total_vcmd_core_num; i++) {
+		vcmd_reset_asic(&hantrovcmd_data[i]);
+	}
 
 	/* get the IRQ line */
 	for (i = 0; i < total_vcmd_core_num; i++) {
@@ -4373,6 +4375,34 @@ void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup)
 	}
 	LOG_INFO("vcmd module removed %s\n", (pdev == platformdev_d1) ? "dev1" : "dev0");
 	return;
+}
+
+int hantrovcmd_reset(u32 core_id)
+{
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = NULL;
+
+	LOG_DBG("hantrovcmd_reset\n");
+
+	if (core_id >= total_vcmd_core_num) {
+		LOG_ERR("hantrovcmd_reset, invalid core_id = %u, total_vcmd_core_num = %u\n"
+			, core_id, total_vcmd_core_num);
+		return -1;
+	}
+	dev = &hantrovcmd_data[core_id];
+
+	spin_lock_irqsave(dev->spinlock, flags);
+
+	/** re-initialize the dev state.*/
+	dev->working_state = WORKING_STATE_IDLE;
+	dev->sw_cmdbuf_rdy_num = 0;
+
+	/** reset asic*/
+	vcmd_reset_asic(dev);
+
+	spin_unlock_irqrestore(dev->spinlock, flags);
+
+	return 0;
 }
 
 static int vcmd_reserve_IO(void)
@@ -4970,38 +5000,36 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 
 static void vcmd_reset_asic(struct hantrovcmd_dev *dev)
 {
-	int i, n;
+	int i;
 	u32 result;
 
-	for (n = 0; n < total_vcmd_core_num; n++) {
-		if (dev[n].hwregs) {
-			//disable interrupt at first
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_INT_CTL_OFFSET, 0x0000);
-			//reset core
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_CONTROL_OFFSET, 0x0004);
-			//read status register
-			result = vcmd_read_reg((const void *)dev[n].hwregs,
-					       VCMD_REGISTER_INT_STATUS_OFFSET);
-			//clean status register
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_INT_STATUS_OFFSET, result);
-			for (i = VCMD_REGISTER_CONTROL_OFFSET;
-			     i < dev[n].vcmd_core_cfg.vcmd_iosize; i += 4) {
-				//set all register 0
-				vcmd_write_reg((const void *)dev[n].hwregs, i,
-					       0x0000);
-			}
-			//enable all interrupt
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_INT_CTL_OFFSET,
-				       0xffffffff);
-			// gate all external interrupts
-			vcmd_write_reg((const void *)dev[n].hwregs,
-				       VCMD_REGISTER_EXT_INT_GATE_OFFSET,
-				       0xffffffff);
+	if (dev->hwregs) {
+		//disable interrupt at first
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_INT_CTL_OFFSET, 0x0000);
+		//reset core
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_CONTROL_OFFSET, 0x0004);
+		//read status register
+		result = vcmd_read_reg((const void *)dev->hwregs,
+						VCMD_REGISTER_INT_STATUS_OFFSET);
+		//clean status register
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_INT_STATUS_OFFSET, result);
+		for (i = VCMD_REGISTER_CONTROL_OFFSET;
+				i < dev->vcmd_core_cfg.vcmd_iosize; i += 4) {
+			//set all register 0
+			vcmd_write_reg((const void *)dev->hwregs, i,
+						0x0000);
 		}
+		//enable all interrupt
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_INT_CTL_OFFSET,
+					0xffffffff);
+		// gate all external interrupts
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_EXT_INT_GATE_OFFSET,
+					0xffffffff);
 	}
 }
 

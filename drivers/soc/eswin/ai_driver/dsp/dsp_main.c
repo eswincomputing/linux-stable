@@ -751,7 +751,6 @@ int __maybe_unused dsp_suspend(struct device *dev)
 	flush_work(&dsp->task_work);
 
 	dsp_disable_irq(dsp);
-	es_dsp_hw_uninit(dsp);
 
 	dsp_release_firmware(dsp);
 	dsp_halt(dsp);
@@ -761,7 +760,8 @@ int __maybe_unused dsp_suspend(struct device *dev)
 
 	es_dsp_clk_disable(dsp);
 	dsp_disable_mbox_clock(dsp);
-		dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
+
+	dsp_debug("%s, %d, dsp core%d generic suspend done.\n", __func__,
 		  __LINE__, dsp->process_id);
 	return 0;
 }
@@ -774,9 +774,12 @@ int __maybe_unused dsp_resume(struct device *dev)
 	dsp_debug("%s, dsp core%d generic resuming..\n\n", __func__,
 		  dsp->process_id);
 
+	pm_runtime_get_sync(dev);
+
 	ret = dsp_enable_mbox_clock(dsp);
 	if (ret) {
 		dsp_err("dsp resume mbox clock err.\n");
+		pm_runtime_put_sync(dev);
 		return ret;
 	}
 	ret = es_dsp_clk_enable(dsp);
@@ -785,17 +788,12 @@ int __maybe_unused dsp_resume(struct device *dev)
 		goto out;
 	}
 
-	pm_runtime_get_noresume(dsp->dev);
-
 	ret = win2030_tbu_power(dsp->dev, true);
 	if (ret) {
 		dsp_err("%s, %d, tbu power failed.\n", __func__, __LINE__, ret);
 		goto err_tbu_power;
 	}
 	dsp_enable_irq(dsp);
-	ret = es_dsp_hw_init(dsp);
-	if (ret)
-		goto err_hw_init;
 	ret = dsp_boot_firmware(dsp);
 	if (ret < 0) {
 		dsp_err("load firmware failed, ret=%d.\n", ret);
@@ -808,13 +806,12 @@ int __maybe_unused dsp_resume(struct device *dev)
 	dsp_schedule_task(dsp);
 	return 0;
 err_firm:
-	es_dsp_hw_uninit(dsp);
-err_hw_init:
 	win2030_tbu_power(dsp->dev, false);
 err_tbu_power:
 	es_dsp_core_clk_disable(dsp);
 out:
 	dsp_disable_mbox_clock(dsp);
+	pm_runtime_put_sync(dev);
 	return ret;
 }
 

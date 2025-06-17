@@ -78,6 +78,9 @@ struct dwc_qos_priv {
 	struct reset_control *rst;
 	struct clk *clk_app;
 	struct clk *clk_tx;
+	struct clk *aclk;
+	struct clk *cfg_clk;
+	struct clk *rmii_ref;
 	struct regmap *rgmii_sel;
 	struct gpio_desc *phy_reset;
 	struct stmmac_priv *stmpriv;
@@ -286,6 +289,18 @@ static int dwc_clks_config(void *priv, bool enabled)
 	struct dwc_qos_priv *dwc_priv = (struct dwc_qos_priv *)priv;
 
 	if (enabled) {
+		ret = clk_prepare_enable(dwc_priv->cfg_clk);
+		if (ret < 0) {
+			dev_err(dwc_priv->dev, "failed to enable cfg clk: %d\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(dwc_priv->aclk);
+		if (ret < 0) {
+			dev_err(dwc_priv->dev, "failed to enable aclk: %d\n", ret);
+			return ret;
+		}
+
 		ret = clk_prepare_enable(dwc_priv->clk_app);
 		if (ret) {
 			dev_err(dwc_priv->dev, "failed to enable app clk, err = %d\n", ret);
@@ -313,6 +328,8 @@ static int dwc_clks_config(void *priv, bool enabled)
 
 		clk_disable_unprepare(dwc_priv->clk_tx);
 		clk_disable_unprepare(dwc_priv->clk_app);
+		clk_disable_unprepare(dwc_priv->aclk);
+		clk_disable_unprepare(dwc_priv->cfg_clk);
 	}
 
 	return ret;
@@ -474,6 +491,31 @@ static int dwc_qos_probe(struct platform_device *pdev,
 		return PTR_ERR(dwc_priv->clk_tx);
 	}
 
+	dwc_priv->aclk = devm_clk_get(&pdev->dev, "aclk");
+	if (IS_ERR(dwc_priv->aclk)) {
+		dev_err(&pdev->dev, "aclk not found.\n");
+		return PTR_ERR(dwc_priv->aclk);
+	}
+
+	dwc_priv->cfg_clk = devm_clk_get(&pdev->dev, "cfg_clk");
+	if (IS_ERR(dwc_priv->cfg_clk)) {
+		dev_err(&pdev->dev, "cfg clock not found.\n");
+		return PTR_ERR(dwc_priv->cfg_clk);
+	}
+
+	dwc_priv->rmii_ref = devm_clk_get(&pdev->dev, "rmii_ref");
+	if (IS_ERR(dwc_priv->rmii_ref)) {
+		dev_err(&pdev->dev, "rmii_ref clock not found.\n");
+		return PTR_ERR(dwc_priv->rmii_ref);
+	}
+
+	ret = clk_prepare_enable(dwc_priv->rmii_ref);
+	if (ret < 0) {
+		dev_err(dwc_priv->dev, "failed to enable rmii_ref clk: %d\n", ret);
+		return ret;
+	}
+	clk_disable_unprepare(dwc_priv->rmii_ref);
+
 	ret = dwc_clks_config(dwc_priv, true);
 	if (ret) {
 		return ret;
@@ -489,12 +531,6 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	ret = reset_control_deassert(dwc_priv->rst);
 	WARN_ON(0 != ret);
 
-	ret = win2030_tbu_power(&pdev->dev, true);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to power on tbu\n");
-		return ret;
-	}
-
 	plat_dat->fix_mac_speed = dwc_qos_fix_speed;
 	plat_dat->bsp_priv = dwc_priv;
 	plat_dat->phy_addr = PHY_ADDR;
@@ -508,12 +544,6 @@ static int dwc_qos_remove(struct platform_device *pdev)
 {
 	int ret;
 	struct dwc_qos_priv *dwc_priv = get_stmmac_bsp_priv(&pdev->dev);
-
-	ret = win2030_tbu_power(&pdev->dev, false);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to power down tbu\n");
-		return ret;
-	}
 
 	reset_control_assert(dwc_priv->rst);
 	dwc_clks_config(dwc_priv, false);

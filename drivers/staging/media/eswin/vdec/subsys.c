@@ -233,7 +233,7 @@ struct platform_device *vdec_get_platform_device(u32 core_id)
 	return pdev;
 }
 
-int vdec_pm_runtime_sync(u32 core_id) {
+int vdec_pm_runtime_get(u32 core_id) {
 	struct platform_device *pdev = vdec_get_platform_device(core_id);
 
 	if (!pdev) {
@@ -250,5 +250,6 @@ int vdec_pm_runtime_put(u32 core_id) {
 		LOG_ERR("get platform device failed for pm put, numa_id = %u\n", core_id);
 	}
 
-	return pm_runtime_put(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
+	return pm_runtime_put_autosuspend(&pdev->dev);
 }

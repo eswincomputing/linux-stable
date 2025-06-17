@@ -18,18 +18,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * Authors: Yulin Lu <luyulin@eswincomputing.com>
+ *          Huan He <hehuan1@eswincomputing.com>
  */
 
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
-#include <linux/reset.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/hwmon.h>
-#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/ktime.h>
@@ -43,7 +42,10 @@
 #include <linux/sysfs.h>
 #include <linux/types.h>
 #include "eswin_pvt.h"
-#include <linux/pm_runtime.h>
+#include <linux/regmap.h>
+#include  <linux/mfd/syscon.h>
+#include <linux/of.h>
+
 
 /*
  * For the sake of the code simplification we created the sensors info table
@@ -51,11 +53,11 @@
  * and the thresholds bit fields.
  */
 static const struct pvt_sensor_info pvt_info_cpu[] = {
-	PVT_SENSOR_INFO(0, "CPU Core Temperature", hwmon_temp, TEMP, TTHRES),
-	PVT_SENSOR_INFO(0, "CPU Core Voltage", hwmon_in, VOLT, VTHRES),
-	PVT_SENSOR_INFO(1, "CPU Core Low-Vt", hwmon_in, LVT, LTHRES),
-	PVT_SENSOR_INFO(2, "CPU Core UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
-	PVT_SENSOR_INFO(3, "CPU Core Standard-Vt", hwmon_in, SVT, STHRES),
+	PVT_SENSOR_INFO(0, "SoC Temperature", hwmon_temp, TEMP, TTHRES),
+	PVT_SENSOR_INFO(0, "SoC Voltage", hwmon_in, VOLT, VTHRES),
+	PVT_SENSOR_INFO(1, "SoC Low-Vt", hwmon_in, LVT, LTHRES),
+	PVT_SENSOR_INFO(2, "SoC UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
+	PVT_SENSOR_INFO(3, "SoC Standard-Vt", hwmon_in, SVT, STHRES),
 };
 
 static const struct pvt_sensor_info pvt_info_ddr[] = {
@@ -196,30 +198,6 @@ static inline void eswin_pvt_set_trim(struct pvt_hwmon *pvt, u32 val)
 	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, old);
 }
 
-static irqreturn_t eswin_pvt_hard_isr(int irq, void *data)
-{
-	struct pvt_hwmon *pvt = data;
-	struct pvt_cache *cache;
-	u32 val;
-
-	eswin_pvt_update(pvt->regs + PVT_INT, PVT_INT_CLR, PVT_INT_CLR);
-
-	/*
-	 * Nothing special for alarm-less driver. Just read the data, update
-	 * the cache and notify a waiter of this event.
-	 */
-
-	val = readl(pvt->regs + PVT_DATA);
-
-	cache = &pvt->cache[pvt->sensor];
-
-	WRITE_ONCE(cache->data, FIELD_GET(PVT_DATA_OUT, val));
-
-	complete(&cache->conversion);
-
-	return IRQ_HANDLED;
-}
-
 #define pvt_soft_isr NULL
 
 static inline umode_t eswin_pvt_limit_is_visible(enum pvt_sensor_type type)
@@ -235,10 +213,8 @@ static inline umode_t eswin_pvt_pvt_alarm_is_visible(enum pvt_sensor_type type)
 static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 			 long *val)
 {
-	struct pvt_cache *cache = &pvt->cache[type];
-	unsigned long timeout;
 	u32 data;
-	int ret;
+	u32 offset;
 	const struct pvt_sensor_info *pvt_info;
 
 	pvt_info = of_device_get_match_data(pvt->dev);
@@ -247,42 +223,22 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 		return -EINVAL;
 	}
 
-	/*
-	 * Lock PVT conversion interface until data cache is updated. The
-	 * data read procedure is following: set the requested PVT sensor
-	 * mode, enable IRQ and conversion, wait until conversion is finished,
-	 * then disable conversion and IRQ, and read the cached data.
-	 */
-	ret = mutex_lock_interruptible(&pvt->iface_mtx);
-	if (ret)
-		return ret;
-
 	pvt->sensor = type;
-	eswin_pvt_set_mode(pvt, pvt_info[type].mode);
 
-	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, PVT_ENA_EN);
+	offset = pvt->regmap_offset;
 
-	/*
-	 * Wait with timeout since in case if the sensor is suddenly powered
-	 * down the request won't be completed and the caller will hang up on
-	 * this procedure until the power is back up again. Multiply the
-	 * timeout by the factor of two to prevent a false timeout.
-	 */
-	timeout = 2 * usecs_to_jiffies(ktime_to_us(pvt->timeout));
-	if(type==PVT_TEMP){
-		timeout = 20 * usecs_to_jiffies(ktime_to_us(pvt->timeout));
+	switch (type) {
+		case PVT_TEMP:
+			offset += LPCPU_PVT_TEMP_REG_OFFSET;
+			break;
+		case PVT_VOLT:
+			offset += LPCPU_PVT_VOLT_REG_OFFSET;
+			break;
+		default:
+			return -EINVAL;
 	}
-	ret = wait_for_completion_timeout(&cache->conversion, timeout);
 
-	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, 0);
-	eswin_pvt_update(pvt->regs + PVT_INT, PVT_INT_CLR, PVT_INT_CLR);
-
-	data = READ_ONCE(cache->data);
-
-	mutex_unlock(&pvt->iface_mtx);
-
-	if (!ret)
-		return -ETIMEDOUT;
+	regmap_read(pvt->regmap, offset, &data);
 
 	if (type == PVT_TEMP)
 		*val = eswin_pvt_calc_poly(&poly_N_to_temp, data);
@@ -694,170 +650,23 @@ static int eswin_pvt_request_regs(struct pvt_hwmon *pvt)
 
 static void eswin_pvt_remove(void *data)
 {
-	int ret;
 	struct pvt_hwmon *pvt = data;
-	ret = reset_control_assert(pvt->pvt_rst);
-	WARN_ON(0 != ret);
-
-	pm_runtime_dont_use_autosuspend(pvt->dev);
-	pm_runtime_disable(pvt->dev);
-
-	clk_disable_unprepare(pvt->clk);
+	if (!IS_ERR_OR_NULL(pvt->regmap)) {
+		regmap_exit(pvt->regmap);
+		pvt->regmap = NULL;
+	}
 }
 
-static int eswin_pvt_request_clks(struct pvt_hwmon *pvt)
-{
-	int ret;
-
-	pvt->clk = devm_clk_get(pvt->dev, "pvt_clk");
-	if (IS_ERR(pvt->clk)) {
-		dev_err(pvt->dev, "Couldn't get PVT clock\n");
-		return -ENODEV;
-	}
-
-	ret = clk_prepare_enable(pvt->clk);
-	if (ret) {
-		dev_err(pvt->dev, "Couldn't enable the PVT clocks\n");
-		return ret;
-	}
-
-	return 0;
-}
-
-static int eswin_pvt_request_rst(struct pvt_hwmon *pvt)
-{
-	int ret;
-	pvt->pvt_rst = devm_reset_control_get_optional(pvt->dev, "pvt_rst");
-	if(IS_ERR_OR_NULL(pvt->pvt_rst)){
-		dev_err(pvt->dev, "Couldn't get PVT reset\n");
-	}
-	ret = reset_control_reset(pvt->pvt_rst);
-	WARN_ON(0 != ret);
-	return 0;
-}
-
-static int eswin_pvt_check_pwr(struct pvt_hwmon *pvt)
-{
-	unsigned long tout;
-	int ret = 0;
-	u32 data;
-
-	/*
-	 * Test out the sensor conversion functionality. If it is not done on
-	 * time then the domain must have been unpowered and we won't be able
-	 * to use the device later in this driver.
-	 * Note If the power source is lost during the normal driver work the
-	 * data read procedure will either return -ETIMEDOUT (for the
-	 * alarm-less driver configuration) or just stop the repeated
-	 * conversion. In the later case alas we won't be able to detect the
-	 * problem.
-	 */
-
-	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, PVT_ENA_EN);
-	readl(pvt->regs + PVT_DATA);
-
-	tout = PVT_TOUT_MIN / NSEC_PER_USEC;
-	usleep_range(tout, 2 * tout);
-
-	data = readl(pvt->regs + PVT_DATA);
-
-	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, 0);
-	eswin_pvt_update(pvt->regs + PVT_INT, PVT_INT_CLR, PVT_INT_CLR);
-
-	return ret;
-}
-
-static int eswin_pvt_init_iface(struct pvt_hwmon *pvt)
-{
-	unsigned long rate;
-	const struct pvt_sensor_info *pvt_info;
-
-	rate = clk_get_rate(pvt->clk);
-	if (!rate) {
-		dev_err(pvt->dev, "Invalid reference clock rate\n");
-		return -ENODEV;
-	}
-	pvt_info = of_device_get_match_data(pvt->dev);
-	if (!pvt_info) {
-		dev_err(pvt->dev, "No matching device data found\n");
-		return -EINVAL;
-	}
-	/*
-	 * Make sure all interrupts and controller are disabled so not to
-	 * accidentally have ISR executed before the driver data is fully
-	 * initialized. Clear the IRQ status as well.
-	 */
-	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, 0);
-	eswin_pvt_update(pvt->regs + PVT_INT, PVT_INT_CLR, PVT_INT_CLR);
-
-	readl(pvt->regs + PVT_DATA);
-
-	/* Setup default sensor mode, timeout and temperature trim. */
-	eswin_pvt_set_mode(pvt, pvt_info[pvt->sensor].mode);
-
-	/*
-	 * Preserve the current ref-clock based delay (Ttotal) between the
-	 * sensors data samples in the driver data so not to recalculate it
-	 * each time on the data requests and timeout reads. It consists of the
-	 * delay introduced by the internal ref-clock timer (N / Fclk) and the
-	 * constant timeout caused by each conversion latency (Tmin):
-	 *   Ttotal = N / Fclk + Tmin
-	 * If alarms are enabled the sensors are polled one after another and
-	 * in order to get the next measurement of a particular sensor the
-	 * caller will have to wait for at most until all the others are
-	 * polled. In that case the formulae will look a bit different:
-	 *   Ttotal = 5 * (N / Fclk + Tmin)
-	 */
-
-	pvt->timeout = ktime_set(PVT_TOUT_DEF, 0);
-	pvt->timeout = ktime_divns(pvt->timeout, rate);
-	pvt->timeout = ktime_add_ns(pvt->timeout, PVT_TOUT_MIN);
-
-        /*
-	if (!of_property_read_u32(pvt->dev->of_node,
-	     "pvt-temp-offset-millicelsius", &temp))
-		trim = eswin_pvt_calc_trim(temp);
-	eswin_pvt_set_trim(pvt, trim);
-        */
-
-	return 0;
-}
-
-static int eswin_pvt_request_irq(struct pvt_hwmon *pvt)
-{
-	struct platform_device *pdev = to_platform_device(pvt->dev);
-	int ret;
-
-	pvt->irq = platform_get_irq(pdev, 0);
-	if (pvt->irq < 0)
-		return pvt->irq;
-
-	ret = devm_request_threaded_irq(pvt->dev, pvt->irq,
-					eswin_pvt_hard_isr, pvt_soft_isr,
-					IRQF_SHARED | IRQF_TRIGGER_HIGH,
-					"pvt", pvt);
-	if (ret) {
-		dev_err(pvt->dev, "Couldn't request PVT IRQ\n");
-		return ret;
-	}
-
-	return 0;
-}
 
 static int eswin_pvt_create_hwmon(struct pvt_hwmon *pvt)
 {
-	pvt->hwmon = devm_hwmon_device_register_with_info(pvt->dev, "pvt", pvt,
+	pvt->hwmon = devm_hwmon_device_register_with_info(pvt->dev, "dummy_pvt", pvt,
 		&pvt_hwmon_info, NULL);
 	if (IS_ERR(pvt->hwmon)) {
 		dev_err(pvt->dev, "Couldn't create hwmon device\n");
 		return PTR_ERR(pvt->hwmon);
 	}
 
-	return 0;
-}
-
-static int eswin_pvt_enable_iface(struct pvt_hwmon *pvt)
-{
 	return 0;
 }
 
@@ -870,35 +679,23 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 	if (IS_ERR(pvt))
 		return PTR_ERR(pvt);
 
+	pvt->regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscon");
+	if (IS_ERR(pvt->regmap)) {
+		dev_err(&pdev->dev, "Failed to get syscon regmap\n");
+		return PTR_ERR(pvt->regmap);
+	}
+
+	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscon", 1, &pvt->regmap_offset);
+	if (ret) {
+		dev_err(&pdev->dev, "can't get pvt reg offset (%d)\n", ret);
+		return ret;
+	}
+
 	ret = eswin_pvt_request_regs(pvt);
 	if (ret)
 		return ret;
 
-	ret = eswin_pvt_request_clks(pvt);
-	if (ret)
-		return ret;
-
-	ret = eswin_pvt_request_rst(pvt);
-	if (ret)
-		return ret;
-
-	ret = eswin_pvt_check_pwr(pvt);
-	if (ret)
-		return ret;
-
-	ret = eswin_pvt_init_iface(pvt);
-	if (ret)
-		return ret;
-
-	ret = eswin_pvt_request_irq(pvt);
-	if (ret)
-		return ret;
-
 	ret = eswin_pvt_create_hwmon(pvt);
-	if (ret)
-		return ret;
-
-	ret = eswin_pvt_enable_iface(pvt);
 	if (ret)
 		return ret;
 
@@ -908,72 +705,13 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* The code below assumes runtime PM to be disabled. */
-	WARN_ON(pm_runtime_enabled(&pdev->dev));
-
-	pm_runtime_set_autosuspend_delay(&pdev->dev, -1); //runtime suspends are prevented
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-
 	return 0;
 }
-
-static int __maybe_unused eswin_pvt_runtime_suspend(struct device *dev)
-{
-	struct clk *clk = devm_clk_get(dev, "pvt_clk");
-
-	clk_disable_unprepare(clk);
-
-	return 0;
-}
-
-static int __maybe_unused eswin_pvt_runtime_resume(struct device *dev)
-{
-	struct clk *clk = devm_clk_get(dev, "pvt_clk");
-	int ret = 0;
-
-	ret = clk_prepare_enable(clk);
-	return ret;
-}
-
-static int __maybe_unused eswin_pvt_suspend(struct device *dev)
-{
-	struct clk *clk = devm_clk_get(dev, "pvt_clk");
-
-	if (!pm_runtime_suspended(dev)) {
-		clk_disable_unprepare(clk);
-	}
-
-	return 0;
-}
-
-static int __maybe_unused eswin_pvt_resume(struct device *dev)
-{
-	int ret = 0;
-	struct clk *clk = devm_clk_get(dev, "pvt_clk");
-
-	if (!pm_runtime_suspended(dev)) {
-		ret = clk_prepare_enable(clk);
-		if (ret < 0) {
-			dev_err(dev, "failed to enable clk (%d)\n", ret);
-			return ret;
-		}
-	}
-
-	return ret;
-}
-
-static const struct dev_pm_ops eswin_pvt_pm = {
-	SET_RUNTIME_PM_OPS(eswin_pvt_runtime_suspend,
-				eswin_pvt_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(eswin_pvt_suspend, eswin_pvt_resume)
-};
 
 static const struct of_device_id pvt_of_match[] = {
-	{ .compatible = "eswin,eswin-pvt-cpu",
+	{ .compatible = "eswin,eswin-dummy-pvt-cpu",
 	 .data = &pvt_info_cpu},
-	{ .compatible = "eswin,eswin-pvt-ddr",
+	{ .compatible = "eswin,eswin-dummy-pvt-ddr",
 	 .data = &pvt_info_ddr},
 	{ }
 };
@@ -982,13 +720,13 @@ MODULE_DEVICE_TABLE(of, pvt_of_match);
 static struct platform_driver pvt_driver = {
 	.probe = eswin_pvt_probe,
 	.driver = {
-		.name = "eswin-pvt",
-		.of_match_table = pvt_of_match,
-		.pm = pm_ptr(&eswin_pvt_pm)
+		.name = "eswin-dummy-pvt",
+		.of_match_table = pvt_of_match
 	},
 };
 module_platform_driver(pvt_driver);
 
 MODULE_DESCRIPTION("Eswin PVT driver");
 MODULE_AUTHOR("Yulin Lu <luyulin@eswincomputing.com>");
+MODULE_AUTHOR("Huan He <hehuan1@eswincomputing.com>");
 MODULE_LICENSE("GPL v2");

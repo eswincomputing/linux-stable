@@ -1514,9 +1514,11 @@ static int dewarp_runtime_resume(struct device *dev)
 {
 	struct es_dewarp_driver_dev *pdriver_dev = dev_get_drvdata(dev);
 	struct dw200_subdev *pdwe_dev;
-
+	int ret = 0;
 	pdwe_dev = &pdriver_dev->hw_dev;
-	return vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+	ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+	(void)vvcam_dw200_smmu_sid_cfg(dev);
+	return ret;
 }
 
 static int dewarp_suspend(struct device *dev)
@@ -1527,11 +1529,9 @@ static int dewarp_suspend(struct device *dev)
 	pdriver_dev->suspended = 0;
 
 	pdwe_dev = &pdriver_dev->hw_dev;
-
 	if (pm_runtime_status_suspended(dev)) {
 		return 0;
 	}
-
 	if (atomic_read(&pdriver_dev->trigger_atom)) {
 		obtain_dewarp_mis(dev);
 		//dw200 is working wait done
@@ -1564,24 +1564,25 @@ static int dewarp_resume(struct device *dev)
 	int ret = 0;
 
 	pdwe_dev = &pdriver_dev->hw_dev;
-
 	if (pm_runtime_status_suspended(dev)) {
 		return 0;
 	}
 
 	if (pdriver_dev->suspended) {
 		ret = vvcam_sys_clk_prepare(&pdwe_dev->dw_crg);
+		(void)vvcam_dw200_smmu_sid_cfg(dev);
 		obtain_dewarp_mis(dev);
 	}
-
 	return ret;
 }
 #endif
 
+#ifdef CONFIG_PM_SLEEP
 static const struct dev_pm_ops dewarp_pm_ops = {
-	SET_RUNTIME_PM_OPS(dewarp_runtime_suspend, dewarp_runtime_resume, NULL)
-		SET_SYSTEM_SLEEP_PM_OPS(dewarp_suspend, dewarp_resume)
+	LATE_SYSTEM_SLEEP_PM_OPS(dewarp_suspend, dewarp_resume) RUNTIME_PM_OPS(
+		dewarp_runtime_suspend, dewarp_runtime_resume, NULL)
 };
+#endif
 
 #define DEV_NAME "dewarp-dri"
 static const struct of_device_id dw200_of_id_table[] = {
@@ -1600,7 +1601,9 @@ static struct platform_driver viv_platform_driver = {
             .owner = THIS_MODULE,
             .name = DEV_NAME,
             .of_match_table = dw200_of_id_table,
+			#ifdef CONFIG_PM_SLEEP
             .pm = &dewarp_pm_ops,
+			#endif
         },
 };
 

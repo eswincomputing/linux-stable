@@ -136,6 +136,7 @@
 };
 
 &d0_pmu {
+	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
 
@@ -403,7 +404,7 @@
 };
 
 &isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &isp_1 {
@@ -411,7 +412,7 @@
 };
 
 &dewarp {
-	status = "okay";
+	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -766,6 +767,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	fan-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 };
 
 &pvt0 {
@@ -797,19 +802,19 @@
 };
 
 &timer0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer2 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer3 {
-	status = "okay";
+	status = "disabled";
 };
 
 &pinctrl {
