@@ -39,6 +39,7 @@
 #define FAN_PWM_PERIOD			0x1
 #define FAN_PWM_FREE			0x2
 #define DDR_TRAINING_TEMP		0x3
+#define PMIX_LOWEST_TEMP		0x4
 
 #define FAN_RPM_MAX_VALUE			(100000)
 #define FAN_RPM_MAX_READ_CNT		(100)
@@ -50,10 +51,11 @@
 #define REG_FAN_INT				0x0
 #define REG_FAN_RPM				0x4
 /* test register map */
-#define REG_TEST_0				(0x0)
-#define REG_TEST_1				(0x4)
-#define REG_TEST_2				(0x8)
-#define REG_TEST_3				(0xC)
+#define REG_TEST_0				(0x0) //0x51810668 and 0x71810668
+#define REG_TEST_1				(0x4) //0x5181066C and 0x7181066C
+#define REG_TEST_2				(0x8) //0x51810670 and 0x71810670
+#define REG_TEST_3				(0xC) //0x51810674 and 0x71810674
+
 
 /* wait for 50 times pwm period to trigger read interrupt */
 #define TIMEOUT(period)        nsecs_to_jiffies(50*(period))
@@ -198,6 +200,20 @@ static ssize_t eswin_ddr_training_temp_show(struct device *dev, struct device_at
 	return sprintf(buf, "%d\n", temp);
 }
 
+static ssize_t eswin_pmix_lowest_temp_show(struct device *dev, struct device_attribute *da, char *buf)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	int temp = 0;
+
+	if (PMIX_LOWEST_TEMP == attr->index) {
+		temp = ioread32(ctl->test_reg_base + REG_TEST_2);
+	} else {
+		dev_err(dev, "get error attr index 0x%x\n", attr->index);
+	}
+
+	return sprintf(buf, "%d\n", temp);
+}
 
 static long eswin_fan_control_get_pwm_duty(const struct eswin_fan_control_data *ctl)
 {
@@ -526,13 +542,14 @@ static SENSOR_DEVICE_ATTR_RW(fan_pwm_duty, eswin_fan_pwm_ctl, FAN_PWM_DUTY);
 static SENSOR_DEVICE_ATTR_RW(fan_pwm_period, eswin_fan_pwm_ctl, FAN_PWM_PERIOD);
 static SENSOR_DEVICE_ATTR_WO(fan_pwm_free, eswin_fan_pwm_free, FAN_PWM_FREE);
 static SENSOR_DEVICE_ATTR_RO(ddr_training_temp, eswin_ddr_training_temp, DDR_TRAINING_TEMP);
-
+static SENSOR_DEVICE_ATTR_RO(pmix_lowest_temp, eswin_pmix_lowest_temp, PMIX_LOWEST_TEMP);
 
 static struct attribute *eswin_fan_control_attrs[] = {
 	&sensor_dev_attr_fan_pwm_duty.dev_attr.attr,
 	&sensor_dev_attr_fan_pwm_period.dev_attr.attr,
 	&sensor_dev_attr_fan_pwm_free.dev_attr.attr,
 	&sensor_dev_attr_ddr_training_temp.dev_attr.attr,
+	&sensor_dev_attr_pmix_lowest_temp.dev_attr.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(eswin_fan_control);
@@ -632,15 +649,15 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	if (0 == ctl->pwm_inverted)
 	{
 		state.period = pwm_args.period;
-		state.duty_cycle = state.period * 99 / 100; /* default set max speed */
+		state.duty_cycle = state.period * 50 / 100; /* default set medium speed */
 	}
 	else
 	{
 		state.period = pwm_args.period;
-		state.duty_cycle = state.period / 100; /* default set max speed */
+		state.duty_cycle = state.period / 100; /* default set medium speed */
 		if(0 == state.duty_cycle)
 		{
-			state.duty_cycle = 1;
+			state.duty_cycle = 50;
 		}
 	}
 	dev_err(&pdev->dev, "state.period: %lld state.duty_cycle: %lld\n",
