@@ -950,8 +950,8 @@ static int eswin_bootspi_remove(struct platform_device *pdev)
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-	clk_disable_unprepare(priv->cfg_clk);
 	clk_disable_unprepare(priv->clk);
+	clk_disable_unprepare(priv->cfg_clk);
 	return 0;
 }
 
@@ -1021,7 +1021,7 @@ static int __maybe_unused eswin_bootspi_resume(struct device *dev)
 	}
 	ret = spi_master_resume(master);
 	if (ret < 0) {
-		clk_disable_unprepare(priv->cfg_clk);
+		clk_disable_unprepare(priv->clk);
 		clk_disable_unprepare(priv->cfg_clk);
 	}
 	return ret;

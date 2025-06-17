@@ -6,7 +6,7 @@
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
-		status = "okay";
+		status = "disable";
 		dma-noncoherent;
 		depends-on = <&imx327_0>;
 		ports {
@@ -63,7 +63,7 @@
 
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
-		status = "okay";
+		status = "disable";
 		depends-on = <&imx327_0>;
 		#size-cells = <2>;
 		dma-noncoherent;
@@ -74,7 +74,7 @@
 	vvcam_video_0: vvcam_video@0 {
 		compatible = "verisilicon,video";
 		id = <0>;
-		status = "okay";
+		status = "disable";
 		#size-cells = <2>;
 		depends-on = <&imx327_0>;
 		dma-noncoherent;
@@ -157,7 +157,7 @@
 
 	imx327_0: imx327@36 {
 			compatible = "sony,imx327";
-			status = "okay";
+			status = "disable";
 			address-cells = <1>;
 			size-cells = <0>;
 			#reg = <0x0 0x36 0x0 0x0>;
@@ -203,7 +203,7 @@
 				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
 				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
 		//vcc = <&gpio_vcc0>;
-		status = "okay";
+		status = "disable";
 	};
 	tca6416_1: gpio@21 {
 		compatible = "ti,tca6416";
@@ -216,16 +216,16 @@
 				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
 				"", "", "", "";
 		//vcc = <&gpio_vcc1>;
-		status = "okay";
+		status = "disable";
 	};
 };
 
 &csi2_dphy_hw {
-	status = "okay";
+	status = "disable";
 };
 
 &csi2_dphy0 {
-	status = "okay";
+	status = "disable";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -254,7 +254,7 @@
 };
 
 &mipi_csi2_0 {
-	status = "okay";
+	status = "disable";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -292,11 +292,11 @@
 
 
 &dvp2axi {
-	status = "okay";
+	status = "disable";
 };
 
 &dvp2axi_mipi_lvds {
-	status = "okay";
+	status = "disable";
 	ports{
 		#address-cells = <1>;
         #size-cells = <0>;

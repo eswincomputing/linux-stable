@@ -183,7 +183,6 @@ static const int nc_of_rsts = gcmCOUNTOF(rst_names);
 
 struct gpu_power_domain {
     int num_domains;
-    struct device **power_dev;
     struct clk *clks[gcdDEVICE_COUNT][gcvCLKS_COUNT];
     struct device *dev[gcdDEVICE_COUNT];
     struct devfreq *df[gcdDEVICE_COUNT];
@@ -302,6 +301,9 @@ gceSTATUS
 _set_clock(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable)
 {
     int j;
+
+    // hae_print("idx: %d, core: %d, en: %d", DevIndex, GPU, Enable);
+
     if (Enable) {
         for (j = 0; j < nc_of_clks; j++) {
             if (gpd.clks[DevIndex][j]) {
@@ -322,28 +324,26 @@ _set_clock(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enabl
 gceSTATUS
 _set_power(gcsPLATFORM *Platform, gctUINT32 DevIndex, gceCORE GPU, gctBOOL Enable)
 {
-    int num_domains = gpd.num_domains;
-    if (num_domains > 1) {
-        struct device *sub_dev = gpd.power_dev[DevIndex];
+    // hae_print("idx: %d, dev: %p, core: %d, power: %d", DevIndex, gpd.dev[DevIndex], GPU, Enable);
 
-        if (Enable)
-            pm_runtime_get_sync(sub_dev);
-        else
-            pm_runtime_put(sub_dev);
+    if (!gpd.dev[DevIndex]) {
+        return gcvSTATUS_INVALID_ADDRESS;
     }
 
-    if (num_domains == 1) {
-        if (Enable)
-            pm_runtime_get_sync(&Platform->device->dev);
-        else
-            pm_runtime_put(&Platform->device->dev);
+    if (Enable) {
+        pm_runtime_get_sync(gpd.dev[DevIndex]);
+    } else {
+        pm_runtime_put(gpd.dev[DevIndex]);
     }
+
     return gcvSTATUS_OK;
 }
 
 static int gpu_remove_power_domains(struct platform_device *pdev)
 {
     int i = 0, j = 0;
+
+    hae_print("num_domains: %d", gpd.num_domains);
 
     for (i = 0; i < gpd.num_domains; i++) {
         for (j = 0; j < nc_of_clks; j++) {
@@ -352,9 +352,9 @@ static int gpu_remove_power_domains(struct platform_device *pdev)
             }
         }
 
-        if (gpd.power_dev) {
-            pm_runtime_disable(gpd.power_dev[i]);
-            dev_pm_domain_detach(gpd.power_dev[i], true);
+        if (gpd.dev[i]) {
+            hae_print("pm runtime dev[%d]: %p disable.", i, gpd.dev[i]);
+            pm_runtime_disable(gpd.dev[i]);
         }
 #if defined(CONFIG_PM_DEVFREQ)
         if (gpd.df[i]) {
@@ -363,19 +363,14 @@ static int gpu_remove_power_domains(struct platform_device *pdev)
 #endif
     }
 
-    if (gpd.num_domains == 1) {
-        pm_runtime_disable(&pdev->dev);
-    }
-
-    return 0;
+    return gcvSTATUS_OK;
 }
 
 static int gpu_add_power_domains(struct platform_device *pdev, gcsMODULE_PARAMETERS *params)
 {
-    struct device *dev = &pdev->dev;
     int i, j = 0;
     int num_domains = 0;
-    int ret = 0;
+    int ret = -1;
 #if defined(CONFIG_PM_DEVFREQ)
     struct devfreq *df;
 #endif
@@ -385,54 +380,44 @@ static int gpu_add_power_domains(struct platform_device *pdev, gcsMODULE_PARAMET
     num_domains = (gpu_device.devs[0] != gcvNULL) + (gpu_device.devs[1] != gcvNULL);
     gpd.num_domains = num_domains;
 
-    /* If the num of domains is less than 2, the domain will be attached automatically */
-    if (num_domains > 1) {
-        gpd.power_dev = devm_kcalloc(dev, num_domains, sizeof(struct device *), GFP_KERNEL);
-        if (!gpd.power_dev)
-            return -ENOMEM;
-    }
-
+    hae_print("num_domains: %d", num_domains);
     for (i = 0; i < num_domains; i++) {
-#if defined(CONFIG_PM_DEVFREQ)
         gpd.dev[i] = gpu_device.devs[i];
-
+        if (!gpd.dev[i]) {
+            continue;
+        }
+#if defined(CONFIG_PM_DEVFREQ)
+        hae_print("add dev opp table[%d]: %p", i, gpd.dev[i]);
         if (dev_pm_opp_of_add_table(gpd.dev[i])) {
-            gcmkPRINT("%s, %d, Failed to add OPP table", __func__, __LINE__);
-            return gcvSTATUS_INVALID_OBJECT;
+            ret = gcvSTATUS_INVALID_OBJECT;
+            hae_print("Failed to add OPP table");
+            goto error;
         }
         df = devm_devfreq_add_device(gpd.dev[i], &g2d_devfreq_profile, "userspace", NULL);
         if (IS_ERR(df)) {
-            gcmkPRINT("%s, %d, add devfreq failed", __func__, __LINE__);
-            return gcvSTATUS_INVALID_OBJECT;
+            ret = PTR_ERR(df);
+            hae_print("add devfreq failed");
+            goto error;
         }
         gpd.df[i] = df;
 #endif
-        if (gpd.power_dev) {
-            gpd.power_dev[i] = dev_pm_domain_attach_by_id(gpu_device.devs[i], i);
-            if (IS_ERR(gpd.power_dev[i]))
-                goto error;
-        }
 
         for (j = 0; j < nc_of_clks; j++) {
             gpd.clks[i][j] = devm_clk_get(gpu_device.devs[i], clk_names[j]);
             if (IS_ERR(gpd.clks[i][j])) {
                 ret = PTR_ERR(gpd.clks[i][j]);
-                dev_err(dev, "failed to get die-%d:%s clock: %d\n", i, clk_names[j], ret);
+                hae_print("failed to get die-%d:%s clock: %d", i, clk_names[j], ret);
                 goto error;
             }
         }
+        hae_print("pm runtime enable dev[%d]: %p", i, gpd.dev[i]);
+
+        pm_runtime_enable(gpd.dev[i]);
     }
 
-    if (num_domains == 1)
-        pm_runtime_enable(&pdev->dev);
-
-    return 0;
+    return gcvSTATUS_OK;
 
 error:
-    for (i = 0; i < num_domains; i++) {
-        if (gpd.power_dev[i])
-            dev_pm_domain_detach(gpd.power_dev[i], true);
-    }
     return ret;
 }
 

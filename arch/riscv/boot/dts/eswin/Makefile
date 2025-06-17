@@ -10,6 +10,7 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7702-evb-a1-interleave.dtb \
 							eic7702-tb.dtb \
 							eic7700-sbc-a1.dtb \
+							eic7700-sbc-a1-mipi.dtb\
 							eic7700-osm.dtb \
 							eic7702-d560.dtb \
 							eic7702-d560-interleave.dtb \

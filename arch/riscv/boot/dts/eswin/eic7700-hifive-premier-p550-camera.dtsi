@@ -2,7 +2,7 @@
     vvcam_isp_0: vvcam_isp@0 {
         compatible = "verisilicon,isp-v4l2";
         id = <0>;
-        status = "okay";
+        status = "disable";
 		dma-noncoherent;
 
         ports {
@@ -50,7 +50,7 @@
 
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
-		status = "okay";
+		status = "disable";
 		#size-cells = <2>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
@@ -60,7 +60,7 @@
     vvcam_video_0: vvcam_video@0 {
         compatible = "verisilicon,video";
         id = <0>;
-        status = "okay";
+        status = "disable";
 		#size-cells = <2>;
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
@@ -107,7 +107,7 @@
 
 &mipi_csi2_0 {
 	data-lanes = <1 2>;
-	status = "okay";
+	status = "disable";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -145,11 +145,11 @@
 
 
 &dvp2axi {
-	status = "okay";
+	status = "disable";
 };
 
 &dvp2axi_mipi_lvds {
-	status = "okay";
+	status = "disable";
 	port@0 {
 		axi2dvp_mipi2_in0: endpoint@0 {
 			remote-endpoint = <&mipi2_csi2_output0>;
@@ -158,11 +158,11 @@
 };
 
 &csi2_dphy_hw {
-	status = "okay";
+	status = "disable";
 };
 
 &csi2_dphy0 {
-	status = "okay";
+	status = "disable";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -212,7 +212,7 @@
 			reg = <0x0>;
 
 			camera_imx219: camera-imx219@10 {
-				status = "okay";
+				status = "disable";
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
@@ -238,7 +238,7 @@
 
 
 &isp_0 {
-	status = "okay";
+	status = "disable";
 };
 
 &isp_1 {

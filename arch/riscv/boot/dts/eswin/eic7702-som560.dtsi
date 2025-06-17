@@ -111,9 +111,14 @@
 			reg = <0x0 0x79000000 0x0 0x400000>;
 		};
 
-		g2d_4GB_boundary_reserved_4k {
+		ramoops@fff00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xfff00000 0x0 0x100000>;
+			console-size = <0x40000>;
+			record-size = <0x40000>;
+			ftrace-size = <0x40000>;
+			pmsg-size = <0x40000>;
 			no-map;
-			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
 		g2d_8GB_boundary_reserved_4k {
@@ -267,9 +272,11 @@
 
 &d0_pmu {
 	status = "okay";
+	npu-supply=<&d0_npu_vcc>;
 };
 &d1_pmu {
 	status = "okay";
+	npu-supply=<&d1_npu_vcc>;
 };
 
 &ddr0 {
@@ -455,8 +462,13 @@
 };
 
 &d0_lpcpu {
-	status = "disabled";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio0_default &pinctrl_die1_gpio7_on_default>;
+	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
+	vddctrl = <21 0 0>;
 };
+
 &d1_lpcpu {
 	status = "disabled";
 };
@@ -820,59 +832,59 @@
 };
 
 &isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dewarp {
-	status = "okay";
+	status = "disabled";
 };
 &d1_dewarp {
-	status = "okay";
+	status = "disabled";
 };
 
 &mipi_dphy_rx {
-	status = "okay";
+	status = "disabled";
 };
 &d1_mipi_dphy_rx {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi_dma0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi_dma0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi_dma1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi_dma1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi2_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi2_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &csi2_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi2_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -936,7 +948,7 @@
 &d0_gmac1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio34_default>;
-	rst-gpios = <&porta 34 GPIO_ACTIVE_LOW>;
+	rst-gpios = <&portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 	dly-param-1000m = <0x20202020 0x46205020 0x20202020>;
@@ -948,7 +960,7 @@
 &d1_gmac1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_gpio34_default>;
-	rst-gpios = <&d1_porta 34 GPIO_ACTIVE_LOW>;
+	rst-gpios = <&d1_portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 	dly-param-1000m = <0x20202020 0x46205A20 0x20202020>;
@@ -1026,7 +1038,7 @@
 };
 
 &d1_uart0 {
-	status = "okay";
+	status = "disable";
 };
 
 &d0_uart1 {
@@ -1325,9 +1337,13 @@
 
 &pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d0_sys_con 0x0668>;
 };
 &d1_pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d1_sys_con 0x0668>;
 };
 
 &pvt1 {
@@ -1380,10 +1396,10 @@
 };
 
 &timer1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_timer1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer2 {

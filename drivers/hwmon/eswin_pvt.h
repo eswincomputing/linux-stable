@@ -111,6 +111,8 @@
 #define PVT_TRIM_DEF		0
 #define PVT_TOUT_MIN		(NSEC_PER_SEC / 3000)
 # define PVT_TOUT_DEF		0
+#define LPCPU_PVT_TEMP_REG_OFFSET	0x0
+#define LPCPU_PVT_VOLT_REG_OFFSET	0x4
 
 /*
  * enum pvt_sensor_type - ESWIN PVT sensor types (correspond to each PVT
@@ -211,6 +213,8 @@ struct pvt_hwmon {
 	enum pvt_sensor_type sensor;
 	struct pvt_cache cache[PVT_SENSORS_NUM];
 	ktime_t timeout;
+	struct regmap *regmap;
+	u32 regmap_offset;
 };
 
 /*

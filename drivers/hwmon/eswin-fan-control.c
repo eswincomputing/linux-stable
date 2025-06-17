@@ -40,9 +40,11 @@
 #define FAN_PWM_FREE			0x2
 #define DDR_TRAINING_TEMP		0x3
 
-#define FAN_RPM_MAX_VALUE		(100000)
-#define FAN_RPM_MAX_READ_CNT	(100)
-#define FAN_RPM_RETRY_INTERVAL	(10)
+#define FAN_RPM_MAX_VALUE			(100000)
+#define FAN_RPM_MAX_READ_CNT		(100)
+#define FAN_RPM_RETRY_INTERVAL		(10)
+#define FAN_RPM_SAMPLE_CNT			(10)//sampling times
+#define FAM_RPM_TOLERANCE_RATIO 	(5)
 
 /* register map */
 #define REG_FAN_INT				0x0
@@ -77,6 +79,8 @@ struct eswin_fan_control_data {
 	/* last revolutions per minute */
 	u32 last_rpm;
 	u8 pwm_inverted;
+	/* for getting rpm and setting pwm */
+	struct mutex fan_lock;
 };
 
 static inline void fan_iowrite(const u32 val, const u32 reg,
@@ -102,7 +106,7 @@ static ssize_t eswin_fan_pwm_ctl_show(struct device *dev, struct device_attribut
 		if(1 ==  ctl->pwm_inverted)
 		{
 			period = pwm_get_period(ctl->pwm);
-			temp =  period- temp;
+			temp = period - temp;
 		}
 	}
 	else if (FAN_PWM_PERIOD == attr->index) {
@@ -153,7 +157,9 @@ static ssize_t eswin_fan_pwm_ctl_store(struct device *dev, struct device_attribu
 		dev_err(dev, "get error attr index 0x%x\n", attr->index);
 	}
 
+	mutex_lock(&ctl->fan_lock);
 	pwm_apply_state(ctl->pwm, &state);
+	mutex_unlock(&ctl->fan_lock);
 
 	return count;
 }
@@ -169,7 +175,9 @@ static ssize_t eswin_fan_pwm_free_store(struct device *dev, struct device_attrib
 		return ret;
 
 	if (val) {
+		mutex_lock(&ctl->fan_lock);
 		pwm_put(ctl->pwm);
+		mutex_unlock(&ctl->fan_lock);
 	}
 
 	return count;
@@ -200,6 +208,34 @@ static long eswin_fan_control_get_pwm_duty(const struct eswin_fan_control_data *
 	duty = pwm_get_relative_duty_cycle(&state, 100);
 
 	return duty;
+}
+
+static long es_fan_rpm_filter_and_average(
+	struct device *dev, u32 samples[], u32 count) {
+	u32 idx = 0;
+	u32 min = 0;
+	u32 sum = 0;
+	u32 cnt = 0;
+
+	if ((samples == NULL) || (count <= 0) || (count > FAN_RPM_SAMPLE_CNT)) {
+		dev_err(dev, "param error with count=%d\n", count);
+		return 0;
+	}
+
+	min = samples[0];
+	for (idx = 1; idx < count; idx++) {
+		if (samples[idx] < min) {
+			min = samples[idx];
+		}
+	}
+	for (idx = 0; idx < count; idx++) {
+		if ((samples[idx] - min) <= (min * FAM_RPM_TOLERANCE_RATIO / 100)) {
+			sum += samples[idx];
+			cnt++;
+		}
+	}
+
+	return cnt ? (sum / cnt) : 0;
 }
 
 static long eswin_fan_control_get_fan_rpm(struct eswin_fan_control_data *ctl)
@@ -233,32 +269,53 @@ static long eswin_fan_control_get_fan_rpm(struct eswin_fan_control_data *ctl)
 
 static int eswin_fan_control_read_fan(struct device *dev, u32 attr, long *val)
 {
+	long ret = 0;
 	int retry = 0;
+	u32 samples[FAN_RPM_SAMPLE_CNT] = {0};
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
 
 	switch (attr) {
 	case hwmon_fan_input:
-		while (retry < FAN_RPM_MAX_READ_CNT) {
-			if (eswin_fan_control_get_fan_rpm(ctl) <= 0) {
-				dev_err(dev, "wait read interrupt fail!\n");
-				retry++;
-				continue;
+		mutex_lock(&ctl->fan_lock);
+		for (int32_t idx = 0; idx < FAN_RPM_SAMPLE_CNT; idx++) {
+			retry = 0;
+			while (retry < FAN_RPM_MAX_READ_CNT) {
+				ret = eswin_fan_control_get_fan_rpm(ctl);
+				if (ret == 0) {
+					/* timeout case */
+					*val = 0;
+					mutex_unlock(&ctl->fan_lock);
+					return 0;
+				} else if (ret < 0) {
+					if (ret == -ERESTARTSYS) {
+						/* cancel case */
+						mutex_unlock(&ctl->fan_lock);
+						return -EINTR;
+					}
+					dev_err(dev, "wait read interrupt fail, ret=%ld\n", ret);
+					retry++;
+					continue;
+				}
+				if (ctl->rpm > FAN_RPM_MAX_VALUE) {
+					msleep(FAN_RPM_RETRY_INTERVAL);
+					retry++;
+					continue;
+				} else {
+					break;
+				}
 			}
-			if (ctl->rpm > FAN_RPM_MAX_VALUE) {
-				msleep(FAN_RPM_RETRY_INTERVAL);
-				retry++;
-				continue;
+			if (retry == FAN_RPM_MAX_READ_CNT) {
+				samples[idx] = ctl->last_rpm;
 			} else {
-				break;
+				samples[idx] = ctl->rpm;
 			}
+			msleep(FAN_RPM_RETRY_INTERVAL);
 		}
-		if (retry == FAN_RPM_MAX_READ_CNT) {
-			*val = ctl->last_rpm;
-		} else {
-			*val = ctl->rpm;
-			ctl->last_rpm = ctl->rpm;
-		}
+		*val = es_fan_rpm_filter_and_average(dev, samples, FAN_RPM_SAMPLE_CNT);
+		ctl->last_rpm = *val;
+		mutex_unlock(&ctl->fan_lock);
 		return 0;
+
 	default:
 		return -ENOTSUPP;
 	}
@@ -285,9 +342,11 @@ static int eswin_fan_control_set_pwm_duty(const long val, struct eswin_fan_contr
 {
 	struct pwm_state state;
 
+	mutex_lock(&ctl->fan_lock);
 	pwm_get_state(ctl->pwm, &state);
 	pwm_set_relative_duty_cycle(&state, val, 100);
 	pwm_apply_state(ctl->pwm, &state);
+	mutex_unlock(&ctl->fan_lock);
 
 	return 0;
 }
@@ -403,9 +462,12 @@ static irqreturn_t eswin_fan_control_irq_handler(int irq, void *data)
 		/* clear interrupt */
 		fan_iowrite(0x5, REG_FAN_INT, ctl);
 
-		/* wake up fan_rpm read */
-		ctl->wait_flag = true;
-		wake_up_interruptible(&ctl->wq);
+		/* When the fan does not support obtaining speed, bit3 will be set to 1 */
+		if (0x0 == (status & (0x1 << 3))) {
+			/* wake up fan_rpm read */
+			ctl->wait_flag = true;
+			wake_up_interruptible(&ctl->wq);
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -599,13 +661,43 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 							 ctl,
 							 &eswin_chip_info,
 							 eswin_fan_control_groups);
+	dev_set_drvdata(&pdev->dev, ctl);
+	mutex_init(&ctl->fan_lock);
 	dev_err(&pdev->dev, "eswin fan control init exit\n");
+
 	return PTR_ERR_OR_ZERO(ctl->hdev);
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int eswin_fan_control_suspend(struct device *dev)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	pwm_disable(ctl->pwm);
+	clk_disable_unprepare(ctl->clk);
+
+	return 0;
+}
+
+static int eswin_fan_control_resume(struct device *dev)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	clk_prepare_enable(ctl->clk);
+	pwm_enable(ctl->pwm);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(fan_control_pm_ops, eswin_fan_control_suspend, eswin_fan_control_resume);
 
 static struct platform_driver eswin_fan_control_driver = {
 	.driver = {
 		.name = "eswin_fan_control_driver",
+		.pm = &fan_control_pm_ops,
 		.of_match_table = eswin_fan_control_of_match,
 	},
 	.probe = eswin_fan_control_probe,

@@ -112,9 +112,14 @@
 			reg = <0x0 0x79000000 0x0 0x400000>;
 		};
 
-		g2d_4GB_boundary_reserved_4k {
+		ramoops@fff00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xfff00000 0x0 0x100000>;
+			console-size = <0x40000>;
+			record-size = <0x40000>;
+			ftrace-size = <0x40000>;
+			pmsg-size = <0x40000>;
 			no-map;
-			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
 		g2d_8GB_boundary_reserved_4k {
@@ -207,10 +212,12 @@
 };
 
 &d0_pmu {
+	npu-supply=<&d0_npu_vcc>;
 	status = "okay";
 };
 &d1_pmu {
-	status = "disabled";
+	npu-supply=<&d1_npu_vcc>;
+	status = "okay";
 };
 
 &ddr0 {
@@ -397,7 +404,11 @@
 
 &d0_lpcpu {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio0_default &pinctrl_die1_gpio7_on_default>;
+	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
 };
+
 &d1_lpcpu {
 	status = "disabled";
 };
@@ -791,35 +802,35 @@
 };
 
 &isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_0 {
 	status = "disabled";
 };
 
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_1 {
 	status = "disabled";
 };
 
 &dewarp {
-	status = "okay";
+	status = "disabled";
 };
 &d1_dewarp {
-	status = "okay";
+	status = "disabled";
 };
 
 &mipi_dphy_rx {
-	status = "okay";
+	status = "disabled";
 };
 &d1_mipi_dphy_rx {
 	status = "disabled";
 };
 
 &csi_dma0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi_dma0 {
 	status = "disabled";
@@ -833,7 +844,7 @@
 };
 
 &csi2_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_csi2_0 {
 	status = "disabled";
@@ -1489,16 +1500,24 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_die0_pwm0_default>;
+	pinctrl-1 = <&pinctrl_die0_gpio68_default>;
+	fan-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 };
 &d1_pwm0 {
 	status = "disabled";
 };
 
 &pvt0 {
-	status = "disabled";
+	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d0_sys_con 0x0668>;
 };
 &d1_pvt0 {
-	status = "disabled";
+	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d1_sys_con 0x0668>;
 };
 
 &pvt1 {

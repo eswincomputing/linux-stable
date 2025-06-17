@@ -4,3 +4,5 @@ obj-$(CONFIG_EIC770X_OTP) += otp_debugfs.o otp_eic770x.o
 obj-y += ai_driver/
 obj-$(CONFIG_SUSPEND) += pm_eic770x.o
 obj-$(CONFIG_EIC7X_D2D) += d2d.o
+obj-$(CONFIG_ESWIN_LPCPU)	+= eswin-lpcpu.o
+obj-$(CONFIG_ESWIN_BUS_ERROR)	+= bus_error.o

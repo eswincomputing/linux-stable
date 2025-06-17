@@ -45,6 +45,9 @@
 #include <linux/memblock.h>
 #include <linux/version.h>
 #include <linux/clk-provider.h>
+#include <linux/eswin-win2030-sid-cfg.h>
+#include <dt-bindings/interconnect/eswin,win2030.h>
+#include <linux/win2030_noc.h>
 
 #include <linux/eswin_npu.h>
 #include <linux/regulator/consumer.h>
@@ -111,6 +114,7 @@ struct spram_dev {
 	struct reset_control *rstc_llc;
 	struct regulator *npu_regulator;
 	u8 is_low_freq;
+	bool is_suspend;
 };
 
 #define dma_buf_map		iosys_map
@@ -1413,21 +1417,86 @@ free_spram:
 #endif
 
 #ifdef CONFIG_PM
+static int llc_sideband_query(struct device *dev)
+{
+	int ret = 0;
+	int noc_falut = 0;
+
+	ret = win2030_noc_sideband_mgr_query(SBM_NPU_SNOC_SP0);
+	if (ret != 1) {
+		dev_err(dev,"warning:SBM_NPU_SNOC_SP0 state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+
+	ret = win2030_noc_sideband_mgr_query(SBM_NPU_SNOC_SP1);
+	if (ret != 1) {
+		dev_err(dev, "warning:SBM_NPU_SNOC_SP1 state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+
+	ret = win2030_noc_sideband_mgr_query(SBM_SNOC_NPU);
+	if (ret != 1) {
+		dev_err(dev, "warning:SBM_SNOC_NPU state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+
+	ret = win2030_noc_sideband_mgr_query(SBM_CNOC_NPU);
+	if (ret != 1) {
+		dev_err(dev, "warning:SBM_CNOC_NPU state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+	return noc_falut;
+}
+
+static int llc_sideband_check(struct device *dev)
+{
+	int try_cnt = 10;
+	int ret = 0;
+
+	while (--try_cnt) {
+		ret = llc_sideband_query(dev);
+		if (ret) {
+			msleep(200);
+		} else {
+			break;
+		}
+	}
+
+	if (ret) {
+		dev_err(dev, "%s failed, npu noc is busy.\n", __func__);
+		return ret;
+	}
+	return 0;
+}
+
 static int __maybe_unused llc_suspend(struct device *dev)
 {
-
 	struct spram_dev *spram = dev_get_drvdata(dev);
+	int is_enable = 0;
+	int ret = 0;
 
-	llc_rst_assert(spram);
-	if (!pm_runtime_status_suspended(dev))
-	{
-		llc_clk_disable(spram);
+	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
+
+	ret = llc_sideband_check(dev);
+	if (ret) {
+		dev_err(dev, "llc suspend failed.\n");
+		spram->is_suspend = false;
+		return ret;
 	}
+	win2030_tbu_power(dev, false);
+	llc_rst_assert(spram);
+	llc_clk_disable(spram);
+
 	if ((NULL != spram->npu_regulator) && (!IS_ERR(spram->npu_regulator)))
 	{
-		regulator_disable(spram->npu_regulator);
+		is_enable = regulator_is_enabled(spram->npu_regulator);
+		if(1 == is_enable)
+		{
+			regulator_disable(spram->npu_regulator);
+			mdelay(20);
+		}
 	}
-
+	spram->is_suspend = true;
 	return 0;
 }
 
@@ -1436,6 +1505,13 @@ static int __maybe_unused llc_resume(struct device *dev)
 	int ret = 0;
 	int is_enable = 0;
 	struct spram_dev *spram = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
+
+	if(spram->is_suspend == false) {
+		dev_err(spram->dev, "llc was not suspended at last time.\n");
+		return -EACCES;
+	}
 
 	if (!IS_ERR_OR_NULL(spram->npu_regulator)) {
 		is_enable = regulator_is_enabled(spram->npu_regulator);
@@ -1460,6 +1536,8 @@ static int __maybe_unused llc_resume(struct device *dev)
 	ret = llc_rst_deassert(spram);
 	if (ret)
 		return ret;
+
+	win2030_tbu_power(dev, true);
 
 	ret = llc_spram_init(spram);
 	if (ret) {
@@ -1638,6 +1716,7 @@ static ssize_t npu_regulator_store(struct device *device,
 
 	if (!strncmp(buf, "0", 1))
 	{
+		win2030_tbu_power(device, false);
 		regulator_disable(spram->npu_regulator);
 	}
 	else
@@ -1647,7 +1726,7 @@ static ssize_t npu_regulator_store(struct device *device,
 		{
 			return ret;
 		}
-
+		win2030_tbu_power(device, true);
 	}
 
 	return count;
@@ -1679,25 +1758,30 @@ static int llc_probe(struct platform_device *pdev)
 	spram->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, spram);
+	win2030_tbu_power(&pdev->dev, true);
 
 	ret = llc_resource_parse(pdev);
 	if (ret) {
+		win2030_tbu_power(&pdev->dev, false);
 		return ret;
 	}
 
 	#if defined(CONFIG_RISCV) && defined(HAVE_LLC_HARDWARE)
 	/* Init llc controller */
 	ret = llc_clk_rst_init(pdev);
-	if (ret)
+	if (ret) {
+		win2030_tbu_power(&pdev->dev, false);
 		return ret;
-
+	}
 	ret = llc_spram_init(spram);
 	if (ret) {
+		win2030_tbu_power(&pdev->dev, false);
 		return ret;
 	}
 	#endif
 	if (devm_llc_ops_register(&pdev->dev, llc_flush_all)) {
 		dev_err(&pdev->dev, "register llc ops failed!!!\n");
+		win2030_tbu_power(&pdev->dev, false);
 		return -EFAULT;
 	}
 
@@ -1707,12 +1791,14 @@ static int llc_probe(struct platform_device *pdev)
 						dev_to_node(spram->dev), NULL);
 	if (IS_ERR(spram->pool)) {
 		dev_err(spram->dev, "devm_gen_pool_create() failed!!!\n");
+		win2030_tbu_power(&pdev->dev, false);
 		return PTR_ERR(spram->pool);
 	}
 	ret = gen_pool_add_virt(spram->pool, (unsigned long)spram->virt_base,
 				spram->phys_addr, npu_spram_size, dev_to_node(spram->dev));
 	if (ret < 0) {
 		dev_err(spram->dev, "gen_pool_add_virt failed with %d\n", ret);
+		win2030_tbu_power(&pdev->dev, false);
 		return ret;
 	}
 
@@ -1727,6 +1813,7 @@ static int llc_probe(struct platform_device *pdev)
 	ret = __add_spram_heap(spram, NULL);
 	if (ret) {
 		dev_err(spram->dev, "failed to add spram heap\n");
+		win2030_tbu_power(&pdev->dev, false);
 		return ret;
 	}
 

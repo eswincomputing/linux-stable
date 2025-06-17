@@ -526,7 +526,7 @@ static const struct win2030_tbu_client win2030_tbu_clients[] = {
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
 	{
-		.tbu_id = WIN2030_TBUID_0x5, // tbu5 is only NPU
+		.tbu_id = WIN2030_TBUID_0x5, // tbu5 is llc and NPU driver
 		.tbu_reg_info = {0x3d0, 15, 14},
 		.tbu_power_ctl_register = win2030_tbu_power_ctl_register,
 	},
@@ -970,6 +970,45 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 	return ret;
 }
 EXPORT_SYMBOL(win2030_tbu_power_by_dev_and_node);
+
+int win2030_tbu_force_power_by_dev_and_node(struct device *dev, struct device_node *node, bool is_powerUp)
+{
+	int ret = 0;
+	int nid = dev_to_node(dev);
+	u32 tbu_id;
+	const struct win2030_tbu_client *tbu_client_p = NULL;
+	struct tbu_priv *tbu_priv_p;
+	struct property *prop;
+	const __be32 *cur;
+
+	if (nid == NUMA_NO_NODE) {
+	#ifdef CONFIG_NUMA
+		pr_err("%s:%d, NUMA_NO_NODE\n", __func__, __LINE__);
+		return -EFAULT;
+	#else
+		pr_debug("%s:%d, NUMA_NO_NODE, single DIE\n", __func__, __LINE__);
+		nid = 0;
+	#endif
+	}
+
+	pr_debug("%s called!\n", __func__);
+	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
+		pr_debug("tbus = <0x%02x>\n", tbu_id);
+		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
+			tbu_client_p = tbu_priv_p->tbu_client_p;
+			ret = __do_win2030_tbu_power_ctl(nid, is_powerUp, &tbu_client_p->tbu_reg_info);
+			if (ret)
+				return ret;
+		}
+		else {
+			pr_err("tbu power ctl failed!, Couldn't find tbu 0x%x\n", tbu_id);
+			return -1;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(win2030_tbu_force_power_by_dev_and_node);
 
 #define WAVE_TRIGGER_REG_OFFSET    0x668
 #define WAVE_TRIGGER_REG_BASE     0x51810000

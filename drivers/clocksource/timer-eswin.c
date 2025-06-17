@@ -30,6 +30,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/reset.h>
 #include <linux/miscdevice.h>
+#include <linux/pm_runtime.h>
 
 #define APBT_MIN_PERIOD         4
 #define APBT_MIN_DELTA_USEC     200
@@ -59,6 +60,9 @@ struct eswin_timer {
     void __iomem *mmio_base;
     u32 perf_count;
     u32 numa_id;
+    struct clk *pclk;
+    struct clk *timer_aclk;
+    struct clk *timer3_clk8;
 };
 
 static struct eswin_timer *perf_timer[2] = {NULL, NULL};
@@ -99,9 +103,8 @@ static irqreturn_t timer_irq_handler(int irq, void *dev_id)
     return IRQ_HANDLED;
 }
 
-static int __init timer_init(struct device_node *np)
+static int __init timer_init(struct eswin_timer *time, struct device_node *np)
 {
-    struct clk *pclk, *timer_aclk, *timer3_clk8;
     struct reset_control *trstc0,*trstc1,*trstc2,*trstc3,*trstc4,*trstc5,*trstc6,*trstc7,*prstc;
 
     /*
@@ -158,17 +161,17 @@ static int __init timer_init(struct device_node *np)
     * Not all implementations use a peripheral clock, so don't panic
     * if it's not present
     */
-    pclk = of_clk_get_by_name(np, "pclk");
-    if (!IS_ERR(pclk))
-        if (clk_prepare_enable(pclk))
+    time->pclk = of_clk_get_by_name(np, "pclk");
+    if (!IS_ERR(time->pclk))
+        if (clk_prepare_enable(time->pclk))
             pr_warn("pclk for %pOFn is present, but could not be activated\n",np);
-    timer_aclk = of_clk_get_by_name(np, "timer_aclk");
-    if (!IS_ERR(timer_aclk))
-        if (clk_prepare_enable(timer_aclk))
+    time->timer_aclk = of_clk_get_by_name(np, "timer_aclk");
+    if (!IS_ERR(time->timer_aclk))
+        if (clk_prepare_enable(time->timer_aclk))
             pr_warn("timer_aclk for %pOFn is present, but could not be activated\n",np);
-    timer3_clk8 = of_clk_get_by_name(np, "timer3_clk8");
-    if (!IS_ERR(timer3_clk8))
-        if (clk_prepare_enable(timer3_clk8))
+    time->timer3_clk8 = of_clk_get_by_name(np, "timer3_clk8");
+    if (!IS_ERR(time->timer3_clk8))
+        if (clk_prepare_enable(time->timer3_clk8))
             pr_warn("timer3_clk8 for %pOFn is present, but could not be activated\n",np);
 
     return 0;
@@ -260,6 +263,7 @@ static int init_timer_perf_counter(struct eswin_timer *time, u32 chan)
 
 static int eswin_timer_probe(struct platform_device *pdev)
 {
+    struct device *dev = &pdev->dev;
     struct device_node *np = pdev->dev.of_node;
     struct eswin_timer *time;
     struct resource *res;
@@ -300,16 +304,18 @@ static int eswin_timer_probe(struct platform_device *pdev)
         return error;
     }
 
-    ret = timer_init(np);
+    ret = timer_init(time, np);
     if (ret)
         return ret;
 
     time->perf_count = 0xff;
 
+    pm_runtime_enable(dev);
     ret = of_property_read_u32(np, "perf_count", &val);
     if (!ret) {
         init_timer_perf_counter(time, val);
     }
+	platform_set_drvdata(pdev, time);
 
     dev_info(&pdev->dev, "eswin_timer_probe success\n");
     return 0;
@@ -319,6 +325,30 @@ static int eswin_timer_remove(struct platform_device *pdev)
 {
     return -EBUSY; /* cannot unregister clockevent */
 }
+
+static int eswin_timer_suspend(struct device *dev)
+{
+    struct eswin_timer *time = dev_get_drvdata(dev);
+    if(!IS_ERR(time->timer3_clk8))
+        clk_disable_unprepare(time->timer3_clk8);
+    clk_disable_unprepare(time->timer_aclk);
+    clk_disable_unprepare(time->pclk);
+    return 0;
+}
+
+static int eswin_timer_resume(struct device *dev)
+{
+    struct eswin_timer *time = dev_get_drvdata(dev);
+    clk_prepare_enable(time->pclk);
+    clk_prepare_enable(time->timer_aclk);
+    if(!IS_ERR(time->timer3_clk8))
+        clk_prepare_enable(time->timer3_clk8);
+    return 0;
+}
+
+static const struct dev_pm_ops eswin_timer_pm_ops = {
+    SYSTEM_SLEEP_PM_OPS(eswin_timer_suspend, eswin_timer_resume)
+};
 
 static const struct of_device_id eswin_timer_of_match[] = {
     { .compatible = "eswin,eswin-timer", },
@@ -332,6 +362,7 @@ static struct platform_driver eswin_timer_driver = {
     .driver = {
         .name = "eswin-timer",
         .of_match_table = of_match_ptr(eswin_timer_of_match),
+        .pm = &eswin_timer_pm_ops,
     },
 };
 module_platform_driver(eswin_timer_driver);

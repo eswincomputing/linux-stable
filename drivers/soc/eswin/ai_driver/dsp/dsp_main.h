@@ -190,6 +190,7 @@ struct es_dsp {
 	int op_idx;
 	dsp_kmd_perf_t op_perf[MAX_DSP_TASKS];
 	dsp_fw_perf_t op_fw_perf[MAX_DSP_TASKS];
+	dsp_fw_perf_t op_cur_perf;
 	atomic_t dmabuf_mapped_cnt;
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df;

@@ -30,6 +30,7 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
+#include <linux/gpio/consumer.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
@@ -150,6 +151,7 @@ struct mipi_dsi_priv {
 	struct dw_mipi_dsi_plat_data plat_data;
 	struct reset_control *rst_dsi_phyrstn;
 	void *data;
+	struct gpio_desc *dsi_mux_gpio;
 };
 
 struct es_mipi_dsi {
@@ -575,6 +577,12 @@ static int es_mipi_dsi_bind(struct device *dev, struct device *master,
 		ret = PTR_ERR(dsi_priv->dphy_base);
 		goto exit0;
 	}
+        // if dsi mux gpio is setting, mux to dsi
+        dsi_priv->dsi_mux_gpio = devm_gpiod_get(dev, "dsi-mux", GPIOD_OUT_LOW);
+        if (!IS_ERR(dsi_priv->dsi_mux_gpio)) {
+                gpiod_set_value(dsi_priv->dsi_mux_gpio, 1);
+                dev_info(dev, "dsi-csi-mux gpio set to dsi\n");
+        }
 
 	dsi_priv->plat_data.base = dsi_priv->dphy_base;
 

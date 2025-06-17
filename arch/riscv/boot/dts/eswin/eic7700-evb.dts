@@ -93,9 +93,14 @@
 			reg = <0x0 0x59000000 0x0 0x400000>;
 		};
 
-		g2d_4GB_boundary_reserved_4k {
+		ramoops@fff00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xfff00000 0x0 0x100000>;
+			console-size = <0x40000>;
+			record-size = <0x40000>;
+			ftrace-size = <0x40000>;
+			pmsg-size = <0x40000>;
 			no-map;
-			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
 		g2d_8GB_boundary_reserved_4k {
@@ -125,6 +130,7 @@
 };
 
 &d0_pmu {
+	npu-supply=<&npu_vcc1>;
 	status = "okay";
 };
 
@@ -855,6 +861,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &pvt0 {
@@ -886,19 +896,19 @@
 };
 
 &timer0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer2 {
-	status = "okay";
+	status = "disabled";
 };
 
 &timer3 {
-	status = "okay";
+	status = "disabled";
 };
 
 &pinctrl {

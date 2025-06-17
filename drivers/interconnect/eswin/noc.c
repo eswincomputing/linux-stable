@@ -509,6 +509,24 @@ void stack_dump(void)
 		show_stack(task_list, NULL, KERN_EMERG);
 	}
 }
+/**
+ * win2030_noc_get_error - Handle NoC (Network-on-Chip) error interrupts
+ * @noc_device: Pointer to the NoC device structure
+ *
+ * This function is triggered by a NoC error interrupt. It reads all the
+ * error log registers, stores them in an error record, and appends the
+ * record to the device's internal error queue.
+ *
+ * Due to a hardware design limitation with the UART module, when both
+ * LPCPU and MCPU access the UART concurrently, the NoC may report a
+ * spurious error interrupt. These errors are benign and do not lead to
+ * hardware malfunction. To reduce unnecessary alarm during normal
+ * operation, such specific error cases are logged using dev_dbg().
+ *
+ * Other errors are logged with dev_err().
+ *
+ * Return: 0 on success, negative errno on failure (e.g., -ENOMEM)
+ */
 static int win2030_noc_get_error(struct win2030_noc_device *noc_device)
 {
 	void __iomem *base = noc_device->hw_base;
@@ -516,31 +534,57 @@ static int win2030_noc_get_error(struct win2030_noc_device *noc_device)
 	unsigned long flags;
 	int i;
 	char buf[2048] = {'\0'};
-
 	struct device *mydev = noc_device->dev;
+	bool use_dbg = false;
 
 	noc_err = kzalloc(sizeof(struct win2030_noc_error), GFP_ATOMIC);
 	if (!noc_err)
 		return -ENOMEM;
 
 	noc_err->timestamp = get_jiffies_64();
-	dev_err(mydev, "Error interrupt happen!\n");
+
+	// Read all error log registers first but do not print
 	for (i = 0; i < noc_device->error_logger_cnt; i++) {
 		noc_err->err[noc_device->err_log_lut[i]] = ioread32(ERRLOG_0_ERRLOG0(base) +
 					noc_device->err_log_lut[i] * sizeof(u32));
-		dev_err(mydev, "ErrLog%d 0x%08x", noc_device->err_log_lut[i],
-			noc_err->err[noc_device->err_log_lut[i]]);
 	}
+
+	// Check if the high 24 bits of ErrLog1 equal 0x000028**, it means uart noc err report
+	if (noc_err->err[1] >> 8 == 0x28)  // Check if upper 24 bits equal 0x000028
+		use_dbg = true;
+
+	// Select printing function based on the flag
+	if (use_dbg) {
+		dev_dbg(mydev, "Error interrupt happen!\n");
+		for (i = 0; i < noc_device->error_logger_cnt; i++) {
+			dev_dbg(mydev, "ErrLog%d 0x%08x", noc_device->err_log_lut[i],
+				noc_err->err[noc_device->err_log_lut[i]]);
+		}
+	} else {
+		dev_err(mydev, "Error interrupt happen!\n");
+		for (i = 0; i < noc_device->error_logger_cnt; i++) {
+			dev_err(mydev, "ErrLog%d 0x%08x", noc_device->err_log_lut[i],
+				noc_err->err[noc_device->err_log_lut[i]]);
+		}
+	}
+
 	spin_lock_irqsave(&noc_device->lock, flags);
 	list_add_tail(&noc_err->link, &noc_device->err_queue);
 	spin_unlock_irqrestore(&noc_device->lock, flags);
 
 	noc_error_dump(buf, noc_device, noc_err);
-	dev_err(mydev, "%s\n", buf);
-	//stack_dump();
+
+	// Select print level for final error dump based on the flag
+	if (use_dbg)
+		dev_dbg(mydev, "%s\n", buf);
+	else
+		dev_err(mydev, "%s\n", buf);
+
+	// stack_dump();
 	iowrite32(1, ERRLOG_0_ERRCLR(base));
 	return 0;
 }
+
 
 static irqreturn_t win2030_noc_error_irq(int irq, void *dev)
 {

@@ -98,26 +98,26 @@ static DEFINE_MUTEX(g_device_mutex);
  * necessary because the device can be powered off and the content of the
  * video memory lost.
  */
-static int pvr_pm_suspend(struct device *dev)
-{
-	struct drm_device *ddev = dev_get_drvdata(dev);
+// static int pvr_pm_suspend(struct device *dev)
+// {
+// 	struct drm_device *ddev = dev_get_drvdata(dev);
 
-	DRM_DEBUG_DRIVER("device %p\n", dev);
+// 	DRM_DEBUG_DRIVER("device %p\n", dev);
 
-	return PVRSRVDeviceSuspend(ddev);
-}
+// 	return PVRSRVDeviceSuspend(ddev);
+// }
 
 /* Executed after the system is woken up from sleep/suspend-to-RAM/S3. This
  * phase restores the content of the video memory from the system RAM.
  */
-static int pvr_pm_resume(struct device *dev)
-{
-	struct drm_device *ddev = dev_get_drvdata(dev);
+// static int pvr_pm_resume(struct device *dev)
+// {
+// 	struct drm_device *ddev = dev_get_drvdata(dev);
 
-	DRM_DEBUG_DRIVER("device %p\n", dev);
+// 	DRM_DEBUG_DRIVER("device %p\n", dev);
 
-	return PVRSRVDeviceResume(ddev);
-}
+// 	return PVRSRVDeviceResume(ddev);
+// }
 
 /* Executed before the hibernation image is created. This callback allows to
  * preserve the content of the video RAM into the system RAM which in turn
@@ -184,8 +184,8 @@ const struct dev_pm_ops pvr_pm_ops = {
 	 * powers off the device to reduce the power consumption. Because the
 	 * video RAM can be powered off, it needs to be preserved beforehand.
 	 */
-	.suspend = pvr_pm_suspend,
-	.resume = pvr_pm_resume,
+	// .suspend = pvr_pm_suspend,
+	// .resume = pvr_pm_resume,
 
 	/* Hibernation (suspend-to-disk/S4) callbacks.
 	 * This mode saves the content of the video RAM to the system RAM and then

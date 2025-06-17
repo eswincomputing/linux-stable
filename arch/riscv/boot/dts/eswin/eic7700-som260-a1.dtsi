@@ -685,6 +685,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_pwm0_default>;
+	pinctrl-1 = <&pinctrl_gpio68_default>;
+	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &pvt0 {

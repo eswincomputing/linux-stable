@@ -953,9 +953,32 @@ static int pac193x_probe(struct i2c_client *client)
 	INIT_DELAYED_WORK(&data->update_work, update_reg_data);
 	queue_delayed_work(data->update_workqueue, &data->update_work,
 					   msecs_to_jiffies(0));
+	i2c_set_clientdata(client,data);
+	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int pac193x_suspend(struct device *dev)
+{
+	struct pac193x_data *data = dev_get_drvdata(dev);
+
+	cancel_delayed_work_sync(&data->update_work);
 
 	return 0;
 }
+
+static int pac193x_resume(struct device *dev)
+{
+	struct pac193x_data *data = dev_get_drvdata(dev);
+
+	queue_delayed_work(data->update_workqueue, &data->update_work,
+					   msecs_to_jiffies(0));
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(pac193x_pm_ops, pac193x_suspend, pac193x_resume);
 
 static const struct of_device_id __maybe_unused pac193x_of_match[] = {
 	{.compatible = "microchip,pac1931", .data = (void *)pac1931_index},
@@ -969,6 +992,7 @@ MODULE_DEVICE_TABLE(of, pac193x_of_match);
 static struct i2c_driver pac193x_driver = {
 	.driver = {
 		.name = "pac193x",
+		.pm = &pac193x_pm_ops,
 		.of_match_table = of_match_ptr(pac193x_of_match),
 	},
 	.probe = pac193x_probe,

@@ -52,7 +52,7 @@
 #define DSP_IOCTL_GET_PERF_DATA _IO(ES_DSP_IOCTL_MAGIC, 23)
 #define DSP_IOCTL_GET_FW_PERF_DATA _IO(ES_DSP_IOCTL_MAGIC, 24)
 #define DSP_IOCTL_SUBMIT_TSKS_ASYNC _IO(ES_DSP_IOCTL_MAGIC, 25)
-
+#define DSP_IOCTL_GET_CUR_OP_PERF_DATA _IO(ES_DSP_IOCTL_MAGIC, 26)
 typedef struct dsp_ioctl_pre_dma_t {
     ES_DEV_BUF_S desc;
 } __attribute__((packed)) dsp_ioctl_pre_dma_s;

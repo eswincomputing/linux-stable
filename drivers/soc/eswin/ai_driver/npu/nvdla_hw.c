@@ -260,6 +260,27 @@ int npu_dev_reset(struct nvdla_device *nvdla_dev)
 	return 0;
 }
 
+int npu_dev_deassert(struct nvdla_device *nvdla_dev)
+{
+	int ret;
+
+	ret = npu_cfg_rst(nvdla_dev->numa_id, true);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "npu_cfg_rst fail,error: %d\n",
+			ret);
+		return ret;
+	}
+
+	ret = npu_core_rst(nvdla_dev->numa_id, true);
+	if (ret) {
+		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d\n",
+			ret);
+		return ret;
+	}
+
+	reset_control_deassert(nvdla_dev->rstc_e31_core);
+	return ret;
+}
 
 int npu_dev_assert(struct nvdla_device *nvdla_dev)
 {
@@ -269,7 +290,7 @@ int npu_dev_assert(struct nvdla_device *nvdla_dev)
 	WARN_ON(0 != ret);
 
 	/*reset npu core*/
-	ret = npu_core_rst(0, false);
+	ret = npu_core_rst(nvdla_dev->numa_id, false);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d.\n",
 			ret);
@@ -277,14 +298,14 @@ int npu_dev_assert(struct nvdla_device *nvdla_dev)
 	}
 
 	/*reset npu cfg*/
-	ret = npu_cfg_rst(0, false);
+	ret = npu_cfg_rst(nvdla_dev->numa_id, false);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d.\n",
 			ret);
 		return ret;
 	}
 
-	return 0;
+	return ret;
 }
 
 
@@ -475,7 +496,8 @@ int npu_hardware_reset(struct nvdla_device *nvdla_dev)
 		dla_error("err:npu noc is busy,reset failed.\n");
 		return -1;
 	}
-	npu_dev_reset(nvdla_dev);
+	if(nvdla_dev != NULL)
+		npu_dev_reset(nvdla_dev);
 	return 0;
 }
 
@@ -859,7 +881,7 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 	if (IS_ERR(nvdla_dev->e31_core_clk)) {
 		ret = PTR_ERR(nvdla_dev->e31_core_clk);
 		nvdla_dev->e31_core_clk = NULL;
-		dev_err(&pdev->dev, "failed to get core_clk: %d\n", ret);
+		dev_err(&pdev->dev, "failed to get e31_core_clk: %d\n", ret);
 		return ret;
 	}
 	nvdla_dev->core_clk = devm_clk_get(&pdev->dev, "core_clk");
@@ -1114,6 +1136,7 @@ int npu_enable_clock(struct nvdla_device *ndev)
 		dla_error("npu enable mbox clock failed.\n");
 		goto err_mbox_clk;
 	}
+
 	return 0;
 err_mbox_clk:
 	clk_disable_unprepare(ndev->e31_core_clk);
