@@ -98,6 +98,11 @@
 #include <linux/devfreq.h>
 #include <linux/pm_opp.h>
 
+#include <linux/timer.h>
+#include <linux/jiffies.h>
+#include <linux/of.h>
+#include <linux/es_proc.h>
+
 #include "dw200_fe.h"
 #include "dw200_ioctl.h"
 #include "vivdw200_irq_queue.h"
@@ -136,6 +141,7 @@ static bool fe_enable = false;
 module_param(fe_enable, bool, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(fe_enable, "FE(command buffer) enable for DW200");
 
+static unsigned int dwe_irq_num, dwe_load_num, vse_irq_num, vse_load_num = 0;
 struct es_dewarp_driver_dev {
 	struct cdev cdev;
 	struct device *device;
@@ -473,6 +479,7 @@ irqreturn_t dwe_isr(int irq, void *dev_id)
 
 	spin_lock_irqsave(&pdriver_dev->dwe_irq_lock, flags);
 	dwe_read_irq((struct dw200_subdev *)pdw200, &dwe_mis);
+	dwe_irq_num++;
 	dwe_mis = dwe_mis & 0x1;
 	if (0 != dwe_mis) {
 		dwe_clear_irq((struct dw200_subdev *)pdw200, dwe_mis << 24);
@@ -498,6 +505,7 @@ irqreturn_t vse_isr(int irq, void *dev_id)
 
 	spin_lock_irqsave(&pdriver_dev->vse_irq_lock, flags);
 	vse_read_irq((struct dw200_subdev *)pdw200, &vse_mis);
+	vse_irq_num++;
 	DEBUG_PRINT(" %s vse mis 0x%08x\n", __func__, vse_mis);
 	if (vse_mis) {
 		vse_clear_irq((struct dw200_subdev *)pdw200, vse_mis);
@@ -863,6 +871,44 @@ static ssize_t dw200_reset_write(struct file *filp, const char __user *buffer,
 	regmap_write(regmap, mmu_tbu0_vi_dw200_reg, rdwr_sid_ssid);
 
 	return count;
+}
+
+static int dwe_load_read(es_proc_entry_t *s)
+{
+	struct dw200_subdev *pdwe_dev = s->private;
+	int reg_value;
+
+	pm_runtime_get_sync(pdwe_dev->dev);
+
+	reg_value = readl(pdwe_dev->vse_base + SRC_IMG_SIZE);
+	pdwe_dev->src_hsize = reg_value & 0x1FFF;
+	pdwe_dev->src_vsize = (reg_value >> 16) & 0x1FFF;
+
+	es_seq_printf(s, "polling_ms      : %u\n"
+					"curr_load       : %u%%\n",
+					1000, dwe_load_num);
+
+	pm_runtime_put(pdwe_dev->dev);
+	return 0;
+}
+
+static int vse_load_read(es_proc_entry_t *s)
+{
+	struct dw200_subdev *pdwe_dev = s->private;
+	int reg_value;
+
+	pm_runtime_get_sync(pdwe_dev->dev);
+
+	reg_value = readl(pdwe_dev->vse_base + SRC_IMG_SIZE);
+	pdwe_dev->src_hsize = reg_value & 0x1FFF;
+	pdwe_dev->src_vsize = (reg_value >> 16) & 0x1FFF;
+
+	es_seq_printf(s, "polling_ms      : %u\n"
+					"curr_load       : %u%%\n",
+					1000, vse_load_num);
+
+	pm_runtime_put(pdwe_dev->dev);
+	return 0;
 }
 
 static int vvcam_dw200_smmu_sid_cfg(struct device *dev)
@@ -1294,6 +1340,19 @@ struct file_operations es_dewarp_fops = {
 	.poll = dewarp_poll,
 };
 
+static void load_reset(struct timer_list *t)
+{
+	struct dw200_subdev *dev;
+	dev = from_timer(dev, t, reset_timer);
+
+	dwe_load_num = (dwe_irq_num * 100) / ((4096 * 3072) / dev->src_hsize / dev->src_vsize * 45);
+	vse_load_num = (vse_irq_num * 100) / ((4096 * 2160) / dev->src_hsize / dev->src_vsize  * 45);
+	dwe_irq_num = 0;
+	vse_irq_num = 0;
+
+	mod_timer(&dev->reset_timer, jiffies + msecs_to_jiffies(1000));
+}
+
 static int es_dewarp_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1379,6 +1438,9 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		goto failed0;
 	}
 
+	timer_setup(&pdwe_dev->reset_timer, load_reset, 0);
+	mod_timer(&pdwe_dev->reset_timer, jiffies + msecs_to_jiffies(1000));
+
 #ifdef DWE_REG_RESET
 	pdwe_dev->dwe_reset = ioremap(DWE_REG_RESET, 4);
 #endif
@@ -1442,6 +1504,28 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	pdwe_dev->dw200_reset = debugfs_create_file(
 		debug_dw200_reset, 0644, NULL, pdwe_dev, &dw200_reset_fops);
 
+	pdwe_dev->dewarp_dir = es_proc_mkdir(PROC_ENTRY_DEWARP, 0777, NULL);
+	if(pdwe_dev->dewarp_dir == NULL) {
+		printk(KERN_INFO "/proc/eswin has not been created yet\n");
+		return -ENODEV;
+	}
+
+	pdwe_dev->dwe_load = es_create_proc_entry("dwe_stat", 0666, pdwe_dev->dewarp_dir);
+	if (pdwe_dev->dwe_load == NULL) {
+		pr_err("Kernel: Register dwe_load proc failed!\n");
+		return -ENOMEM;
+	}
+	pdwe_dev->dwe_load->private = (void *)pdwe_dev;
+	pdwe_dev->dwe_load->read = dwe_load_read;
+
+	pdwe_dev->vse_load = es_create_proc_entry("vse_stat", 0666, pdwe_dev->dewarp_dir);
+	if (pdwe_dev->vse_load == NULL) {
+		pr_err("Kernel: Register vse_load proc failed!\n");
+		return -ENOMEM;
+	}
+	pdwe_dev->vse_load->private = (void *)pdwe_dev;
+	pdwe_dev->vse_load->read = vse_load_read;
+
 	/* The code below assumes runtime PM to be disabled. */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
 	pm_runtime_use_autosuspend(&pdev->dev);
@@ -1488,10 +1572,17 @@ static int es_dewarp_remove(struct platform_device *pdev)
 	if (pdwe_dev->fe.enable == true) {
 		dw200_fe_destory(pdwe_dev);
 	}
+
+	if (pdwe_dev) {
+		del_timer_sync(&pdwe_dev->reset_timer);
+	}
+
 	device_destroy(es_dewarp_class, devt + pdriver_dev->id);
 	cdev_del(&pdriver_dev->cdev);
 
-	debugfs_remove(pdwe_dev->dw200_reset);
+	es_remove_proc_entry("dwe_stat", pdwe_dev->dewarp_dir);
+	es_remove_proc_entry("vse_stat", pdwe_dev->dewarp_dir);
+	es_remove_proc_entry(PROC_ENTRY_DEWARP, NULL);
 
 	vvcam_reset_fini(&pdwe_dev->dw_crg);
 
