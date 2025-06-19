@@ -1001,7 +1001,6 @@ static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 		return imx415_write(sensor, IMX415_SHR0, vmax - ctrl->val);
 
 	case V4L2_CID_ANALOGUE_GAIN:
-		/* analogue gain in 0.3 dB step size */
 		return imx415_write(sensor, IMX415_GAIN_PCG_0, ctrl->val);
 	case V4L2_CID_NOTIFY_GAINS:return 0;
 	case V4L2_CID_DIGITAL_GAIN:return 0;

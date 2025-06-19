@@ -143,6 +143,8 @@ struct csi2_dphy_hw {
 	int (*quick_stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 };
 
+
+
 int eswin_csi2_dphy_hw_init(void);
 int eswin_csi2_dphy_init(void);
 void eswin_csi2_dphy_uinit(void);

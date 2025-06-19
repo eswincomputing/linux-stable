@@ -2,61 +2,13 @@
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
-    vvcam_isp_0: vvcam_isp@0 {
-        compatible = "verisilicon,isp-v4l2";
-        id = <0>;
-        status = "okay";
-		dma-noncoherent;
-		depends-on = <&camera_imx219>;
-        ports {
-            #address-cells = <1>;
-            #size-cells = <0>;
+	isp_connect_mode = <1>;
 
-			port@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0>;
-				vvcam_isp_input_port: endpoint@0 {
-					remote-endpoint = <&mipi2_csi2_output1>;
-				};
-			};
-
-            port@1 {
-                reg = <1>;
-                vvcam_isp_port0_mp: endpoint {
-                    remote-endpoint = <&vvcam_video0>;
-                };
-            };
-
-            port@2 {
-                reg = <2>;
-                vvcam_isp_port0_sp1: endpoint {
-                    remote-endpoint = <&vvcam_video1>;
-                };
-            };
-
-            port@3 {
-                reg = <3>;
-                vvcam_isp_port0_sp2: endpoint {
-                    remote-endpoint = <&vvcam_video2>;
-                };
-            };
-
-            port@4 {
-                reg = <4>;
-                vvcam_isp_port0_raw: endpoint {
-                    remote-endpoint = <&vvcam_video3>;
-                };
-            };
-        };
-    };
-
-	vvcam_vb: vvcam-vb@0 {
+	vvcam_vb: vvcam_vb@0 {
 		compatible = "verisilicon,vb";
 		status = "okay";
 		dma-noncoherent;
 		#size-cells = <2>;
-		depends-on = <&camera_imx219>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 	};
@@ -67,7 +19,6 @@
         status = "okay";
 		dma-noncoherent;
 		#size-cells = <2>;
-		depends-on = <&camera_imx219>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 
@@ -104,6 +55,60 @@
             };
         };
     };
+
+	vvcam_video_1: vvcam_video@1 {
+		compatible = "verisilicon,video";
+		id = <1>;
+		status = "okay";
+		#size-cells = <2>;
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu0 WIN2030_SID_ISP1>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				vvcam1_video0: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&vvcam_isp_1_port0_mp>;
+				};
+			};
+
+			port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+				vvcam1_video1: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&vvcam_isp_1_port0_sp1>;
+				};
+			};
+
+			port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				vvcam1_video2: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&vvcam_isp_1_port0_sp2>;
+				};
+			};
+
+			port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				vvcam1_video3: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&vvcam_isp_1_port0_raw>;
+				};
+			};
+		};
+	};
 };
 
 &dvp2axi {
@@ -201,6 +206,16 @@
 				remote-endpoint = <&axi2dvp_mipi2_in2>;
 			};
 		};
+
+		port@2 {
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_2_output1: endpoint {
+				remote-endpoint = <&vvcam_isp_1_input_port0>;
+			};
+		};
 	};
 };
 
@@ -291,9 +306,8 @@
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
 
-		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
-		mclk-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 		port {
 			imx219_out0: endpoint {
@@ -319,9 +333,8 @@
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
 
-		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
-		mclk-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 		port {
 			imx219_out2: endpoint {
@@ -333,10 +346,107 @@
 	};
 };
 
+&vvcam_isp_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			vvcam_isp_input_port: endpoint@0 {
+				remote-endpoint = <&mipi2_csi2_output1>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			vvcam_isp_port0_mp: endpoint {
+				remote-endpoint = <&vvcam_video0>;
+			};
+		};
+
+		port@2 {
+			reg = <2>;
+			vvcam_isp_port0_sp1: endpoint {
+				remote-endpoint = <&vvcam_video1>;
+			};
+		};
+
+		port@3 {
+			reg = <3>;
+			vvcam_isp_port0_sp2: endpoint {
+				remote-endpoint = <&vvcam_video2>;
+			};
+		};
+
+		port@4 {
+			reg = <4>;
+			vvcam_isp_port0_raw: endpoint {
+				remote-endpoint = <&vvcam_video3>;
+			};
+		};
+	};
+};
+
+&vvcam_isp_1 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			vvcam_isp_1_input_port0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi_csi2_2_output1>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			vvcam_isp_1_port0_mp: endpoint {
+				remote-endpoint = <&vvcam1_video0>;
+			};
+		};
+
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			vvcam_isp_1_port0_sp1: endpoint {
+				remote-endpoint = <&vvcam1_video1>;
+			};
+		};
+
+		port@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			vvcam_isp_1_port0_sp2: endpoint {
+				remote-endpoint = <&vvcam1_video2>;
+			};
+		};
+
+		port@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+			vvcam_isp_1_port0_raw: endpoint {
+				remote-endpoint = <&vvcam1_video3>;
+			};
+		};
+	};
+};
+
 &isp_0 {
 	status = "okay";
 };
 
 &isp_1 {
-	status = "disabled";
+	status = "okay";
 };
