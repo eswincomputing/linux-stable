@@ -18,9 +18,12 @@
 #include <asm/uaccess.h>
 #include "include/linux/es_proc.h"
 
-static struct list_head list;
+static LIST_HEAD(list);
 static es_proc_entry_t *proc_entry = NULL;
+static DEFINE_MUTEX(proc_lock);
+static DEFINE_MUTEX(list_lock);
 
+es_proc_entry_t *_es_proc_mkdir(const char *name, umode_t mode, es_proc_entry_t *parent);
 static int es_seq_show(struct seq_file *s, void *p)
 {
 	es_proc_entry_t *oldsentry = s->private;
@@ -103,6 +106,13 @@ es_proc_entry_t *es_create_proc(const char *name, umode_t mode, es_proc_entry_t 
 es_proc_entry_t *es_create_proc_entry(const char *name, umode_t mode,
 					  es_proc_entry_t *parent)
 {
+	mutex_lock(&proc_lock);
+	if (!proc_entry )
+		proc_entry = _es_proc_mkdir("eswin", 0755, NULL);
+	mutex_unlock(&proc_lock);
+	if (!proc_entry )
+		return NULL;
+
 	/* If NULL, create entry under the eswin dir, otherwise under the specified parent*/
 	if (parent == NULL)
 		parent = proc_entry;
@@ -113,35 +123,38 @@ EXPORT_SYMBOL(es_create_proc_entry);
 
 void _es_remove_proc_entry(const char *name, es_proc_entry_t *parent)
 {
-    struct es_proc_dir_entry *sproc, *tmp;
-    struct es_proc_dir_entry *child, *child_tmp;
-	bool remove = false;
+	struct es_proc_dir_entry *sproc, *tmp;
+	struct es_proc_dir_entry *child;
+	bool found = false;
 
-    if (name == NULL) {
-        pr_err("parameter invalid!\n");
-        return;
-    }
+	if (name == NULL) {
+		pr_err("parameter invalid!\n");
+		return;
+	}
+	mutex_lock(&list_lock);
+	list_for_each_entry_safe(sproc, tmp, &list, node) {
+		if (strncmp(sproc->name, name, sizeof(sproc->name)) != 0)
+			continue;
+		// got target dir, then checking if it's contains any child node
+		list_for_each_entry(child, &list, node) {
+			if (child->parent == sproc) {
+				// some node's parent point to target entry, do not remove.
+				pr_err("Error: directory %s is not empty!\n", name);
+				mutex_unlock(&list_lock);
+				return;
+			}
+		}
 
-    list_for_each_entry_safe(sproc, tmp, &list, node) {
-        if (strncmp(sproc->name, name, sizeof(sproc->name)) == 0) {
+		// remove
+		found = true;
+		remove_proc_entry(name, parent == NULL ? NULL : parent->proc_dir_entry);
+		list_del(&sproc->node);
+		kfree(sproc);
+		break;
+	}
 
-            list_for_each_entry(child, &list, node) {
-                if (child->parent == sproc) {
-					// some node's parent point to target entry, do not remove.
-					pr_err("Error: directory %s is not empty!\n", name);
-					return;
-                }
-            }
-
-			// remove
-			remove = true;
-            remove_proc_entry(name, parent == NULL ? NULL : parent->proc_dir_entry);
-            list_del(&sproc->node);
-            kfree(sproc);
-            break;
-        }
-    }
-	if (remove)
+	mutex_unlock(&list_lock);
+	if (found)
 		pr_debug("entry %s with parent=%s removed\n", name, parent ? parent->name : "eswin");
 	else
 		pr_err("entry %s with parent=%s not found\n", name, parent ? parent->name : "eswin");
@@ -149,9 +162,14 @@ void _es_remove_proc_entry(const char *name, es_proc_entry_t *parent)
 
 void es_remove_proc_entry(const char *name, es_proc_entry_t *parent)
 {
+	mutex_lock(&proc_lock);
+	if (WARN_ON(!proc_entry))
+		pr_err("remove %s before es_proc initialize\n", name);
+	mutex_unlock(&proc_lock);
+
 	/* If NULL, remove entry under the eswin dir, otherwise under the specified parent*/
-    if (parent == NULL)
-        parent = proc_entry;
+	if (parent == NULL)
+		parent = proc_entry;
 
 	return _es_remove_proc_entry(name, parent);
 }
@@ -183,13 +201,23 @@ es_proc_entry_t *_es_proc_mkdir(const char *name, umode_t mode, es_proc_entry_t 
 	}
 	sproc->proc_dir_entry = proc;
 	sproc->parent = parent;
+	INIT_LIST_HEAD(&sproc->node);
 
+	mutex_lock(&list_lock);
 	list_add_tail(&(sproc->node), &list);
+	mutex_unlock(&list_lock);
 	return sproc;
 }
 
 es_proc_entry_t *es_proc_mkdir(const char *name, umode_t mode, es_proc_entry_t *parent)
 {
+	mutex_lock(&proc_lock);
+	if (!proc_entry )
+		proc_entry = _es_proc_mkdir("eswin", 0755, NULL);
+	mutex_unlock(&proc_lock);
+	if (!proc_entry )
+		return NULL;
+
 	/* If NULL, create entry under the eswin dir, otherwise under the specified parent*/
 	if (parent == NULL)
 		parent = proc_entry;
@@ -212,25 +240,3 @@ int es_seq_printf(es_proc_entry_t *entry, const char *fmt, ...)
 }
 EXPORT_SYMBOL(es_seq_printf);
 
-static int __init es_proc_init(void)
-{
-	INIT_LIST_HEAD(&list);
-	proc_entry = _es_proc_mkdir("eswin", 0755, NULL);
-	if (proc_entry == NULL) {
-		pr_err("init, proc mkdir error!\n");
-		return -EPERM;
-	}
-	return 0;
-}
-
-static void __exit es_proc_exit(void)
-{
-	_es_remove_proc_entry("eswin", NULL);
-}
-
-module_init(es_proc_init);
-module_exit(es_proc_exit);
-
-MODULE_DESCRIPTION("ES Procfile Driver");
-MODULE_AUTHOR("huangyifeng@eswincomputing.com");
-MODULE_LICENSE("GPL v2");
