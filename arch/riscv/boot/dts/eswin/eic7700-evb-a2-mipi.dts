@@ -29,55 +29,70 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dc_out_dpi1: endpoint@0 {
+		dc_out_dsi: endpoint@0 {
 			reg = <0>;
-			remote-endpoint = <&vd_input>;
+			remote-endpoint = <&dsi_input>;
 		};
-		dc_out_hdmi: endpoint@1 {
+		dc_out_dpi1: endpoint@1 {
 			reg = <1>;
-			remote-endpoint = <&hdmi_in_dc>;
+			remote-endpoint = <&vd_input>;
 		};
 	};
 };
 
-&dw_hdmi {
+&dsi_controller {
 	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0>;
-			hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&dc_out_hdmi>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
 			};
 		};
-		port@2 {
-			reg = <2>;
-			hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint>;
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
 			};
 		};
 	};
+
+	dsi_panel:dsi_panel@0 {
+		compatible = "eswin,generic-panel";
+		reg = <0>;
+		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
+		dsi,lanes = <4>;
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_dsi_out>;
+			};
+		};
+	};
+};
+
+&dsi_panel {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio5_default &pinctrl_gpio111_default>;
+	backlight0-gpios = <&porta 5 GPIO_ACTIVE_HIGH>;
+	rst-gpios = <&portd 15 GPIO_ACTIVE_HIGH>;
+};
+
+&dw_hdmi {
+	status = "disabled";
 };
 
 &d0_i2s0 {
 	status = "okay";
 	d0_i2s0_port: port {
 		d0_i2s0_endpoint: endpoint {
-			remote-endpoint = <&hdmi_in_i2s>;
 			dai-format = "i2s";
 		};
 	};
-};
-
-
-&dw_hdmi_hdcp2 {
-   status = "okay";
-};
-
-&d0_graphcard2 {
-	status = "okay";
-	label = "HDMI Audio";
-	dais = <&d0_i2s0_port>;
 };
