@@ -2891,13 +2891,14 @@ static struct iommu_group *arm_smmu_group_lookup(struct device *dev)
 	struct arm_smmu_group *smmu_group;
 	u32 sid;
 
-	lockdep_assert_held(&smmu->smmu_groups_mutex);
 	if (!master)
-		return NULL;
+		return ERR_PTR(-EFAULT);
+
+	smmu = master->smmu;
+	lockdep_assert_held(&smmu->smmu_groups_mutex);
 
 	/* pick the first sid, since only one sid for each device is allowed */
 	sid = fwspec->ids[0];
-	smmu = master->smmu;
 
 	node = smmu->smmu_groups.rb_node;
 	while (node) {
@@ -2922,11 +2923,11 @@ static struct arm_smmu_group *arm_smmu_insert_to_group_lookup(struct device *dev
 	struct arm_smmu_group *new_smmu_group, *cur_smmu_group;
 	struct rb_node **new_node, *parent_node = NULL;
 
-	lockdep_assert_held(&smmu->smmu_groups_mutex);
 	if (!master)
 		return ERR_PTR(-EFAULT);
 
 	smmu = master->smmu;
+	lockdep_assert_held(&smmu->smmu_groups_mutex);
 
 	new_smmu_group = kzalloc(sizeof(*new_smmu_group), GFP_KERNEL);
 	if (!new_smmu_group)
