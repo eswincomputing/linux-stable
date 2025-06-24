@@ -40,18 +40,16 @@
 			thermal-sensors = <&pvt0>;
 
 			trips {
-				
 				threshold: trip-point0 {
-					temperature = <90000>;
+					temperature = <65000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
 				target: trip-point1 {
-					temperature = <100000>;
+					temperature = <75000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
-				
 				crit: trip-point2 {
 					temperature     = <105000>;
 					hysteresis      = <0>;
@@ -59,7 +57,7 @@
 				};
 			};
 
-			cooling-maps {				
+			cooling-maps {
 				map0 {
 					trip = <&target>;
 					contribution = <1024>;
@@ -1326,6 +1324,7 @@
 			reg = <0x0 0x52360000 0x0 0x20000>;
 			interrupts = <350>;
 			interrupt-parent = <&plic0>;
+			#thermal-sensor-cells = <0>;
 			status = "disabled";
 			label = "pvt1";
 			numa-node-id = <0>;
