@@ -199,8 +199,9 @@ static int npu_stat_show(struct seq_file *m, void *p)
 		if(atomic64_read(&ndev->start_lock_time) > atomic64_read(&ndev->end_lock_time)){
 			start_stat_time = atomic64_read(&ndev->start_lock_time);
 		}
-		seq_printf(m, "npu%d %llu %llu %llu\n",i, start_stat_time,
-		           atomic64_read(&ndev->total_lock_time), atomic64_read(&ndev->total_hwexec_time));
+		seq_printf(m, "npu%d %llu %llu %llu %llu\n",i, start_stat_time,
+		           atomic64_read(&ndev->total_lock_time), atomic64_read(&ndev->total_hwexec_time),
+				   atomic64_read(&ndev->total_frame_done));
 	}
 	return 0;
 }

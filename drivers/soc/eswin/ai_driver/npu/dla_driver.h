@@ -100,6 +100,7 @@ struct nvdla_device {
 	atomic64_t total_lock_time;
 	atomic64_t start_hwexec_time;
 	atomic64_t total_hwexec_time;
+	atomic64_t total_frame_done;
 };
 
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);
