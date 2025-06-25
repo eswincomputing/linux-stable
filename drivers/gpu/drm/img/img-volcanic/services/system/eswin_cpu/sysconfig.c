@@ -262,7 +262,6 @@ void SysDevDeInit(PVRSRV_DEVICE_CONFIG *psDevConfig)
 {
         int ret;
 
-        printk(KERN_WARNING "eswin zdbg1107 %s\n", __func__);
 	PhysHeapsDestroy(psDevConfig->pasPhysHeaps);
 
 	/* eswin, assert the reset */
@@ -468,7 +467,6 @@ static PVRSRV_ERROR DeviceConfigCreate(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **
 
 	// get gpu clk, it is supposed to be 800MHz
 	rgx_freq = clk_get_rate(psDevConfig->aclk);
-	printk(KERN_ALERT "%s:%d, zdbg1107 eswin print : read back aclk  %dHZ \n", __func__, __LINE__, rgx_freq);
 
 	ret = clk_prepare_enable(psDevConfig->aclk);
 	if (ret)
@@ -509,7 +507,7 @@ static PVRSRV_ERROR DeviceConfigCreate(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **
 		printk(KERN_ALERT "eswin print %s: failed to enable gray_clk\n", __func__);
 		return ret;
 	}
-	printk(KERN_ALERT "eswin print %s: gpu clk enable ok\n", __func__);
+	printk(KERN_ALERT "esgpu 20250625 %s: gpu clk enable ok\n", __func__);
 	clk_disable_unprepare(psDevConfig->aclk);
 	clk_disable_unprepare(psDevConfig->cfg_clk);
 	clk_disable_unprepare(psDevConfig->gray_clk);

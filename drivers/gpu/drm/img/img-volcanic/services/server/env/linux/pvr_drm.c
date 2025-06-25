@@ -521,7 +521,7 @@ const struct file_operations pvr_drm_fops = {
 };
 
 const struct drm_driver pvr_drm_generic_driver = {
-	.driver_features	= DRIVER_MODESET | DRIVER_RENDER |
+	.driver_features	= DRIVER_RENDER |
 				  DRIVER_GEM | PVR_DRM_DRIVER_PRIME,
 
 	.load			= NULL,
