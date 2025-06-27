@@ -28,6 +28,7 @@
 #include <linux/miscdevice.h>
 #include <linux/dma-map-ops.h>
 #include <linux/dma-heap.h>
+#include <linux/dma-resv.h>
 #include <linux/dmabuf-heap-import-helper.h>
 
 static struct device *split_dmabuf_dev;
@@ -214,7 +215,7 @@ static struct heap_mem *dmabuf_heap_import(struct heap_root *root, int fd)
         goto clean_up;
     }
 
-    sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+    sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
@@ -248,6 +249,7 @@ static struct heap_mem *dmabuf_heap_import(struct heap_root *root, int fd)
     return heap_obj;
 
 fail_add_handle:
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
 fail_detach:
     dma_buf_detach(dma_buf, attach);
 clean_up:
@@ -289,7 +291,7 @@ static struct heap_mem *dmabuf_heap_import_with_dma_buf_st(struct heap_root *roo
         goto clean_up;
     }
 
-    sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+    sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
@@ -321,6 +323,7 @@ static struct heap_mem *dmabuf_heap_import_with_dma_buf_st(struct heap_root *roo
     return heap_obj;
 
 fail_add_handle:
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
 fail_detach:
     dma_buf_detach(dma_buf, attach);
 clean_up:
@@ -398,7 +401,7 @@ static void __common_dmabuf_heap_release(struct kref *kref)
 
 	common_dmabuf_heap_umap_vaddr(heap_obj);
 
-	dma_buf_unmap_attachment(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
 
 	dma_buf_detach(heap_obj->dbuf, heap_obj->import_attach);
 
@@ -430,7 +433,7 @@ void *common_dmabuf_heap_map_vaddr(struct heap_mem *heap_obj)
     if (heap_obj->vaddr)
         return heap_obj->vaddr;
 
-    ret = dma_buf_vmap(heap_obj->dbuf, &map);
+    ret = dma_buf_vmap_unlocked(heap_obj->dbuf, &map);
     if (ret)
         return NULL;
 
@@ -449,7 +452,7 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj)
 	if (heap_obj && heap_obj->vaddr) {
         map.vaddr = heap_obj->vaddr;
         map.is_iomem = 0;
-        dma_buf_vunmap(heap_obj->dbuf, &map);
+        dma_buf_vunmap_unlocked(heap_obj->dbuf, &map);
         heap_obj->vaddr = NULL;
     }
 }

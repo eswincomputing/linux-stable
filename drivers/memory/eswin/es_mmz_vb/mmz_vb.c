@@ -40,6 +40,7 @@
 #include <linux/delay.h>
 #include <linux/hashtable.h>
 #include <linux/es_proc.h>
+#include <linux/dma-resv.h>
 #include <linux/dmabuf-heap-import-helper.h>
 #include "include/linux/mmz_vb_type.h" /*must include before es_vb_user.h*/
 #include <uapi/linux/es_vb_user.h>
@@ -103,7 +104,7 @@ static int vb_blk_to_pool(struct esVB_BLOCK_TO_POOL_CMD_S *blkToPoolCmd);
 static int vb_get_blk_offset(struct esVB_GET_BLOCKOFFSET_CMD_S *getBlkOffsetCmd);
 static int vb_split_dmabuf(struct esVB_SPLIT_DMABUF_CMD_S *splitDmabufCmd);
 static int vb_get_dmabuf_refcnt(struct esVB_DMABUF_REFCOUNT_CMD_S *getDmabufRefCntCmd);
-static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, 
+static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd,
 	eic770x_memory_type_t *p_mem_type);
 static int vb_get_dmabuf_size(struct esVB_DMABUF_SIZE_CMD_S *getDmabufSizeCmd);
 static int mmz_vb_pool_exit(void);
@@ -1473,7 +1474,7 @@ static int vb_ioctl_uninit_config(void __user *user_cmd)
 static int vb_ioctl_flush_all(void __user *user_cmd)
 {
 	EIC770X_LOGICAL_MEM_NODE_E nid;
-	
+
 	if (copy_from_user(&nid, user_cmd, sizeof(EIC770X_LOGICAL_MEM_NODE_E))) {
 		return -EFAULT;
 	}
@@ -2268,7 +2269,7 @@ static int vb_get_dmabuf_refcnt(struct esVB_DMABUF_REFCOUNT_CMD_S *getDmabufRefC
 	return ret;
 }
 
-static int do_vb_retrive_mem_node(struct dma_buf *dmabuf, 
+static int do_vb_retrive_mem_node(struct dma_buf *dmabuf,
 	EIC770X_LOGICAL_MEM_NODE_E *p_nid, eic770x_memory_type_t *p_mem_type)
 {
 	int ret = 0;
@@ -2286,7 +2287,7 @@ static int do_vb_retrive_mem_node(struct dma_buf *dmabuf,
 		return ret;
 	}
 
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		dma_buf_detach(dmabuf, attach);
@@ -2298,7 +2299,7 @@ static int do_vb_retrive_mem_node(struct dma_buf *dmabuf,
 	pfn = page_to_pfn(page);
 	arch_get_mem_node_and_type(pfn, p_nid, p_mem_type);
 
-	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment_unlocked(attach, sgt, DMA_BIDIRECTIONAL);
 	/* detach */
 	dma_buf_detach(dmabuf, attach);
 	/* put dmabuf back */
@@ -2308,7 +2309,7 @@ static int do_vb_retrive_mem_node(struct dma_buf *dmabuf,
 	return ret;
 }
 
-static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd, 
+static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMemNodeCmd,
 	eic770x_memory_type_t *p_mem_type)
 {
 	int ret = 0;

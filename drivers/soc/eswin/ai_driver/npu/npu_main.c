@@ -73,7 +73,7 @@
 #include "mailbox_regs.h"
 #include "nvdla_proc.h"
 #include <linux/eswin_npu.h>
-
+#include <linux/dma-resv.h>
 #if defined(CONFIG_PM_DEVFREQ)
 #include <linux/devfreq.h>
 #include <linux/pm_opp.h>
@@ -123,7 +123,11 @@ int32_t dla_data_read(void *driver_context, void *task_data, void *handle,
 		dla_error("dma_buf_begin_cpu_access error\n");
 		goto put_dma_buf;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	ret = dma_buf_vmap_unlocked(buf, &map);
+#else
 	ret = dma_buf_vmap(buf, &map);
+#endif
 	ptr = ret ? NULL : map.vaddr;
 	if (!ptr) {
 		pr_err("Failed to vmap dma_buf for fd=%d\n", fd);
@@ -139,7 +143,11 @@ int32_t dla_data_read(void *driver_context, void *task_data, void *handle,
 	} else {
 		memcpy(dst, (void *)(((uint8_t *)ptr) + offset), size);
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	dma_buf_vunmap_unlocked(buf, &map);
+#else
 	dma_buf_vunmap(buf, &map);
+#endif
 
 end_cpu_access:
 	dma_buf_end_cpu_access(buf, DMA_BIDIRECTIONAL);
@@ -349,7 +357,7 @@ static int npu_set_higher_vol_and_freq(struct nvdla_device *nvdla_dev, unsigned 
 		dev_err(&nvdla_dev->pdev->dev, "get npu core clock pareent err.\n");
 		return -EINVAL;
 	}
-	
+
 	llc_rate = clk_get_rate(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
 	npu_rate = clk_get_rate(nvdla_dev->mux_u_npu_core_3mux1_gfree);
 
@@ -409,7 +417,7 @@ static int npu_set_lower_vol_and_freq(struct nvdla_device *nvdla_dev, unsigned l
 		dev_err(&nvdla_dev->pdev->dev, "get npu core clock pareent err.\n");
 		return -EINVAL;
 	}
-	
+
 	llc_rate = clk_get_rate(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
 	npu_rate = clk_get_rate(nvdla_dev->mux_u_npu_core_3mux1_gfree);
 
@@ -459,7 +467,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	struct dev_pm_opp *opp;
 	unsigned long target_volt, target_rate;
 	int ret;
-	
+
 	if (nvdla_dev->is_low_freq) {
 		dev_err(dev, "Prohibit set voltage and freq, because dts set 'apply_npu_1G_freq' property.\n");
 		return 0;
@@ -495,7 +503,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	        }
 
 	} else { // lower freq
-		
+
 		ret = npu_set_lower_vol_and_freq(nvdla_dev, target_rate);
 
 		if (ret) {
@@ -511,7 +519,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 		mdelay(10);
 
 	}
-        
+
 	nvdla_dev->rate = clk_get_rate(nvdla_dev->core_clk);
 	if (nvdla_dev->rate != target_rate) {
 		dev_err(dev, "Got wrong frequency, Request %lu, Current %lu.\n", target_rate, nvdla_dev->rate);
@@ -628,7 +636,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 		nvdla_dev->npu_regulator = NULL;
 		return err;
 	}
-	
+
 	err = npu_dt_node_resources(nvdla_dev);
 	if (err) {
 		dla_error("error, get hw resource, ret=%d\n", err);
@@ -729,7 +737,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 		dev_err(dev, "%s, %d, Failed to add OPP table, ret = %d.\n", __func__, __LINE__, err);
 		goto err_init_reset;
 	}
-	
+
 	df = devm_devfreq_add_device(dev, &npu_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
 	if (IS_ERR(df)) {
 		err = PTR_ERR(df);
