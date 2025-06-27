@@ -1471,6 +1471,28 @@ static void arm_smmu_init_bypass_stes(__le64 *strtab, unsigned int nent, bool fo
 	}
 }
 
+#ifdef CONFIG_ESWIN_PCIE_VPU
+static void eswin_pcie_vpu_smmu_workaround(struct arm_smmu_device *smmu, u32 sid)
+{
+	void *strtab;
+	struct arm_smmu_strtab_cfg *cfg = &smmu->strtab_cfg;
+	struct arm_smmu_strtab_l1_desc *desc = &cfg->l1_desc[sid >> STRTAB_SPLIT];
+	struct arm_smmu_strtab_l1_desc *desc_busx;
+	int i;
+	u32 streamid;
+
+	for (i = 1; i < 256; i++) {
+		streamid = 0xff0000 + (i << 8);
+		strtab = &cfg->strtab[(streamid >> STRTAB_SPLIT) * STRTAB_L1_DESC_DWORDS];
+ 		desc_busx = &cfg->l1_desc[streamid >> STRTAB_SPLIT];
+		desc_busx->span = STRTAB_SPLIT + 1;
+		desc_busx->l2ptr = desc->l2ptr;
+		desc_busx->l2ptr_dma = desc->l2ptr_dma;
+		arm_smmu_write_strtab_l1_desc(strtab, desc_busx);
+	}
+}
+#endif
+
 static int arm_smmu_init_l2_strtab(struct arm_smmu_device *smmu, u32 sid)
 {
 	size_t size;
@@ -1496,6 +1518,12 @@ static int arm_smmu_init_l2_strtab(struct arm_smmu_device *smmu, u32 sid)
 
 	arm_smmu_init_bypass_stes(desc->l2ptr, 1 << STRTAB_SPLIT, false);
 	arm_smmu_write_strtab_l1_desc(strtab, desc);
+
+#ifdef CONFIG_ESWIN_PCIE_VPU
+	if (sid & 0xff0000) {
+		eswin_pcie_vpu_smmu_workaround(smmu, sid);
+	}
+#endif
 	return 0;
 }
 
@@ -1661,9 +1689,9 @@ static irqreturn_t arm_smmu_evtq_thread(int irq, void *dev)
 			if (!ret || !__ratelimit(&rs))
 				continue;
 
-			dev_dbg(smmu->dev, "event 0x%02x received:\n", id);
+			printk("event 0x%02x received:\n", id);
 			for (i = 0; i < ARRAY_SIZE(evt); ++i)
-				dev_dbg(smmu->dev, "\t0x%016llx\n",
+				printk("\t0x%016llx\n",
 					 (unsigned long long)evt[i]);
 
 			cond_resched();
