@@ -1666,6 +1666,16 @@ static const struct of_device_id es_dvp2axi_plat_of_match[] = {
 	{},
 };
 
+#ifdef CONFIG_NUMA
+static const struct of_device_id es_dvp2axi_plat_of_match_d1[] = {
+	{
+		.compatible = "eswin,dvp2axi-mipi-lvds_d1",
+		.data = &es_dvp2axi_mipi_lvds_match_data,
+	},
+	{},
+};
+#endif
+
 static void es_dvp2axi_parse_dts(struct es_dvp2axi_device *dvp2axi_dev)
 {
 	int ret = 0;

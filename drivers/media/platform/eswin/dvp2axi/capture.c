@@ -3071,7 +3071,6 @@ static int es_dvp2axi_fh_release(struct file *filp)
 	struct es_dvp2axi_stream *stream = to_es_dvp2axi_stream(vnode);
 	struct es_dvp2axi_device *dvp2axidev = stream->dvp2axidev;
 	int ret = 0;
-	int i = 0;
 
 	stream->is_first_flush = true;
 

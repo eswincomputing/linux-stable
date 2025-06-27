@@ -436,7 +436,7 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 #ifdef CONFIG_NUMA
-	ret = of_property_read_u32(node, "numa-node-id", &numa_id);
+	ret = of_property_read_u32(dev->of_node, "numa-node-id", &numa_id);
 	if(ret) {
 		dev_warn(dev, "Could not get numa-node-id, use default 0\n");
 		numa_id = 0;

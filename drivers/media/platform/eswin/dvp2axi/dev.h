@@ -39,6 +39,7 @@
 #include "hw.h"
 
 #define DVP2AXI_DRIVER_NAME		"es_dvp2axi"
+#define DVP2AXI_DRIVER_NAME_D1		"es_dvp2axi_d1"
 #define DVP2AXI_VIDEODEVICE_NAME	"stream_dvp2axi"
 
 #define OF_DVP2AXI_MONITOR_PARA	"eic770x,dvp2axi-monitor"
@@ -951,6 +952,9 @@ void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *es_dvp2axi_hw);
 void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, struct es_dvp2axi_stream *stream, int mask);
 
 extern struct platform_driver es_dvp2axi_plat_drv;
+#ifdef CONFIG_NUMA
+extern struct platform_driver es_dvp2axi_plat_drv_d1;
+#endif
 void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps *fps);
 int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 				enum es_dvp2axi_stream_mode mode);
