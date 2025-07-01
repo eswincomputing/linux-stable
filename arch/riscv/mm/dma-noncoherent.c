@@ -305,8 +305,8 @@ void arch_sync_cache_all(phys_addr_t phys, size_t size)
 	eic770x_memory_type_t mem_type;
 
 	arch_get_mem_node_and_type(phys_to_pfn(phys), &nid, &mem_type);
-	if (mem_type == EIC770X_LOGICAL_SPRAM_NODE_0 ||
-		mem_type == EIC770X_LOGICAL_SPRAM_NODE_1)
+	if (nid == EIC770X_LOGICAL_SPRAM_NODE_0 ||
+		nid == EIC770X_LOGICAL_SPRAM_NODE_1)
 		return;
 
 	_do_arch_sync_cache_all(nid);
