@@ -309,7 +309,7 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	             &ndev->total_hwexec_time);
 	npu_frame_done_process(f);
 
-	atomic64_add(1, &ndev->total_frame_done);
+	atomic64_add(model->model_shm->batch_num, &ndev->total_frame_done);
 	last_state = atomic_fetch_and(~NPU_RT_MUTX_FRAME_DONE,
 				      &model->uctx->lock_status);
 	if (last_state == NPU_RT_MUTX_FRAME_DONE) {

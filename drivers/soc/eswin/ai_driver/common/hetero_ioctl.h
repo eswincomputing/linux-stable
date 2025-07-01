@@ -280,6 +280,7 @@ typedef struct _modelShmDesc {
     uint16_t kmdSubModelId;     // kmd submodel id
     uint32_t kmdNetworkAddrId;  // kmd network address index in model
     int32_t dspFd[DSP_MAX_CORE_NUM];
+    int32_t batch_num;
     addrListDesc_t addrList;  // model address list
 } modelShmDesc_t;
 
