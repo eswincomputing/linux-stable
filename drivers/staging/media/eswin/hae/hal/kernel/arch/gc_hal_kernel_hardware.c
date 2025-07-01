@@ -705,6 +705,8 @@ static gceSTATUS threadCheckHardwareUsage(gckHARDWARE hardware)
 
     gcmkONERROR(gckHARDWARE_QueryCycleCount(hardware, &hardware->totalCycle, &hardware->totalIdleCycle));
 
+    hardware->totalRunCycle += hardware->totalCycle - hardware->totalIdleCycle;
+
     if (hardware->totalIdleCycle) {
         hardware->load = (gctUINT32)(
             (gctUINT64)(hardware->totalCycle - hardware->totalIdleCycle) * 100 / hardware->totalCycle);

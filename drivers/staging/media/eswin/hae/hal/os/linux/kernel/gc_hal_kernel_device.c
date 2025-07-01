@@ -62,6 +62,8 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 
+#include "gc_hal_kernel_debug_esw.h"
+
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
 
 static gckGALDEVICE     galDevice;
@@ -439,6 +441,39 @@ OnError:
     return status;
 }
 
+static void gc_load_show_hardware_usage(void *m, gckDEVICE device)
+{
+    gctUINT32 i;
+    gctINT32 len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        if (!device->kernels[i]) {
+            continue;
+        }
+
+        if (!device->kernels[i]->hardware) {
+            continue;
+        }
+
+        gckHARDWARE Hardware = device->kernels[i]->hardware;
+        len += fs_printf(ptr,       "dev_id      : %d\n", device->id);
+        len += fs_printf(ptr + len, "dev_core    : %d\n", i);
+        len += fs_printf(ptr + len, "pooling_ms  : %d\n", HARDWARE_USAGE_MEASURE_TIME_MS);
+        len += fs_printf(ptr + len, "curr_load   : %u%%\n", Hardware->load);
+        len += fs_printf(ptr + len, "curr_total_cycle   : %u\n", Hardware->totalCycle);
+        len += fs_printf(ptr + len, "curr_run_cycle     : %u\n", Hardware->totalCycle - Hardware->totalIdleCycle);
+        len += fs_printf(ptr + len, "total_run_cycle    : %llu\n", Hardware->totalRunCycle);
+        len += fs_printf(ptr + len, "\n");
+    }
+
+    return;
+}
+
 int
 gc_load_show(void *m, void *data)
 {
@@ -555,16 +590,13 @@ gc_load_show(void *m, void *data)
         }
     }
 
-    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
-        if (device->kernels[i]) {
-            if (device->kernels[i]->hardware) {
-                gckHARDWARE Hardware = device->kernels[i]->hardware;
-                len += fs_printf(ptr,       "core        : %d\n", i);
-                len += fs_printf(ptr + len, "pooling_ms  : %d\n", HARDWARE_USAGE_MEASURE_TIME_MS);
-                len += fs_printf(ptr + len, "curr_load   : %u%%\n", Hardware->load);
-                len += fs_printf(ptr + len, "\n");
-            }
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
         }
+
+        gc_load_show_hardware_usage(m, device);
     }
 
 OnError:
@@ -1901,6 +1933,7 @@ _DebugfsInit(gckGALDEVICE Device)
 
     gcmkONERROR(gckDEBUGFS_DIR_Init(dir, gcvNULL, "gc"));
     gcmkONERROR(gckDEBUGFS_DIR_CreateFiles(dir, InfoList, gcmCOUNTOF(InfoList), Device));
+    gcmkONERROR(gc_hal_kernel_dbg_esw_create_procfs(Device));
 #else
     int ret;
     /* TODO. */
@@ -1927,6 +1960,8 @@ _DebugfsCleanup(gckGALDEVICE Device)
 
         gckDEBUGFS_DIR_Deinit(dir);
     }
+
+    gc_hal_kernel_dbg_esw_remove_procfs();
 #else
     /* TODO. */
     struct device *dev = (struct device *)Device->devices[0]->dev;

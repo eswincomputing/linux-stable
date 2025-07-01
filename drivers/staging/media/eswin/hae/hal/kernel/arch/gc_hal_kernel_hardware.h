@@ -253,6 +253,7 @@ struct _gckHARDWARE {
     gctSIGNAL                   feIdleSignal;
 
     gctPOINTER                  hardwareLoadTimer;
+    gctUINT64                   totalRunCycle;
     gctUINT32                   totalCycle;
     gctUINT32                   totalIdleCycle;
     gctUINT32                   load;

@@ -52,7 +52,8 @@ OBJS := $(OS_KERNEL_DIR)/gc_hal_kernel_device.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_dma.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_gfp.o \
         $(OS_KERNEL_DIR)/allocator/default/gc_hal_kernel_allocator_reserved_mem.o \
-        $(OS_KERNEL_DIR)/gc_hal_kernel_driver.o
+        $(OS_KERNEL_DIR)/gc_hal_kernel_driver.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_debug_esw.o
 
 # Source files for soc platform board
 OBJS += $(SOC_PLATFORM_OBJS)
