@@ -375,29 +375,29 @@
 };
 
 &d0_npu{
-	status = "disabled";
+	status = "okay";
 	apply_npu_1G_freq;
 	npu-supply=<&npu_vcc1>;
 };
 
 &d0_dsp_subsys {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_dsp3 {
-	status = "disabled";
+	status = "okay";
 };
 
 &gpu0 {
@@ -1112,5 +1112,5 @@
 &dev_llc_d0{
 	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
-	status = "disabled";
+	status = "okay";
 };
