@@ -2102,7 +2102,7 @@
 			ranges;
 			status = "okay";
 
-			d1_vi_top_csr: vi_common_top_csr@0x71030000 {
+			d1_vi_top_csr: vi_common_top_csr@71030000 {
 				compatible = "esw,vi-common-csr", "syscon";
 				clocks = <&d1_clock EIC7700_CLK_VI_ACLK>,
 						 <&d1_clock EIC7700_CLK_VI_CFG_CLK>,
@@ -2143,7 +2143,7 @@
 				numa-node-id = <1>;
 			};
 
-			d1_isp_0: isp@0x71000000 {
+			d1_isp_0: isp@71000000 {
 				compatible = "esw,win2030-isp";
 				reg = <0x0 0x71000000 0x0 0x10000>;
 				interrupts = <21 19 20>;
@@ -2157,7 +2157,7 @@
 				dma-noncoherent;
 			};
 
-			d1_isp_1: isp@0x71010000 {
+			d1_isp_1: isp@71010000 {
 				compatible = "esw,win2030-isp";
 				reg = <0x0 0x71010000 0x0 0x10000>;
 				interrupts = <24 22 23>;
@@ -2211,6 +2211,7 @@
 									"dvp2axi_error_int","dvp2axi_afull_int";
 				dma-noncoherent;
 				numa-node-id = <1>;
+				#size-cells = <2>;
 				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 				iommus = <&smmu1 WIN2030_SID_DW>;
 				tbus = <WIN2030_TBUID_DW>;
@@ -2452,7 +2453,7 @@
 				numa-node-id = <1>;
 			};
 
-			d1_csi_dma0: csidma@0x72048000 {
+			d1_csi_dma0: csidma@72048000 {
 				compatible = "eswin,csi-video";
 				interrupt-parent = <&plic1>;
 				interrupts = <29>;
@@ -2471,7 +2472,7 @@
 				};
 			};
 
-			d1_csi_dma1: csidma@0x72058000 {
+			d1_csi_dma1: csidma@72058000 {
 				compatible = "eswin,csi-video";
 				interrupt-parent = <&plic1>;
 				interrupts = <30>;
