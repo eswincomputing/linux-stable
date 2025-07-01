@@ -1332,7 +1332,9 @@
 
 		fan_control: fan_control@50b50000 {
 			compatible = "eswin-fan-control";
-			reg = <0x0 0x50b50000 0x0 0x10000>, <0x0 0x51810668 0x0 0x10>;
+			reg = <0x0 0x50b50000 0x0 0x10000>,
+					<0x0 0x51810668 0x0 0x10>,
+					<0x0 0x71810668 0x0 0x10>;
 			clocks = <&d0_clock EIC7700_CLK_LSP_FAN_PCLK>;
 			clock-names = "pclk";
 			resets = <&d0_reset FAN_RST_CTRL SW_FAN_RST_N>;
