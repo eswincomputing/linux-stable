@@ -715,10 +715,6 @@ struct cmdbuf_obj {
 	 * can be removed if it is not the last CMDBUF;
 	 */
 	u8 cmdbuf_need_remove;
-	/* if 0, the cmd buf hasn't been waited,
-	 * otherwise, has been waited.
-	 */
-	u32 waited;
 	/* if 1, the last opcode is end opCode. */
 	u8 has_end_cmdbuf;
 	/* if 1, JMP will not send normal interrupt. */
@@ -1585,6 +1581,11 @@ static long reserve_cmdbuf(struct file *filp,
 	input_para->cmdbuf_size = CMDBUF_MAX_SIZE;
 	cmdbuf_obj->filp = filp;
 	cmdbuf_obj->process_manager_obj = process_manager_obj;
+	if (filp) {
+		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+
+		atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_UNDONE);
+	}
 
 	input_para->cmdbuf_id = cmdbuf_obj->cmdbuf_id;
 
@@ -1775,7 +1776,6 @@ static long link_and_run_cmdbuf(struct file *filp,
 	}
 	cmdbuf_obj->cmdbuf_data_loaded = 1;
 	cmdbuf_obj->cmdbuf_size = input_para->cmdbuf_size;
-	cmdbuf_obj->waited = 0;
 #ifdef VCMD_DEBUG_INTERNAL
 	{
 		u32 i, inst = 0, size = 0;
@@ -1939,35 +1939,19 @@ static int check_cmdbuf_irq(struct hantrovcmd_dev *dev,
 static int check_mc_cmdbuf_irq(struct file *filp, struct cmdbuf_obj *cmdbuf_obj,
 			       u32 *irq_status_ret)
 {
-	int k;
-	bi_list_node *new_cmdbuf_node = NULL;
-	struct hantrovcmd_dev *dev = NULL;
-	unsigned long flags = 0;
+	if (!filp) {
+		return 0;
+	}
 
-	for (k = 0; k < TOTAL_DISCRETE_CMDBUF_NUM; k++) {
-		LOCK_CMDBUF_NODE(k, flags);
-		new_cmdbuf_node = global_cmdbuf_node[k];
-		if (!new_cmdbuf_node) {
-			UNLOCK_CMDBUF_NODE(k, flags);
-			continue;
-		}
+	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+	int cmdbuf_id = 0;
 
-		cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
-		if (!cmdbuf_obj || cmdbuf_obj->filp != filp) {
-			UNLOCK_CMDBUF_NODE(k, flags);
-			continue;
+	for (cmdbuf_id = 0; cmdbuf_id < TOTAL_DISCRETE_CMDBUF_NUM; cmdbuf_id++) {
+		if (CMDBUF_STAT_DONE == atomic_read(&fp_priv->cmdbuf_stat[cmdbuf_id])) {
+			atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_id], CMDBUF_STAT_WAITED);
+			*irq_status_ret = cmdbuf_id;
+			return 1;
 		}
-		dev = &hantrovcmd_data[cmdbuf_obj->core_id];
-		if (check_cmdbuf_irq(dev, cmdbuf_obj, irq_status_ret) == 1) {
-			/* Return cmdbuf_id when ANY_CMDBUF_ID is used. */
-			if (!cmdbuf_obj->waited) {
-				*irq_status_ret = cmdbuf_obj->cmdbuf_id;
-				cmdbuf_obj->waited = 1;
-				UNLOCK_CMDBUF_NODE(k, flags);
-				return 1;
-			}
-		}
-		UNLOCK_CMDBUF_NODE(k, flags);
 	}
 
 	return 0;
@@ -2101,6 +2085,11 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 							      irq_status_ret))) {
 			LOG_DBG("vcmd_wait_queue_0 interrupted\n");
 			return -ERESTARTSYS;
+		}
+		if (filp) {
+			struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+
+			atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_UNDONE);
 		}
 		return 0;
 	}
@@ -2641,6 +2630,7 @@ int hantrovcmd_open(struct inode *inode, struct file *filp)
 	unsigned long flags;
 	struct process_manager_obj *process_manager_obj = NULL;
 	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
+	int i = 0;
 
 	fp_priv->dev = (void *)dev;
 
@@ -2655,6 +2645,10 @@ int hantrovcmd_open(struct inode *inode, struct file *filp)
 	spin_lock_irqsave(&vcmd_process_manager_lock, flags);
 	bi_list_insert_node_tail(&global_process_manager, process_manager_node);
 	spin_unlock_irqrestore(&vcmd_process_manager_lock, flags);
+
+	for (i = 0; i < TOTAL_DISCRETE_CMDBUF_NUM; i ++) {
+		atomic_set(&fp_priv->cmdbuf_stat[i], CMDBUF_STAT_UNDONE);
+	}
 
 	LOG_DBG("dev opened\n");
 	LOG_DBG("opened::process obj %px for filp %px\n", (void *)process_manager_obj, (void *)filp);
@@ -2678,6 +2672,7 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 
 	unsigned long flags;
 	long retVal = 0;
+	int i = 0;
 
 	if (!filp || !filp->private_data) {
 		LOG_ERR("vcmd release, filp=%px, private_data=%px\n", filp, filp ? filp->private_data : NULL);
@@ -2687,6 +2682,9 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 	fp_priv = (struct filp_priv *)filp->private_data;
 	dev = (struct hantrovcmd_dev *)fp_priv->dev;
 
+	for (i = 0; i < TOTAL_DISCRETE_CMDBUF_NUM; i ++) {
+		atomic_set(&fp_priv->cmdbuf_stat[i], CMDBUF_STAT_UNDONE);
+	}
 	if (dev->hw_version_id >= HW_ID_1_2_1) {
 		for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
 			if (!(&dev[core_id]))
@@ -4635,6 +4633,11 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 			if ((cmdbuf_obj->cmdbuf_run_done == 0)) {
 				cmdbuf_obj->cmdbuf_run_done = 1;
+				if (cmdbuf_obj->filp) {
+					struct filp_priv *fp_priv = (struct filp_priv *)cmdbuf_obj->filp->private_data;
+
+					atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_DONE);
+				}
 				cmdbuf_obj->executing_status =
 					CMDBUF_EXE_STATUS_OK;
 				cmdbuf_processed_num++;
@@ -4698,6 +4701,11 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 			if ((cmdbuf_obj->cmdbuf_run_done == 0)) {
 				cmdbuf_obj->cmdbuf_run_done = 1;
+				if (cmdbuf_obj->filp) {
+					struct filp_priv *fp_priv = (struct filp_priv *)cmdbuf_obj->filp->private_data;
+
+					atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_DONE);
+				}
 				cmdbuf_obj->executing_status =
 					CMDBUF_EXE_STATUS_OK;
 				cmdbuf_processed_num++;
@@ -4770,6 +4778,11 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 			if (cmdbuf_obj->cmdbuf_run_done == 0) {
 				cmdbuf_obj->cmdbuf_run_done = 1;
+				if (cmdbuf_obj->filp) {
+					struct filp_priv *fp_priv = (struct filp_priv *)cmdbuf_obj->filp->private_data;
+
+					atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_DONE);
+				}
 				cmdbuf_obj->executing_status =
 					CMDBUF_EXE_STATUS_OK;
 				cmdbuf_processed_num++;
@@ -4837,6 +4850,11 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 			if (cmdbuf_obj->cmdbuf_run_done == 0) {
 				cmdbuf_obj->cmdbuf_run_done = 1;
+				if (cmdbuf_obj->filp) {
+					struct filp_priv *fp_priv = (struct filp_priv *)cmdbuf_obj->filp->private_data;
+
+					atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_DONE);
+				}
 				cmdbuf_obj->executing_status =
 					CMDBUF_EXE_STATUS_OK;
 				cmdbuf_processed_num++;
@@ -4902,6 +4920,11 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 			if ((cmdbuf_obj->cmdbuf_run_done == 0)) {
 				cmdbuf_obj->cmdbuf_run_done = 1;
+				if (cmdbuf_obj->filp) {
+					struct filp_priv *fp_priv = (struct filp_priv *)cmdbuf_obj->filp->private_data;
+
+					atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_DONE);
+				}
 				cmdbuf_obj->executing_status =
 					CMDBUF_EXE_STATUS_OK;
 				cmdbuf_processed_num++;
@@ -4947,6 +4970,11 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 			cmdbuf_obj = (struct cmdbuf_obj *)new_cmdbuf_node->data;
 			if ((cmdbuf_obj->cmdbuf_run_done == 0)) {
 				cmdbuf_obj->cmdbuf_run_done = 1;
+				if (cmdbuf_obj->filp) {
+					struct filp_priv *fp_priv = (struct filp_priv *)cmdbuf_obj->filp->private_data;
+
+					atomic_set(&fp_priv->cmdbuf_stat[cmdbuf_obj->cmdbuf_id], CMDBUF_STAT_DONE);
+				}
 				cmdbuf_obj->executing_status =
 					CMDBUF_EXE_STATUS_OK;
 				cmdbuf_processed_num++;

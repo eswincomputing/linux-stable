@@ -157,6 +157,11 @@ struct dmabuf_split {
 #endif
 
 #define DEC_CORE_NUM        (4)
+/* VCMD buffer numbers */
+#define MAX_CMDBUF_NUM      (256)
+#define CMDBUF_STAT_UNDONE  (0)
+#define CMDBUF_STAT_DONE    (1)
+#define CMDBUF_STAT_WAITED  (2)
 
 #ifdef __KERNEL__
 struct filp_priv {
@@ -167,6 +172,7 @@ struct filp_priv {
 	void *dev;
 	atomic_t core_tasks[DEC_CORE_NUM];  /** for task count of 4 cores*/
 	bi_list user_memory_list;
+	atomic_t cmdbuf_stat[MAX_CMDBUF_NUM];
 };
 #endif
 
