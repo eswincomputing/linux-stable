@@ -978,7 +978,7 @@ wl_cfgp2p_disable_discovery(struct bcm_cfg80211 *cfg)
 #endif
 	bssidx = wl_to_p2p_bss_bssidx(cfg, P2PAPI_BSSCFG_DEVICE);
 	if (bssidx <= 0) {
-		CFGP2P_ERR((" do nothing, not initialized\n"));
+		CFGP2P_INFO((" do nothing, not initialized\n"));
 		return 0;
 	}
 
@@ -2105,7 +2105,7 @@ wl_cfgp2p_down(struct bcm_cfg80211 *cfg)
  */
 	if (cfg->p2p_wdev) {
 		/* If p2p wdev is left out, clean it up */
-		WL_ERR(("Clean up the p2p discovery IF\n"));
+		WL_DBG(("Clean up the p2p discovery IF\n"));
 		wl_cfgp2p_del_p2p_disc_if(cfg->p2p_wdev, cfg);
 	}
 #endif /* WL_CFG80211_P2P_DEV_IF !defined(KEEP_WIFION_OPTION) */
@@ -2814,7 +2814,7 @@ wl_cfgp2p_add_p2p_disc_if(struct bcm_cfg80211 *cfg)
 	/* store p2p wdev ptr for further reference. */
 	cfg->p2p_wdev = wdev;
 
-	printf("P2P interface registered\n");
+	WL_TRACE(("P2P interface registered\n"));
 	return wdev;
 }
 
@@ -2856,7 +2856,7 @@ wl_cfgp2p_start_p2p_device(struct wiphy *wiphy, struct wireless_dev *wdev)
 	cfg->p2p_prb_noti = false;
 #endif
 
-	printf("P2P interface started\n");
+	WL_TRACE(("P2P interface started\n"));
 
 exit:
 	return ret;
@@ -2953,7 +2953,7 @@ wl_cfgp2p_del_p2p_disc_if(struct wireless_dev *wdev, struct bcm_cfg80211 *cfg)
 
 	cfg->p2p_wdev = NULL;
 
-	CFGP2P_ERR(("P2P interface unregistered\n"));
+	CFGP2P_INFO(("P2P interface unregistered\n"));
 
 	return 0;
 }

@@ -402,7 +402,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 
 		/* Check if dhd_stop is in progress */
 		if (dhdp->stop_in_progress) {
-			DHD_ERROR_RLMT(("%s: dhd_stop in progress ignore received packet\n",
+			DHD_INFO(("%s: dhd_stop in progress ignore received packet\n",
 				__FUNCTION__));
 			RX_PKTFREE(dhdp->osh, eh->ether_type, pktbuf, FALSE);
 			continue;

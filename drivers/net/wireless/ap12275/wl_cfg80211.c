@@ -5524,11 +5524,11 @@ wl_is_fils_supported(struct net_device *ndev)
 	err = wldev_iovar_getbuf(ndev, "fils", (uint8*)iov_buf, sizeof(bcm_iov_buf_t),
 		iov_buf, WLC_IOCTL_SMLEN, NULL);
 	if (err == BCME_UNSUPPORTED || err != BCME_OK) {
-		WL_ERR(("FILS NOT supported, err %d\n", err));
+		WL_DBG(("FILS NOT supported, err %d\n", err));
 		return false;
 	}
 
-	WL_ERR(("FILS supported\n"));
+	WL_DBG(("FILS supported\n"));
 	return true;
 }
 
@@ -8210,7 +8210,7 @@ wl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 				WL_DBG(("invalid key index (%d)\n", key_idx));
 			}
 		} else {
-			WL_ERR(("WLC_SET_KEY error (%d)\n", err));
+			WL_DBG(("WLC_SET_KEY error (%d)\n", err));
 		}
 		return err;
 	}
@@ -21272,7 +21272,7 @@ s32 wl_cfg80211_up(struct net_device *net)
 		cfg->rcc_enabled = true;
 		WL_MSG(net->name, "Roam channel cache enabled\n");
 	} else {
-		WL_ERR(("Failed to enable RCC.\n"));
+		WL_DBG(("Failed to enable RCC.\n"));
 	}
 #endif /* ROAM_CHANNEL_CACHE */
 #ifdef WL_USE_RANDOMIZED_SCAN
@@ -26300,7 +26300,7 @@ wl_mkeep_alive_update(struct bcm_cfg80211 *cfg)
 			sizeof(mkeep_alive_id), &pbuf[buf_len], KA_TEMP_BUF_SIZE - buf_len,
 			&cfg->ioctl_buf_sync);
 		if (res < 0) {
-			WL_ERR(("%s: Get mkeep_alive failed (error=%d)\n", __FUNCTION__, res));
+			WL_TRACE(("%s: Get mkeep_alive failed (error=%d)\n", __FUNCTION__, res));
 			goto update_exit;
 		} else {
 			/* Check current ID whether it is set */

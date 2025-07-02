@@ -71,11 +71,11 @@ dhd_wifi_deinit_gpio(void)
 	if (kirin_pcie_lp_ctrl) {
 		kirin_pcie_lp_ctrl(0);
 	} else {
-		DHD_ERROR(("[%s] kirin_pcie_lp_ctrl is NULL. "
+		DHD_TRACE(("[%s] kirin_pcie_lp_ctrl is NULL. "
 			"ASPM may not work\n", __func__));
 	}
 	if (gpio_direction_output(wlan_reg_on, 0)) {
-		DHD_ERROR(("%s: WL_REG_ON is failed to pull up\n", __FUNCTION__));
+		DHD_TRACE(("%s: WL_REG_ON is failed to pull up\n", __FUNCTION__));
 	}
 	if (gpio_get_value(wlan_reg_on)) {
 		DHD_INFO(("WL_REG_ON on-step-2 : [%d]\n",
@@ -111,16 +111,16 @@ dhd_wifi_init_gpio(void)
 	 * in the dts using gpio-hog, so do not return error for failure.
 	 */
 	if (gpio_request_one(wlan_reg_on, GPIOF_DIR_OUT, "WL_REG_ON")) {
-		DHD_ERROR(("%s: Failed to request gpio %d for WL_REG_ON, "
+		DHD_INFO(("%s: Failed to request gpio %d for WL_REG_ON, "
 			"might have configured in the dts\n",
 			__FUNCTION__, wlan_reg_on));
 	} else {
-		DHD_ERROR(("%s: gpio_request WL_REG_ON done - WLAN_EN: GPIO %d\n",
+		DHD_INFO(("%s: gpio_request WL_REG_ON done - WLAN_EN: GPIO %d\n",
 			__FUNCTION__, wlan_reg_on));
 	}
 
 	gpio_reg_on_val = gpio_get_value(wlan_reg_on);
-	DHD_ERROR(("%s: Initial WL_REG_ON: [%d]\n",
+	DHD_INFO(("%s: Initial WL_REG_ON: [%d]\n",
 		__FUNCTION__, gpio_get_value(wlan_reg_on)));
 
 	if (gpio_reg_on_val == 0) {
@@ -139,14 +139,14 @@ dhd_wifi_init_gpio(void)
 		if (kirin_pcie_power_on_atu_fixup) {
 			kirin_pcie_power_on_atu_fixup();
 		} else {
-			DHD_ERROR(("[%s] kirin_pcie_power_on_atu_fixup is NULL. "
+			DHD_INFO(("[%s] kirin_pcie_power_on_atu_fixup is NULL. "
 				"REG_ON may not work\n", __func__));
 		}
 		/* Enable ASPM after powering ON */
 		if (kirin_pcie_lp_ctrl) {
 			kirin_pcie_lp_ctrl(1);
 		} else {
-			DHD_ERROR(("[%s] kirin_pcie_lp_ctrl is NULL. "
+			DHD_INFO(("[%s] kirin_pcie_lp_ctrl is NULL. "
 				"ASPM may not work\n", __func__));
 		}
 	}
@@ -159,7 +159,7 @@ dhd_wifi_init_gpio(void)
 			__FUNCTION__, wlan_host_wake_up));
 			return -ENODEV;
 	} else {
-		DHD_ERROR(("%s: gpio_request WLAN_HOST_WAKE done"
+		DHD_INFO(("%s: gpio_request WLAN_HOST_WAKE done"
 			" - WLAN_HOST_WAKE: GPIO %d\n",
 			__FUNCTION__, wlan_host_wake_up));
 	}

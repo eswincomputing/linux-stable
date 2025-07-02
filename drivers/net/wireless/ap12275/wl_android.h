@@ -91,8 +91,11 @@ typedef struct _compat_android_wifi_priv_cmd {
 #define ANDROID_AMPDU_LEVEL	(1 << 9)
 #define ANDROID_TVPM_LEVEL	(1 << 10)
 #define ANDROID_BTC_LEVEL	(1 << 11)
+#ifndef ENODEBUG
 #define ANDROID_MSG_LEVEL	(1 << 0)
-
+#else
+#define ANDROID_MSG_LEVEL	(1 << 2)
+#endif
 #define WL_MSG(name, arg1, args...) \
 	do { \
 		if (android_msg_level & ANDROID_MSG_LEVEL) { \

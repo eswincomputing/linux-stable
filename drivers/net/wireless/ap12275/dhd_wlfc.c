@@ -3825,7 +3825,7 @@ dhd_wlfc_hostreorder_init(dhd_pub_t *dhd)
 		Leaving the message for now, it should be removed after a while; once
 		the tlv situation is stable.
 		*/
-		DHD_ERROR(("%s(): successful bdcv2 tlv signaling, %d\n",
+		DHD_INFO(("%s(): successful bdcv2 tlv signaling, %d\n",
 			__FUNCTION__, tlv));
 	}
 

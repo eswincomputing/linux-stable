@@ -40,9 +40,13 @@
 /* message levels */
 #define CONFIG_ERROR_LEVEL	(1 << 0)
 #define CONFIG_TRACE_LEVEL	(1 << 1)
-#define CONFIG_MSG_LEVEL	(1 << 0)
-
+#ifndef ENODEBUG  
+#define CONFIG_MSG_LEVEL	(1 << 2)
 uint config_msg_level = CONFIG_ERROR_LEVEL | CONFIG_MSG_LEVEL;
+#else
+#define CONFIG_MSG_LEVEL	(1 << 2)
+uint config_msg_level = CONFIG_ERROR_LEVEL;
+#endif
 uint dump_msg_level = 0;
 
 #define CONFIG_MSG(x, args...) \

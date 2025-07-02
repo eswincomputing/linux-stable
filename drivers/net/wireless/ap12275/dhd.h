@@ -2399,16 +2399,16 @@ extern struct mutex _dhd_mutex_lock_;
 #define DHD_MUTEX_LOCK() \
 	do { \
 		if (mutex_is_locked(&_dhd_mutex_lock_) == 0) { \
-			printf("%s : no mutex held\n", __FUNCTION__); \
+			DHD_INFO(("%s : no mutex held\n", __FUNCTION__)); \
 		} else { \
-			printf("%s : mutex is locked!. wait for unlocking\n", __FUNCTION__); \
+			DHD_INFO(("%s : mutex is locked!. wait for unlocking\n", __FUNCTION__)); \
 		} \
 		mutex_lock(&_dhd_mutex_lock_); \
-		printf("%s : set mutex lock\n", __FUNCTION__); \
+		DHD_INFO(("%s : set mutex lock\n", __FUNCTION__)); \
 	} while (0)
 #define DHD_MUTEX_UNLOCK() \
 	do { \
-		printf("%s : mutex is released.\n", __FUNCTION__); \
+		DHD_INFO(("%s : mutex is released.\n", __FUNCTION__)); \
 		mutex_unlock(&_dhd_mutex_lock_); \
 	} while (0)
 #else

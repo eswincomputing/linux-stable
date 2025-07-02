@@ -6486,7 +6486,7 @@ dhd_stop(struct net_device *net)
 	ifidx = dhd_net2idx(dhd, net);
 	BCM_REFERENCE(ifidx);
 
-	DHD_ERROR(("%s: ######### called for ifidx=%d #########\n", __FUNCTION__, ifidx));
+	DHD_INFO(("%s: ######### called for ifidx=%d #########\n", __FUNCTION__, ifidx));
 
 #if defined(WL_STATIC_IF) && defined(WL_CFG80211)
 	/* If static if is operational, don't reset the chip */
@@ -6914,7 +6914,7 @@ dhd_open(struct net_device *net)
 	}
 
 	WL_MSG(net->name, "Enter\n");
-	DHD_ERROR(("%s\n", dhd_version));
+	DHD_INFO(("%s\n", dhd_version));
 	if (ANDROID_VERSION > 0)
 		printf("ANDROID_VERSION = %d\n", ANDROID_VERSION);
 	/* Init wakelock */
@@ -7008,7 +7008,7 @@ dhd_open(struct net_device *net)
 		goto exit;
 	}
 
-	DHD_ERROR(("%s: ######### called for ifidx=%d #########\n", __FUNCTION__, ifidx));
+	DHD_INFO(("%s: ######### called for ifidx=%d #########\n", __FUNCTION__, ifidx));
 
 	dhd->pub.p2p_disc_busy_cnt = 0;
 #if defined(WLAN_ACCEL_BOOT)
@@ -9800,7 +9800,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 			firmware_path[strlen(firmware_path)-1] = '\0';
 		}
 		fw = firmware_path;
-		printf("firmware_path:%s\n", firmware_path);
+		DHD_INFO(("firmware_path:%s\n", firmware_path));
 	}
 
 	if (nvram_path[0] != '\0') {
@@ -9808,7 +9808,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 			nvram_path[strlen(nvram_path)-1] = '\0';
 		}
 		nv = nvram_path;
-		printf("nvram_path:%s\n", nvram_path);
+		DHD_INFO(("nvram_path:%s\n", nvram_path));
 	}
 
 	if (clm_path[0] != '\0') {
@@ -9816,7 +9816,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 			clm_path[strlen(clm_path)-1] = '\0';
 		}
 		clm = clm_path;
-		printf("clm_path:%s\n", clm_path);
+		DHD_INFO(("clm_path:%s\n", clm_path));
 	}
 
 	if (config_path[0] != '\0') {
@@ -9824,7 +9824,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 			config_path[strlen(config_path)-1] = '\0';
 		}
 		conf = config_path;
-		printf("config_path:%s\n", config_path);
+		DHD_INFO(("config_path:%s\n", config_path));
 	}
 
 	if (signature_path[0] != '\0') {
@@ -9851,7 +9851,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 		snprintf(var, sizeof(var), "nvram_path%d", dhdinfo->unit);
 		nv = nvram_get(var);
 	}
-	DHD_ERROR(("dhd:%d: fw path:%s nv path:%s\n", dhdinfo->unit, fw, nv));
+	DHD_INFO(("dhd:%d: fw path:%s nv path:%s\n", dhdinfo->unit, fw, nv));
 #endif
 
 	if (fw && fw[0] != '\0') {
@@ -9948,7 +9948,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 #endif
 #ifdef DHD_UCODE_DOWNLOAD
 	ucode_path[0] = '\0';
-	DHD_ERROR(("ucode path: %s\n", dhdinfo->uc_path));
+	DHD_INFO(("ucode path: %s\n", dhdinfo->uc_path));
 #endif /* DHD_UCODE_DOWNLOAD */
 
 #ifndef BCMEMBEDIMAGE
@@ -11782,7 +11782,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 // mark flag for later blob checking
 	/* Set op_mode as MFG_MODE if WLTEST is present in "wl ver" */
 	if (strstr(fw_version, "WLTEST") != NULL) {
-		DHD_ERROR(("%s: wl ver has WLTEST, setting op_mode as DHD_FLAG_MFG_MODE\n",
+		DHD_INFO(("%s: wl ver has WLTEST, setting op_mode as DHD_FLAG_MFG_MODE\n",
 			__FUNCTION__));
 		op_mode = DHD_FLAG_MFG_MODE;
 	}
@@ -11796,7 +11796,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 #endif /* DHD_PCIE_NATIVE_RUNTIMEPM */
 		/* Check and adjust IOCTL response timeout for Manufactring firmware */
 		dhd_os_set_ioctl_resp_timeout(MFG_IOCTL_RESP_TIMEOUT);
-		DHD_ERROR(("%s : Set IOCTL response time for Manufactring Firmware\n",
+		DHD_INFO(("%s : Set IOCTL response time for Manufactring Firmware\n",
 			__FUNCTION__));
 	} else {
 		dhd_os_set_ioctl_resp_timeout(IOCTL_RESP_TIMEOUT);
@@ -11814,7 +11814,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 			ret = BCME_UNSUPPORTED;
 			goto done;
 		} else {
-			DHD_ERROR(("%s: hostwake_oob enabled\n", __FUNCTION__));
+			DHD_INFO(("%s: hostwake_oob enabled\n", __FUNCTION__));
 		}
 	}
 #endif /* BCMPCIE_OOB_HOST_WAKE */
@@ -11837,7 +11837,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	if (ret < 0) {
 		DHD_ERROR(("%s event_log_rate_hc set failed %d\n", __FUNCTION__, ret));
 	} else  {
-		DHD_ERROR(("%s event_log_rate_hc set with threshold:%d\n", __FUNCTION__,
+		DHD_INFO(("%s event_log_rate_hc set with threshold:%d\n", __FUNCTION__,
 			event_log_rate_hc));
 	}
 #endif /* EVENT_LOG_RATE_HC */
@@ -11893,7 +11893,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 		goto done;
 	}
 
-	DHD_ERROR(("%s: use firmware generated mac_address "MACDBG"\n",
+	DHD_INFO(("%s: use firmware generated mac_address "MACDBG"\n",
 		__FUNCTION__, MAC2STRDBG(&buf)));
 
 #ifdef MACADDR_PROVISION_ENFORCED
@@ -11940,7 +11940,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 #endif /* BCMDBUS */
 
 	if ((ret = dhd_apply_default_clm(dhd, dhd->info->clm_path)) < 0) {
-		DHD_ERROR(("%s: CLM set failed. Ignore and continue initialization.\n",
+		DHD_INFO(("%s: CLM set failed. Ignore and continue initialization.\n",
 			__FUNCTION__));
 	}
 
@@ -11986,7 +11986,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 		ret = dhd_iovar(dhd, 0, "cur_etheraddr", (char *)&iovbuf, ETHER_ADDR_LEN, NULL, 0,
 				TRUE);
 		if (ret < 0) {
-			DHD_ERROR(("%s: can't set MAC address , error=%d\n", __FUNCTION__, ret));
+			DHD_INFO(("%s: can't set MAC address , error=%d\n", __FUNCTION__, ret));
 		} else
 			memcpy(dhd->mac.octet, iovbuf, ETHER_ADDR_LEN);
 #endif /* SET_RANDOM_MAC_SOFTAP */
@@ -12000,7 +12000,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 		ret = dhd_iovar(dhd, 0, "wme_apsd", (char *)&wme_apsd, sizeof(wme_apsd), NULL, 0,
 				TRUE);
 		if (ret < 0) {
-			DHD_ERROR(("%s: set wme_apsd 0 fail (error=%d)\n",
+			DHD_INFO(("%s: set wme_apsd 0 fail (error=%d)\n",
 				__FUNCTION__, ret));
 		}
 #endif /* SOFTAP_UAPSD_OFF */
@@ -12036,7 +12036,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 			ret = dhd_iovar(dhd, 0, "rsdb_mode", (char *)&rsdb_mode, sizeof(rsdb_mode),
 				NULL, 0, TRUE);
 			if (ret < 0) {
-				DHD_ERROR(("%s Disable rsdb_mode is failed ret= %d\n",
+				DHD_INFO(("%s Disable rsdb_mode is failed ret= %d\n",
 					__FUNCTION__, ret));
 			}
 		}
@@ -12065,12 +12065,12 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 			ret = dhd_iovar(dhd, 0, "apsta", (char *)&apsta, sizeof(apsta), NULL, 0,
 					TRUE);
 			if (ret < 0)
-				DHD_ERROR(("%s APSTA for P2P failed ret= %d\n", __FUNCTION__, ret));
+				DHD_INFO(("%s APSTA for P2P failed ret= %d\n", __FUNCTION__, ret));
 
 #if defined(SOFTAP_AND_GC)
 		if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_AP,
 			(char *)&ap_mode, sizeof(ap_mode), TRUE, 0)) < 0) {
-				DHD_ERROR(("%s WLC_SET_AP failed %d\n", __FUNCTION__, ret));
+				DHD_INFO(("%s WLC_SET_AP failed %d\n", __FUNCTION__, ret));
 		}
 #endif
 			memcpy(&p2p_ea, &dhd->mac, ETHER_ADDR_LEN);
@@ -12078,7 +12078,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 			ret = dhd_iovar(dhd, 0, "p2p_da_override", (char *)&p2p_ea, sizeof(p2p_ea),
 					NULL, 0, TRUE);
 			if (ret < 0)
-				DHD_ERROR(("%s p2p_da_override ret= %d\n", __FUNCTION__, ret));
+				DHD_INFO(("%s p2p_da_override ret= %d\n", __FUNCTION__, ret));
 			else
 				DHD_INFO(("dhd_preinit_ioctls: p2p_da_override succeeded\n"));
 		}
@@ -12113,7 +12113,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	}
 #endif /* DISABLE_PRUNED_SCAN */
 
-	DHD_ERROR(("Firmware up: op_mode=0x%04x, MAC="MACDBG"\n",
+	DHD_INFO(("Firmware up: op_mode=0x%04x, MAC="MACDBG"\n",
 		dhd->op_mode, MAC2STRDBG(dhd->mac.octet)));
 #if defined(DHD_BLOB_EXISTENCE_CHECK)
 	if (!dhd->is_blob)
@@ -12140,7 +12140,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	/* Set initial country code to XZ */
 	strlcpy(dhd->dhd_cspec.country_abbrev, "XZ", WLC_CNTRY_BUF_SZ);
 	strlcpy(dhd->dhd_cspec.ccode, "XZ", WLC_CNTRY_BUF_SZ);
-	DHD_ERROR(("%s: Set initial country code to XZ(World Wide Safe)\n", __FUNCTION__));
+	DHD_INFO(("%s: Set initial country code to XZ(World Wide Safe)\n", __FUNCTION__));
 #endif /* CUSTOM_COUNTRY_CODE_XZ */
 	/* Set Country code  */
 	if (dhd->dhd_cspec.ccode[0] != 0) {
@@ -12407,7 +12407,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	 */
 	OSL_SMP_WMB();
 	dhd->event_log_max_sets_queried = TRUE;
-	DHD_ERROR(("%s: event_log_max_sets: %d ret: %d\n",
+	DHD_INFO(("%s: event_log_max_sets: %d ret: %d\n",
 		__FUNCTION__, dhd->event_log_max_sets, ret));
 #ifdef DHD_BUS_MEM_ACCESS
 	ret = dhd_iovar(dhd, 0, "enable_memuse", (char *)&enable_memuse,
@@ -12849,7 +12849,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 			sizeof(scan_passive_time), TRUE, 0);
 
 #ifdef ARP_OFFLOAD_SUPPORT
-	DHD_ERROR(("arp_enable:%d arp_ol:%d\n",
+	DHD_INFO(("arp_enable:%d arp_ol:%d\n",
 		dhd->arpoe_enable, dhd->arpol_configured));
 #endif /* ARP_OFFLOAD_SUPPORT */
 
@@ -13290,7 +13290,7 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 	/* store the preserve log set numbers */
 	if (dhd_get_preserve_log_numbers(dhd, &dhd->logset_prsrv_mask)
 			!= BCME_OK) {
-		DHD_ERROR(("%s: Failed to get preserve log # !\n", __FUNCTION__));
+		DHD_INFO(("%s: Failed to get preserve log # !\n", __FUNCTION__));
 	}
 
 	if (FW_SUPPORTED(dhd, ecounters) && enable_ecounter) {
@@ -13316,9 +13316,9 @@ dhd_legacy_preinit_ioctls(dhd_pub_t *dhd)
 
 	if (dhd_iovar(dhd, 0, "bus:d3_hostwake_delay", (char *)&d3_hostwake_delay,
 		sizeof(d3_hostwake_delay), NULL, 0, TRUE) < 0) {
-		DHD_ERROR(("%s: d3_hostwake_delay IOVAR not present, proceed\n", __FUNCTION__));
+		DHD_INFO(("%s: d3_hostwake_delay IOVAR not present, proceed\n", __FUNCTION__));
 	} else {
-		DHD_ERROR(("%s: d3_hostwake_delay enabled\n", __FUNCTION__));
+		DHD_INFO(("%s: d3_hostwake_delay enabled\n", __FUNCTION__));
 	}
 
 #if defined(BCMSDIO)
@@ -13972,7 +13972,7 @@ dhd_register_if(dhd_pub_t *dhdp, int ifidx, bool need_rtnl_lock)
 	DEV_ADDR_SET(net, temp_addr);
 
 	if (ifidx == 0)
-		printf("%s\n", dhd_version);
+		DHD_INFO(("%s\n", dhd_version));
 	else {
 #ifdef WL_EXT_IAPSTA
 		wl_ext_iapsta_update_net_device(net, ifidx);
@@ -14023,7 +14023,7 @@ dhd_register_if(dhd_pub_t *dhdp, int ifidx, bool need_rtnl_lock)
 	net_stat_tizen_register(net);
 #endif /* CONFIG_TIZEN */
 
-	DHD_CONS_ONLY(("Register interface [%s]  MAC: "MACDBG"\n\n", net->name,
+	DHD_INFO(("Register interface [%s]  MAC: "MACDBG"\n\n", net->name,
 		MAC2STRDBG(net->dev_addr)));
 
 #if defined(OEM_ANDROID) && (defined(BCMPCIE) || defined(BCMLXSDMMC) || defined(BCMDBUS))
@@ -14174,7 +14174,7 @@ void dhd_detach(dhd_pub_t *dhdp)
 	/* XXX	kernel panic issue when first bootup time,
 	 *	 rmmod without interface down make unnecessary hang event.
 	 */
-	DHD_ERROR(("%s: making dhdpub up FALSE\n", __FUNCTION__));
+	DHD_INFO(("%s: making dhdpub up FALSE\n", __FUNCTION__));
 	dhd->pub.up = 0;
 	if (!(dhd->dhd_state & DHD_ATTACH_STATE_DONE)) {
 		/* Give sufficient time for threads to start running in case
@@ -14790,10 +14790,10 @@ _dhd_module_init(void)
 	int err;
 	int retry = POWERUP_MAX_RETRY;
 
-	printk(KERN_ERR PERCENT_S DHD_LOG_PREFIXS "%s: in %s\n",
-		PRINTF_SYSTEM_TIME, __FUNCTION__, dhd_version);
+	DHD_INFO((KERN_ERR PERCENT_S DHD_LOG_PREFIXS "%s: in %s\n",
+		PRINTF_SYSTEM_TIME, __FUNCTION__, dhd_version));
 	if (ANDROID_VERSION > 0)
-		printf("ANDROID_VERSION = %d\n", ANDROID_VERSION);
+		DHD_INFO(("ANDROID_VERSION = %d\n", ANDROID_VERSION));
 #if defined(CONFIG_DHD_USE_STATIC_BUF) && defined(DHD_STATIC_IN_DRIVER)
 	err = dhd_static_buf_init();
 	if (err) {
@@ -14878,7 +14878,7 @@ exit:
 	if (err)
 		dhd_static_buf_exit();
 #endif /* CONFIG_DHD_USE_STATIC_BUF && DHD_STATIC_IN_DRIVER */
-	printf("%s: Exit err=%d\n", __FUNCTION__, err);
+	DHD_INFO(("%s: Exit err=%d\n", __FUNCTION__, err));
 	return err;
 }
 
@@ -15376,7 +15376,7 @@ dhd_os_open_image1(dhd_pub_t *pub, char *filename)
 		 goto err;
 	 }
 
-	 DHD_ERROR(("%s: %s (%d bytes) open success\n", __FUNCTION__, filename, size));
+	 DHD_INFO(("%s: %s (%d bytes) open success\n", __FUNCTION__, filename, size));
 
 err:
 	 return fp;
@@ -18738,7 +18738,7 @@ void dhd_set_version_info(dhd_pub_t *dhdp, char *fw)
 		EPI_VERSION_STR,
 		DHD_LOG_PREFIXS, fw,
 		DHD_LOG_PREFIXS, clm_version);
-	printf("%s\n", info_string);
+	DHD_INFO(("%s\n", info_string));
 
 	if (!dhdp)
 		return;
@@ -18759,7 +18759,7 @@ int dhd_ioctl_entry_local(struct net_device *net, wl_ioctl_t *ioc, int cmd)
 	dhd_info_t *dhd = NULL;
 
 	if (!net || !DEV_PRIV(net)) {
-		DHD_ERROR(("%s invalid parameter net %p dev_priv %p\n",
+		DHD_TRACE(("%s invalid parameter net %p dev_priv %p\n",
 			__FUNCTION__, net, DEV_PRIV(net)));
 		return -EINVAL;
 	}

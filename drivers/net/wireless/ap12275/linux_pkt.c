@@ -45,6 +45,7 @@ bcm_static_pkt_t *bcm_static_skb = 0;
 void* wifi_platform_prealloc(void *adapter, int section, unsigned long size);
 #endif /* CONFIG_DHD_USE_STATIC_BUF */
 
+#ifndef ENODEBUG
 #ifndef CUSTOM_PREFIX
 #define BCM_PRINT(args)	\
 	do {			\
@@ -58,7 +59,9 @@ void* wifi_platform_prealloc(void *adapter, int section, unsigned long size);
 		pr_cont args;			\
 	} while (0)
 #endif /* CUSTOM_PREFIX */
-
+#else
+#define BCM_PRINT(args)
+#endif
 #ifdef BCM_OBJECT_TRACE
 /* don't clear the first 4 byte that is the pkt sn */
 #define OSL_PKTTAG_CLEAR(p) \

@@ -3050,7 +3050,7 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 
 	if (flag == TRUE) {
 		if (!dhdp->dongle_reset) {
-			DBUSERR(("%s: == Power OFF ==\n", __FUNCTION__));
+			DBUSINFO(("%s: == Power OFF ==\n", __FUNCTION__));
 			dhd_dbus_advertise_bus_cleanup(dhdp);
 			dhd_os_wd_timer(dhdp, 0);
 #if !defined(IGNORE_ETH0_DOWN)
@@ -3067,13 +3067,13 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			DHD_LINUX_GENERAL_UNLOCK(dhdp, flags);
 			wifi_clr_adapter_status(adapter, WIFI_STATUS_FW_READY);
 
-			printf("%s:  WLAN OFF DONE\n", __FUNCTION__);
+			DBUSINFO("%s:  WLAN OFF DONE\n", __FUNCTION__);
 			/* App can now remove power from device */
 		} else
 			bcmerror = BCME_ERROR;
 	} else {
 		/* App must have restored power to device before calling */
-		printf("\n\n%s: == WLAN ON ==\n", __FUNCTION__);
+		DBUSINFO("\n\n%s: == WLAN ON ==\n", __FUNCTION__);
 		if (dhdp->dongle_reset) {
 			/* Turn on WLAN */
 			DHD_MUTEX_UNLOCK();
@@ -3091,7 +3091,7 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 #endif
 				dhd_os_wd_timer(dhdp, dhd_watchdog_ms);
 
-				DBUSTRACE(("%s: WLAN ON DONE\n", __FUNCTION__));
+				DBUSINFO(("%s: WLAN ON DONE\n", __FUNCTION__));
 			} else {
 				DBUSERR(("%s: failed to dbus_up with code %d\n", __FUNCTION__, bcmerror));
 			}

@@ -497,7 +497,7 @@ int init_roam_cache(struct bcm_cfg80211 *cfg, int ioctl_ver)
 	err = wldev_iovar_getint(dev, "roamscan_mode", &mode);
 	if (err && (err == BCME_UNSUPPORTED)) {
 		/* If firmware doesn't support, return error. Else proceed */
-		WL_ERR(("roamscan_mode iovar failed. %d\n", err));
+		WL_DBG(("roamscan_mode iovar failed. %d\n", err));
 		return err;
 	}
 

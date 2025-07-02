@@ -1674,6 +1674,12 @@ bcm_iovar_lencheck(const bcm_iovar_t *vi, void *arg, uint len, bool set)
 #define MWBMAP_DBG(x)
 #endif  /* !BCM_MWBMAP_DEBUG */
 
+#ifndef ENODEBUG
+#define EDBG_DUMP(x)           printf x
+#else
+#define EDBG_DUMP(x)
+#endif
+
 typedef struct bcm_mwbmap {     /* Hierarchical multiword bitmap allocator    */
 	uint16 wmaps;               /* Total number of words in free wd bitmap    */
 	uint16 imaps;               /* Total number of words in free id bitmap    */
@@ -5054,7 +5060,7 @@ dump_nvram(char *varbuf, int column, unsigned int n, unsigned int len)
 				break;
 			vars[m-n] = varbuf[m];
 		}
-		printf("%s\n", vars);
+		EDBG_DUMP(("%s\n", vars));
 	}
 }
 

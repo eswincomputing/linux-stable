@@ -672,6 +672,7 @@ extern char* dhd_dbg_get_system_timestamp(void);
 #endif
 #define DHD_LOG_PREFIXS DHD_LOG_PREFIX" "
 #ifdef DHD_DEBUG
+#ifndef ENODEBUG
 #ifndef CUSTOM_PREFIX
 #define	printf_thr(fmt, args...)	printk(PERCENT_S DHD_LOG_PREFIXS fmt, PRINTF_SYSTEM_TIME, ## args)
 #define DBG_THR(args)		do {printf_thr args;} while (0)
@@ -684,6 +685,9 @@ do {	\
 	pr_cont x;			\
 } while (0)
 #endif /* !CUSTOM_PREFIX */
+#else /* ENODEBUG */
+#define DBG_THR(x)
+#endif /* ENODEBUG */
 #else
 #define DBG_THR(x)
 #endif /* DHD_DEBUG */
