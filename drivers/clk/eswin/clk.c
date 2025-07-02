@@ -380,9 +380,11 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			return -EPERM;
 		}
 		mutex_lock(&lock);
-		g_cpu_info.cpu_freqhz[clk->numa_id] = rate;
-		rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ? 
+		if (clk->numa_id >= 0) {
+			g_cpu_info.cpu_freqhz[clk->numa_id] = rate;
+			rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ? 
 				g_cpu_info.cpu_freqhz[0] : g_cpu_info.cpu_freqhz[1];
+		}
 		/*
 		 * The CPU clock has now switched to the LP_PLL,
 		 * so we can adjust the CPU's supply voltage
@@ -675,7 +677,10 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 	mutex_lock(&lock);
 	if (g_cpu_info.cpu_no_boost_1_6ghz)
 		g_cpu_info.cpu_no_boost_1_6ghz = true == cpu_no_boost_1_6ghz;
-	g_cpu_info.cpu_freqhz[data->numa_id] = CLK_FREQ_1400M;
+
+	if(data->numa_id >= 0)
+		g_cpu_info.cpu_freqhz[data->numa_id] = CLK_FREQ_1400M;
+
 	mutex_unlock(&lock);
 
 	for (i = 0; i < nums; i++) {
