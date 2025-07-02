@@ -16,7 +16,7 @@
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
-#include "include/linux/es_proc.h"
+#include <linux/es_proc.h>
 
 static LIST_HEAD(list);
 static es_proc_entry_t *proc_entry = NULL;
