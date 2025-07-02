@@ -686,15 +686,15 @@ _PowerStateTimerFunc(gctPOINTER Data)
 
 static gceSTATUS threadCheckHardwareUsage(gckHARDWARE hardware)
 {
-    gctBOOL powerMutexAcquired = gcvFALSE;
     gceSTATUS status = gcvSTATUS_OK;
     gceCHIPPOWERSTATE power = gcvPOWER_INVALID;
 
-    gcmkVERIFY_OK(gckOS_AcquireMutex(hardware->os, hardware->powerMutex, 0));
-    powerMutexAcquired = gcvTRUE;
+    status = gckOS_AcquireMutex(hardware->os, hardware->powerMutex, 0);
+    if (status != gcvSTATUS_OK) {
+        return gcvSTATUS_INVALID_REQUEST;
+    }
 
     gcmkONERROR(gckHARDWARE_QueryPowerStateUnlocked(hardware, &power));
-
     /* exit when power not on and clear cycle info */
     if (power != gcvPOWER_ON) {
         hardware->totalCycle = 0;
@@ -715,13 +715,8 @@ static gceSTATUS threadCheckHardwareUsage(gckHARDWARE hardware)
 
     gcmkONERROR(gckHARDWARE_CleanCycleCount(hardware));
 
-    gcmkVERIFY_OK(gckOS_ReleaseMutex(hardware->os, hardware->powerMutex));
-    powerMutexAcquired = gcvFALSE;
-
 OnError:
-    if (powerMutexAcquired == gcvTRUE) {
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(hardware->os, hardware->powerMutex));
-    }
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(hardware->os, hardware->powerMutex));
 
     return status;
 }
