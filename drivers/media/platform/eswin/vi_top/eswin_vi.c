@@ -425,6 +425,8 @@ static int eswin_vi_probe(struct platform_device *pdev)
     struct device_node *np = pdev->dev.of_node;
     struct resource* res;
     const char *dts_board_compat;
+    int numa_id = 0;
+    char class_name[32];
     __maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
 
     es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
@@ -489,7 +491,20 @@ static int eswin_vi_probe(struct platform_device *pdev)
         return ret;
     }
 
-    es_vi_dev->es_vi_class = class_create("eswin_vi_class");
+    ret = of_property_read_u32(dev->of_node, "numa-node-id", &numa_id);
+    if(ret) {
+        dev_warn(dev, "Could not get numa-node-id, use default 0\n");
+        numa_id = 0;
+    }
+
+    if(numa_id == 0) {
+        dev_info(dev, "create device class node eswin_vi_class\n");
+        snprintf(class_name, sizeof(class_name), "eswin_vi_class");
+    } else {
+        dev_info(dev, "create device class node eswin_vi_class_d%d\n", numa_id);
+        snprintf(class_name, sizeof(class_name), "eswin_vi_class_d%d", numa_id);
+    }
+    es_vi_dev->es_vi_class = class_create(class_name);
     if (IS_ERR(es_vi_dev->es_vi_class)) {
         cdev_del(&es_vi_dev->es_vi_cdev);
         unregister_chrdev_region(major_number, 1);
@@ -497,7 +512,13 @@ static int eswin_vi_probe(struct platform_device *pdev)
     }
 
     // 创建设备节点
-    device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "eswin_vi");
+    if(numa_id == 0) {
+        dev_info(dev, "create device node eswin_vi\n");
+        device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "eswin_vi");
+    } else {
+        dev_info(dev, "create device node eswin_vi_d%d\n", numa_id);
+        device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "eswin_vi_d%d", numa_id);
+    }
     media_device_init(media_dev);
     media_dev->dev = &pdev->dev;
     media_dev->ops = &es_mdev_ops;
