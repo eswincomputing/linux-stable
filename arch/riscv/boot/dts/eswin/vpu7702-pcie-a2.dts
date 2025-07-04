@@ -253,6 +253,59 @@
 	};
 };
 
+/ {
+	thermal-zones {
+		thermal0 {
+			trips {
+				threshold: trip-point0 {
+					temperature = <65000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				target: trip-point1 {
+					temperature = <75000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				crit: trip-point2 {
+					temperature     = <95000>;
+					hysteresis      = <0>;
+					type            = "critical";
+				};
+			};
+
+			cooling-maps {
+				/*
+				map0 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device =
+						<&cpu_0 0 10>,
+						<&cpu_1 0 10>,
+						<&cpu_2 0 10>,
+						<&cpu_3 0 10>;
+				};
+				map1 {
+					trip = <&target>;
+					contribution = <4096>;
+					cooling-device = <&g2d_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&venc_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&vdec_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				*/
+			};
+		};
+	};
+};
+
 &d0_clock {
 	status = "okay";
 };
@@ -263,6 +316,13 @@
 
 &d0_pmu {
 	status = "okay";
+
+	d0_pmu_vi: win2030-pmu-controller-port@80 {
+		power_status = <0>;
+	};
+	d0_pmu_vo: win2030-pmu-controller-port@c0 {
+		power_status = <0>;
+	};
 };
 
 &ddr0 {
@@ -670,21 +730,21 @@
 };
 
 &d0_usbdrd3_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_usbdrd_dwc3_0 {
-	status = "okay";
+	status = "disabled";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
 };
 
 &d0_usbdrd3_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_usbdrd_dwc3_1 {
-	status = "okay";
+	status = "disabled";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
 };
@@ -724,7 +784,7 @@
 
 &ssi0 {
 	/* spi flash */
-	status = "okay";
+	status = "disabled";
 	num-cs = <2>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128fw",
