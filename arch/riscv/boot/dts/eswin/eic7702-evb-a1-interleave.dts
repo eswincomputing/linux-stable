@@ -1637,11 +1637,11 @@
 };
 
 &d2d {
-	status = "okay";
+	status = "disabled";
 };
 
 &d1_d2d {
-	status = "okay";
+	status = "disabled";
 };
 
 /* die0 GPIO Function Description
