@@ -473,33 +473,7 @@
 
 &sdio1 {
 	/* wifi module */
-	status = "okay";
-	delay_code = <0x29>;
-	drive-impedance-ohm = <33>;
-	enable-cmd-pullup;
-	enable-data-pullup;
-	keep-power-in-suspend;
-	non-removable;
-	no-sd;
-	no-mmc;
-	vqmmc-supply = <&reg_vcc1v8>;
-	aw3155:wifi_aw3155@0 {
-		compatible = "aml_w1_sdio";
-		reg = <0x0>;
-		interrupt-parent = <&porta>;
-		interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
-		pinctrl-names = "default", "default";
-		pinctrl-0 = <&pinctrl_gpio15_default>;
-		pinctrl-1 = <&pinctrl_gpio34_default>;
-		irq-gpios = <&porta 15 GPIO_ACTIVE_HIGH>;
-		rst-gpios = <&portb 2 GPIO_ACTIVE_HIGH>;
-	};
-	mdhd_wlan {
-		compatible = "android,bcmdhd_wlan";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio34_default>;
-		gpio_wl_reg_on = <&portb 2 GPIO_ACTIVE_HIGH>;
-	};
+	status = "disabled";
 };
 
 &d0_gmac0 {
