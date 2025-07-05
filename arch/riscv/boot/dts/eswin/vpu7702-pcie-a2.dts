@@ -840,7 +840,7 @@
 
 &d0_i2c1 {
 	/* NPU Power Control */
-	status = "disabled";
+	status = "okay";
 	tps549d22@10 {
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
