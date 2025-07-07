@@ -140,13 +140,13 @@ err:
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_fixed_rate);
 
-static int eswin_clk_set_cpu_volatge(struct gpio_desc *cpu_voltage_gpio,
-				     enum voltage_level target_volatge)
+static int eswin_clk_set_cpu_voltage(struct gpio_desc *cpu_voltage_gpio,
+				     enum voltage_level target_voltage)
 {
 	if (!cpu_voltage_gpio)
-		return -EINVAL;
+		return -ENODEV;
 
-	switch (target_volatge) {
+	switch (target_voltage) {
 	case VOLTAGE_0_9V:
 		gpiod_set_value(cpu_voltage_gpio, 1);
 		break;
@@ -154,8 +154,8 @@ static int eswin_clk_set_cpu_volatge(struct gpio_desc *cpu_voltage_gpio,
 		gpiod_set_value(cpu_voltage_gpio, 0);
 		break;
 	default:
-		pr_err("%s %d: unsupport  volatge %d\n", __func__, __LINE__,
-		       target_volatge);
+		pr_err("%s %d: unsupport  voltage %d\n", __func__, __LINE__,
+		       target_voltage);
 		return -EINVAL;
 	}
 	return 0;
@@ -319,7 +319,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	char clk_cpu_mux_name[50] = { 0 };
 	char clk_cpu_lp_pll_name[50] = { 0 };
 	char clk_cpu_pll_name[50] = { 0 };
-	enum voltage_level cpu_target_volatge = VOLTAGE_0_8V;
+	enum voltage_level cpu_target_voltage = VOLTAGE_0_8V;
 
 	ret = eswin_calc_pll(&frac_val, &postdiv1_val, &fbdiv_val, &refdiv_val,
 			     (u64)rate, clk);
@@ -394,16 +394,16 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		switch (rate) {
 		case CLK_FREQ_1800M:
 		case CLK_FREQ_1700M:
-			cpu_target_volatge = VOLTAGE_0_9V;
+			cpu_target_voltage = VOLTAGE_0_9V;
 			break;
 		case CLK_FREQ_1600M:
 		case CLK_FREQ_1500M:
-			cpu_target_volatge = true == g_cpu_info.cpu_no_boost_1_6ghz ?
+			cpu_target_voltage = true == g_cpu_info.cpu_no_boost_1_6ghz ?
 						     VOLTAGE_0_8V :
 						     VOLTAGE_0_9V;
 			break;
 		default:
-			cpu_target_volatge = VOLTAGE_0_8V;
+			cpu_target_voltage = VOLTAGE_0_8V;
 			/*
 			 * For boards that do not support voltage switching,
 			 * the voltage is maintained at 0.8V.
@@ -413,22 +413,22 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		}
 	}
 	mutex_unlock(&lock);
-	
-	ret = eswin_clk_set_cpu_volatge(clk->cpu_voltage_gpio,
-					cpu_target_volatge);
-	if (ret) {
-		pr_warn("failed to change cpu volatge to %d mV, not support rate %ld\n",
-			cpu_target_volatge, rate);
-		goto switch_back;
-	} else {
-		if (clk->cpu_current_volatge !=
-			cpu_target_volatge) {
-			pr_info("cpu volatge change to %d mV, target rate %ld\n",
-				cpu_target_volatge, rate);
-			clk->cpu_current_volatge =
-				cpu_target_volatge;
+
+	if (clk->cpu_current_voltage !=	cpu_target_voltage) {
+		ret = eswin_clk_set_cpu_voltage(clk->cpu_voltage_gpio,
+						cpu_target_voltage);
+		if (ret) {
+			pr_warn("failed to change cpu voltage to %d mV, not support rate %ld\n",
+				cpu_target_voltage, rate);
+			goto switch_back;
+		} else {
+			pr_info("cpu voltage change to %d mV, target rate %ld\n",
+				cpu_target_voltage, rate);
+			clk->cpu_current_voltage =
+				cpu_target_voltage;
 		}
 	}
+
 
 	/*first disable pll */
 	val = readl_relaxed(clk->ctrl_reg0);
@@ -667,11 +667,11 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 			devm_gpiod_get(dev, "cpu-voltage", GPIOD_OUT_HIGH) :
 			cpu_voltage_gpio;
 	if (IS_ERR_OR_NULL(cpu_voltage_gpio)) {
-		dev_warn(dev, "failed to get cpu volatge gpio\n");
+		dev_warn(dev, "failed to get cpu voltage gpio, unable to adjust CPU voltage\n");
 		cpu_voltage_gpio = NULL;
 	} else {
-		/*cpu default freq is 1400M, the volatge should be VOLTAGE_0_8V*/
-		eswin_clk_set_cpu_volatge(cpu_voltage_gpio, VOLTAGE_0_8V);
+		/*cpu default freq is 1400M, the voltage should be VOLTAGE_0_8V*/
+		eswin_clk_set_cpu_voltage(cpu_voltage_gpio, VOLTAGE_0_8V);
 	}
 
 	mutex_lock(&lock);
@@ -739,7 +739,7 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 
 		p_clk->hw.init = &init;
 		p_clk->cpu_voltage_gpio = cpu_voltage_gpio;
-		p_clk->cpu_current_volatge = VOLTAGE_0_8V;
+		p_clk->cpu_current_voltage = VOLTAGE_0_8V;
 		clk = clk_register(dev, &p_clk->hw);
 		if (IS_ERR(clk)) {
 			devm_kfree(dev, p_clk);
