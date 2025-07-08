@@ -30,10 +30,10 @@
 
 #include "eswin-win2030-die0-soc.dtsi"
 #include "eic7700-pinctrl.dtsi"
+#include "eic7700-evb-fccsp-camera-imx219.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
-
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 
 / {
