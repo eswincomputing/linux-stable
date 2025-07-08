@@ -6514,7 +6514,7 @@ dhd_stop(struct net_device *net)
 		dhd_if_t *ifp;
 		wl_cfg80211_down(net);
 
-		DHD_ERROR(("%s: making dhdpub up FALSE\n", __FUNCTION__));
+		DHD_INFO(("%s: making dhdpub up FALSE\n", __FUNCTION__));
 #ifdef WL_CFG80211
 		/* Disable Runtime PM before interface down */
 		DHD_STOP_RPM_TIMER(&dhd->pub);

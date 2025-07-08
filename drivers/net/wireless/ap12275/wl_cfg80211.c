@@ -9133,7 +9133,7 @@ wl_cfg80211_dump_station(struct wiphy *wiphy, struct net_device *ndev,
 		err = wldev_ioctl_get(ndev, WLC_GET_ASSOCLIST,
 			assoc_maclist, sizeof(cfg->assoclist));
 		if (err < 0) {
-			WL_ERR(("WLC_GET_ASSOCLIST error %d\n", err));
+			WL_DBG(("WLC_GET_ASSOCLIST error %d\n", err));
 			cfg->assoclist.count = 0;
 			return -EOPNOTSUPP;
 		}
