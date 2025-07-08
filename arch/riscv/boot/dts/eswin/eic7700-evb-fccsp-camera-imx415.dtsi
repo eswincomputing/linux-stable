@@ -133,17 +133,19 @@
 			reg = <0x37>;
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
+			assigned-clock-rates = <37125000>;
 			clock-names = "inck";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_gpio71_default>;
 			reset-gpio = <&portc 7 GPIO_ACTIVE_HIGH>;
 
+			eswin,camera-hdr-mode = <0>;
+
 			port {
 				imx415_out0: endpoint {
 					remote-endpoint = <&mipidphy0_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <360000000>;
+					link-frequencies = /bits/ 64 <742500000>;
 				};
 			};
 		};
@@ -160,17 +162,19 @@
 			reg = <0x37>;
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
+			assigned-clock-rates = <37125000>;
 			clock-names = "inck";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_gpio77_default>;
 			reset-gpio = <&portc 13 GPIO_ACTIVE_HIGH>;
 
+			eswin,camera-hdr-mode = <0>;
+
 			port {
 				imx415_out2: endpoint {
 					remote-endpoint = <&mipidphy2_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <360000000>;
+					link-frequencies = /bits/ 64 <742500000>;
 				};
 			};
 		};
@@ -187,17 +191,20 @@
 		reg = <0x37>;
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clock-rates = <24000000>;
+		assigned-clock-rates = <37125000>;
+		// clock-names = "xvclk";
 		clock-names = "inck";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio83_default>;
 		reset-gpio = <&portc 19 GPIO_ACTIVE_HIGH>;
 
+		eswin,camera-hdr-mode = <0>;
+
 		port {
 			imx415_out4: endpoint {
 				remote-endpoint = <&mipidphy4_in_ucam0>;
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <360000000>;
+				link-frequencies = /bits/ 64 <742500000>;
 			};
 		};
 	};
@@ -314,6 +321,8 @@
 	status = "okay";
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+
+	eswin,csi-hdr-mode = <0>;
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -351,6 +360,8 @@
 &mipi_csi2_2 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+
+	eswin,csi-hdr-mode = <0>;
 	status = "okay";
 	ports {
 		#address-cells = <1>;
@@ -382,6 +393,8 @@
 &mipi_csi2_4 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+
+	eswin,csi-hdr-mode = <0>;
 	status = "okay";
 	ports {
 		#address-cells = <1>;

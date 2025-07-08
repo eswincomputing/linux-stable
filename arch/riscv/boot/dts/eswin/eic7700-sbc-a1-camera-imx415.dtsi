@@ -282,7 +282,7 @@
 		reg = <0x37>;
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clock-rates = <24000000>;
+		assigned-clock-rates = <37125000>;
 		clock-names = "inck";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio72_default>;
@@ -292,7 +292,7 @@
 			imx415_out0: endpoint {
 				remote-endpoint = <&mipidphy0_in_ucam0>;
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <360000000>;
+				link-frequencies = /bits/ 64 <742500000>;
 			};
 		};
 	};
@@ -309,7 +309,7 @@
 		reg = <0x37>;
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clock-rates = <24000000>;
+		assigned-clock-rates = <37125000>;
 		clock-names = "inck";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio78_default>;
@@ -319,7 +319,7 @@
 			imx415_out1: endpoint {
 				remote-endpoint = <&mipidphy2_in_ucam0>;
 				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <360000000>;
+				link-frequencies = /bits/ 64 <742500000>;
 			};
 		};
 	};
