@@ -114,20 +114,34 @@ static inline void common_dmabuf_heap_set_dir(struct heap_mem *heap_obj, enum dm
 void common_dmabuf_heap_import_init(struct heap_root *root, struct device *dev);
 void common_dmabuf_heap_import_uninit(struct heap_root *root);
 
+/* lookup heapobj from heap tree by fd, return heapobj or ERR pointer. */
 struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int fd);
+
+/* lookup heapobj from heap tree by dma_buf, return heapobj or ERR pointer. */
 struct heap_mem *common_dmabuf_lookup_heapobj_by_dma_buf_st(struct heap_root *root, struct dma_buf *dma_buf);
 
+/* import a fd binded dma buf to heap root, return heap obj or ERR_PTR  */
 struct heap_mem *common_dmabuf_heap_import_from_user(struct heap_root *root, int fd);
+
+/* import dma buf to heap root, return heap obj or ERR_PTR */
 struct heap_mem *common_dmabuf_heap_import_from_user_with_dma_buf_st(struct heap_root *root, struct dma_buf *dma_buf);
+
+/* release the heap obj, auto unmap the binded vaddr */
 void common_dmabuf_heap_release(struct heap_mem *heap_obj);
 
+/* map a virtual address to visit the heap obj, return address Or NULL */
 void *common_dmabuf_heap_map_vaddr(struct heap_mem *heap_obj);
+
+/* unmap the virtual address binded in heap obj */
 void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj);
 
+/* alloc a dma buf and bind to heap root, return heap obj or ERR_PTR */
 struct heap_mem *common_dmabuf_heap_import_from_kernel(struct heap_root *root, char *name, size_t len, unsigned int fd_flags);
 
+/* split a dma buf, return new fd or error */
 int esw_common_dmabuf_split_export(int dbuf_fd, unsigned int offset, size_t len, int fd_flags, char *name);
 
+/* map a virtual address to visit the heap obj, return address Or NULL */
 struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd, dma_addr_t iova, size_t size);
 void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj);
 void common_dmabuf_heap_rsv_iova_uninit(struct heap_root *root);

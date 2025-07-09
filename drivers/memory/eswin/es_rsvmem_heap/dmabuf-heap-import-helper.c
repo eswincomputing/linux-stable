@@ -342,7 +342,7 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int 
 	/* get dmabuf handle */
 	dma_buf = dma_buf_get(fd);
 	if (IS_ERR(dma_buf))
-		return NULL;
+		return ERR_CAST(dma_buf);
 
 	mutex_lock(&root->lock);
 	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, (uint64_t *)&heap_obj);
@@ -352,7 +352,7 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int 
 	if (0 == ret)
 		return heap_obj;
 	else
-		return NULL;
+		return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(common_dmabuf_lookup_heapobj_by_fd);
 
@@ -370,7 +370,7 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_dma_buf_st(struct heap_root *ro
 	if (0 == ret)
 		return heap_obj;
 	else
-		return NULL;
+		return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(common_dmabuf_lookup_heapobj_by_dma_buf_st);
 
@@ -413,8 +413,12 @@ static void __common_dmabuf_heap_release(struct kref *kref)
 
 void common_dmabuf_heap_release(struct heap_mem *heap_obj)
 {
-	struct heap_root *root = heap_obj->root;
+	struct heap_root *root;
 
+	if (WARN_ON(IS_ERR(heap_obj)))
+		return;
+
+	root = heap_obj->root;
 	mutex_lock(&root->lock);
 	kref_put(&heap_obj->refcount, __common_dmabuf_heap_release);
 	mutex_unlock(&root->lock);
@@ -426,8 +430,7 @@ void *common_dmabuf_heap_map_vaddr(struct heap_mem *heap_obj)
     struct dma_buf_map map;
     int ret;
 
-	WARN_ON(!heap_obj);
-	if (!heap_obj)
+	if (WARN_ON(IS_ERR(heap_obj)))
 		return NULL;
 
     if (heap_obj->vaddr)
@@ -448,7 +451,9 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj)
 {
 	struct dma_buf_map map;
 
-	WARN_ON(!heap_obj);
+	if (WARN_ON(IS_ERR(heap_obj)))
+		return;
+
 	if (heap_obj && heap_obj->vaddr) {
         map.vaddr = heap_obj->vaddr;
         map.is_iomem = 0;
@@ -584,8 +589,12 @@ static void __common_dmabuf_heap_rsv_iova_unmap(struct kref *kref)
 
 void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj)
 {
-	struct heap_root *root = heap_obj->root;
+	struct heap_root *root;
 
+	if (WARN_ON(IS_ERR(heap_obj)))
+		return;
+
+	root = heap_obj->root;
 	mutex_lock(&root->lock);
 	kref_put(&heap_obj->refcount, __common_dmabuf_heap_rsv_iova_unmap);
 	mutex_unlock(&root->lock);
