@@ -1267,7 +1267,7 @@
 		};
 
 		d0_ipc_scpu:ipc@0 {
-			compatible = "eswin,win2030-ipc";
+			compatible = "eswin,win2030-ipc", "simple-bus";
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0x80000000>;
 			iommus = <&smmu0 WIN2030_SID_SCPU>, <&smmu0 WIN2030_SID_CRYPT>;
@@ -1278,6 +1278,11 @@
 			mbox-names = "u84_scpu";
 			numa-node-id = <0>;
 			dma-noncoherent;
+			d0_trng@0 {
+				compatible = "eswin,ex77xx-trng";
+				reg = <0>;
+				status = "okay";
+			};
 		};
 
 		d0_lpcpu:lpcpu@0 {
@@ -2048,14 +2053,14 @@
 			};
 		};
 
-		
+
 
 
 
 		vi_subsys: vi-subsys@51000000 {
 			#address-cells = <2>;
 			#size-cells = <2>;
-			compatible = "esw,vi_subsys";	
+			compatible = "esw,vi_subsys";
 			reg = <0x0 0x51000000 0x0 0x200000>, <0x0 0x51030000 0x0 0x2000>;
 			eswin,syscrg_csr = <&d0_sys_crg>;
 			eswin,vitop_csr = <&vi_top_csr>;
@@ -2095,7 +2100,7 @@
 			numa-node-id = <0>;
 			ranges;
 			status = "okay";
-			
+
 			vi_top_csr: vi_common_top_csr@51030000 {
 				compatible ="syscon", "esw,vi-common-csr";
 				status="okay";
@@ -2237,7 +2242,7 @@
 				eswin,hw = <&dvp2axi>;
 				status = "disabled";
 			};
-			
+
 			dvp2axi_mipi_lvds3: dvp2axi_mipi_lvds3 {
 				compatible = "eswin,dvp2axi-mipi-lvds";
 				eswin,hw = <&dvp2axi>;
@@ -2408,7 +2413,7 @@
 				index = <0>;
 				status = "disabled";
 			};
-			
+
 			csi2_dphy1: csi2-dphy1 {
 				compatible = "eswin,eic770x-csi2-dphy";
 				eswin,hw = <&csi2_dphy_hw1>;

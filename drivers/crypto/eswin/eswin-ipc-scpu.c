@@ -1538,7 +1538,7 @@ static int ipc_msg_mbox_tx(struct ipc_session *session, cipher_create_handle_req
 	unsigned long time;
 	struct device *dev = session->miscdev.parent;
 
-	if (req_handle == NULL) {
+	if (!req_handle) {
 		pr_err("req_handle is NULL\n");
 		return -EINVAL;
 	}
@@ -1607,21 +1607,34 @@ static int ipc_msg_mbox_tx(struct ipc_session *session, cipher_create_handle_req
 OUT_TX_ERR:
 	return ret;
 }
-/**
- * @brief Generate TRNG data using IPC mechanism.
- * @param rng_data Pointer to the buffer where the generated random data will be stored.
- * @param rng_size Size of the buffer in bytes.
- * @return error, or trng data length.
- */
-int eswin_ipc_trng_generator(struct ipc_session *session, void *rng_data, u32 rng_size)
-{
-	cipher_create_handle_req_t *req_handle = NULL;
-	int ret = 0;
-	int got_data_size = 0;
-	struct device *dev = NULL;
 
-	if (rng_data == NULL || rng_size == 0 || rng_size > MAX_TRNG_DATA_LEN) {
-		pr_err("Invalid input parameters: rng_data=%p, rng_size=%u\n", rng_data, rng_size);
+/**
+ * check the ipc service status
+ */
+int eswin_ipc_session_service_ready(void *pdev)
+{
+	struct ipc_session *session = (struct ipc_session *)platform_get_drvdata((struct platform_device *)pdev);
+	if (!session) {
+		return false;
+	}
+
+	return eswin_ipc_service_ready(session);
+}
+EXPORT_SYMBOL_GPL(eswin_ipc_session_service_ready);
+
+/**
+ * @brief hanlde the request from kernel.
+ * @param pdev refer to ipc_session's platfromdevice.
+ * @param req_handle differents type of request.
+ * @return error or success code
+ */
+int eswin_ipc_session_kernel_request(void *pdev, cipher_create_handle_req_t *req_handle,
+	 res_service_t *res_srv)
+{
+	struct ipc_session *session = platform_get_drvdata((struct platform_device *)pdev);
+	int ret = 0;
+
+	if (!res_srv) {
 		return -EINVAL;
 	}
 
@@ -1630,36 +1643,19 @@ int eswin_ipc_trng_generator(struct ipc_session *session, void *rng_data, u32 rn
 		return -EBUSY;
 	}
 
-	dev = session->miscdev.parent;
-
-	req_handle = kzalloc(sizeof(*req_handle), GFP_ATOMIC);
-	if (!req_handle) {
-		pr_err("Failed to allocate memory for req_handle\n");
-		return -ENOMEM;
-	}
-
-	req_handle->service_req.serivce_type = SRVC_TYPE_TRNG;
-	req_handle->service_req.data.trng_req.flag = rng_size;
-
 	// Note: session will be locked in following ipc_msg_mbox_tx
 	ret = ipc_msg_mbox_tx(session, req_handle);
 	if (ret < 0) {
-		dev_err(dev, "Failed to send message via mailbox\r\n");
-		goto OUT_FREE;
+		goto OUT_REQ;
 	}
 
-	got_data_size = session->res_srvc.size;
-	ret = rng_size < got_data_size ? rng_size : got_data_size;
-
-	memcpy(rng_data, session->res_srvc.data_t.trng_res.data, ret);
+	memcpy(res_srv, &session->res_srvc, sizeof(*res_srv));
 	mutex_unlock(&session->lock);
 
-OUT_FREE:
-	kfree(req_handle);
+OUT_REQ:
 	return ret;
 }
-
-EXPORT_SYMBOL_GPL(eswin_ipc_trng_generator);
+EXPORT_SYMBOL_GPL(eswin_ipc_session_kernel_request);
 
 static int ipc_ioctl_msg_commu(process_data_list_t *pstProc_data_list, unsigned int cmd, void __user *user_arg)
 {
@@ -2335,49 +2331,6 @@ static int ipc_cipher_destroy_all_handles(struct ipc_session *session)
 	return ret;
 }
 
-static int eswin_rng_init(struct hwrng *rng)
-{
-	struct ipc_session *session = (struct ipc_session *)rng->priv;
-	struct device *dev = session->miscdev.parent;
-
-    dev_dbg(dev, "Eswin RNG driver initialized\n");
-    return 0;
-}
-
-static void eswin_rng_cleanup(struct hwrng *rng)
-{
-	struct ipc_session *session = (struct ipc_session *)rng->priv;
-	struct device *dev = session->miscdev.parent;
-
-    dev_dbg(dev,"Eswin RNG driver cleanup\n");
-}
-
-static int eswin_rng_read(struct hwrng *rng, void *buf, size_t max_len, bool wait)
-{
-    int ret = 0;
-	struct ipc_session *session = (struct ipc_session *)rng->priv;
-	struct device *dev = session->miscdev.parent;
-
-    dev_dbg(dev, "Eswin RNG read called, max_len = %ld, wait = %d\n", max_len, wait);
-
-    if (!wait) {
-        return 0;
-    }
-
-    ret = eswin_ipc_trng_generator(session, buf, max_len);
-    if (ret < 0) {
-        dev_err(dev, "Failed to read random data: %d\n", ret);
-        return ret;
-    }
-
-    for (int i = 0; i < ret; i++) {
-        dev_dbg(dev, "0x%02x ", ((u8 *)buf)[i]);
-    }
-    dev_dbg(dev, "\n");
-
-    return ret;
-}
-
 static int eswin_ipc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2460,17 +2413,6 @@ static int eswin_ipc_probe(struct platform_device *pdev)
 	atomic_set(&session->receive_data_ready, true);
 	atomic_set(&session->ipc_service_ready, true);
 
-	session->rng.priv = (unsigned long)session;
-	session->rng.name = devm_kasprintf(dev, GFP_KERNEL, "%s%d", "eswin_rng", nid);
-	session->rng.init = eswin_rng_init;
-	session->rng.cleanup = eswin_rng_cleanup;
-	session->rng.read = eswin_rng_read;
-	ret = hwrng_register(&session->rng);
-    if (ret) {
-        pr_err("Failed to register %s\n", session->rng.name);
-		goto OUT_MISC_DEREGISTER;
-    }
-
 	pr_debug("sizeof(cipher_create_handle_req_t)=%ld, sizeof(req_service_t)=%ld, sizeof(res_service_t)=%ld, sizeof(req_data_domain_t)=%ld\n",
 		sizeof(cipher_create_handle_req_t), sizeof(req_service_t), sizeof(res_service_t), sizeof(req_data_domain_t));
 
@@ -2492,8 +2434,6 @@ static int eswin_ipc_remove(struct platform_device *pdev)
 	struct ipc_session *session = platform_get_drvdata(pdev);
 	struct device *dev = session->miscdev.parent;
 	int ret = 0;
-
-	hwrng_unregister(&session->rng);
 
 	ret =ipc_cipher_mem_rsc_mgt_unit(session);
 	if (ret)

@@ -724,7 +724,6 @@
 				regulator-max-microamp=<40000000>;
 				regulator-ov-protection-microvolt=<1100000>;
 			};
-			
 		};
 	};
 };
