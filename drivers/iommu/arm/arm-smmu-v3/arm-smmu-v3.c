@@ -2390,6 +2390,21 @@ static __le64 *arm_smmu_get_step_for_sid(struct arm_smmu_device *smmu, u32 sid)
 
 	return step;
 }
+/*bus0 all 256 ste2 ttbr point the same.*/
+
+#ifdef CONFIG_ESWIN_PCIE_VPU
+static void eswin_vpu_pcie_ste2_same_ttbr(struct arm_smmu_master *master, u32 sid)
+{
+	struct arm_smmu_device *smmu = master->smmu;
+	__le64 *step;
+	int i;
+
+	for (i = 1; i < 256; i++) {
+		step = arm_smmu_get_step_for_sid(smmu, sid + i);
+		arm_smmu_write_strtab_ent(master, sid + i, step);
+	}
+}
+#endif
 
 static void arm_smmu_install_ste_for_dev(struct arm_smmu_master *master)
 {
@@ -2408,7 +2423,13 @@ static void arm_smmu_install_ste_for_dev(struct arm_smmu_master *master)
 			continue;
 
 		arm_smmu_write_strtab_ent(master, sid, step);
+#ifdef CONFIG_ESWIN_PCIE_VPU
+		if (sid == 0xff0000) {
+			eswin_vpu_pcie_ste2_same_ttbr(master, sid);
+		}
+#endif
 	}
+
 }
 
 static bool arm_smmu_ats_supported(struct arm_smmu_master *master)
