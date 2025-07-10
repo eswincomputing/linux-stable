@@ -50,6 +50,24 @@
  * with the sensor names, activation modes, threshold registers base address
  * and the thresholds bit fields.
  */
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+static const struct pvt_sensor_info pvt_info_ddr_d0[] = {
+	PVT_SENSOR_INFO(0, "D0 DDR Core Temperature", hwmon_temp, TEMP, TTHRES),
+	PVT_SENSOR_INFO(0, "D0 DDR Core Voltage", hwmon_in, VOLT, VTHRES),
+	PVT_SENSOR_INFO(1, "D0 DDR Core Low-Vt", hwmon_in, LVT, LTHRES),
+	PVT_SENSOR_INFO(2, "D0 DDR Core UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
+	PVT_SENSOR_INFO(3, "D0 DDR Core Standard-Vt", hwmon_in, SVT, STHRES),
+};
+
+static const struct pvt_sensor_info pvt_info_ddr_d1[] = {
+	PVT_SENSOR_INFO(0, "D1 DDR Core Temperature", hwmon_temp, TEMP, TTHRES),
+	PVT_SENSOR_INFO(0, "D1 DDR Core Voltage", hwmon_in, VOLT, VTHRES),
+	PVT_SENSOR_INFO(1, "D1 DDR Core Low-Vt", hwmon_in, LVT, LTHRES),
+	PVT_SENSOR_INFO(2, "D1 DDR Core UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
+	PVT_SENSOR_INFO(3, "D1 DDR Core Standard-Vt", hwmon_in, SVT, STHRES),
+};
+
+#else
 static const struct pvt_sensor_info pvt_info_cpu[] = {
 	PVT_SENSOR_INFO(0, "SoC Temperature", hwmon_temp, TEMP, TTHRES),
 	PVT_SENSOR_INFO(0, "SoC Voltage", hwmon_in, VOLT, VTHRES),
@@ -65,6 +83,7 @@ static const struct pvt_sensor_info pvt_info_ddr[] = {
 	PVT_SENSOR_INFO(2, "DDR Core UltraLow-Vt", hwmon_in, ULVT, ULTHRES),
 	PVT_SENSOR_INFO(3, "DDR Core Standard-Vt", hwmon_in, SVT, STHRES),
 };
+#endif
 
 /*
  * The original translation formulae of the temperature (in degrees of Celsius)
@@ -239,9 +258,8 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 	unsigned long timeout;
 	u32 data;
 	int ret;
-	const struct pvt_sensor_info *pvt_info;
+	const struct pvt_sensor_info *pvt_info = pvt->sensor_info;
 
-	pvt_info = of_device_get_match_data(pvt->dev);
 	if (!pvt_info) {
 		dev_err(pvt->dev, "No matching device data found\n");
 		return -EINVAL;
@@ -552,12 +570,11 @@ static int eswin_pvt_hwmon_read_string(struct device *dev,
 {
 	struct pvt_hwmon *pvt = dev_get_drvdata(dev);
 
-	const struct pvt_sensor_info *pvt_info;
+	const struct pvt_sensor_info *pvt_info = pvt->sensor_info;
 
 	if (!eswin_pvt_hwmon_channel_is_valid(type, ch))
 		return -EINVAL;
 
-	pvt_info = of_device_get_match_data(pvt->dev);
 	if (!pvt_info) {
 		dev_err(pvt->dev, "No matching device data found\n");
 		return -EINVAL;
@@ -766,14 +783,13 @@ static int eswin_pvt_check_pwr(struct pvt_hwmon *pvt)
 static int eswin_pvt_init_iface(struct pvt_hwmon *pvt)
 {
 	unsigned long rate;
-	const struct pvt_sensor_info *pvt_info;
+	const struct pvt_sensor_info *pvt_info = pvt->sensor_info;
 
 	rate = clk_get_rate(pvt->clk);
 	if (!rate) {
 		dev_err(pvt->dev, "Invalid reference clock rate\n");
 		return -ENODEV;
 	}
-	pvt_info = of_device_get_match_data(pvt->dev);
 	if (!pvt_info) {
 		dev_err(pvt->dev, "No matching device data found\n");
 		return -EINVAL;
@@ -842,8 +858,29 @@ static int eswin_pvt_request_irq(struct pvt_hwmon *pvt)
 
 static int eswin_pvt_create_hwmon(struct pvt_hwmon *pvt)
 {
-	pvt->hwmon = devm_hwmon_device_register_with_info(pvt->dev, "pvt", pvt,
-		&pvt_hwmon_info, NULL);
+	int type;
+
+	if (of_device_is_compatible(pvt->dev->of_node,
+		"eswin,eswin-pvt-cpu")) {
+		type = 0;
+	} else if (of_device_is_compatible(pvt->dev->of_node,
+		"eswin,eswin-pvt-ddr")) {
+		type = 1;
+	}
+
+	#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+		const char *names[2][2] = {
+			{"", "d0_ddr_pvt"},
+			{"", "d1_ddr_pvt"}
+		};
+	#else
+		const char *names[1][2] = {
+			{"soc_pvt", "ddr_pvt"},
+		};
+	#endif
+
+	pvt->hwmon = devm_hwmon_device_register_with_info(pvt->dev,
+	names[pvt->nid][type], pvt, &pvt_hwmon_info, NULL);
 	if (IS_ERR(pvt->hwmon)) {
 		dev_err(pvt->dev, "Couldn't create hwmon device\n");
 		return PTR_ERR(pvt->hwmon);
@@ -860,11 +897,39 @@ static int eswin_pvt_enable_iface(struct pvt_hwmon *pvt)
 static int eswin_pvt_probe(struct platform_device *pdev)
 {
 	struct pvt_hwmon *pvt;
-	int ret;
+	int ret, nid;
+	const struct pvt_sensor_info *sensor_info;
+
+	/* Get NUMA node ID */
+	if (of_property_read_s32(pdev->dev.of_node,
+		"numa-node-id", &nid)) {
+		dev_err(&pdev->dev, "numa-node-id was not defined!\n");
+		return -EINVAL;
+	}
+
+	#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+		if (of_device_is_compatible(pdev->dev.of_node,
+			"eswin,eswin-pvt-ddr")) {
+			sensor_info = (nid == 0) ? pvt_info_ddr_d0 :
+						pvt_info_ddr_d1;
+		}
+	#else
+		if (of_device_is_compatible(pdev->dev.of_node,
+		"eswin,eswin-pvt-cpu")) {
+			sensor_info = pvt_info_cpu;
+		} else if (of_device_is_compatible(pdev->dev.of_node,
+			"eswin,eswin-pvt-ddr")) {
+			sensor_info = pvt_info_ddr;
+		}
+	#endif
+
+	platform_set_drvdata(pdev, (void *)sensor_info);
 
 	pvt = eswin_pvt_create_data(pdev);
 	if (IS_ERR(pvt))
 		return PTR_ERR(pvt);
+	pvt->sensor_info = sensor_info;
+	pvt->nid = nid;
 
 	ret = eswin_pvt_request_regs(pvt);
 	if (ret)
@@ -908,10 +973,8 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id pvt_of_match[] = {
-	{ .compatible = "eswin,eswin-pvt-cpu",
-	 .data = &pvt_info_cpu},
-	{ .compatible = "eswin,eswin-pvt-ddr",
-	 .data = &pvt_info_ddr},
+	{ .compatible = "eswin,eswin-pvt-cpu"},
+	{ .compatible = "eswin,eswin-pvt-ddr"},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pvt_of_match);
