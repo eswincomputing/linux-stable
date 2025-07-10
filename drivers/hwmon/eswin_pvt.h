@@ -215,6 +215,8 @@ struct pvt_hwmon {
 	ktime_t timeout;
 	struct regmap *regmap;
 	u32 regmap_offset;
+	const struct pvt_sensor_info *sensor_info;
+	u32 nid;
 };
 
 /*
