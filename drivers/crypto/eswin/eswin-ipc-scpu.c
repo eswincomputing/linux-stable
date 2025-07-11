@@ -92,6 +92,7 @@ typedef struct ipc_private_data {
 
 struct ipc_session {
 	struct miscdevice miscdev;
+	struct hwrng rng;
 	struct mutex lock;
 	struct mbox_client client;
 	struct mbox_chan *mbox_channel;
@@ -170,7 +171,6 @@ static cipher_mem_resource_info_t *ipc_find_cipher_mem_rsc_info(struct ipc_sessi
 static int ipc_session_mem_info_get(struct ipc_session *session, cipher_create_handle_req_t *pstCreate_handle_req);
 static void ipc_session_mem_info_put(struct ipc_session *session);
 
-static struct ipc_session *g_eswin_ipc_session = NULL;
 /*
 static struct page *dma_common_vaddr_to_page(void *cpu_addr)
 {
@@ -1613,7 +1613,7 @@ OUT_TX_ERR:
  * @param rng_size Size of the buffer in bytes.
  * @return error, or trng data length.
  */
-int eswin_ipc_trng_generator(void *rng_data, u32 rng_size)
+int eswin_ipc_trng_generator(struct ipc_session *session, void *rng_data, u32 rng_size)
 {
 	cipher_create_handle_req_t *req_handle = NULL;
 	int ret = 0;
@@ -1624,12 +1624,13 @@ int eswin_ipc_trng_generator(void *rng_data, u32 rng_size)
 		pr_err("Invalid input parameters: rng_data=%p, rng_size=%u\n", rng_data, rng_size);
 		return -EINVAL;
 	}
-	if (!g_eswin_ipc_session || !atomic_read(&g_eswin_ipc_session->ipc_service_ready)) {
+
+	if (!session || !atomic_read(&session->ipc_service_ready)) {
 		pr_err("IPC session is not ready\n");
 		return -EBUSY;
 	}
 
-	dev = g_eswin_ipc_session->miscdev.parent;
+	dev = session->miscdev.parent;
 
 	req_handle = kzalloc(sizeof(*req_handle), GFP_ATOMIC);
 	if (!req_handle) {
@@ -1641,17 +1642,17 @@ int eswin_ipc_trng_generator(void *rng_data, u32 rng_size)
 	req_handle->service_req.data.trng_req.flag = rng_size;
 
 	// Note: session will be locked in following ipc_msg_mbox_tx
-	ret = ipc_msg_mbox_tx(g_eswin_ipc_session, req_handle);
+	ret = ipc_msg_mbox_tx(session, req_handle);
 	if (ret < 0) {
 		dev_err(dev, "Failed to send message via mailbox\r\n");
 		goto OUT_FREE;
 	}
 
-	got_data_size = g_eswin_ipc_session->res_srvc.size;
+	got_data_size = session->res_srvc.size;
 	ret = rng_size < got_data_size ? rng_size : got_data_size;
 
-	memcpy(rng_data, g_eswin_ipc_session->res_srvc.data_t.trng_res.data, ret);
-	mutex_unlock(&g_eswin_ipc_session->lock);
+	memcpy(rng_data, session->res_srvc.data_t.trng_res.data, ret);
+	mutex_unlock(&session->lock);
 
 OUT_FREE:
 	kfree(req_handle);
@@ -2363,7 +2364,7 @@ static int eswin_rng_read(struct hwrng *rng, void *buf, size_t max_len, bool wai
         return 0;
     }
 
-    ret = eswin_ipc_trng_generator(buf, max_len);
+    ret = eswin_ipc_trng_generator(session, buf, max_len);
     if (ret < 0) {
         dev_err(dev, "Failed to read random data: %d\n", ret);
         return ret;
@@ -2376,13 +2377,6 @@ static int eswin_rng_read(struct hwrng *rng, void *buf, size_t max_len, bool wai
 
     return ret;
 }
-
-struct hwrng eswin_rng = {
-    .name = "eswin_rng",
-    .init = eswin_rng_init,
-    .cleanup = eswin_rng_cleanup,
-    .read = eswin_rng_read,
-};
 
 static int eswin_ipc_probe(struct platform_device *pdev)
 {
@@ -2466,11 +2460,14 @@ static int eswin_ipc_probe(struct platform_device *pdev)
 	atomic_set(&session->receive_data_ready, true);
 	atomic_set(&session->ipc_service_ready, true);
 
-	g_eswin_ipc_session = session;
-	eswin_rng.priv = (unsigned long)session;
-	ret = hwrng_register(&eswin_rng);
+	session->rng.priv = (unsigned long)session;
+	session->rng.name = devm_kasprintf(dev, GFP_KERNEL, "%s%d", "eswin_rng", nid);
+	session->rng.init = eswin_rng_init;
+	session->rng.cleanup = eswin_rng_cleanup;
+	session->rng.read = eswin_rng_read;
+	ret = hwrng_register(&session->rng);
     if (ret) {
-        pr_err("failed to register eswin-hwrng\n");
+        pr_err("Failed to register %s\n", session->rng.name);
 		goto OUT_MISC_DEREGISTER;
     }
 
@@ -2496,7 +2493,7 @@ static int eswin_ipc_remove(struct platform_device *pdev)
 	struct device *dev = session->miscdev.parent;
 	int ret = 0;
 
-	hwrng_unregister(&eswin_rng);
+	hwrng_unregister(&session->rng);
 
 	ret =ipc_cipher_mem_rsc_mgt_unit(session);
 	if (ret)

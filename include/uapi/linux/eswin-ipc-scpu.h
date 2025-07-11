@@ -697,9 +697,6 @@ typedef struct {
 	khandle_dma_allocation_data_t k_dma_infos[MAX_NUM_K_DMA_ALLOC_INFO];
 }cipher_create_handle_req_t;
 
-extern struct hwrng eswin_rng;
-int eswin_ipc_trng_generator(void *rng_data, u_int32_t rng_size);
-
 #define SCPU_IOC_MAGIC 'S'
 #define SCPU_IOC_ALLOCATE_MEM_BY_DRIVER_WITH_DMA_HEAP	_IOWR(SCPU_IOC_MAGIC, 0x1, struct dmabuf_bank_info)
 #define SCPU_IOC_FREE_MEM_BY_DRIVER_WITH_DMA_HEAP	_IOWR(SCPU_IOC_MAGIC, 0x2, struct dmabuf_bank_info)
