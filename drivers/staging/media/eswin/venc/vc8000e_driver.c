@@ -624,23 +624,6 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 }
 #endif /** end of SUPPORT_DMA_HEAP*/
 
-/* Temporary using this func to do crg init for d1 */
-static int venc_d1_clk_reset_init(void)
-{
-	void __iomem *d1_crg_reg = NULL;
-
-	d1_crg_reg = ioremap(0x71828000, 0x1000);
-	writel(0x80000020, (d1_crg_reg + 0x1c4));
-	writel(0x30003f, (d1_crg_reg + 0x1d0));
-	writel(0x80000020, (d1_crg_reg + 0x1d4));
-	writel(0x80000020, (d1_crg_reg + 0x1e0));
-	writel(0x7, (d1_crg_reg + 0x458));
-	writel(0x3, (d1_crg_reg + 0x460));
-	writel(0x3, (d1_crg_reg + 0x468));
-
-	return 0;
-}
-
 static int enc_reset_core(struct device *dev, u16 module_type)
 {
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
@@ -941,32 +924,28 @@ static int hantro_venc_probe(struct platform_device *pdev)
 	}
 #endif /** CONFIG_PM_DEVFREQ*/
 
-	if (!numa_id) {
-		ret = venc_sys_reset_init(pdev, vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: reset initialization failed");
-			return -1;
-		}
+	ret = venc_sys_reset_init(pdev, vcrt);
+	if (ret < 0) {
+		LOG_ERR("venc: reset initialization failed");
+		return -1;
+	}
 
-		ret = venc_sys_clk_init(pdev, vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: clk init failed");
-			return -1;
-		}
+	ret = venc_sys_clk_init(pdev, vcrt);
+	if (ret < 0) {
+		LOG_ERR("venc: clk init failed");
+		return -1;
+	}
 
-		ret = venc_sys_clk_enable(vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: clk enable failed");
-			return -1;
-		}
+	ret = venc_sys_clk_enable(vcrt);
+	if (ret < 0) {
+		LOG_ERR("venc: clk enable failed");
+		return -1;
+	}
 
-		ret = venc_sys_reset_release(vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: reset release failed");
-			return -1;
-		}
-	} else {
-		venc_d1_clk_reset_init();
+	ret = venc_sys_reset_release(vcrt);
+	if (ret < 0) {
+		LOG_ERR("venc: reset release failed");
+		return -1;
 	}
 
 	ret = venc_trans_device_nodes(pdev, numa_id);

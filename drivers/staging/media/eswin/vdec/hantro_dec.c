@@ -3933,23 +3933,6 @@ static int vdec_smmu_dynm_sid_init(struct platform_device *pdev, int numa_id)
 }
 #endif
 
-/* Temporary using this func to do crg init for d1 */
-int d1_clk_reset_init(void)
-{
-	void __iomem *d1_crg_reg = NULL;
-
-	d1_crg_reg = ioremap(0x71828000, 0x1000);
-	writel(0x80000020, (d1_crg_reg + 0x1c4));
-	writel(0x30003f, (d1_crg_reg + 0x1d0));
-	writel(0x80000020, (d1_crg_reg + 0x1d8));
-	writel(0x80000020, (d1_crg_reg + 0x1dc));
-	writel(0x7, (d1_crg_reg + 0x458));
-	writel(0x3, (d1_crg_reg + 0x45c));
-	writel(0x3, (d1_crg_reg + 0x464));
-
-	return 0;
-}
-
 #if defined(CONFIG_PM_DEVFREQ)
 static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
@@ -4074,10 +4057,7 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 	if (!numa_id)
 		platformdev = pdev;
 	else
-	{
 		platformdev_d1 = pdev;
-		d1_clk_reset_init();
-	}
 
 	if (vdec_trans_device_nodes(pdev, numa_id)) {
 		LOG_ERR("Translates video decoder dts to subsys failed");
