@@ -5200,6 +5200,19 @@ gckHARDWARE_PowerControlClusters(gckHARDWARE Hardware,
 
     command = Hardware->kernel->command;
 
+    do {
+        gckOS_Delay(Hardware->os, 100);
+
+        gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
+                                            0x00004, &idle));
+
+        timer++;
+        if (timer >= 5) {
+            hae_print("core: %d, wait register idl: 0x%x timeout!", Hardware->core, idle);
+            break;
+        }
+    } while (!_IsHWIdle(idle, Hardware));
+
 #if !gcdFPGA_BUILD
     if (Hardware->identity.customerID != 0x85 || !Hardware->mcFE ||
         Hardware->options.enableNNClusters == (gctUINT32)~0UL ||
@@ -6183,6 +6196,15 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
     }
 
 #if gcdPOWEROFF_TIMEOUT
+    if (state == gcvPOWER_ON) {
+        Hardware->nextPowerState = gcvPOWER_INVALID;
+    }
+
+    if (broadcast && !timeout && state == gcvPOWER_OFF) {
+        status = gcvSTATUS_OK;
+        goto OnError;
+    }
+
     if (timeout && Hardware->nextPowerState == gcvPOWER_INVALID) {
         /* Delayed power state change is canceled. */
         status = gcvSTATUS_OK;
@@ -6336,15 +6358,6 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
 #endif
 
 #if gcdPOWEROFF_TIMEOUT
-    if (!broadcast) {
-        /*
-         * Cancel delayed power state change.
-         * Stop timer is not as good as set as no state change. Timer may run
-         * into this function already when try to stop the timer.
-         */
-        Hardware->nextPowerState = gcvPOWER_INVALID;
-    }
-
     if (Hardware->powerOffTimeout &&
         (state == gcvPOWER_IDLE || state == gcvPOWER_SUSPEND)) {
         /* Delayed power off. */

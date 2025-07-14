@@ -2280,7 +2280,8 @@ isrRoutine(int irq, void *ctxt)
     }
 
     if(status == gcvSTATUS_GENERIC_IO){
-        pr_info("[%s] hae isr meet clock close...\n", __func__);
+        hae_print("irq: %d, core: %d, addr: %llx clock close.\n",
+            irq, kernel->core, kernel->hardware->lastExecuteAddress);
     }
 
     return IRQ_NONE;
