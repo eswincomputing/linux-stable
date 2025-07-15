@@ -34,7 +34,6 @@
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
-#include <linux/reset.h>
 
 #define ESWIN_SMMU_IRQ_CLEAR_REG	1
 
@@ -4132,87 +4131,6 @@ static void arm_smmu_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
 	iort_put_rmr_sids(dev_fwnode(smmu->dev), &rmr_list);
 }
 
-#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-static int eswin_smmu_reset_release(struct arm_smmu_device *smmu)
-{
-	int ret = 0;
-	int i;
-	char tbu_rst_name[16] = {0};
-	struct device *dev = smmu->dev;
-	struct eswin_smmu_reset_control *eswin_smmu_rst_ctl_p = &smmu->eswin_smmu_rst_ctl;
-
-	dev_dbg(dev, "Try %s !\n", __func__);
-
-	eswin_smmu_rst_ctl_p->smmu_axi_rst = devm_reset_control_get_optional(dev, "axi_rst");
-	if (IS_ERR_OR_NULL(eswin_smmu_rst_ctl_p->smmu_axi_rst)) {
-		dev_err(dev, "Failed to get eswin smmu_axi_rst handle\n");
-		return -EFAULT;
-	}
-
-	eswin_smmu_rst_ctl_p->smmu_cfg_rst = devm_reset_control_get_optional(dev, "cfg_rst");
-	if (IS_ERR_OR_NULL(eswin_smmu_rst_ctl_p->smmu_cfg_rst)) {
-		dev_err(dev, "Failed to get eswin smmu_cfg_rst handle\n");
-		return -EFAULT;
-	}
-
-	for(i = 0; i < ESWIN_MAX_TBU_COUNT; i++) {
-		snprintf(tbu_rst_name, sizeof(tbu_rst_name), "tbu%d_rst", i);
-		eswin_smmu_rst_ctl_p->tbu_rst[i] = devm_reset_control_get_optional(dev, tbu_rst_name);
-		if (IS_ERR_OR_NULL(eswin_smmu_rst_ctl_p->tbu_rst[i])) {
-			dev_err(dev, "Failed to get eswin %s handle\n", tbu_rst_name);
-			return -EFAULT;
-		}
-	}
-
-	// The order of the reset must be TCU_cfg_rst ---> TCU_axi_rst ---> TBU_rst
-	ret = reset_control_reset(eswin_smmu_rst_ctl_p->smmu_cfg_rst);
-	WARN_ON(0 != ret);
-
-	ret = reset_control_reset(eswin_smmu_rst_ctl_p->smmu_axi_rst);
-	WARN_ON(0 != ret);
-
-	for(i = 0; i < ESWIN_MAX_TBU_COUNT; i++) {
-		ret = reset_control_reset(eswin_smmu_rst_ctl_p->tbu_rst[i]);
-		WARN_ON(0 != ret);
-	}
-
-	dev_dbg(dev, "%s successfully!\n", __func__);
-
-	return ret;
-}
-
-static int eswin_smmu_reset_assert(struct arm_smmu_device *smmu)
-{
-	int ret = 0;
-	int i;
-	struct device *dev = smmu->dev;
-	struct eswin_smmu_reset_control *eswin_smmu_rst_ctl_p = &smmu->eswin_smmu_rst_ctl;
-
-	dev_dbg(dev, "Try %s !\n", __func__);
-
-	for(i = 0; i < ESWIN_MAX_TBU_COUNT; i++) {
-		if (eswin_smmu_rst_ctl_p->tbu_rst[i]) {
-			ret = reset_control_assert(eswin_smmu_rst_ctl_p->tbu_rst[i]);
-			WARN_ON(0 != ret);
-		}
-	}
-
-	if (eswin_smmu_rst_ctl_p->smmu_axi_rst) {
-		ret = reset_control_assert(eswin_smmu_rst_ctl_p->smmu_axi_rst);
-		WARN_ON(0 != ret);
-	}
-
-	if (eswin_smmu_rst_ctl_p->smmu_cfg_rst) {
-		ret = reset_control_assert(eswin_smmu_rst_ctl_p->smmu_cfg_rst);
-		WARN_ON(0 != ret);
-	}
-
-	dev_dbg(dev, "%s successfully!\n", __func__);
-
-	return ret;
-}
-#endif
-
 static int arm_smmu_device_probe(struct platform_device *pdev)
 {
 	int irq, ret;
@@ -4270,13 +4188,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	smmu->s_base = arm_smmu_ioremap(dev, ioaddr + ARM_SMMU_S_BASE, ARM_SMMU_S_AND_TCU_MICRO_REG_SZ);
 	if (IS_ERR(smmu->s_base))
 		return PTR_ERR(smmu->s_base);
-
-	/* eswin, release the reset of smmu */
-	ret = eswin_smmu_reset_release(smmu);
-	if (ret) {
-		dev_err(dev, "failed to release the reset of SMMU\n");
-		return ret;
-	}
 
 	/* eswin, syscon devie is used for clearing the smmu interrupt */
 	smmu->regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscfg");
@@ -4364,11 +4275,6 @@ static void arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_device_disable(smmu);
 	iopf_queue_free(smmu->evtq.iopf);
 	ida_destroy(&smmu->vmid_map);
-
-	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-	/* eswin, hold the reset of the smmu */
-	eswin_smmu_reset_assert(smmu);
-	#endif
 }
 
 static void arm_smmu_device_shutdown(struct platform_device *pdev)

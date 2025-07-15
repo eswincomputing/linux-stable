@@ -215,18 +215,6 @@
 				<358>;
 			interrupt-names = "eventq", "gerror", "priq", "cmdq-sync";
 			#iommu-cells = <1>;
-			resets = <&d0_reset TCU_RST_CTRL SW_TCU_AXI_RSTN>,
-				<&d0_reset TCU_RST_CTRL SW_TCU_CFG_RSTN>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_0>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_1>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_2>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_3>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_4>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_5>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_6>,
-				<&d0_reset TCU_RST_CTRL TBU_RSTN_7>;
-			reset-names = "axi_rst", "cfg_rst", "tbu0_rst", "tbu1_rst", "tbu2_rst", "tbu3_rst",
-				"tbu4_rst", "tbu5_rst", "tbu6_rst", "tbu7_rst";
 			status = "disabled";
 			numa-node-id = <0>;
 			dma-noncoherent;
