@@ -2186,6 +2186,9 @@
 						 <&d1_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
 				reset-names = "axi", "cfg", "dwe";
 
+				operating-points-v2 = <&vi_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				interrupt-parent = <&plic1>;
 				interrupts = <26 25>;
 				#size-cells = <2>;
