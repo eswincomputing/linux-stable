@@ -76,6 +76,7 @@ struct nvdla_device {
 	struct clk *llc_aclk;
 	struct clk *mux_u_npu_llclk_3mux1_gfree;
 	struct clk *fixed_rate_clk_spll0_fout1;
+	struct clk *fixed_rate_clk_spll2_fout1;
 	struct clk *fixed_rate_clk_vpll_fout1;
 
 	struct clk *mbox_pclk_device;
@@ -98,9 +99,17 @@ struct nvdla_device {
 	atomic64_t start_lock_time;
 	atomic64_t end_lock_time;
 	atomic64_t total_lock_time;
+	bool is_suspend;
 	atomic64_t total_frame_done;
 };
 
+struct npu_freq_param {
+	struct clk *npu_clk_parent;
+	unsigned long npu_rate;
+	struct clk *llc_clk_parent;
+	unsigned long llc_rate;
+	int volt;
+};
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);
 
 uint32_t dla_reg_read(struct nvdla_device *dev, uint32_t addr);

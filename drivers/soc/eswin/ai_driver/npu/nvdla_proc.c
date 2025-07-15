@@ -328,7 +328,7 @@ static int stat_open(struct inode *inode, struct file *flip)
 static int npu_conf_show(struct seq_file *m, void *p)
 {
 	int i = 0;
-	unsigned long rate = 0, volt = 0;
+	unsigned long rate = 0, volt = 0, llc_rate;
 	struct nvdla_device *ndev = NULL;
 
 	for (i = 0; i < 2; i++)	{
@@ -338,8 +338,9 @@ static int npu_conf_show(struct seq_file *m, void *p)
 		}
 		volt = regulator_get_voltage(ndev->npu_regulator);
 		rate = clk_get_rate(ndev->core_clk);
+		llc_rate = clk_get_rate(ndev->llc_aclk);
 
-		seq_printf(m, "npu%d %lu %lu\n", i, volt, rate);
+		seq_printf(m, "npu%d %lu %lu %lu \n", i, volt, rate, llc_rate);
 	}
 	return 0;
 }

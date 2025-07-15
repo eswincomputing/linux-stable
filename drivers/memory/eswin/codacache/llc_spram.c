@@ -45,6 +45,9 @@
 #include <linux/memblock.h>
 #include <linux/version.h>
 #include <linux/clk-provider.h>
+#include <linux/eswin-win2030-sid-cfg.h>
+#include <dt-bindings/interconnect/eswin,win2030.h>
+#include <linux/win2030_noc.h>
 
 #include <linux/eswin_npu.h>
 #include <linux/regulator/consumer.h>
@@ -102,15 +105,13 @@ struct spram_dev {
 	struct clk *cfg_clk;
 	struct clk *llc_clk;
 	struct clk *core_clk;
-	struct clk *mux_u_npu_core_3mux1_gfree;
-	struct clk *fixed_rate_clk_spll2_fout2;
-	struct clk *fixed_rate_clk_spll1_fout1;
 	struct reset_control *rstc_axi;
 	struct reset_control *rstc_cfg;
 	struct reset_control *rstc_core;
 	struct reset_control *rstc_llc;
 	struct regulator *npu_regulator;
 	u8 is_low_freq;
+	bool is_suspend;
 };
 
 #define dma_buf_map		iosys_map
@@ -481,61 +482,6 @@ int npu_cfg_rst(int nid, bool enable)
 }
 EXPORT_SYMBOL(npu_cfg_rst);
 
-static int npu_clk_enable(struct platform_device *pdev, struct spram_dev *spram)
-{
-	int ret;
-
-	if (!__clk_is_enabled(spram->cfg_clk)) {
-		ret = clk_prepare_enable(spram->cfg_clk);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to enable cfg_clk: %d\n", ret);
-			return ret;
-		}
-	}
-
-	if (!__clk_is_enabled(spram->core_clk)) {
-		ret = clk_prepare_enable(spram->core_clk);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to enable core_clk: %d\n", ret);
-			return ret;
-		}
-	}
-	return 0;
-}
-
-static int npu_clk_disable(struct platform_device *pdev, struct spram_dev *spram)
-{
-	clk_disable_unprepare(spram->core_clk);
-	clk_disable_unprepare(spram->cfg_clk);
-	return 0;
-}
-
-int npu_clk_gate_set(int nid, bool enable)
-{
-	struct platform_device *pdev = pdevs[nid];
-	struct spram_dev *spram;
-
-	if (NULL == pdev) {
-		pr_err("%s, Invalid node id:%d\n", __func__, nid);
-		return -EINVAL;
-	}
-
-	spram = platform_get_drvdata(pdev);
-	if (spram == NULL)
-		return -EINVAL;
-
-	if (enable == true) {
-		return npu_clk_enable(pdev, spram);
-	} else if (enable == false) {
-		return npu_clk_disable(pdev, spram);
-	} else {
-		pr_err("param enable=%d error.\n", enable);
-		return -EINVAL;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(npu_clk_gate_set);
-
 int npu_core_rst(int nid, bool enable)
 {
 	struct platform_device *pdev = pdevs[nid];
@@ -655,28 +601,6 @@ static int llc_clk_init(struct platform_device *pdev)
 		return ret;
 	}
 
-	spram->mux_u_npu_core_3mux1_gfree = devm_clk_get(&pdev->dev, "mux_u_npu_core_3mux1_gfree");
-	if (IS_ERR(spram->mux_u_npu_core_3mux1_gfree)) {
-		ret = PTR_ERR(spram->mux_u_npu_core_3mux1_gfree);
-		dev_err(&pdev->dev, "failed to get mux_u_npu_core_3mux1_gfree: %d\n", ret);
-		return ret;
-	}
-
-	spram->fixed_rate_clk_spll2_fout2 = devm_clk_get(&pdev->dev, "fixed_rate_clk_spll2_fout2");
-	if (IS_ERR(spram->fixed_rate_clk_spll2_fout2)) {
-		ret = PTR_ERR(spram->fixed_rate_clk_spll2_fout2);
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout2: %d\n", ret);
-		return ret;
-	}
-	spram->fixed_rate_clk_spll1_fout1 =
-		devm_clk_get(&pdev->dev, "fixed_rate_clk_spll1_fout1");
-	if (IS_ERR(spram->fixed_rate_clk_spll1_fout1))
-	{
-		ret = PTR_ERR(spram->fixed_rate_clk_spll1_fout1);
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll1_fout1: %d\n", ret);
-		return ret;
-	}
-
 	return 0;
 }
 
@@ -720,7 +644,6 @@ static int llc_clk_disable(struct spram_dev *spram)
 	clk_disable_unprepare(spram->aclk);
 	clk_disable_unprepare(spram->cfg_clk);
 	clk_disable_unprepare(spram->llc_clk);
-	clk_disable_unprepare(spram->core_clk);
 
 	return 0;
 }
@@ -1413,21 +1336,84 @@ free_spram:
 #endif
 
 #ifdef CONFIG_PM
+static int llc_sideband_query(struct device *dev)
+{
+	int ret = 0;
+	int noc_falut = 0;
+
+	ret = win2030_noc_sideband_mgr_query(SBM_NPU_SNOC_SP0);
+	if (ret != 1) {
+		dev_err(dev,"warning:SBM_NPU_SNOC_SP0 state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+
+	ret = win2030_noc_sideband_mgr_query(SBM_NPU_SNOC_SP1);
+	if (ret != 1) {
+		dev_err(dev, "warning:SBM_NPU_SNOC_SP1 state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+
+	ret = win2030_noc_sideband_mgr_query(SBM_SNOC_NPU);
+	if (ret != 1) {
+		dev_err(dev, "warning:SBM_SNOC_NPU state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+
+	ret = win2030_noc_sideband_mgr_query(SBM_CNOC_NPU);
+	if (ret != 1) {
+		dev_err(dev, "warning:SBM_CNOC_NPU state:%d\n", ret);
+		noc_falut = -EIO;
+	}
+	return noc_falut;
+}
+
+static int llc_sideband_check(struct device *dev)
+{
+	int try_cnt = 10;
+	int ret = 0;
+
+	while (--try_cnt) {
+		ret = llc_sideband_query(dev);
+		if (ret) {
+			msleep(200);
+		} else {
+			break;
+		}
+	}
+	if (ret) {
+		dev_err(dev, "%s failed, npu noc is busy.\n", __func__);
+		return ret;
+	}
+	return 0;
+}
 static int __maybe_unused llc_suspend(struct device *dev)
 {
 
 	struct spram_dev *spram = dev_get_drvdata(dev);
+	int is_enable = 0;
+	int ret = 0;
 
-	llc_rst_assert(spram);
-	if (!pm_runtime_status_suspended(dev))
-	{
-		llc_clk_disable(spram);
+	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
+
+	ret = llc_sideband_check(dev);
+	if (ret) {
+		dev_err(dev, "llc suspend failed.\n");
+		spram->is_suspend = false;
+		return ret;
 	}
+	llc_rst_assert(spram);
+		llc_clk_disable(spram);
+
 	if ((NULL != spram->npu_regulator) && (!IS_ERR(spram->npu_regulator)))
 	{
+		is_enable = regulator_is_enabled(spram->npu_regulator);
+		if(1 == is_enable)
+		{
 		regulator_disable(spram->npu_regulator);
+			mdelay(20);
 	}
-
+	}
+	spram->is_suspend = true;
 	return 0;
 }
 
@@ -1436,6 +1422,13 @@ static int __maybe_unused llc_resume(struct device *dev)
 	int ret = 0;
 	int is_enable = 0;
 	struct spram_dev *spram = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
+
+	if(spram->is_suspend == false) {
+		dev_err(spram->dev, "llc was not suspended at last time.\n");
+		return -EACCES;
+	}
 
 	if (!IS_ERR_OR_NULL(spram->npu_regulator)) {
 		is_enable = regulator_is_enabled(spram->npu_regulator);
@@ -1466,36 +1459,13 @@ static int __maybe_unused llc_resume(struct device *dev)
 		return ret;
 	}
 
-	return ret;
-}
-
-
-static int __maybe_unused llc_runtime_suspend(struct device *dev)
-{
-	struct spram_dev *spram = dev_get_drvdata(dev);
-
-	llc_clk_disable(spram);
-
-	return 0;
-}
-
-static int __maybe_unused llc_runtime_resume(struct device *dev)
-{
-	struct spram_dev *spram = dev_get_drvdata(dev);
-	int ret = 0;
-
-	ret = llc_clk_enable(spram);
-	if(ret != 0){
-		dev_err(spram->dev, "llc_clk_enable error: %d\n", ret);
-	}
+	clk_disable_unprepare(spram->core_clk);
 
 	return ret;
 }
 
 static const struct dev_pm_ops llc_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(llc_suspend, llc_resume)
-	SET_RUNTIME_PM_OPS(llc_runtime_suspend,
-				   llc_runtime_resume, NULL)
 };
 
 #define DEV_PM_OPS (&llc_dev_pm_ops)
@@ -1647,7 +1617,6 @@ static ssize_t npu_regulator_store(struct device *device,
 		{
 			return ret;
 		}
-
 	}
 
 	return count;
@@ -1688,9 +1657,9 @@ static int llc_probe(struct platform_device *pdev)
 	#if defined(CONFIG_RISCV) && defined(HAVE_LLC_HARDWARE)
 	/* Init llc controller */
 	ret = llc_clk_rst_init(pdev);
-	if (ret)
+	if (ret) {
 		return ret;
-
+	}
 	ret = llc_spram_init(spram);
 	if (ret) {
 		return ret;
@@ -1764,6 +1733,9 @@ static int llc_probe(struct platform_device *pdev)
 	ret = sysfs_create_group(&pdev->dev.kobj, &llc_attr_group);
 	if (ret)
 		dev_err(&pdev->dev, "failed to create sysfs group: %d\n", ret);
+
+	clk_disable_unprepare(spram->core_clk);
+
 	return 0;
 }
 

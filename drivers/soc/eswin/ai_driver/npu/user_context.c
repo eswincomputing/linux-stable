@@ -954,8 +954,8 @@ static void npu_uctx_release(struct khandle *h)
 	dla_debug("npu_uctx_release ok. pid=%d, uctx=0x%px.\n", current->pid,
 		  uctx);
 	kfree(uctx);
-	module_put(THIS_MODULE);
 	npu_pm_put(ndev);
+	module_put(THIS_MODULE);
 }
 
 int npu_dev_open(struct inode *inode, struct file *file)
@@ -985,14 +985,13 @@ int npu_dev_open(struct inode *inode, struct file *file)
 	engine = ndev->win_engine;
 	ret = npu_pm_get(ndev);
 	if (ret < 0) {
-		dla_error("%s, %d, npu_pm_get failed, ret = %d.\n", __func__,
+		dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
 			  __LINE__, ret);
 		return ret;
 	}
 	spin_lock_irqsave(&engine->executor_lock, flags);
 	if (engine->engine_is_alive == false) {
 		dla_error("npu engine is not ok, please restart.\n");
-		npu_pm_put(ndev);
 		spin_unlock_irqrestore(&engine->executor_lock, flags);
 		return -ENODEV;
 	}
@@ -1000,14 +999,12 @@ int npu_dev_open(struct inode *inode, struct file *file)
 
 	if (!try_module_get(THIS_MODULE)) {
 		dla_error("%s, %d, cannot get module.\n", __func__, __LINE__);
-		npu_pm_put(ndev);
 		return -ENODEV;
 	}
 
 	uctx = kzalloc(sizeof(struct user_context), GFP_KERNEL);
 	if (uctx == NULL) {
 		module_put(THIS_MODULE);
-		npu_pm_put(ndev);
 		dla_error("%s %d nomem\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -1017,7 +1014,6 @@ int npu_dev_open(struct inode *inode, struct file *file)
 	if (ret != 0) {
 		dla_error("init kernel handle for user context error.\n");
 		module_put(THIS_MODULE);
-		npu_pm_put(ndev);
 		kfree(uctx);
 		return ret;
 	}
