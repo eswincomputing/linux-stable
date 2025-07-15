@@ -825,17 +825,17 @@
 };
 
 &isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dewarp {
