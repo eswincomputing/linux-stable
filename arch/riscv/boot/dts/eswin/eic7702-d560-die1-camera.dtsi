@@ -5,7 +5,7 @@
     d1_vvcam_isp_0: d1-vvcam_isp@0 {
         compatible = "verisilicon,isp-v4l2";
         id = <0>;
-        status = "okay";
+        status = "disabled";
 		dma-noncoherent;
 
         ports {
@@ -53,7 +53,7 @@
 
 	d1_vvcam_vb: d1-vvcam-vb@0 {
 		compatible = "verisilicon,vb";
-		status = "okay";
+		status = "disabled";
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu1 WIN2030_SID_ISP0>;
@@ -62,7 +62,7 @@
     d1_vvcam_video_0: d1-vvcam_video@0 {
         compatible = "verisilicon,video";
         id = <0>;
-        status = "okay";
+        status = "disabled";
 		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu1 WIN2030_SID_ISP0>;
@@ -345,7 +345,7 @@
 
 
 &d1_isp_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d1_isp_1 {
