@@ -1324,7 +1324,8 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		label = "d0_npu_vdd";
+		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
 				regulator-name="NPU_SVCC";
@@ -1345,6 +1346,7 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "supply vdd1", "npu vdd1";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
