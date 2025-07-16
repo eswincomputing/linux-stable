@@ -283,6 +283,20 @@
 					function = "spi0_func";
 				};
 			};
+			pinctrl_die1_dual_spi1_default: dual_spi1-default{
+				mux1 {
+					groups = "spi1_clk_group";
+					function = "spi1_clk_func";
+				};
+				mux2 {
+					groups = "spi1_d0_d1_group";
+					function = "spi1_d0_d1_func";
+				};
+				mux3 {
+					groups = "spi1_cs0_group";
+					function = "spi1_cs0_func";
+				};
+			};
             pinctrl_die1_spi1_default: spi1-default{
 				mux{
 					groups = "spi1_group";
@@ -483,6 +497,32 @@
 			};
 
             //func1
+			pinctrl_die1_dual_spi2_default: dual_spi2-default{
+				mux1 {
+					groups = "spi2_clk_group";
+					function = "spi2_clk_func";
+				};
+				conf1 {
+					groups = "spi2_clk_group";
+					input-enable = <1>;
+					bias-pull-up = <1>;
+					bias-pull-down = <0>;
+				};
+				mux2 {
+					groups = "spi2_d0_d1_group";
+					function = "spi2_d0_d1_func";
+				};
+				conf2 {
+					groups = "spi2_d0_d1_group";
+					input-enable = <1>;
+					bias-pull-up = <1>;
+					bias-pull-down = <0>;
+				};
+				mux3 {
+					groups = "spi2_cs0_group";
+					function = "spi2_cs0_func";
+				};
+			};
             pinctrl_die1_spi2_default: spi2-default{
 				mux1 {
 					groups = "spi2_clk_group";

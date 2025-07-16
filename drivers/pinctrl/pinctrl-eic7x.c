@@ -299,6 +299,8 @@ static const char * const sdio0_group[] = {"sdio0_group"};
 static const char * const sdio1_group[] = {"sdio1_group"};
 static const char * const jtag0_group[] = {"jtag0_group"};
 static const char * const spi2_cs_group[] = {"spi2_cs_group"};
+static const char * const spi2_cs0_group[] = {"spi2_cs0_group"};
+static const char * const spi2_cs1_group[] = {"spi2_cs1_group"};
 static const char * const pcie_group[] = {"pcie_group"};
 static const char * const hdmi_group[] = {"hdmi_group"};
 static const char * const rgmii0_group[] = {"rgmii0_group"};
@@ -309,6 +311,11 @@ static const char * const por_time_sel0_group[] = {"por_time_sel0_group"};
 static const char * const por_time_sel1_group[] = {"por_time_sel1_group"};
 static const char * const rgmii1_group[] = {"rgmii1_group"};
 static const char * const spi1_group[] = {"spi1_group"};
+static const char * const spi1_clk_group[] = {"spi1_clk_group"};
+static const char * const spi1_cs0_group[] = {"spi1_cs0_group"};
+static const char * const spi1_cs1_group[] = {"spi1_cs1_group"};
+static const char * const spi1_d0_d1_group[] = {"spi1_d0_d1_group"};
+static const char * const spi1_d2_d3_group[] = {"spi1_d2_d3_group"};
 static const char * const usb0_pwren_group[] = {"usb0_pwren_group"};
 static const char * const usb1_pwren_group[] = {"usb1_pwren_group"};
 static const char * const i2c0_group[] = {"i2c0_group"};
@@ -345,6 +352,8 @@ static const char * const lpddr_ref_clk_group[] = {"lpddr_ref_clk_group"};
 static const char * const spi2_clk_group[] = {"spi2_clk_group"};
 static const char * const spi2_d0_group[] = {"spi2_d0_group"};
 static const char * const spi2_d1_d2_d3_group[] = {"spi2_d1_d2_d3_group"};
+static const char * const spi2_d0_d1_group[] = {"spi2_d0_d1_group"};
+static const char * const spi2_d2_d3_group[] = {"spi2_d2_d3_group"};
 
 static const char * const sata_act_led_group[] = {"sata_act_led_group"};
 static const char * const emmc_led_control_group[] = {"emmc_led_control_group"};
@@ -559,6 +568,8 @@ static const unsigned int sdio0_pins[] = {1,2};
 static const unsigned int sdio1_pins[] = {3,4};
 static const unsigned int jtag0_pins[] = {14,15,16,17};
 static const unsigned int spi2_cs_pins[] = {19,25};
+static const unsigned int spi2_cs0_pins[] = {19};
+static const unsigned int spi2_cs1_pins[] = {25};
 static const unsigned int pcie_pins[] = {26,27,28};
 static const unsigned int hdmi_pins[] = {29,30,31};
 static const unsigned int rgmii0_pins[] = {33,34,35,36,37,38,39,45,46,47,48,49,50,58,59,60};
@@ -569,6 +580,11 @@ static const unsigned int por_time_sel0_pins[] = {57};
 static const unsigned int por_time_sel1_pins[] = {72};
 static const unsigned int rgmii1_pins[] = {61,62,63,64,65,66,67,73,74,75,76,77,78,86,87,88};
 static const unsigned int spi1_pins[] = {79,80,81,82,83,84,85};
+static const unsigned int spi1_cs0_pins[] = {79};
+static const unsigned int spi1_clk_pins[] = {80};
+static const unsigned int spi1_d0_d1_pins[] = {81,82};
+static const unsigned int spi1_d2_d3_pins[] = {83,84};
+static const unsigned int spi1_cs1_pins[] = {85};
 static const unsigned int usb0_pwren_pins[] = {89};
 static const unsigned int usb1_pwren_pins[] = {90};
 static const unsigned int i2c0_pins[] = {91,92};
@@ -604,6 +620,8 @@ static const unsigned int lpddr_ref_clk_pins[] = {158};
 static const unsigned int spi2_clk_pins[] = {14};
 static const unsigned int spi2_d0_pins[] = {15};
 static const unsigned int spi2_d1_d2_d3_pins[] = {16,17,18};
+static const unsigned int spi2_d0_d1_pins[] = {15,16};
+static const unsigned int spi2_d2_d3_pins[] = {17,18};
 
 static const unsigned int sata_act_led_pins[] = {55};
 static const unsigned int emmc_led_control_pins[] = {57};
@@ -830,6 +848,8 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
     ESWIN_PINCTRL_GRP(sdio1),
     ESWIN_PINCTRL_GRP(jtag0),
     ESWIN_PINCTRL_GRP(spi2_cs),
+	ESWIN_PINCTRL_GRP(spi2_cs0),
+	ESWIN_PINCTRL_GRP(spi2_cs1),
     ESWIN_PINCTRL_GRP(pcie),
     ESWIN_PINCTRL_GRP(hdmi),
     ESWIN_PINCTRL_GRP(rgmii0),
@@ -840,6 +860,11 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
     ESWIN_PINCTRL_GRP(por_time_sel1),
     ESWIN_PINCTRL_GRP(rgmii1),
     ESWIN_PINCTRL_GRP(spi1),
+	ESWIN_PINCTRL_GRP(spi1_cs0),
+	ESWIN_PINCTRL_GRP(spi1_clk),
+	ESWIN_PINCTRL_GRP(spi1_d0_d1),
+	ESWIN_PINCTRL_GRP(spi1_d2_d3),
+	ESWIN_PINCTRL_GRP(spi1_cs1),
     ESWIN_PINCTRL_GRP(usb0_pwren),
     ESWIN_PINCTRL_GRP(usb1_pwren),
     ESWIN_PINCTRL_GRP(i2c0),
@@ -875,6 +900,8 @@ static const struct eswin_group_desc eswin_pinctrl_groups[] =
 	ESWIN_PINCTRL_GRP(spi2_clk),
 	ESWIN_PINCTRL_GRP(spi2_d0),
 	ESWIN_PINCTRL_GRP(spi2_d1_d2_d3),
+	ESWIN_PINCTRL_GRP(spi2_d0_d1),
+	ESWIN_PINCTRL_GRP(spi2_d2_d3),
 
 	ESWIN_PINCTRL_GRP(sata_act_led),
 	ESWIN_PINCTRL_GRP(emmc_led_control),
@@ -1104,6 +1131,8 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
     ESWIN_PINMUX_FUNCTION(sdio1, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(jtag0, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(spi2_cs, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi2_cs0, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi2_cs1, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(pcie, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(hdmi, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(rgmii0, 0, ESWIN_PINMUX_MASK),
@@ -1114,6 +1143,11 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
     ESWIN_PINMUX_FUNCTION(por_time_sel1, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(rgmii1, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(spi1, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi1_cs0, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi1_clk, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi1_d0_d1, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi1_d2_d3, 0, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi1_cs1, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(usb0_pwren, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(usb1_pwren, 0, ESWIN_PINMUX_MASK),
     ESWIN_PINMUX_FUNCTION(i2c0, 0, ESWIN_PINMUX_MASK),
@@ -1149,6 +1183,8 @@ static const struct eswin_function_desc eswin_pinmux_functions[] = {
 	ESWIN_PINMUX_FUNCTION(spi2_clk, 1, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(spi2_d0, 1, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(spi2_d1_d2_d3, 1, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi2_d0_d1, 1, ESWIN_PINMUX_MASK),
+	ESWIN_PINMUX_FUNCTION(spi2_d2_d3, 1, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(sata_act_led, 1, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(emmc_led_control, 1, ESWIN_PINMUX_MASK),
 	ESWIN_PINMUX_FUNCTION(sd0_led_control, 1, ESWIN_PINMUX_MASK),
@@ -1567,6 +1603,7 @@ static int eswin_pinctrl_probe(struct platform_device *pdev)
 
 	return 0;
 }
+
 static int eswin_pinctrl_remove(struct platform_device *platform_dev)
 {
 	struct eswin_pinctrl *eswin_pinctrl_ptr = platform_get_drvdata(platform_dev);
