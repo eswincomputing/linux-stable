@@ -285,7 +285,6 @@
 &csi2_dphy_hw4 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
-	rate = <720>; 				//720Mbps
 	status = "okay";
 };
 &csi2_dphy4 {
