@@ -33,7 +33,7 @@
 / {
 	thermal-zones {
 		d1_thermal0 {
-			polling-delay-passive = <100>; /*ms*/
+			polling-delay-passive = <500>; /*ms*/
 			polling-delay = <1000>; /*ms*/
 			sustainable-power = <30000>; /*mW*/
 			thermal-sensors = <&d1_pvt0>;

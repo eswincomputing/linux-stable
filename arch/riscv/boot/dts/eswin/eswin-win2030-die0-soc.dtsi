@@ -34,7 +34,7 @@
     compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000","sifive,fu740";
 	thermal-zones {
 		thermal0 {
-			polling-delay-passive = <100>; /*ms*/
+			polling-delay-passive = <500>; /*ms*/
 			polling-delay = <1000>; /*ms*/
 			sustainable-power = <30000>; /*mW*/
 			thermal-sensors = <&pvt0>;
