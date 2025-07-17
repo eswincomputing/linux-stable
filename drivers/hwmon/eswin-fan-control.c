@@ -107,94 +107,6 @@ static inline u32 fan_ioread(const u32 reg,
 	return ioread32(ctl->base + reg);
 }
 
-static ssize_t eswin_fan_pwm_ctl_show(struct device *dev, struct device_attribute *da, char *buf)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	long temp = 0;
-	long period = 0;
-	if (FAN_PWM_DUTY == attr->index) {
-		temp = pwm_get_duty_cycle(ctl->pwm);
-		if(1 ==  ctl->pwm_inverted)
-		{
-			period = pwm_get_period(ctl->pwm);
-			temp =  period- temp;
-		}
-	}
-	else if (FAN_PWM_PERIOD == attr->index) {
-		temp = pwm_get_period(ctl->pwm);
-	}
-	else {
-		dev_err(dev, "get error attr index 0x%x\n", attr->index);
-	}
-
-	return sprintf(buf, "%lu\n", temp);
-}
-
-static ssize_t eswin_fan_pwm_ctl_store(struct device *dev, struct device_attribute *da,
-				     const char *buf, size_t count)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	struct pwm_state state;
-	int ret;
-
-	pwm_get_state(ctl->pwm, &state);
-
-	if (FAN_PWM_DUTY == attr->index) {
-		long val = 0;
-		ret = kstrtoul(buf, 10, &val);
-		if (ret)
-			return ret;
-		if(1 ==  ctl->pwm_inverted)
-		{
-			state.duty_cycle =  state.period - val;
-		}
-		else
-		{
-			state.duty_cycle = val;
-		}
-	}
-	else if (FAN_PWM_PERIOD == attr->index) {
-		long val = 0;
-		ret = kstrtoul(buf, 10, &val);
-		if (ret)
-			return ret;
-		if (val >= ctl->min_period)
-			state.period = val;
-		else
-			dev_err(dev, "invalid pwm period!\n");
-	}
-	else {
-		dev_err(dev, "get error attr index 0x%x\n", attr->index);
-	}
-
-	mutex_lock(&ctl->fan_lock);
-	pwm_apply_state(ctl->pwm, &state);
-	mutex_unlock(&ctl->fan_lock);
-
-	return count;
-}
-
-static ssize_t eswin_fan_pwm_free_store(struct device *dev, struct device_attribute *da,
-				     const char *buf, size_t count)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	long val;
-	int ret;
-	ret = kstrtoul(buf, 10, &val);
-	if (ret)
-		return ret;
-
-	if (val) {
-		mutex_lock(&ctl->fan_lock);
-		pwm_put(ctl->pwm);
-		mutex_unlock(&ctl->fan_lock);
-	}
-
-	return count;
-}
-
 static ssize_t eswin_ddr_training_temp_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
@@ -571,9 +483,6 @@ static const struct hwmon_chip_info eswin_chip_info = {
 	.info = eswin_fan_control_info,
 };
 
-static SENSOR_DEVICE_ATTR_RW(fan_pwm_duty, eswin_fan_pwm_ctl, FAN_PWM_DUTY);
-static SENSOR_DEVICE_ATTR_RW(fan_pwm_period, eswin_fan_pwm_ctl, FAN_PWM_PERIOD);
-static SENSOR_DEVICE_ATTR_WO(fan_pwm_free, eswin_fan_pwm_free, FAN_PWM_FREE);
 static SENSOR_DEVICE_ATTR_RO(ddr_training_temp, eswin_ddr_training_temp, DDR_TRAINING_TEMP);
 #ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 static SENSOR_DEVICE_ATTR_RO(pmix_lowest_temp, eswin_pmix_lowest_temp, PMIX_LOWEST_TEMP);
@@ -581,9 +490,6 @@ static SENSOR_DEVICE_ATTR_RO(d2d_recovery, eswin_d2d_recovery, D2D_RECOVERY);
 #endif
 
 static struct attribute *eswin_fan_control_attrs[] = {
-	&sensor_dev_attr_fan_pwm_duty.dev_attr.attr,
-	&sensor_dev_attr_fan_pwm_period.dev_attr.attr,
-	&sensor_dev_attr_fan_pwm_free.dev_attr.attr,
 	&sensor_dev_attr_ddr_training_temp.dev_attr.attr,
 #ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	&sensor_dev_attr_pmix_lowest_temp.dev_attr.attr,
