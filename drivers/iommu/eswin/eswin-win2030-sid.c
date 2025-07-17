@@ -466,11 +466,7 @@ static int __init win2030_init_streamID(void)
 			syscon_sid_cfg[nid] = mc;
 			g_nodes_cnt++;
 			pr_debug("%s, syscon_sid_cfg[%d] addr is 0x%px\n", __func__, nid, syscon_sid_cfg[nid]);
-			pr_info("power down all tbus of node %d at start up\n", nid);
-			win2030_tbu_power_all(nid, false);
 			print_tcu_node_status(__func__, __LINE__, nid);
-			/* sid configuration was moved into each driver, so skip win2030_program_sid*/
-			// win2030_program_sid(nid);
 
 			of_node_put(child);
 		}

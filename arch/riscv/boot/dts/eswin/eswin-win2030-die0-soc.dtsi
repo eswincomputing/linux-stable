@@ -91,8 +91,7 @@
 };
 
 &SOC {
-	
-
+	dma-noncoherent;
 		d0_uart0: serial@0x50900000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x50900000 0x0 0x10000>;
