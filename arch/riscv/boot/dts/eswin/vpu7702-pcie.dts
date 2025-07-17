@@ -440,7 +440,7 @@
 };
 
 &d0_npu{
-	status = "disabled";
+	status = "okay";
 	apply_npu_1G_freq;
 	npu-supply=<&npu_vcc1>;
 };
@@ -1177,5 +1177,5 @@
 &dev_llc_d0{
 	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
-	status = "disabled";
+	status = "okay";
 };
