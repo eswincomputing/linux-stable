@@ -494,7 +494,8 @@ int npu_hardware_reset(struct nvdla_device *nvdla_dev)
 		return -1;
 	}
 	if(nvdla_dev != NULL)
-	npu_dev_reset(nvdla_dev);
+		npu_dev_reset(nvdla_dev);
+
 	return 0;
 }
 

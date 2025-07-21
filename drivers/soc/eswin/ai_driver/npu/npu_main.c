@@ -652,6 +652,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 		}
         mdelay(10);
 		err = npu_set_freq_req(nvdla_dev, &npu_freq_tbl[nvdla_dev->numa_id][NPU_1_5_GHZ]);
+		nvdla_dev->act_freq_level = 4;
 
     } else {
 		err = regulator_set_voltage(nvdla_dev->npu_regulator,
@@ -660,6 +661,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 		dla_debug("name:%s, volt:%d, ret:%d\n", pdev->name, npu_freq_tbl[nvdla_dev->numa_id][NPU_1_0_GHZ].volt, err);
 		mdelay(10);
 		err = npu_set_freq_req(nvdla_dev, &npu_freq_tbl[nvdla_dev->numa_id][NPU_1_0_GHZ]);
+		nvdla_dev->act_freq_level = 3;
     }
 
 	if (err) {
@@ -895,6 +897,8 @@ int __maybe_unused npu_runtime_suspend(struct device *dev)
 	}
 
 	npu_tbu_power(dev, false);
+	ndev->act_freq_level = 0;
+
 	return npu_disable_clock(ndev);
 }
 
@@ -914,6 +918,13 @@ int __maybe_unused npu_runtime_resume(struct device *dev)
         return ret;
     }
 	npu_tbu_power(dev, true);
+
+	for (int i = 0; i < NPU_TBL_MAX; i++) {
+		if (npu_freq_tbl[ndev->numa_id][i].npu_rate == ndev->rate) {
+			ndev->act_freq_level = NPU_TBL_MAX - i;
+			break;
+		}
+	}
 
 	return ret;
 }

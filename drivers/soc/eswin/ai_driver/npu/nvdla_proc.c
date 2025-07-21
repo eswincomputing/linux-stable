@@ -27,6 +27,7 @@
 #include "hetero_ioctl.h"
 #include "internal_interface.h"
 #include "hetero_perf.h"
+#include "nvdla_lowlevel.h"
 
 static struct proc_dir_entry *proc_esnpu;
 static int g_perf = 0;
@@ -197,11 +198,21 @@ static int npu_stat_show(struct seq_file *m, void *p)
 	u64 gap_adjust = 0 ;
 	u32 curr_rtc = 0;
 	uint64_t start_stat_time = ktime_get_real_ns();
+	int ret;
+
 	for (i = 0; i < 2; i++) {
 		ndev = get_nvdla_dev(i);
 		if (!ndev || !ndev->emission_base) {
 			continue;
 		}
+
+		ret = npu_pm_get(ndev);
+		if (ret < 0) {
+			dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
+				__LINE__, ret);
+			return ret;
+		}
+
 		gap_adjust = 0;
 		pemission_node = (emission_node_t *)ndev->emission_base;
 		total_hwexec_time = pemission_node->total_ran_time;
@@ -220,6 +231,8 @@ static int npu_stat_show(struct seq_file *m, void *p)
 		           (total_hwexec_time * 1000) /24 + gap_adjust,
 		           (total_hwexec_time * 1000) /24),
 		           atomic64_read(&ndev->total_frame_done);
+
+		npu_pm_put(ndev);
 	}
 	return 0;
 }
@@ -414,6 +427,29 @@ static ssize_t perf_write(struct file *flip, const char __user *buf,
 	return size;
 }
 
+static int npu_active_show(struct seq_file *m, void *p)
+{
+	int i = 0;
+	u32 act_level[2] = { 0 };
+	struct nvdla_device *ndev = NULL;
+
+	for (i = 0; i < 2; i++)	{
+		ndev = get_nvdla_dev(i);
+		if (!ndev) {
+			continue;
+		}
+		act_level[i] = ndev->act_freq_level;
+	}
+
+	seq_printf(m, "%d,%d\n", act_level[0], act_level[1]);
+	return 0;
+}
+
+static int active_open(struct inode *inode, struct file *flip)
+{
+	return single_open(flip, npu_active_show, NULL);
+}
+
 static struct proc_ops proc_info_fops = {
 	.proc_open = info_open,
 	.proc_read = seq_read,
@@ -435,6 +471,12 @@ static struct proc_ops proc_perf_fops = {
 
 static struct proc_ops proc_conf_fops = {
 	.proc_open = conf_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
+};
+
+static struct proc_ops proc_active_fops = {
+	.proc_open = active_open,
 	.proc_read = seq_read,
 	.proc_release = single_release,
 };
@@ -469,6 +511,11 @@ int npu_create_procfs(void)
 		goto err_conf;
 	}
 
+	if (!proc_create("active", 0444, proc_esnpu, &proc_active_fops)) {
+		dla_error("error create proc npu active file.\n");
+		goto err_active;
+	}
+
 	spin_lock_init(&proc_lock[0]);
 	spin_lock_init(&proc_lock[1]);
 	init_waitqueue_head(&g_perf_wait_list[0]);
@@ -483,6 +530,8 @@ int npu_create_procfs(void)
 	return 0;
 
 err_mem:
+	remove_proc_entry("active", proc_esnpu);
+err_active:
 	remove_proc_entry("conf", proc_esnpu);
 err_conf:
 	remove_proc_entry("perf", proc_esnpu);
@@ -500,6 +549,7 @@ void npu_remove_procfs(void)
 	if (tmp != NULL) {
 		kfree(tmp);
 	}
+	remove_proc_entry("active", proc_esnpu);
 	remove_proc_entry("info", proc_esnpu);
 	remove_proc_entry("perf", proc_esnpu);
 	remove_proc_entry("conf", proc_esnpu);

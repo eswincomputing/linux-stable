@@ -96,6 +96,9 @@ struct nvdla_device {
 	struct regulator *npu_regulator;
 	u8 is_low_freq;
 
+	/* 0:no active, 1:520M, 2:750M, 3:1040M, 4:1500M */
+	u32 act_freq_level;
+
 	atomic64_t start_lock_time;
 	atomic64_t end_lock_time;
 	atomic64_t total_lock_time;
