@@ -29,6 +29,8 @@
 #define LOG_TAG DEC_DEV_NAME ":dtsp"
 #include "vc_drv_log.h"
 
+#define VC_ACLK_HIGHEST                 1040000000
+
 struct SubsysDesc subsys_array[VDEC_MAX_SUBSYS] = {0};
 struct CoreDesc core_array[VDEC_MAX_CORE] = {0};
 u8 numa_id_array[4] = {0};
@@ -91,6 +93,7 @@ int vdec_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 	unsigned int vcmd_addr[2] = {0}, axife_addr[2] = {0}, vdec_addr[2] = {0};
 	unsigned int vdec_freq = 0;
 	unsigned int jdec_freq = 0;
+	vdec_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "vcmd-core", vcmd_addr, 2)) {
 		vcmd = 0;
@@ -163,6 +166,11 @@ int vdec_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 		VDEC_CORE_ARRAY_ASSIGN(core_index, subsys_id, hw_type, (base_addr + vdec_addr[0]), vdec_addr[1], child_irq);
 		subsys_id++;
 	}
+
+	/** initialize the default clock frequency of aclk, ve_clk, je_clk*/
+	prvdata->freq_def_aclk = VC_ACLK_HIGHEST;
+	prvdata->freq_def_vd = prvdata->freq_cur_vd = vdec_freq;
+	prvdata->freq_def_jd = prvdata->freq_cur_jd = jdec_freq;
 
 	return 0;
 }

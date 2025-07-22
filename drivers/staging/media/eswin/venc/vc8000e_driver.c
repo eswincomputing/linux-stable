@@ -85,6 +85,14 @@ typedef struct {
 	atomic_t dev_close_gate;
 	atomic_t dev_open_gate;
 	u8 dev_closed;
+
+	/** default frequency*/
+	unsigned long freq_def_aclk;
+	unsigned long freq_def_je;
+	unsigned long freq_def_ve;
+	/** current frequency*/
+	unsigned long freq_cur_je;
+	unsigned long freq_cur_ve;
 } venc_dev_prvdata;
 
 SUBSYS_CONFIG vc8000e_subsys_array[4] = {0};
@@ -222,6 +230,7 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 	unsigned int vcmd_addr[2] = {0}, axife_addr[2] = {0}, venc_addr[2] = {0};
 	unsigned int venc_freq = 0;
 	unsigned int jenc_freq = 0;
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "vcmd-core", vcmd_addr, 2)) {
 		LOG_ERR("Encoder VCMD core not found\n");
@@ -291,6 +300,11 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 		VENC_CORE_ARRAY_ASSIGN(core_index, subsys_id, CORE_AXIFE, axife_addr[0], axife_addr[1], -1);
 		subsys_id++;
 	}
+
+	/** initialize the default clock frequency of aclk, ve_clk, je_clk*/
+	prvdata->freq_def_aclk = VC_ACLK_HIGHEST;
+	prvdata->freq_def_ve = prvdata->freq_cur_ve = venc_freq;
+	prvdata->freq_def_je = prvdata->freq_cur_je = jenc_freq;
 
 	return 0;
 }
@@ -447,10 +461,12 @@ static int venc_sys_clk_init(struct platform_device *pdev, venc_clk_rst_t *vcrt)
 	return 0;
 }
 
-static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
+static int venc_sys_clk_enable(struct device *dev)
 {
 	int ret = 0;
 	long rate = 0;
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 
 	ret = clk_set_parent(vcrt->vc_mux, vcrt->spll2_fout1);
 	if (ret < 0) {
@@ -458,40 +474,44 @@ static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 		return ret;
 	}
 
-	rate = clk_round_rate(vcrt->aclk, VC_ACLK_HIGHEST);
+	rate = clk_round_rate(vcrt->aclk, prvdata->freq_def_aclk);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->aclk, rate);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set aclk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set aclk to %ldHZ\n", rate);
+		LOG_INFO("VE set aclk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for aclk %ld\n", rate);
 		return -1;
 	}
 
-	rate = clk_round_rate(vcrt->je_clk, VENC_SYS_CLK_HIGHEST);
+	/** reset current frequency as default when probe or pm resume.*/
+	rate = clk_round_rate(vcrt->je_clk, prvdata->freq_def_je);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->je_clk, rate);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set je_clk to %ldHZ\n", rate);
+		prvdata->freq_cur_je = rate;
+		LOG_INFO("VE set je_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", rate);
 		return -1;
 	}
 
-	rate = clk_round_rate(vcrt->ve_clk, VENC_SYS_CLK_HIGHEST);
+	/** reset current frequency as default when probe or pm resume.*/
+	rate = clk_round_rate(vcrt->ve_clk, prvdata->freq_def_ve);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->ve_clk, rate);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set ve_clk to %ldHZ\n", rate);
+		prvdata->freq_cur_ve = rate;
+		LOG_INFO("VE set ve_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", rate);
 		return -1;
@@ -707,7 +727,6 @@ static void enc_pm_disable(struct platform_device *pdev) {
 static int venc_dev_open(struct device *dev)
 {
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 	int ret = -1;
 
 	if (atomic_dec_return(&prvdata->dev_open_gate) < 0) {
@@ -715,7 +734,8 @@ static int venc_dev_open(struct device *dev)
 		atomic_inc(&prvdata->dev_open_gate);
 		return 0;
 	}
-	ret = venc_sys_clk_enable(vcrt);
+
+	ret = venc_sys_clk_enable(dev);
 	if (ret) {
 		LOG_ERR("open device, venc enable clock failed\n");
 		goto end;
@@ -921,32 +941,35 @@ static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flag
 	int ret;
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
 	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	unsigned long freq_target = *freq;
 
-	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, *freq);
-	*freq = clk_round_rate(vcrt->je_clk, *freq);
-	if (*freq > 0) {
+	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, freq_target);
+	*freq = clk_round_rate(vcrt->je_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("Video encoder: failed to round rate for je_clk %lu\n", freq_target);
+		return -1;
+	} else if (prvdata->freq_cur_je != *freq) {
 		ret = clk_set_rate(vcrt->je_clk, *freq);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set je_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", *freq);
-		return -1;
+		LOG_DBG("devfreq, set je_clk %lu --> %luHZ\n", prvdata->freq_cur_je, *freq);
+		prvdata->freq_cur_je = *freq;
 	}
 
-	*freq = clk_round_rate(vcrt->ve_clk, *freq);
-	if (*freq > 0) {
+	*freq = clk_round_rate(vcrt->ve_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("Video encoder: failed to round rate for ve_clk %lu\n", freq_target);
+		return -1;
+	} else if (prvdata->freq_cur_ve != *freq) {
 		ret = clk_set_rate(vcrt->ve_clk, *freq);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set ve_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", *freq);
-		return -1;
+		LOG_INFO("devfreq, set ve_clk %lu --> %luHZ\n", prvdata->freq_cur_ve, *freq);
+		prvdata->freq_cur_ve = *freq;
 	}
 
 	return 0;
@@ -955,11 +978,28 @@ static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flag
 static int venc_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 {
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 
-	*freq = clk_get_rate(vcrt->ve_clk);
+	*freq = prvdata->freq_cur_ve;
 
 	return 0;
+}
+
+static int venc_devfreq_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+
+	stat->busy_time = 1024;
+	stat->total_time = 1024;
+	stat->current_frequency = prvdata->freq_cur_ve;
+	LOG_DBG("devfreq, get current ve freq = %lu\n", stat->current_frequency);
+
+	return 0;
+}
+
+static void venc_devfreq_exit(struct device *dev)
+{
+
 }
 
 /** devfreq profile */
@@ -969,6 +1009,15 @@ static struct devfreq_dev_profile venc_devfreq_profile = {
 	.polling_ms = 1000, /** Poll every 1000ms to monitor load */
 	.target = venc_devfreq_target,
 	.get_cur_freq = venc_devfreq_get_cur_freq,
+	.get_dev_status = venc_devfreq_get_dev_status,
+	.exit = venc_devfreq_exit,
+	.is_cooling_device = true,
+};
+
+static struct devfreq_simple_ondemand_data venc_devfreq_ondemand_data =
+{
+	.upthreshold = 80,
+	.downdifferential = 10,
 };
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -977,10 +1026,17 @@ static int hantro_venc_probe(struct platform_device *pdev)
 	static int pdev_count = 0;
 	int ret, numa_id, venc_dev_num = 0;
 	venc_dev_prvdata *prvdata = devm_kzalloc(&pdev->dev, sizeof(venc_dev_prvdata), GFP_KERNEL);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	venc_clk_rst_t *vcrt = NULL;
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df = NULL;
 #endif
+
+	if (!prvdata) {
+		LOG_ERR("malloc drvdata failed\n");
+		return -ENOMEM;
+	}
+	platform_set_drvdata(pdev, (void *)prvdata);
+	vcrt = &prvdata->vcrt;
 
 	venc_dev_num = venc_device_nodes_check();
 	if (venc_dev_num <= 0) {
@@ -988,10 +1044,13 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	platform_set_drvdata(pdev, (void *)prvdata);
-
 	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
 		numa_id = 0;
+	}
+	ret = venc_trans_device_nodes(pdev, numa_id);
+	if (ret < 0) {
+		LOG_ERR("venc: dts parse failed");
+		return -1;
 	}
 
 	LOG_INFO("initializing venc, numa id %d\n", numa_id);
@@ -1003,10 +1062,16 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		LOG_ERR("%s, %d, Failed to add OPP table\n", __func__, __LINE__);
 		return -1;
 	}
-	df = devm_devfreq_add_device(&pdev->dev, &venc_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(&pdev->dev, &venc_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &venc_devfreq_ondemand_data);
 	if (IS_ERR(df)) {
 		LOG_ERR("%s, %d, add devfreq failed\n", __func__, __LINE__);
 		return -1;
+	}
+	/* Register opp_notifier to catch the change of OPP*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (ret < 0) {
+		LOG_ERR("failed to register opp notifier\n");
+		return ret;
 	}
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -1022,7 +1087,7 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	ret = venc_sys_clk_enable(vcrt);
+	ret = venc_sys_clk_enable(&pdev->dev);
 	if (ret < 0) {
 		LOG_ERR("venc: clk enable failed");
 		return -1;
@@ -1031,12 +1096,6 @@ static int hantro_venc_probe(struct platform_device *pdev)
 	ret = venc_sys_reset_release(vcrt);
 	if (ret < 0) {
 		LOG_ERR("venc: reset release failed");
-		return -1;
-	}
-
-	ret = venc_trans_device_nodes(pdev, numa_id);
-	if (ret < 0) {
-		LOG_ERR("venc: dts parse failed");
 		return -1;
 	}
 

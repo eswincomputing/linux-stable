@@ -85,6 +85,21 @@
 					contribution = <1024>;
 					cooling-device = <&gpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
+				map4 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&venc0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map5 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&vdec0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map6 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&gc820 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
 			};
 		};
 	};

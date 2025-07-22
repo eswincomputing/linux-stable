@@ -392,26 +392,6 @@ typedef struct {
 	int its_aux_core_id[HXDEC_MAX_CORES];
 } core_cfg;
 
-typedef struct _vdec_clk_rst {
-	struct reset_control        *rstc_cfg;
-	struct reset_control        *rstc_axi;
-	struct reset_control        *rstc_moncfg;
-	struct reset_control        *rstc_jd_cfg;
-	struct reset_control        *rstc_jd_axi;
-	struct reset_control        *rstc_vd_cfg;
-	struct reset_control        *rstc_vd_axi;
-	struct clk          *cfg_clk;
-	struct clk          *aclk;
-	struct clk          *jd_clk;
-	struct clk          *vd_clk;
-	struct clk          *vc_mux;
-	struct clk          *spll0_fout1;
-	struct clk          *spll2_fout1;
-	struct clk          *jd_pclk;
-	struct clk          *vd_pclk;
-	struct clk          *mon_pclk;
-} vdec_clk_rst_t;
-
 static hantrodec_t hantrodec_data; /* dynamic allocation? */
 
 static int ReserveIO(void);
@@ -3740,10 +3720,11 @@ static int vdec_sys_clk_init(struct platform_device *pdev, vdec_clk_rst_t *vcrt)
 	return 0;
 }
 
-static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
+static int vdec_sys_clk_enable(struct device *dev, vdec_clk_rst_t *vcrt)
 {
 	int ret;
 	long rate;
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
 	ret = clk_set_parent(vcrt->vc_mux, vcrt->spll2_fout1);
 	if (ret < 0) {
@@ -3751,7 +3732,7 @@ static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
 		return ret;
 	}
 
-	rate = clk_round_rate(vcrt->aclk, VC_ACLK_HIGHEST);
+	rate = clk_round_rate(vcrt->aclk, prvdata->freq_def_aclk);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->aclk, rate);
 		if (ret) {
@@ -3761,23 +3742,25 @@ static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
 		LOG_INFO("VD set aclk to %ldHZ\n", rate);
 	}
 
-	rate = clk_round_rate(vcrt->jd_clk, VDEC_SYS_CLK_HIGHEST);
+	rate = clk_round_rate(vcrt->jd_clk, prvdata->freq_def_jd);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->jd_clk, rate);
 		if (ret) {
 			LOG_ERR("Video decoder: failed to set jd_clk: %d\n", ret);
 			return ret;
 		}
+		prvdata->freq_cur_jd = rate;
 		LOG_INFO("VD set jd_clk to %ldHZ\n", rate);
 	}
 
-	rate = clk_round_rate(vcrt->vd_clk, VDEC_SYS_CLK_HIGHEST);
+	rate = clk_round_rate(vcrt->vd_clk, prvdata->freq_def_vd);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->vd_clk, rate);
 		if (ret) {
 			LOG_ERR("Video decoder: failed to set vd_clk: %d\n", ret);
 			return ret;
 		}
+		prvdata->freq_cur_vd = rate;
 		LOG_INFO("VD set vd_clk to %ldHZ\n", rate);
 	}
 
@@ -4008,33 +3991,37 @@ void hantrodec_remove_procfs(void)
 static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	int ret;
-	vdec_clk_rst_t *vcrt = dev_get_drvdata(dev);
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	vdec_clk_rst_t *vcrt = &prvdata->vcrt;
+	unsigned long freq_target = *freq;
 
 	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, *freq);
-	*freq = clk_round_rate(vcrt->jd_clk, *freq);
-	if (*freq > 0) {
+	*freq = clk_round_rate(vcrt->jd_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("%d: failed to round rate for jd_clk %ld\n", __LINE__, *freq);
+		return -1;
+	} else if (*freq != prvdata->freq_cur_jd) {
 		ret = clk_set_rate(vcrt->jd_clk, *freq);
 		if (ret) {
 			LOG_ERR("%d: failed to set jd_clk: %d\n", __LINE__, ret);
 			return ret;
 		}
-		LOG_DBG("set jd_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("%d: failed to round rate for jd_clk %ld\n", __LINE__, *freq);
-		return -1;
+		LOG_DBG("devfreq, set jd_clk %lu --> %luHZ\n", prvdata->freq_cur_jd, *freq);
+		prvdata->freq_cur_jd = *freq;
 	}
 
-	*freq = clk_round_rate(vcrt->vd_clk, *freq);
-	if (*freq > 0) {
+	*freq = clk_round_rate(vcrt->vd_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("%d: failed to round rate for vd_clk %ld\n", __LINE__, *freq);
+		return -1;
+	} else if (*freq != prvdata->freq_cur_vd) {
 		ret = clk_set_rate(vcrt->vd_clk, *freq);
 		if (ret) {
 			LOG_ERR("%d: failed to set vd_clk: %d\n", __LINE__, ret);
 			return ret;
 		}
-		LOG_DBG("set vd_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("%d: failed to round rate for vd_clk %ld\n", __LINE__, *freq);
-		return -1;
+		LOG_INFO("devfreq, set vd_clk %lu --> %luHZ\n", prvdata->freq_cur_vd, *freq);
+		prvdata->freq_cur_vd = *freq;
 	}
 
 	return 0;
@@ -4042,11 +4029,29 @@ static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flag
 
 static int vdec_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 {
-	vdec_clk_rst_t *vcrt = dev_get_drvdata(dev);
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
-	*freq = clk_get_rate(vcrt->vd_clk);
+	*freq = prvdata->freq_cur_vd;
 
 	return 0;
+}
+
+static int vdec_devfreq_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
+
+	stat->busy_time = 1024;
+	stat->total_time = 1024;
+	stat->current_frequency = prvdata->freq_cur_vd;
+	LOG_DBG("devfreq, get current vd freq = %lu\n", stat->current_frequency);
+
+	return 0;
+}
+
+static void vdec_devfreq_exit(struct device *dev)
+{
+
 }
 
 /** devfreq profile */
@@ -4056,6 +4061,15 @@ static struct devfreq_dev_profile vdec_devfreq_profile = {
 	.polling_ms = 1000, /** Poll every 1000ms to monitor load */
 	.target = vdec_devfreq_target,
 	.get_cur_freq = vdec_devfreq_get_cur_freq,
+	.get_dev_status = vdec_devfreq_get_dev_status,
+	.exit = vdec_devfreq_exit,
+	.is_cooling_device = true,
+};
+
+static struct devfreq_simple_ondemand_data vdec_devfreq_ondemand_data =
+{
+	.upthreshold = 80,
+	.downdifferential = 10,
 };
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -4066,11 +4080,15 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df = NULL;
 #endif
-	vdec_clk_rst_t *vcrt = devm_kzalloc(&pdev->dev, sizeof(vdec_clk_rst_t), GFP_KERNEL);
-	if (!vcrt) {
+	vdec_dev_prvdata *prvdata = devm_kzalloc(&pdev->dev, sizeof(vdec_dev_prvdata), GFP_KERNEL);
+	vdec_clk_rst_t *vcrt = NULL;
+
+	if (!prvdata) {
 		LOG_ERR("malloc drvdata failed\n");
 		return -ENOMEM;
 	}
+	platform_set_drvdata(pdev, (void *)prvdata);
+	vcrt = &prvdata->vcrt;
 
 	// pr_info("[%s]build version: %s\n", DEC_DEV_NAME, ES_VDEC_GIT_VER);
 	vdec_dev_num = vdec_device_nodes_check();
@@ -4079,10 +4097,13 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	platform_set_drvdata(pdev, (void *)vcrt);
-
 	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
 		numa_id = 0;
+	}
+
+	if (vdec_trans_device_nodes(pdev, numa_id)) {
+		LOG_ERR("Translates video decoder dts to subsys failed");
+		return -1;
 	}
 
 	LOG_INFO("initializing vdec, numa id %d\n", numa_id);
@@ -4094,10 +4115,16 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		LOG_ERR("%s, %d, failed to add OPP table\n", __func__, __LINE__);
 		return -1;
 	}
-	df = devm_devfreq_add_device(&pdev->dev, &vdec_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(&pdev->dev, &vdec_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &vdec_devfreq_ondemand_data);
 	if (IS_ERR(df)) {
 		LOG_ERR("%s, %d, add devfreq failed\n", __func__, __LINE__);
 		return -1;
+	}
+	/* Register opp_notifier to catch the change of OPP*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (ret < 0) {
+		LOG_ERR("failed to register opp notifier\n");
+		return ret;
 	}
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -4113,7 +4140,7 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	ret = vdec_sys_clk_enable(vcrt);
+	ret = vdec_sys_clk_enable(&pdev->dev, vcrt);
 	if (ret < 0) {
 		LOG_ERR("vdec: clk enable failed");
 		return -1;
@@ -4129,11 +4156,6 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		platformdev = pdev;
 	else
 		platformdev_d1 = pdev;
-
-	if (vdec_trans_device_nodes(pdev, numa_id)) {
-		LOG_ERR("Translates video decoder dts to subsys failed");
-		return -1;
-	}
 
 #ifdef SUPPORT_DMA_HEAP
 	ret = win2030_tbu_power(&pdev->dev, true);
@@ -4216,8 +4238,9 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 static int eswin_vdec_runtime_suspend(struct device *dev) {
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
-	vcrt = dev_get_drvdata(dev);
+	vcrt = &prvdata->vcrt;
 	if (vcrt) {
 		ret = win2030_tbu_power(dev, false);
 		if (ret != 0) {
@@ -4232,8 +4255,9 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 static int eswin_vdec_runtime_resume(struct device *dev) {
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
-	vcrt = dev_get_drvdata(dev);
+	vcrt = &prvdata->vcrt;
 	if (vcrt) {
 		ret = vdec_clk_enable(vcrt);
 		if (ret) {
