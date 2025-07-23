@@ -84,6 +84,7 @@ u64 delta_us;
 
 static inline void DVP2AXI_HalWriteReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address, u32 data) {
     writel(data, dvp2axi_hw->base_addr + address);
+	dev_dbg(dvp2axi_hw->dev, "write reg address:0x%x, data:0x%x\n",  address, data);
 }
 
 static inline u32 DVP2AXI_HalReadReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address) {
@@ -197,7 +198,7 @@ static const struct dvp2axi_output_fmt out_fmts[] = {
 		.fourcc = V4L2_PIX_FMT_RGB24,
 		.cplanes = 1,
 		.mplanes = 1,
-		.bpp = { 24 },
+		.bpp = { 8 },
 		.csi_fmt_val = CSI_WRDDR_TYPE_RGB888,
 		.fmt_type = DVP2AXI_FMT_TYPE_RAW,
 	},
@@ -205,7 +206,7 @@ static const struct dvp2axi_output_fmt out_fmts[] = {
 		.fourcc = V4L2_PIX_FMT_BGR24,
 		.cplanes = 1,
 		.mplanes = 1,
-		.bpp = { 24 },
+		.bpp = { 8 },
 		.csi_fmt_val = CSI_WRDDR_TYPE_RGB888,
 		.fmt_type = DVP2AXI_FMT_TYPE_RAW,
 	},
@@ -1256,6 +1257,7 @@ static int es_dvp2axi_assign_new_buffer_oneframe(struct es_dvp2axi_stream *strea
 					DVP2AXI_HalWriteReg(dev->hw_dev, VI_DVP2AXI_CTRL11_CSR+stream->id * 0xc, dummy_buf->dma_addr);
 				}
 			}
+			pr_debug("es_dvp2axi_assign_new_buffer_oneframe: no buffer in queue, use dummy buffer\n");
 			dev->err_state |= (ES_DVP2AXI_ERR_ID0_NOT_BUF << stream->id);
 			dev->irq_stats.not_active_buf_cnt[stream->id]++;
 		}
@@ -2053,7 +2055,7 @@ static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 #ifdef VI_CAPTURE_DEBUG
 	end_time = ktime_get_ns();
 	delta_us = (end_time - start_time) / 1000;
-	pr_debug("CYY[TIME CAL] es_dvp2axi_start_streaming took %llu us\n", delta_us);
+	pr_info("CYY[TIME CAL] es_dvp2axi_start_streaming took %llu us\n", delta_us);
 #endif
 
 	struct es_dvp2axi_stream *stream = queue->drv_priv;
@@ -2072,7 +2074,7 @@ static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 		dev_dbg(stream->dvp2axidev->hw_dev->dev, "all streams have been stopped, dvp2axi_hw_soft_reset \n");
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	}
-	dev_dbg(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %lld \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]);
+	dev_info(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %d \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
 }
 
 /**
@@ -2219,7 +2221,7 @@ static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 			v4l2_err(v4l2_dev, "Input fmt is invalid\n");
 			return -EINVAL;
 		}
-		dev_dbg(dev->dev, "%s:%d input.width %d, input.height %d\n", __func__, __LINE__, input.width, input.height);
+		pr_info("%s:%d input.width %d, input.height %d\n", __func__, __LINE__, input.width, input.height);
 	} else {
 		v4l2_err(v4l2_dev, "terminal_sensor is invalid\n");
 		return -EINVAL;
@@ -2323,9 +2325,19 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 				__func__, terminal_sensor->sd->name);
 			// return ret;
 			ret = 0;
-		}
+		} 
 		terminal_sensor->fi.interval.numerator = 1;
 		terminal_sensor->fi.interval.denominator = 30;
+		
+		// if (v4l2_subdev_call(terminal_sensor->sd, core, ioctl,
+		// 		     ESMODULE_GET_CSI_DSI_INFO,
+		// 		     &terminal_sensor->dsi_input_en)) {
+		// 	v4l2_dbg(
+		// 		1, es_dvp2axi_debug, &stream->dvp2axidev->v4l2_dev,
+		// 		"%s: get terminal %s CSI/DSI sel failed, default csi input!\n",
+		// 		__func__, terminal_sensor->sd->name);
+		// 	terminal_sensor->dsi_input_en = 0;
+		// }
 		terminal_sensor->dsi_input_en= 1;
 	} else {
 		v4l2_err(&stream->dvp2axidev->v4l2_dev,
@@ -2578,7 +2590,7 @@ void es_dvp2axi_dump_reg(struct es_dvp2axi_hw *hw)
 {
 	for(int offset = 0; offset < 0xb8; offset += 4) {
 		uint32_t reg_val = DVP2AXI_HalReadReg(hw, offset);
-		dev_dbg(hw->dev, "DVP2AXI_REG[0x%02x] = 0x%08x\n", offset, reg_val);
+		pr_debug("DVP2AXI_REG[0x%02x] = 0x%08x\n", offset, reg_val);
 	}
 }
 
@@ -2590,8 +2602,9 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	uint32_t dvpx_bpl = 0;
 	uint32_t dvp2axi_ctrl2, dvp2axi_ctrl33;
 	uint32_t dvp2axi_bpp;
-	int ret = 0;
 
+	int ret = 0;
+	
 	switch(stream->id) {
 		case 0:
 			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK ) >> 20;
@@ -2615,25 +2628,41 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 			pr_err("start streaming stream->id = 0x%x not support\n", stream->id);
 			return -EINVAL;
 	}
+	if (stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888) {
+		dvp2axi_bpp = dvp2axi_bpp * 3;
+	}
 
 	/* outstanding 16 and dvp2axi 2-5 bpp */
 	dvp2axi_ctrl2 = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR) | (DVP2AXI_OUTSTANDING_SIZE-1) << 24);
 	DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, dvp2axi_ctrl2);
-	DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (stream->pixm.width ) | (stream->pixm.height << 16));
+
+	if (stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888) {
+		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (stream->pixm.width  * 3) | (stream->pixm.height << 16));
+	} else {
+		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (stream->pixm.width ) | (stream->pixm.height << 16));
+	}
 
 	if(stream->crop_enable) {
-		bpl = ALIGN(stream->crop[CROP_SRC_ACT].width * dvp2axi_bpp / 8, 256);
+		if (stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888) {
+			bpl = ALIGN(stream->crop[CROP_SRC_ACT].width * dvp2axi_bpp / 8, 16);
+		} else {
+			bpl = ALIGN(stream->crop[CROP_SRC_ACT].width * dvp2axi_bpp / 8, 256);
+		}
 		dvpx_bpl |= bpl;
 	} else {
-		bpl = ALIGN(stream->pixm.width * dvp2axi_bpp / 8, 256);
+		if (stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888) {
+			bpl = ALIGN(stream->pixm.width * dvp2axi_bpp / 8, 16);
+		} else {
+			bpl = ALIGN(stream->pixm.width * dvp2axi_bpp / 8, 256);
+		}
 		dvpx_bpl |= bpl;
 	}
 
-	dev_dbg(dvp2axi_hw->dev, "dvp2axi stream[%d] bpl %d, dvpx_bpl %d, dvp2axi_bpp %d\n",
+	pr_info("dvp2axi stream[%d] bpl %d, dvpx_bpl %d, dvp2axi_bpp %d\n",
 		stream->id, bpl, dvpx_bpl, dvp2axi_bpp);
 
 	mutex_lock(&dvp2axi_hw->dev_multi_chn_lock);
-	if(stream->id == 0 || stream->id == 2 || stream->id == 4) {
+	if(stream->id == 0 || stream->id == 2 || stream->id == 4)  {
 		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4);
 		dvp2axi_ctrl33 |= dvpx_bpl;
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4, dvp2axi_ctrl33);
@@ -2642,20 +2671,17 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		dvp2axi_ctrl33 |= (dvpx_bpl << 16);
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, dvp2axi_ctrl33);
 	}
-	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
 
-	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
-
-	mutex_lock(&dvp2axi_hw->dev_multi_chn_lock);
 	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
 	es_dvp2axi_dump_reg(dvp2axi_hw);
 	csr0 = csr0 | (1 << stream->id);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
 	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
+	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
 
-	dev_info(dvp2axi_hw->dev, "dvp2axi enabled=0x%x\n", csr0);
+	pr_info("dvp2axi enabled=0x%x\n", csr0);
 #ifdef VI_CAPTURE_DEBUG
-	start_time = ktime_get_ns();
+	start_time = ktime_get_ns();	
 #endif
 	return ret;
 }
@@ -2719,6 +2745,8 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	// int dvp2axi_bpp;
 	int dvp2axi_bpp_clear;
 	int dvp2axi_mode_clear;
+	int date_shift;
+	int axi_burst_len;
 
 	for (i = 0; i < ES_DVP2AXI_MAX_PLANE; i++)
 		memset(&pixm->plane_fmt[i], 0,
@@ -2748,6 +2776,9 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	fmt_w_h_val = (input_rect.height << 16) | (input_rect.width);
 	// DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR, fmt_w_h_val);
 	DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4, fmt_w_h_val);
+
+	axi_burst_len = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
+	DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, axi_burst_len | (1<<7));
 
 	if (dev->terminal_sensor.sd) {
 		ret = v4l2_subdev_call(dev->terminal_sensor.sd, core, ioctl,
@@ -2897,17 +2928,29 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 				}
 				if(fmt->csi_fmt_val == CSI_WRDDR_TYPE_RGB888){
 					//RGB888
+					date_shift = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
+					DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, date_shift | (1 << (8+stream->id)));
+
+					// axi_burst_len = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
+					// DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, axi_burst_len | (1<<7));
+
 					dvp2axi_mode_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~0x300;
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_RGB & 0x3) << 8));
-					bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt,
-										i);
+					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_RAW & 0x3) << 8));
+					bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt, i);
+
+					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (width*3) | (height << 16));
+
 					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
 					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((bpp & 0x1F) << 20));
-					bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
-					pr_debug("*** mode rgb width = 0x%x ***\n", width);
-					pr_debug("*** mode rgb bpp = 0x%x ***\n", bpp);
-					pr_debug("*** mode rgb DVP2AXI_YUV_STORED_BIT_WIDTH = 0x%x ***\n", DVP2AXI_YUV_STORED_BIT_WIDTH);
-					pr_debug("*** mode rgb bpl = 0x%x ***\n", bpl);
+					//bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
+					bpl = ALIGN(width * 3 * bpp / 8, 16);
+					//while ((bpl % 3) != 0) bpl += 256;
+
+					if(stream->id == 0 || stream->id == 2 || stream->id == 4) {
+						DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4, bpl);
+					} else {
+						DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, bpl << 16);
+					}
 				}
 			}
 		}
@@ -3037,6 +3080,7 @@ static int es_dvp2axi_fh_open(struct file *filp)
 	struct es_dvp2axi_stream *stream = to_es_dvp2axi_stream(vnode);
 	struct es_dvp2axi_device *dvp2axidev = stream->dvp2axidev;
 	int ret;
+
 	stream->is_first_flush = true;
 	ret = es_dvp2axi_attach_hw(dvp2axidev);
 	if (ret)
@@ -3842,6 +3886,7 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 	es_dvp2axi_init_vb2_queue(&node->buf_queue, stream,
 			     V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	vdev->queue = &node->buf_queue;
+	
 	ret = media_entity_pads_init(&vdev->entity, 1, &node->pad);
 	if (ret < 0)
 		goto unreg;
@@ -3853,9 +3898,11 @@ static int es_dvp2axi_register_stream_vdev(struct es_dvp2axi_stream *stream,
 		return ret;
 	}
 
+
 	INIT_LIST_HEAD(&stream->vb_done_list);
 	tasklet_init(&stream->vb_done_tasklet, es_dvp2axi_tasklet_handle,
 		     (unsigned long)stream);
+		 
 	tasklet_disable(&stream->vb_done_tasklet);
 	return 0;
 unreg:
@@ -4259,6 +4306,8 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 	vi_dvp2axi_int0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR);
 	vi_dvp2axi_int1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR);
 
+	pr_debug("vi_dvp2axi_int0 0x%x, vi_dvp2axi_int1 0x%x \n", vi_dvp2axi_int0, vi_dvp2axi_int1);
+
 	if(stream->id == 0 || stream->id == 1 || stream->id == 2) {
 		frame0_done_detect = vi_dvp2axi_int0 & (1 << (9 + stream->id * 3));
 		frame1_done_detect = vi_dvp2axi_int0 & (1 << (10 + stream->id * 3));
@@ -4352,10 +4401,10 @@ void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev
 	struct es_dvp2axi_hw	*dvp2axi_hw =  dev_get_drvdata(dev);
 	vi_dvp2axi_int_err = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR);
 
-	dev_dbg(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
+	dev_info(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_FULL)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[0]);
-
+	
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_RESP_ERROR)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[1]);
 

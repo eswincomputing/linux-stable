@@ -1,5 +1,4 @@
 &vi_subsys {
-	board_compat = "eic7700,dvb_vi";
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
 	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
@@ -8,8 +7,8 @@
         id = <0>;
         status = "okay";
 		dma-noncoherent;
-		
-        ports {
+
+		ports {
             #address-cells = <1>;
             #size-cells = <0>;
 
@@ -127,12 +126,11 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
-				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl_gpio72_default>;
-				mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-				xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
+
 				eswin,camera-module-index = <0>;
 				eswin,camera-module-facing = "back";
 				eswin,camera-module-name = "rpi-camera-v2";
@@ -158,8 +156,10 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
 
 				eswin,camera-module-index = <0>;
 				eswin,camera-module-facing = "back";
@@ -186,8 +186,10 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
 
 				eswin,camera-module-index = <0>;
 				eswin,camera-module-facing = "back";
@@ -214,8 +216,10 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
 
 				eswin,camera-module-index = <0>;
 				eswin,camera-module-facing = "back";
@@ -231,13 +235,12 @@
 				};
 			};
 		};
-
 	};
 };
 
-
 &csi2_dphy_hw {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
 };
 
@@ -274,8 +277,10 @@
 
 &csi2_dphy_hw1 {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
 };
+
 &csi2_dphy1 {
 	status = "okay";
 	ports {
@@ -309,6 +314,7 @@
 
 &csi2_dphy_hw2 {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy2 {
@@ -344,6 +350,7 @@
 
 &csi2_dphy_hw3 {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy3 {
@@ -417,7 +424,6 @@
 	};
 };
 
-
 &mipi_csi2_1 {
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
@@ -448,7 +454,6 @@
 	};
 };
 
-
 &mipi_csi2_2 {
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
@@ -476,11 +481,8 @@
 				remote-endpoint = <&axi2dvp_mipi2_in2>;
 			};
 		};
-
-		
 	};
 };
-
 
 &mipi_csi2_3 {
 	num_lanes = <2>;
@@ -511,7 +513,6 @@
 		};
 	};
 };
-
 
 &dvp2axi {
 	status = "okay";

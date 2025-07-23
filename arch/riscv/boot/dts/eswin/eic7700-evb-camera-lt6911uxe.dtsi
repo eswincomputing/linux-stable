@@ -1,0 +1,303 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+&vi_subsys {
+	eswin,isp_dvp0_hor = <1920>;
+	eswin,isp_dvp0_ver = <1080>;
+	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
+};
+
+&d0_aon_i2c1 {
+	/* lt69911uxe */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c11_default>;
+	i2c-sda-hold-time-ns = <0x40>;
+	lt611uxe: lt611uxe@56 {
+		compatible = "lt6911uxe";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x56>;
+
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		clock-frequency = <37125000>;
+		#assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <37125000>;
+		clock-names = "xvclk";
+
+		eswin,camera-module-index = <0>;
+		eswin,camera-module-facing = "back";
+		eswin,camera-module-name = "LT";
+		eswin,camera-module-lens-name = "HDMI-IN";
+
+		port {
+			hdmiin_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+};
+
+&d0_i2c8 {
+	/* io extended for mipi csi */
+	status = "okay";
+	tca6416_0: gpio@20 {
+		compatible = "ti,tca6416";
+		clock-frequency = <100000>;
+		reg = <0x20>;
+		gpio-controller; /* IRQ not connected */
+		#gpio-cells = <2>;
+		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
+				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
+				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
+				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
+		//vcc = <&gpio_vcc0>;
+		status = "okay";
+	};
+	tca6416_1: gpio@21 {
+		compatible = "ti,tca6416";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* IRQ not connected */
+		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
+				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
+				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
+				"", "", "", "";
+		//vcc = <&gpio_vcc1>;
+		status = "okay";
+	};
+};
+
+&csi2_dphy_hw {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_ucam0: endpoint {
+				remote-endpoint = <&hdmiin_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint {
+				remote-endpoint = <&mipi_csi2_input>;
+			};
+		};
+	};
+};
+
+&csi2_dphy_hw2 {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "disabled";
+};
+&csi2_dphy2 {
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy2_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_2_input>;
+			};
+		};
+	};
+};
+
+&csi2_dphy_hw4 {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "disabled";
+};
+&csi2_dphy4 {
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy4_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_4_input>;
+			};
+		};
+	};
+};
+
+&mipi_csi2_0 {
+	status = "okay";
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	ipi_dt = <0x24>; // 0x24: RGB888
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			mipi_csi2_input: endpoint {
+				remote-endpoint = <&csidphy0_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_csi2_output: endpoint {
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
+	};
+};
+
+&mipi_csi2_2 {
+	num_lanes = <4>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	ipi_dt = <0x24>; // 0x24: RGB888
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_2_input: endpoint@0 {
+				remote-endpoint = <&csidphy2_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_2_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in2>;
+			};
+		};
+	};
+};
+
+
+&mipi_csi2_4 {
+	num_lanes = <4>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	ipi_dt = <0x24>; // 0x24: RGB888
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_4_input: endpoint@0 {
+				remote-endpoint = <&csidphy4_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_4_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in4>;
+			};
+		};
+	};
+};
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	dvp2axi_id = <0>;
+	ports{
+		#address-cells = <1>;
+        #size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+        	#size-cells = <0>;
+			reg = <0>;
+			axi2dvp_mipi2_in0: endpoint {
+				remote-endpoint = <&mipi_csi2_output>;
+			};
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds1 {
+	dvp2axi_id = <1>;
+	status = "disabled";
+};
+
+&dvp2axi_mipi_lvds2 {
+	status = "disabled";
+	dvp2axi_id = <2>;
+	port@0 {
+		axi2dvp_mipi2_in2: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_2_output0>;
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds3 {
+	dvp2axi_id = <3>;
+	status = "disabled";
+};
+
+&dvp2axi_mipi_lvds4 {
+	dvp2axi_id = <4>;
+	status = "disabled";
+	port@0 {
+		axi2dvp_mipi2_in4: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_4_output0>;
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds5 {
+	dvp2axi_id = <5>;
+	status = "disabled";
+};

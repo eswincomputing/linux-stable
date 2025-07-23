@@ -42,6 +42,15 @@ struct csi2dphy_reg {
 #define CSI2_DPHY_4LANES	(0x4)
 #define CSI2_DPHY_2LANES	(0x2)
 
+struct reg_val {
+	u32 addr;
+	u32 val;
+};
+
+struct csi2_dphy_rate_table {
+	u64 rate;
+	struct reg_val reg_vals[10];
+};
 
 struct csi2_sensor {
 	struct v4l2_subdev *sd;
@@ -81,15 +90,10 @@ struct csi2_dphy {
 };
 
 struct dphy_hw_drv_data {
-	const struct hsfreq_range *hsfreq_ranges;
-	int num_hsfreq_ranges;
-	const struct hsfreq_range *hsfreq_ranges_cphy;
-	int num_hsfreq_ranges_cphy;
-	const struct grf_reg *grf_regs;
-	int num_grf_regs;
-	const struct csi2dphy_reg *csi2dphy_regs;
-	int num_csi2dphy_regs;
-	void (*individual_init)(struct csi2_dphy_hw *hw);
+	const struct csi2_dphy_rate_table *dphy_hsfreq_ranges;
+	int dphy_num_hsfreq_ranges;
+	const struct csi2_dphy_rate_table *cphy_hsfreq_ranges;
+	int cphy_num_hsfreq_ranges;
 	int (*stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	enum csi2_dphy_chip_id chip_id;
@@ -121,10 +125,12 @@ struct csi2_dphy_hw {
 	int num_sensors;
 	int dphy_dev_num;
 	enum csi2_dphy_lane_mode lane_mode;
-	enum eswin_vi_board_compat board_compat;
 
 	int num_lanes;
 	int lanes_array[4];
+	int lanes_dp_dn[4];
+	u64 rate;
+	struct csi2_dphy_rate_table dphy_rate_tbl;
 
 	int (*stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
@@ -133,6 +139,8 @@ struct csi2_dphy_hw {
 	int (*quick_stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*quick_stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 };
+
+
 
 int eswin_csi2_dphy_hw_init(void);
 int eswin_csi2_dphy_init(void);

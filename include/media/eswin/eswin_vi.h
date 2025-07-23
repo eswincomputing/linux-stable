@@ -22,12 +22,6 @@
 #define ESWIN_VI_DRIVER_NAME "eswin_vi"
 #define ESWIN_VI_MAX_INPUTS 4
 
-enum eswin_vi_board_compat {
-    EIC7700_EVB_VI_COMPAT = 0,
-    EIC7700_DVB_VI_COMPAT,
-};
-
-
 struct eswin_vi_clk_rst {
 	struct device *dev; // used for tbu enanle/disable
 	struct clk *aclk;
@@ -58,7 +52,6 @@ struct eswin_vi_device {
     struct eswin_vi_clk_rst clk_rst; /* Clock and reset control structure */
     u32 isp_dvp0_hor;               /* ISP DVP0 horizontal resolution */
     u32 isp_dvp0_ver;               /* ISP DVP0 vertical resolution */
-    enum eswin_vi_board_compat board_compat;                  /* board compatible */
     u32 phy_mode;
 };
 

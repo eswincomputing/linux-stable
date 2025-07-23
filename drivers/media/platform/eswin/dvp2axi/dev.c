@@ -1278,6 +1278,8 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct es_dvp2axi_async_subdev *s_asd =
 		container_of(asd, struct es_dvp2axi_async_subdev, asd);
 
+	// pr_info("%s:%d yfx! subdev %p, asd %p \n", __func__, __LINE__,subdev, asd);
+
 	if (dvp2axi_dev->num_sensors == ARRAY_SIZE(dvp2axi_dev->sensors)) {
 		v4l2_err(&dvp2axi_dev->v4l2_dev,
 			 "%s: the num of subdev is beyond %d\n", __func__,
@@ -1331,6 +1333,7 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 			// .bus_type = V4L2_MBUS_CSI2_DPHY
 			.bus_type = V4L2_MBUS_UNKNOWN
 		};
+		// pr_info("%s:%d yfx! i %d \n", __func__, __LINE__, i);
 		struct es_dvp2axi_async_subdev *s_asd;
 		struct fwnode_handle *ep;
 		struct fwnode_handle *remote_ep = NULL;
@@ -1348,9 +1351,10 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 		}
 
 		ret = v4l2_fwnode_endpoint_parse(ep, &vep);
+		// pr_info("%s:%d yfx!!!\n", __func__, __LINE__);
 		if (ret)
 			goto err_parse;
-
+		
 		s_asd = v4l2_async_nf_add_fwnode_remote(
 			&sditf->notifier, ep, struct es_dvp2axi_async_subdev);
 		if (IS_ERR(s_asd)) {
@@ -1457,6 +1461,7 @@ int es_dvp2axi_attach_hw(struct es_dvp2axi_device *dvp2axi_dev)
 	hw->dev_num++;
 	dvp2axi_dev->hw_dev = hw;
 	dvp2axi_dev->chip_id = hw->chip_id;
+	dev_info(dvp2axi_dev->dev, "attach to dvp2axi hw node\n");
 
 	return 0;
 }
@@ -1476,7 +1481,7 @@ static int es_dvp2axi_detach_hw(struct es_dvp2axi_device *dvp2axi_dev)
 			}
 
 			hw->dev_num--;
-			dev_dbg(dvp2axi_dev->dev, "detach to dvp2axi hw node\n");
+			dev_info(dvp2axi_dev->dev, "detach to dvp2axi hw node\n");
 			break;
 		}
 	}
@@ -1684,7 +1689,7 @@ static void es_dvp2axi_parse_dts(struct es_dvp2axi_device *dvp2axi_dev)
 	ret = of_property_read_u32(node, OF_DVP2AXI_WAIT_LINE, &dvp2axi_dev->wait_line);
 	if (ret != 0)
 		dvp2axi_dev->wait_line = 0;
-	dev_dbg(dvp2axi_dev->dev, "es_dvp2axi wait line %d\n", dvp2axi_dev->wait_line);
+	dev_info(dvp2axi_dev->dev, "es_dvp2axi wait line %d\n", dvp2axi_dev->wait_line);
 }
 
 static int es_dvp2axi_plat_probe(struct platform_device *pdev)
@@ -1696,7 +1701,7 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 	const struct es_dvp2axi_match_data *data;
 	int ret;
 
-	dev_dbg(dev, "es_dvp2axi driver version: 0.5\n");
+	dev_info(dev, "es_dvp2axi driver version: %s\n", es_dvp2axi_version);
 
 	match = of_match_node(es_dvp2axi_plat_of_match, node);
 	if (IS_ERR(match))
@@ -1726,7 +1731,7 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
 	es_dvp2axi_init_reset_monitor(dvp2axi_dev);
 	pm_runtime_enable(&pdev->dev);
-	dev_info(dev, " Probe Succsess\n");
+	pr_info("%s succsess\n", __func__);
 	return 0;
 }
 
@@ -1790,7 +1795,7 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 
 static int __maybe_unused __es_dvp2axi_clr_unready_dev(void)
 {
-	struct es_dvp2axi_device *dvp2axi_dev;
+	struct es_dvp2axi_device *dvp2axi_dev = NULL;
 
 	mutex_lock(&es_dvp2axi_dev_mutex);
 

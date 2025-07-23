@@ -1,8 +1,8 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 &vi_subsys {
-	eswin,isp_dvp0_hor = <3280>;
-	eswin,isp_dvp0_ver = <2464>;
+	eswin,isp_dvp0_hor = <3864>;
+	eswin,isp_dvp0_ver = <2192>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
@@ -124,16 +124,16 @@
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
 	status = "okay";
-	imx219_0: imx219@10 {
-			compatible = "sony,imx219";
+	imx415_0: imx415@37 {
+			compatible = "sony,imx415";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
-			reg = <0x10>;
+			reg = <0x37>;
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
+			clock-names = "inck";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 			eswin,camera-module-index = <0>;
 			eswin,camera-module-facing = "back";
@@ -141,10 +141,10 @@
 			eswin,camera-module-lens-name = "default";
 
 			port {
-				imx219_out0: endpoint {
+				imx415_out0: endpoint {
 					remote-endpoint = <&mipidphy0_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <364000000>;
+					link-frequencies = /bits/ 64 <360000000>;
 				};
 			};
 		};
@@ -153,16 +153,16 @@
 &d0_i2c4 {
 	/* mipi csi2/csi3 */
 	status = "okay";
-	imx219_2: imx219@10 {
-			compatible = "sony,imx219";
+	imx415_2: imx415@37 {
+			compatible = "sony,imx415";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
-			reg = <0x10>;
+			reg = <0x37>;
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
+			clock-names = "inck";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 			eswin,camera-module-index = <0>;
 			eswin,camera-module-facing = "back";
@@ -170,10 +170,10 @@
 			eswin,camera-module-lens-name = "default";
 
 			port {
-				imx219_out2: endpoint {
+				imx415_out2: endpoint {
 					remote-endpoint = <&mipidphy2_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <364000000>;
+					link-frequencies = /bits/ 64 <360000000>;
 				};
 			};
 		};
@@ -182,30 +182,30 @@
 &d0_i2c5 {
 	/* mipi csi4/csi5 */
 	status = "okay";
-	imx219_4: imx219@10 {
-			compatible = "sony,imx219";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x10>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
+	imx415_4: imx415@37 {
+		compatible = "sony,imx415";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x37>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "inck";
+		mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+		eswin,camera-module-index = <0>;
+		eswin,camera-module-facing = "back";
+		eswin,camera-module-name = "rpi-camera-v2";
+		eswin,camera-module-lens-name = "default";
 
-			port {
-				imx219_out4: endpoint {
-					remote-endpoint = <&mipidphy4_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <364000000>;
-				};
+		port {
+			imx415_out4: endpoint {
+				remote-endpoint = <&mipidphy4_in_ucam0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
 			};
 		};
+	};
 };
 
 &csi2_dphy_hw {
@@ -226,7 +226,7 @@
 			#size-cells = <0>;
 
 			mipidphy0_in_ucam0: endpoint {
-				remote-endpoint = <&imx219_out0>;
+				remote-endpoint = <&imx415_out0>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -261,7 +261,7 @@
 
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx219_out2>;
+				remote-endpoint = <&imx415_out2>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -297,7 +297,7 @@
 
 			mipidphy4_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx219_out4>;
+				remote-endpoint = <&imx415_out4>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -382,6 +382,7 @@
 		};
 	};
 };
+
 
 &mipi_csi2_4 {
 	num_lanes = <4>;

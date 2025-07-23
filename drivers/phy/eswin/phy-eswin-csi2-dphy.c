@@ -93,6 +93,9 @@ static int csi2_dphy_get_sensor_data_rate(struct v4l2_subdev *sd)
 		v4l2_err(sd, "Invalid link_freq\n");
 		return -EINVAL;
 	}
+
+	v4l2_info(sd, "sensor link_index %d, link_freq %lld\n", qm.index, qm.value);
+
 	dphy->data_rate_mbps = qm.value * 2;
 	do_div(dphy->data_rate_mbps, 1000 * 1000);
 	v4l2_info(sd, "dphy%d, data_rate_mbps %lld\n", dphy->phy_index,

@@ -1,5 +1,4 @@
 &vi_subsys {
-	board_compat = "eic7700,dvb_vi";
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
 	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes

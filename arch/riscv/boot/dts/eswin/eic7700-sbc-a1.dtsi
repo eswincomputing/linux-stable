@@ -33,7 +33,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
-#include "eic7700-sbc-a1-camera.dtsi"
+#include "eic7700-sbc-a1-camera-imx219.dtsi"
 
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 

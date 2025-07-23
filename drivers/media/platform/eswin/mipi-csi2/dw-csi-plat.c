@@ -313,8 +313,6 @@ dw_mipi_csi_s_power(struct v4l2_subdev *sd, int on)
 	return 0;
 }
 
-
-
 #if IS_ENABLED(CONFIG_VIDEO_ADV_DEBUG)
 static int
 dw_mipi_csi_g_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *reg)
@@ -444,6 +442,9 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 
 	if (of_property_read_u32(node, "index", &dev->index))
 		dev->index = 0;
+
+	if (of_property_read_u32(dev->dev->of_node, "ipi_dt", &dev->hw.ipi_dt))
+		dev->hw.ipi_dt = 0x2b;
 
 	node = of_graph_get_next_endpoint(node, NULL);
 	if (!node) {

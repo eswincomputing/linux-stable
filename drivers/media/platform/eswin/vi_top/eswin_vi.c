@@ -180,24 +180,13 @@ static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
     syscrg_register_write(regmap, 0x480, 0x1);///shutter_rst_ctl
     udelay(20000);
 
-
     syscrg_register_write(regmap, 0x184, 0x80000020);///vi_dwclk_ctl
     syscrg_register_write(regmap, 0x188, 0xc0000020);///vi_aclk_ctl
     syscrg_register_write(regmap, 0x18c, 0x80000020);///vi_dig_isp_clk_ctl
+    syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
 
-    if(es_vi_dev->board_compat == EIC7700_EVB_VI_COMPAT)
-        syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
-	else
-        syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
-    
-    if(es_vi_dev->board_compat == EIC7700_EVB_VI_COMPAT) {
-        syscrg_register_write(regmap, 0x194, 0x80000100);///vi_shutter0
-        syscrg_register_write(regmap, 0x198, 0x80000100);///vi_shutter1
-    } else {
-	    syscrg_register_write(regmap, 0x194, 0x80000180);///vi_shutter0
-	    syscrg_register_write(regmap, 0x198, 0x80000180);///vi_shutter1
-	}
-
+	syscrg_register_write(regmap, 0x194, 0x80000180);///vi_shutter0
+	syscrg_register_write(regmap, 0x198, 0x80000180);///vi_shutter1
     syscrg_register_write(regmap, 0x19c, 0x80000100);///vi_shutter2
     syscrg_register_write(regmap, 0x1a0, 0x80000100);///vi_shutter3
     syscrg_register_write(regmap, 0x1a4, 0x80000100);///vi_shutter4
@@ -347,6 +336,7 @@ UNUSED_FUNC static int eswin_vi_sys_reset_release(struct eswin_vi_clk_rst *vi_cr
 
 static int eswin_open(struct inode *inode, struct file *file)
 {
+    pr_info(DRIVER_NAME ": Device opened\n");
     struct eswin_vi_device *es_vi_dev = container_of(inode->i_cdev, struct eswin_vi_device, es_vi_cdev);
     file->private_data = es_vi_dev;
     return 0;
@@ -354,16 +344,19 @@ static int eswin_open(struct inode *inode, struct file *file)
 
 static int eswin_release(struct inode *inode, struct file *file)
 {
+    pr_info(DRIVER_NAME ": Device closed\n");
     return 0;
 }
 
 static ssize_t eswin_read(struct file *file, char __user *buffer, size_t len, loff_t *offset)
 {
+    pr_info(DRIVER_NAME ": Read operation not implemented\n");
     return 0;
 }
 
 static ssize_t eswin_write(struct file *file, const char __user *buffer, size_t len, loff_t *offset)
 {
+    pr_info(DRIVER_NAME ": Write operation not implemented\n");
     return len;
 }
 
@@ -380,6 +373,7 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     struct eswin_vi_device *es_vi_dev = file->private_data;
     struct soc_control_context soc_ctrl;
     struct isp_control_HxV isp_control_h_v;
+    pr_info(DRIVER_NAME ": IOCTL In\n");
 
     switch (cmd) {
         case VI_IOCTL_RESET:
@@ -398,6 +392,8 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             pr_err(DRIVER_NAME ": Invalid IOCTL command\n");
             return -EINVAL;
     }
+
+    pr_info(DRIVER_NAME ": IOCTL Out\n");
 
     return ret;
 }
@@ -424,8 +420,7 @@ static int eswin_vi_probe(struct platform_device *pdev)
     struct media_device *media_dev;
     struct device_node *np = pdev->dev.of_node;
     struct resource* res;
-    const char *dts_board_compat;
-    int numa_id = 0;
+    int numa_id =0;
     char class_name[32];
     __maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
 
@@ -491,19 +486,13 @@ static int eswin_vi_probe(struct platform_device *pdev)
         return ret;
     }
 
-    ret = of_property_read_u32(dev->of_node, "numa-node-id", &numa_id);
-    if(ret) {
-        dev_warn(dev, "Could not get numa-node-id, use default 0\n");
+    ret = of_property_read_u32(np, "numa-node-id", &numa_id);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read numa-node-id property! Use Default 0!\n");
         numa_id = 0;
     }
 
-    if(numa_id == 0) {
-        dev_info(dev, "create device class node eswin_vi_class\n");
-        snprintf(class_name, sizeof(class_name), "eswin_vi_class");
-    } else {
-        dev_info(dev, "create device class node eswin_vi_class_d%d\n", numa_id);
-        snprintf(class_name, sizeof(class_name), "eswin_vi_class_d%d", numa_id);
-    }
+    snprintf(class_name, sizeof(class_name), "eswin_vi_class%d", numa_id);
     es_vi_dev->es_vi_class = class_create(class_name);
     if (IS_ERR(es_vi_dev->es_vi_class)) {
         cdev_del(&es_vi_dev->es_vi_cdev);
@@ -512,13 +501,7 @@ static int eswin_vi_probe(struct platform_device *pdev)
     }
 
     // 创建设备节点
-    if(numa_id == 0) {
-        dev_info(dev, "create device node eswin_vi\n");
-        device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "eswin_vi");
-    } else {
-        dev_info(dev, "create device node eswin_vi_d%d\n", numa_id);
-        device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "eswin_vi_d%d", numa_id);
-    }
+    device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "es_vi%d", numa_id);
     media_device_init(media_dev);
     media_dev->dev = &pdev->dev;
     media_dev->ops = &es_mdev_ops;
@@ -551,22 +534,6 @@ static int eswin_vi_probe(struct platform_device *pdev)
 			return PTR_ERR(es_vi_dev->base);
 		}
 	}
-
-    ret = of_property_read_string(np, "board_compat", &dts_board_compat);
-    if (ret) {
-        pr_warn(DRIVER_NAME ": Failed to read board_compat property! Use Default EVB board_compat!\n");
-        dts_board_compat = "eic7700,evb_vi";
-    }
-    dev_dbg(dev, ": board_compat: %s\n", dts_board_compat);
-
-    if(!strcmp(dts_board_compat, "eic7700,evb_vi")) {
-        es_vi_dev->board_compat = EIC7700_EVB_VI_COMPAT;
-    } else if(!strcmp(dts_board_compat, "eic7700,dvb_vi")) {
-        es_vi_dev->board_compat = EIC7700_DVB_VI_COMPAT;
-    } else {
-        pr_warn(DRIVER_NAME ": Unknown board_compat! Use Default EVB board_compat!\n");
-        es_vi_dev->board_compat = EIC7700_EVB_VI_COMPAT;
-    }
 
     ret = of_property_read_u32(np, "eswin,isp_dvp0_hor", &es_vi_dev->isp_dvp0_hor);
     if (ret) {
@@ -651,5 +618,5 @@ module_exit(es_vi_drv_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("yufangxian@eswincomputing.com");
-MODULE_DESCRIPTION("ESWIN VI TOP Driver");
+MODULE_DESCRIPTION("ESWIN VI Driver");
 MODULE_VERSION("0.1");

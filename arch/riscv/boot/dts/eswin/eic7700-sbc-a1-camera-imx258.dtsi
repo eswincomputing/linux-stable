@@ -1,6 +1,6 @@
 &vi_subsys {
-	eswin,isp_dvp0_hor = <3280>;
-	eswin,isp_dvp0_ver = <2464>;
+	eswin,isp_dvp0_hor = <4208>;
+	eswin,isp_dvp0_ver = <3120>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
@@ -103,37 +103,6 @@
 	};
 };
 
-&dvp2axi {
-	status = "okay";
-};
-
-&dvp2axi_mipi_lvds {
-	status = "okay";
-	dvp2axi_id = <0>;
-	port@0 {
-		axi2dvp_mipi2_in0: endpoint@0 {
-			remote-endpoint = <&mipi_csi2_output0>;
-		};
-	};
-};
-
-&dvp2axi_mipi_lvds1 {
-	status = "disabled";
-	dvp2axi_id = <1>;
-};
-
-&dvp2axi_mipi_lvds2 {
-	status = "disabled";
-	dvp2axi_id = <2>;
-	port@0 {
-		axi2dvp_mipi2_in2: endpoint@0 {
-			remote-endpoint = <&mipi_csi2_2_output0>;
-		};
-	};
-};
-
-
-
 &mipi_csi2_0 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
@@ -176,7 +145,7 @@
 &mipi_csi2_2 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	status = "disabled";
+	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -204,6 +173,34 @@
 };
 
 
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	dvp2axi_id = <0>;
+	port@0 {
+		axi2dvp_mipi2_in0: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_output0>;
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds1 {
+	status = "okay";
+	dvp2axi_id = <1>;
+};
+
+&dvp2axi_mipi_lvds2 {
+	status = "okay";
+	dvp2axi_id = <2>;
+	port@0 {
+		axi2dvp_mipi2_in2: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_2_output0>;
+		};
+	};
+};
 
 
 &csi2_dphy_hw {
@@ -225,7 +222,7 @@
 
 			mipidphy0_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx219_out0>;
+				remote-endpoint = <&imx258_out0>;
 			};
 		};
 
@@ -245,11 +242,11 @@
 &csi2_dphy_hw2 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
-	status = "disabled";
+	status = "okay";
 };
 
 &csi2_dphy2 {
-	status = "disabled";
+	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -261,7 +258,7 @@
 
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx219_out2>;
+				remote-endpoint = <&imx258_out1>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -279,61 +276,62 @@
 	};
 };
 
-&d0_i2c1 {
+&d0_i2c3 {
+	/* mipi csi0/csi1 */
 	status = "okay";
-	imx219_0: imx219@10 {
-		compatible = "sony,imx219";
-		status = "okay";
-		address-cells = <1>;
-		size-cells = <0>;
-		reg = <0x10>;
+	imx258_0: imx258@1a {
+			compatible = "sony,imx258";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x1a>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <24000000>;
+			clock-names = "xvclk";
+			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+			eswin,camera-module-index = <0>;
+			eswin,camera-module-facing = "back";
+			eswin,camera-module-name = "rpi-camera-v2";
+			eswin,camera-module-lens-name = "default";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio72_default &pinctrl_gpio70_default>;
-		mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-		xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;
-
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "rpi-camera-v2";
-		eswin,camera-module-lens-name = "default";
-
-		port {
-			imx219_out0: endpoint {
-				remote-endpoint = <&mipidphy0_in_ucam0>;
-				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <364000000>;
+			port {
+				imx258_out0: endpoint {
+					remote-endpoint = <&mipidphy0_in_ucam0>;
+					data-lanes = <1 2 3 4>;
+					link-frequencies = /bits/ 64 <633500000>;
+				};
 			};
 		};
-	};
 };
 
-&d0_aon_i2c0 {
-	//status = "okay";
-	imx219_1: imx219@10 {
-		compatible = "sony,imx219";
-		status = "disabled";
-		address-cells = <1>;
-		size-cells = <0>;
-		reg = <0x10>;
+&d0_i2c2 {
+	/* mipi csi0/csi1 */
+	status = "okay";
+	imx258_1: imx258@1a {
+			compatible = "sony,imx219";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x1a>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <24000000>;
+			clock-names = "xvclk";
+			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+			eswin,camera-module-index = <0>;
+			eswin,camera-module-facing = "back";
+			eswin,camera-module-name = "rpi-camera-v2";
+			eswin,camera-module-lens-name = "default";
 
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio78_default>;
-		mclk-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
-
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "rpi-camera-v2";
-		eswin,camera-module-lens-name = "default";
-
-		port {
-			imx219_out2: endpoint {
-				remote-endpoint = <&mipidphy2_in_ucam0>;
-				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <364000000>;
+			port {
+				imx258_out1: endpoint {
+					remote-endpoint = <&mipidphy2_in_ucam0>;
+					data-lanes = <1 2 3 4>;
+					link-frequencies = /bits/ 64 <633500000>;
+				};
 			};
 		};
-	};
 };
 
 &isp_0 {

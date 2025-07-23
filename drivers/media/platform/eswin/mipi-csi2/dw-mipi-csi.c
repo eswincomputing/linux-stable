@@ -283,8 +283,8 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 void dw_mipi_csi_fill_timings(struct dw_csi *dev)
 {
 	dev->hw.ipi_vcid = 0;
-	dev->hw.ipi_dt = CSI_2_RAW10;
-	dev->hw.ipi_emb = 1;
+	// dev->hw.ipi_dt = CSI_2_RAW10;
+	// dev->hw.ipi_emb = 1;
 	dev->hw.ipi_color_mode = COLOR16;
 	dev->hw.ipi_auto_flush = 0;
 	dev->hw.ipi_mode = CAMERA_TIMING;
