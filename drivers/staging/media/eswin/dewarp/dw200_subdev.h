@@ -351,13 +351,15 @@ struct dw200_subdev {
 	struct dw200_fe_context fe;
 	struct dentry *dw200_reset;
 	es_proc_entry_t *dewarp_dir;
-	es_proc_entry_t *dwe_load;
-	es_proc_entry_t *vse_load;
+	es_proc_entry_t *load_stat;
 	dw_clk_rst_t dw_crg;
 	struct buffer_info buf_info[DW200_BUFFER_INDEX];
 	struct timer_list reset_timer;
-	u16 src_vsize;
-	u16 src_hsize;
+	u16 d0_src_vsize;
+	u16 d0_src_hsize;
+	u16 d1_src_vsize;
+	u16 d1_src_hsize;
+	u8 numa_node_id;
 };
 
 void dwe_write_reg(struct dw200_subdev *dev, u32 offset, u32 val);
