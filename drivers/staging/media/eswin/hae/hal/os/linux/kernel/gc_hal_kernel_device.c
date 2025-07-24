@@ -464,10 +464,11 @@ static void gc_load_show_hardware_usage(void *m, gckDEVICE device)
         len += fs_printf(ptr,       "dev_id      : %d\n", device->id);
         len += fs_printf(ptr + len, "dev_core    : %d\n", i);
         len += fs_printf(ptr + len, "pooling_ms  : %d\n", HARDWARE_USAGE_MEASURE_TIME_MS);
-        len += fs_printf(ptr + len, "curr_load   : %u%%\n", Hardware->load);
-        len += fs_printf(ptr + len, "curr_total_cycle   : %u\n", Hardware->totalCycle);
-        len += fs_printf(ptr + len, "curr_run_cycle     : %u\n", Hardware->totalCycle - Hardware->totalIdleCycle);
-        len += fs_printf(ptr + len, "total_run_cycle    : %llu\n", Hardware->totalRunCycle);
+        len += fs_printf(ptr + len, "load        : %u%%\n", Hardware->load);
+        len += fs_printf(ptr + len, "clk         : %llu\n", Hardware->threadMcClk);
+        len += fs_printf(ptr + len, "total_cycle     : %u\n", Hardware->totalCycle);
+        len += fs_printf(ptr + len, "run_cycle       : %u\n", Hardware->totalCycle - Hardware->totalIdleCycle);
+        len += fs_printf(ptr + len, "total_run_cycle : %llu\n", Hardware->totalRunCycle);
         len += fs_printf(ptr + len, "\n");
     }
 
@@ -3477,6 +3478,48 @@ gc_df_exit(gckGALDEVICE Device)
     return status;
 }
 #endif
+
+int gckGALDEVICE_GetDevFreqInfo(struct device *dev, struct devfreq_dev_status *stat)
+{
+    gctINT32 i = 0;
+    gckHARDWARE hardware = NULL;
+
+    if (!dev) {
+        return -1;
+    }
+
+    if (!stat) {
+        return -1;
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        if (galDevice->devices[i] == NULL) {
+            continue;
+        }
+
+        if (dev != galDevice->devices[i]->dev) {
+            continue;
+        }
+
+        //use core 0 usage default
+        if (galDevice->devices[i]->kernels[gcvCORE_2D] == NULL) {
+            continue;
+        }
+
+        hardware = galDevice->devices[i]->kernels[gcvCORE_2D]->hardware;
+        if (hardware) {
+            // IPA use, not user hardware->load to prevent clock change too frequncy;
+            stat->busy_time = 1024; // hardware->load
+            stat->total_time = 1024; // 100
+            stat->current_frequency = hardware->threadMcClk;
+            return 0;
+        }
+    }
+
+    dev_err(dev, "hae get dev freq info failed!\n");
+
+    return -1;
+}
 
 /*******************************************************************************
  *

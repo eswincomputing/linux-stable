@@ -56,6 +56,8 @@
 #ifndef __gc_hal_kernel_device_h_
 #define __gc_hal_kernel_device_h_
 
+#include <linux/devfreq.h>
+
 #include "gc_hal_kernel_debugfs.h"
 #include "gc_hal_ta.h"
 
@@ -158,6 +160,8 @@ gckGALDEVICE_Construct(gcsPLATFORM *Platform, const gcsMODULE_PARAMETERS *Args, 
 
 gceSTATUS
 gckGALDEVICE_Destroy(gckGALDEVICE Device);
+
+int gckGALDEVICE_GetDevFreqInfo(struct device *dev, struct devfreq_dev_status *stat);
 
 static gcmkINLINE gckKERNEL
 _GetValidKernel(gckGALDEVICE Device)

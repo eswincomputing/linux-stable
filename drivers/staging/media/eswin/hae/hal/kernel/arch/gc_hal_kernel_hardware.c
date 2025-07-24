@@ -684,6 +684,43 @@ _PowerStateTimerFunc(gctPOINTER Data)
 }
 #endif
 
+static gceSTATUS threadCheckHardwareCycle(gckHARDWARE hardware)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gctUINT64 mcClk = 0;
+    gctUINT64 shClk = 0;
+
+    if (hardware->mcStart) {
+        gcmkONERROR(gckHARDWARE_ExitQueryClock(hardware, hardware->mcStart, hardware->shStart, &mcClk, &shClk));
+        hardware->threadMcClk = mcClk;
+        hardware->threadShClk = shClk;
+    }
+
+    gcmkONERROR(gckHARDWARE_EnterQueryClock(hardware, &hardware->mcStart, &hardware->shStart));
+
+OnError:
+    return status;
+}
+
+static gceSTATUS threadCheckHardwareload(gckHARDWARE hardware)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmkONERROR(gckHARDWARE_QueryCycleCount(hardware, &hardware->totalCycle, &hardware->totalIdleCycle));
+
+    hardware->totalRunCycle += hardware->totalCycle - hardware->totalIdleCycle;
+
+    if (hardware->totalIdleCycle) {
+        hardware->load =
+                (gctUINT32)((gctUINT64)(hardware->totalCycle - hardware->totalIdleCycle) * 100 / hardware->totalCycle);
+    }
+
+    gcmkONERROR(gckHARDWARE_CleanCycleCount(hardware));
+
+OnError:
+    return status;
+}
+
 static gceSTATUS threadCheckHardwareUsage(gckHARDWARE hardware)
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -700,22 +737,16 @@ static gceSTATUS threadCheckHardwareUsage(gckHARDWARE hardware)
         hardware->totalCycle = 0;
         hardware->totalIdleCycle = 0;
         hardware->load = 0;
+        hardware->mcStart = 0;
+        hardware->shStart = 0;
+        hardware->threadMcClk = 0;
+        hardware->threadShClk = 0;
         goto OnError;
     }
 
-    gcmkONERROR(gckHARDWARE_QueryCycleCount(hardware, &hardware->totalCycle, &hardware->totalIdleCycle));
+    gcmkONERROR(threadCheckHardwareload(hardware));
 
-    hardware->totalRunCycle += hardware->totalCycle - hardware->totalIdleCycle;
-
-    if (hardware->totalIdleCycle) {
-        hardware->load = (gctUINT32)(
-            (gctUINT64)(hardware->totalCycle - hardware->totalIdleCycle) * 100 / hardware->totalCycle);
-    }
-
-    // printk("core: %d, time: %u, total: %u, idle: %u, load: %u%%\n", hardware->core, now_time / 1000,
-    //     hardware->totalCycle, hardware->totalIdleCycle, hardware->load);
-
-    gcmkONERROR(gckHARDWARE_CleanCycleCount(hardware));
+    gcmkONERROR(threadCheckHardwareCycle(hardware));
 
 OnError:
     gcmkVERIFY_OK(gckOS_ReleaseMutex(hardware->os, hardware->powerMutex));
@@ -10953,7 +10984,10 @@ gckHARDWARE_CleanCycleCount(gckHARDWARE Hardware)
 
     gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x0007C, 0));
 
-    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00438, 0));
+    /* chip module is GC820, gckHARDWARE_QueryCycleCount will not use it.
+     * gckHARDWARE_EnterQueryClock will reset it for clk count.
+     */
+    // gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00438, 0));
 
     gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00078, 0));
 

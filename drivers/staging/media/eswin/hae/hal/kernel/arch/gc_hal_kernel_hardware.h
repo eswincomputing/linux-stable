@@ -251,12 +251,15 @@ struct _gckHARDWARE {
     gctBOOL                     largeVA;
 
     gctSIGNAL                   feIdleSignal;
-
     gctPOINTER                  hardwareLoadTimer;
     gctUINT64                   totalRunCycle;
     gctUINT32                   totalCycle;
     gctUINT32                   totalIdleCycle;
     gctUINT32                   load;
+    gctUINT64                   mcStart;
+    gctUINT64                   shStart;
+    gctUINT64                   threadMcClk;
+    gctUINT64                   threadShClk;
 };
 
 gceSTATUS
