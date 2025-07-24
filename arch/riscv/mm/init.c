@@ -1511,8 +1511,6 @@ static void __init reserve_crashkernel(void)
 
 	crashk_res.start = crash_base;
 	crashk_res.end = crash_base + crash_size - 1;
-	pr_info("insert_resource:crashk_res(0x%lx, 0x%lx)\n", crashk_res.start, crashk_res.end);
-	insert_resource(&iomem_resource, &crashk_res);
 }
 
 void __init paging_init(void)
