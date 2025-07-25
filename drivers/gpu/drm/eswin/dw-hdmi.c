@@ -37,6 +37,7 @@
 #include <linux/regmap.h>
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
+#include <linux/clk-provider.h>
 
 #include <media/cec-notifier.h>
 
@@ -4623,6 +4624,15 @@ EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 void dw_hdmi_resume(struct dw_hdmi *hdmi)
 {
 	dev_dbg(hdmi->dev, "%s", __func__);
+	if (!__clk_is_enabled(hdmi->cec_clk)) {
+		clk_enable(hdmi->cec_clk);
+	}
+	if (!__clk_is_enabled(hdmi->iahb_clk)) {
+		clk_enable(hdmi->iahb_clk);
+	}
+	if (!__clk_is_enabled(hdmi->isfr_clk)) {
+		clk_enable(hdmi->isfr_clk);
+	}
 	dw_hdmi_init_hw(hdmi);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_resume);
