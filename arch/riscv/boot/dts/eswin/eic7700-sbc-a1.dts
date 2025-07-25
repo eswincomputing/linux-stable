@@ -93,5 +93,5 @@
 
 &sdio1 {
         /* disable this port */
-        status = "disabled";
+        status = "okay";
 };
