@@ -2,9 +2,9 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 &vi_subsys {
-	eswin,isp_dvp0_hor = <3864>;
-	eswin,isp_dvp0_ver = <2192>;
-	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
+	eswin,isp_dvp0_hor = <3280>;
+	eswin,isp_dvp0_ver = <2464>;
+	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
@@ -125,87 +125,87 @@
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
 	status = "okay";
-	imx415_0: imx415@37 {
-			compatible = "sony,imx415";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x37>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
-			clock-names = "inck";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio71_default>;
-			reset-gpio = <&portc 7 GPIO_ACTIVE_HIGH>;
+	ov9281_0: ov9281_0@60 {
+		compatible = "ovti,ov9281";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x60>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio72_default>;
+		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
 
-			port {
-				imx415_out0: endpoint {
-					remote-endpoint = <&mipidphy0_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <360000000>;
-				};
+		port {
+			ov9281_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <400000000>;
 			};
 		};
+	};
 };
 
 &d0_i2c4 {
 	/* mipi csi2/csi3 */
 	status = "okay";
-	imx415_2: imx415@37 {
-			compatible = "sony,imx415";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x37>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
-			clock-names = "inck";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio77_default>;
-			reset-gpio = <&portc 13 GPIO_ACTIVE_HIGH>;
+	ov9281_2: ov9281_2@10 {
+		compatible = "ovti,ov9281";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x60>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio78_default>;
+		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
 
-			port {
-				imx415_out2: endpoint {
-					remote-endpoint = <&mipidphy2_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <360000000>;
-				};
+		port {
+			ov9281_out2: endpoint {
+				remote-endpoint = <&mipidphy2_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <400000000>;
 			};
 		};
+	};
 };
 
 &d0_i2c5 {
 	/* mipi csi4/csi5 */
 	status = "okay";
-	imx415_4: imx415@37 {
-		compatible = "sony,imx415";
+	ov9281_4: ov9281_4@10 {
+		compatible = "ovti,ov9281";
 		status = "okay";
 		address-cells = <1>;
 		size-cells = <0>;
-		reg = <0x37>;
+		reg = <0x60>;
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
-		clock-names = "inck";
+		clock-names = "xclk";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio83_default>;
-		reset-gpio = <&portc 19 GPIO_ACTIVE_HIGH>;
+		pinctrl-0 = <&pinctrl_gpio84_default>;
+		reset-gpio = <&portc 20 GPIO_ACTIVE_HIGH>;
 
 		port {
-			imx415_out4: endpoint {
+			ov9281_out4: endpoint {
 				remote-endpoint = <&mipidphy4_in_ucam0>;
-				data-lanes = <1 2 3 4>;
-				link-frequencies = /bits/ 64 <360000000>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <400000000>;
 			};
 		};
 	};
 };
 
 &csi2_dphy_hw {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 
@@ -221,8 +221,7 @@
 			#size-cells = <0>;
 
 			mipidphy0_in_ucam0: endpoint {
-				remote-endpoint = <&imx415_out0>;
-				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&ov9281_out0>;
 			};
 		};
 		port@1 {
@@ -239,8 +238,8 @@
 };
 
 &csi2_dphy_hw2 {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 2lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy2 {
@@ -256,7 +255,7 @@
 
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx415_out2>;
+				remote-endpoint = <&ov9281_out2>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -275,8 +274,8 @@
 };
 
 &csi2_dphy_hw4 {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 2lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy4 {
@@ -292,8 +291,8 @@
 
 			mipidphy4_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx415_out4>;
-				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&ov9281_out4>;
+				data-lanes = <1 2>;
 			};
 		};
 
@@ -312,7 +311,7 @@
 
 &mipi_csi2_0 {
 	status = "okay";
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	ports {
 		#address-cells = <1>;
@@ -349,7 +348,7 @@
 };
 
 &mipi_csi2_2 {
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
 	ports {
@@ -378,9 +377,8 @@
 	};
 };
 
-
 &mipi_csi2_4 {
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
 	ports {

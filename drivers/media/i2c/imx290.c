@@ -110,6 +110,8 @@ MODULE_PARM_DESC(debug,
 #define IMX290_TLPX CCI_REG16_LE(0x3454)
 #define IMX290_X_OUT_SIZE CCI_REG16_LE(0x3472)
 #define IMX290_INCKSEL7 CCI_REG8(0x3480)
+#define IMX327_REG_CHIP_ID CCI_REG8(0x301e)
+#define IMX327_CHIP_ID 0xb2
 
 #define IMX290_PGCTRL_REGEN BIT(0)
 #define IMX290_PGCTRL_THRU BIT(1)
@@ -194,6 +196,7 @@ struct imx290_model_info {
 	const struct cci_reg_sequence *init_regs;
 	size_t init_regs_num;
 	unsigned int max_analog_gain;
+	unsigned int max_digital_gain;
 	const char *name;
 };
 
@@ -759,6 +762,16 @@ static int imx290_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx290->regmap, IMX290_GAIN, ctrl->val, NULL);
 		break;
 
+	case V4L2_CID_DIGITAL_GAIN:
+		if(ctrl->val < imx290->model->max_analog_gain) {
+			dev_warn(imx290->dev,
+				       "Digital gain value %d is less than max analog gain %d, ignore digtial gain setting\n",
+				       ctrl->val, imx290->model->max_analog_gain);
+			break;
+		}
+		ret = cci_write(imx290->regmap, IMX290_GAIN, ctrl->val, NULL);
+		break;
+
 	case V4L2_CID_VBLANK:
 		ret = cci_write(imx290->regmap, IMX290_VMAX,
 				ctrl->val + imx290->current_mode->height, NULL);
@@ -877,6 +890,10 @@ static int imx290_ctrl_init(struct imx290 *imx290)
 	v4l2_ctrl_new_std(&imx290->ctrls, &imx290_ctrl_ops,
 			  V4L2_CID_ANALOGUE_GAIN, 0,
 			  imx290->model->max_analog_gain, 1, 0);
+
+	v4l2_ctrl_new_std(&imx290->ctrls, &imx290_ctrl_ops,
+			  V4L2_CID_DIGITAL_GAIN, 0,
+			  imx290->model->max_digital_gain, 1, 0);
 
 	/*
 	  * Correct range will be determined through imx290_ctrl_update setting
@@ -1327,7 +1344,7 @@ static int imx290_power_on(struct imx290 *imx290)
 	}
 
 	usleep_range(1, 2);
-	gpiod_set_value_cansleep(imx290->rst_gpio, 0);
+	gpiod_set_value_cansleep(imx290->rst_gpio, 1);
 	usleep_range(30000, 31000);
 
 	return 0;
@@ -1336,7 +1353,7 @@ static int imx290_power_on(struct imx290 *imx290)
 static void imx290_power_off(struct imx290 *imx290)
 {
 	clk_disable_unprepare(imx290->xclk);
-	gpiod_set_value_cansleep(imx290->rst_gpio, 1);
+	gpiod_set_value_cansleep(imx290->rst_gpio, 0);
 	regulator_bulk_disable(ARRAY_SIZE(imx290->supplies), imx290->supplies);
 }
 
@@ -1460,6 +1477,7 @@ static const struct imx290_model_info imx290_models[] = {
 		 .init_regs = imx290_global_init_settings_327,
 		 .init_regs_num = ARRAY_SIZE(imx290_global_init_settings_327),
 		 .max_analog_gain = 98,
+		 .max_digital_gain = 240,
 		 .name = "imx327",
 	 },
 	 [IMX290_MODEL_IMX462LQR] = {
@@ -1539,6 +1557,23 @@ done:
 	return ret;
 }
 
+static int imx290_check_sensor_id(struct imx290 *sensor)
+{
+	struct device *dev = sensor->dev;
+	int ret, err;
+	u64 id = 0;
+
+	ret = cci_read(sensor->regmap, IMX327_REG_CHIP_ID,
+			      &id, &err);
+
+	if (id != IMX327_CHIP_ID) {
+		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
+		return -EINVAL;
+	}
+	return ret;
+}
+
+
 static int imx290_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1589,6 +1624,12 @@ static int imx290_probe(struct i2c_client *client)
 	ret = imx290_power_on(imx290);
 	if (ret < 0) {
 		dev_err(dev, "Could not power on the device\n");
+		return ret;
+	}
+
+	ret = imx290_check_sensor_id(imx290);
+	if (ret) {
+		imx290_power_off(imx290);
 		return ret;
 	}
 

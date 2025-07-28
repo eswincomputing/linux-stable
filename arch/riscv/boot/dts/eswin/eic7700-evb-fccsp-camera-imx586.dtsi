@@ -135,11 +135,9 @@
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio71_default>;
+			reset-gpio = <&portc 7 GPIO_ACTIVE_HIGH>;
 
 			port {
 				imx586_out0: endpoint {
@@ -164,11 +162,9 @@
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio77_default>;
+			reset-gpio = <&portc 13 GPIO_ACTIVE_HIGH>;
 
 			port {
 				imx586_out2: endpoint {
@@ -193,11 +189,9 @@
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
 		clock-names = "inck";
-		mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "rpi-camera-v2";
-		eswin,camera-module-lens-name = "default";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio83_default>;
+		reset-gpio = <&portc 19 GPIO_ACTIVE_HIGH>;
 
 		port {
 			imx586_out4: endpoint {

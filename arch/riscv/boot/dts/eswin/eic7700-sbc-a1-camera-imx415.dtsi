@@ -288,11 +288,9 @@
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <37125000>;
 			clock-names = "inck";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio72_default>;
+			reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
 
 			port {
 				imx415_out0: endpoint {
@@ -313,14 +311,12 @@
 			address-cells = <1>;
 			size-cells = <0>;
 			reg = <0x37>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <37125000>;
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio78_default>;
+			reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
 
 			port {
 				imx415_out1: endpoint {
