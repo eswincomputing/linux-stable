@@ -33,8 +33,8 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-                dc_out_dsi: endpoint@0 {
-                        reg = <0>;
+		dc_out_dsi: endpoint@0 {
+			reg = <0>;
 			remote-endpoint = <&dsi_input>;
 		};
 		dc_out_dpi: endpoint@1 {
