@@ -266,6 +266,8 @@ struct hantrovcmd_dev {
 
 	/* status statistics*/
 	atomic64_t core_tot_cycles;
+
+	int software_triger_abort;
 };
 
 /*
@@ -343,7 +345,6 @@ int venc_vcmd_core_num = 0;
 /* dynamic allocation*/
 static struct hantrovcmd_dev *hantrovcmd_data;
 
-static int software_triger_abort;
 // kernel thread
 struct task_struct *kthread;
 u8 stop_kthread;
@@ -441,8 +442,8 @@ static int vcmd_abort(struct hantrovcmd_dev *dev)
 	state = vcmd_get_register_value((const void *)dev->hwregs,
 		dev->reg_mirror, HWIF_VCMD_WORK_STATE);
 	pend_state = (state == HW_WORK_STATE_PEND) ? 1 : 0;
-	LOG_INFO("vcmd_abort, start vcmd aborting, vcmd state = %u, vce_hang = %u, working_state = %u\n"
-		, state, dev->vce_hang, dev->working_state);
+	LOG_INFO("vcmd_abort, start vcmd aborting, core_id = %u, vcmd state = %u, vce_hang = %u, working_state = %u\n"
+		, dev->core_id, state, dev->vce_hang, dev->working_state);
 	spin_lock_irqsave(dev->spinlock, flags);
 	if (state == HW_WORK_STATE_IDLE) {
 		dev->vce_hang = 0;
@@ -454,7 +455,7 @@ static int vcmd_abort(struct hantrovcmd_dev *dev)
 	else
 		vcmd_set_register_mirror_value(dev->reg_mirror, HWIF_VCMD_ABORT_MODE, 0x0);
 
-	software_triger_abort = 1;
+	dev->software_triger_abort = 1;
 	vcmd_write_register_value((const void *)dev->hwregs,
 			dev->reg_mirror,
 			HWIF_VCMD_START_TRIGGER, 0);
@@ -477,23 +478,23 @@ static int vcmd_abort(struct hantrovcmd_dev *dev)
 
 	if (loop_cnt < 100) {
 		mdelay(10);
-		software_triger_abort = 0;
+		dev->software_triger_abort = 0;
 		return 0;
 	}
-	software_triger_abort = 0;
+	dev->software_triger_abort = 0;
 	LOG_ERR("%s, can't go to IDLE, need to re-power sub-system!\n", __func__);
 	return -1;
 #else
 	if (wait_event_interruptible(*dev->wait_abort_queue,
 		(dev->working_state == WORKING_STATE_IDLE))) {
-		software_triger_abort = 0;
+		dev->software_triger_abort = 0;
 		LOG_ERR("vcmd_abort: wait_abort_queue is signaled!!! software_triger_abort_ = 0\n");
 		return -ERESTARTSYS;
 	}
-	LOG_INFO("vcmd_abort, vcmd abort completed, state = %u, software_triger_abort_ = 0\n"
-		, dev->working_state);
+	LOG_INFO("vcmd_abort, vcmd abort completed, core_id = %u, state = %u, software_triger_abort_ = 0\n"
+		, dev->core_id, dev->working_state);
 
-	software_triger_abort = 0;
+	dev->software_triger_abort = 0;
 	return 0;
 #endif
 }
@@ -518,10 +519,12 @@ static int stop_vcmd(struct hantrovcmd_dev *dev)
  */
 static void reset_system(struct hantrovcmd_dev *dev)
 {
-    LOG_INFO("reset vce system, working_state = %u!\n", dev->working_state);
+    LOG_INFO("reset vce system, core_id = %u, working_state = %u!\n"
+		, dev->core_id, dev->working_state);
 	if (dev->working_state == HW_WORK_STATE_IDLE) {
         int ret = enc_reset_system(dev->core_id);
-		LOG_INFO("reset vce system completed! ret = %d\n", ret);
+		LOG_INFO("reset vce system completed! core_id = %u, ret = %d\n"
+			, dev->core_id, ret);
 	}
 }
 
@@ -684,6 +687,9 @@ static void _vcmd_kthread_wakeup(void)
  */
 static void _vcmd_kthread_create(void)
 {
+	if (kthread && !IS_ERR(kthread)) {
+		return;
+	}
 	stop_kthread = 0;
 	init_waitqueue_head(&kthread_waitq);
 	kthread =
@@ -699,7 +705,7 @@ static void _vcmd_kthread_create(void)
  */
 static void _vcmd_kthread_stop(void)
 {
-	if (!IS_ERR(kthread)) {
+	if (kthread && !IS_ERR(kthread)) {
 		stop_kthread = 1;
 		kthread_stop(kthread);
 		kthread = NULL;
@@ -1356,12 +1362,12 @@ static int select_vcmd(bi_list_node *new_cmdbuf_node, u16 numa_id)
 		vcmd_write_register_value((const void *)smallest_dev->hwregs,
 					  smallest_dev->reg_mirror,
 					  HWIF_VCMD_START_TRIGGER, 0);
-		software_triger_abort = 1;
+		dev->software_triger_abort = 1;
 		if (wait_event_interruptible(*smallest_dev->wait_abort_queue, wait_abort_rdy(smallest_dev))) {
-			software_triger_abort = 0;
+			dev->software_triger_abort = 0;
 			return -ERESTARTSYS;
 		}
-		software_triger_abort = 0;
+		dev->software_triger_abort = 0;
 		//need to select inserting position again because hw maybe have run to the next node.
 		//CMDBUF_PRIORITY_HIGH
 		spin_lock_irqsave(smallest_dev->spinlock, flags);
@@ -1666,6 +1672,7 @@ static long link_and_run_cmdbuf(struct file *filp,
 
 	return_value = select_vcmd(new_cmdbuf_node, input_para->numa_id);
 	if (return_value) {
+		/** release vcmd_reserve_cmdbuf_sem if return, avoid dead lock.*/
 		up(&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]);
 		LOG_ERR("vcmd: error return from select_vcmd\n");
 		return return_value;
@@ -2565,7 +2572,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 						vcmd_write_register_value((const void *)dev[core_id].hwregs,
 									  dev[core_id].reg_mirror, HWIF_VCMD_START_TRIGGER, 0);
 						vcmd_aborted = 1;
-						software_triger_abort = 1;
+						dev->software_triger_abort = 1;
 #ifdef VCMD_DEBUG_INTERNAL
 						printk_vcmd_register_debug(
 							(const void *)dev[core_id].hwregs,
@@ -2591,6 +2598,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 								spin_unlock_irqrestore(
 									dev[core_id].spinlock, flags);
 								up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
+								dev->software_triger_abort = 0;
 								goto error;
 							}
 						}
@@ -2669,7 +2677,7 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 						// remove first linked cmdbuf from list
 						vcmd_delink_rm_cmdbuf(&dev[core_id], new_cmdbuf_node);
 					}
-					software_triger_abort = 0;
+					dev->software_triger_abort = 0;
 					release_cmdbuf_num++;
 					LOG_DBG("release reserved cmdbuf\n");
 				} else if (vcmd_aborted && !cmdbuf_obj_temp->cmdbuf_run_done) {
@@ -2811,14 +2819,14 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 						u32 record_last_cmdbuf_rdy_num;
 						//abort the vcmd and wait
 						//vcmd_write_register_value((const void *)dev[core_id].hwregs,dev[core_id].reg_mirror,HWIF_VCMD_START_TRIGGER,0);
-						software_triger_abort = 1;
+						dev->software_triger_abort = 1;
 						if (wait_event_interruptible(*dev[core_id].wait_abort_queue, wait_abort_rdy(&dev[core_id]))) {
 							spin_unlock_irqrestore(dev[core_id].spinlock, flags);
 							up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
-							software_triger_abort = 0;
+							dev->software_triger_abort = 0;
 							goto error;
 						}
-						software_triger_abort = 0;
+						dev->software_triger_abort = 0;
 						cmdbuf_obj_temp->cmdbuf_run_done = 1;
 						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
 						retVal = release_cmdbuf_node(
@@ -3308,7 +3316,7 @@ static void vcmd_start(struct hantrovcmd_dev *dev,
 			       dev->reg_mirror[0x40 / 4]);
 			vcmd_write_reg((const void *)dev->hwregs, 0x40,
 				       dev->reg_mirror[0x40 / 4]);
-			LOG_INFO("vcmd start completed\n");
+			LOG_INFO("vcmd start completed, core_id %u\n", dev->core_id);
 #ifdef SUPPORT_WATCHDOG
 			_vcmd_watchdog_feed(dev);
 #endif
@@ -3805,6 +3813,7 @@ int hantroenc_vcmd_init(void)
 		hantrovcmd_data[i].vce_hang = 0;
 		hantrovcmd_data[i].restart_cmdbuf_id = 0XFFFF;
 		atomic64_set(&hantrovcmd_data[i].core_tot_cycles, 0);
+		hantrovcmd_data[i].software_triger_abort = 0;
 	}
 
 	result = register_chrdev(hantrovcmd_major, DRIVER_NAME, &hantrovcmd_fops);
@@ -4173,8 +4182,8 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 	if (vcmd_get_register_mirror_value(dev->reg_mirror, HWIF_VCMD_IRQ_ABORT)) {
 		u8 restart_curr_node = 0;
 
-		LOG_INFO("VCMD_IRQ_ABORT, working state from %u to idle, cmdbuf_id = %u, core_id = %u\n"
-			, dev->working_state, cmdbuf_id, dev->core_id);
+		LOG_INFO("VCMD_IRQ_ABORT, working state from %u to idle, cmdbuf_id = %u, vce_hang = %u, core_id = %u\n"
+			, dev->working_state, cmdbuf_id, dev->vce_hang, dev->core_id);
 #ifdef SUPPORT_WATCHDOG
 		_vcmd_watchdog_stop(dev);
 #endif
@@ -4240,16 +4249,17 @@ static irqreturn_t hantrovcmd_isr(int irq, void *dev_id)
 				restart_curr_node = 0;
 				base_cmdbuf_node=curr_cmdbuf_node;
 			}
+
+			if (base_cmdbuf_node && base_cmdbuf_node->data)
+				dev->restart_cmdbuf_id =
+					((struct cmdbuf_obj*)base_cmdbuf_node->data)->cmdbuf_id;
+			else
+				dev->restart_cmdbuf_id =
+					((struct cmdbuf_obj*)curr_cmdbuf_node->data)->cmdbuf_id;
+			LOG_INFO("VCMD_IRQ_ABORT, restart_cmdbuf_id = %u\n", dev->restart_cmdbuf_id);
 		}
-		if (base_cmdbuf_node && base_cmdbuf_node->data)
-			dev->restart_cmdbuf_id =
-				((struct cmdbuf_obj*)base_cmdbuf_node->data)->cmdbuf_id;
-		else
-			dev->restart_cmdbuf_id =
-				((struct cmdbuf_obj*)curr_cmdbuf_node->data)->cmdbuf_id;
-		LOG_INFO("VCMD_IRQ_ABORT, restart_cmdbuf_id = %u\n", dev->restart_cmdbuf_id);
 		vcmd_delink_cmdbuf(dev, base_cmdbuf_node);
-		if (software_triger_abort == 0 && dev->restart_cmdbuf_id == 0xFFFF) {
+		if (dev->software_triger_abort == 0 && dev->restart_cmdbuf_id == 0xFFFF) {
 			//for QCFE
 			vcmd_link_cmdbuf(dev, base_cmdbuf_node);
 			if (dev->sw_cmdbuf_rdy_num != 0) {
@@ -4590,6 +4600,9 @@ static void vcmd_reset_asic(struct hantrovcmd_dev *dev)
 		//clean status register
 		vcmd_write_reg((const void *)dev->hwregs,
 					VCMD_REGISTER_INT_STATUS_OFFSET, result);
+		//set register sw_exe_cmdbuf_count be 0
+		vcmd_write_reg((const void *)dev->hwregs,
+					VCMD_REGISTER_EXE_CMDBUF_COUNT, 0x0000);
 		for (i = VCMD_REGISTER_CONTROL_OFFSET;
 				i < dev->vcmd_core_cfg.vcmd_iosize; i += 4) {
 			//set all register 0
@@ -4653,34 +4666,6 @@ int vc8000e_vcmd_cleanup(void)
 	return 0;
 }
 
-int vc8000e_vcmd_reset(u32 core_id)
-{
-	unsigned long flags;
-	struct hantrovcmd_dev *dev = NULL;
-
-	LOG_DBG("vc8000e_vcmd_reset\n");
-
-	if (core_id >= venc_vcmd_core_num) {
-		LOG_ERR("vc8000e_vcmd_reset, invalid core_id = %u, venc_vcmd_core_num = %u\n"
-			, core_id, venc_vcmd_core_num);
-		return -1;
-	}
-	dev = &hantrovcmd_data[core_id];
-
-	spin_lock_irqsave(dev->spinlock, flags);
-
-	/** re-initialize the dev state.*/
-	dev->working_state = WORKING_STATE_IDLE;
-	dev->sw_cmdbuf_rdy_num = 0;
-
-	/** reset asic*/
-	vcmd_reset_asic(dev);
-
-	spin_unlock_irqrestore(dev->spinlock, flags);
-
-	return 0;
-}
-
 static int check_dev_idle(struct hantrovcmd_dev *dev)
 {
 	/** the devices must not be power down now.*/
@@ -4697,6 +4682,29 @@ static int check_dev_idle(struct hantrovcmd_dev *dev)
 	return idle;
 }
 
+void vc8000e_vcmd_abort(u32 core_id)
+{
+	struct hantrovcmd_dev *dev = NULL;
+
+	if (core_id >= venc_vcmd_core_num) {
+		LOG_ERR("vc8000e_vcmd_abort, invalid core_id = %u, venc_vcmd_core_num = %u\n"
+			, core_id, venc_vcmd_core_num);
+		return;
+	}
+	dev = &hantrovcmd_data[core_id];
+	LOG_INFO("vc8000e_vcmd_abort, core_id = %u\n", dev->core_id);
+#ifdef SUPPORT_WATCHDOG
+	/** stop watchdog timer firstly*/
+	_vcmd_watchdog_stop(dev);
+#endif
+	/** and the wait kthread exit*/
+	_vcmd_kthread_stop();
+
+	/** set vce_hang be 1, avoid the current running task is already in the hang state.*/
+	dev->vce_hang = 1;
+	vcmd_abort(dev);
+}
+
 int vc8000e_vcmd_wait_core_idle(u32 core_id)
 {
 	struct hantrovcmd_dev *dev = NULL;
@@ -4709,11 +4717,72 @@ int vc8000e_vcmd_wait_core_idle(u32 core_id)
 	dev = &hantrovcmd_data[core_id];
 	LOG_DBG("enc wait core idle, core_id = %u\n", core_id);
 
-	ret = wait_event_interruptible_timeout(*dev->wait_queue, check_dev_idle(dev), ENC_DEV_IDLEWAIT_TIME);
+	ret = wait_event_interruptible_timeout(*dev->wait_abort_queue, check_dev_idle(dev), ENC_DEV_IDLEWAIT_TIME);
+	if (0 == ret) {
+		/** timeout*/
+		LOG_ERR("Timeout for venc_suspend\n");
+		return -ETIMEDOUT;
+	} else if (ret < 0) {
+		LOG_ERR("Interrupt triggered while venc_suspend\n");
+		return -ERESTARTSYS;
+	}
 
-	LOG_DBG("enc wait core idle exit, core_id = %u, ret = %d\n", core_id, ret);
+	return 0;
+}
 
-	return ret;
+int vc8000e_vcmd_reset(u32 core_id)
+{
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = NULL;
+
+	LOG_DBG("vc8000e_vcmd_reset\n");
+
+	if (core_id >= venc_vcmd_core_num) {
+		LOG_ERR("vc8000e_vcmd_reset, invalid core_id = %u, venc_vcmd_core_num = %u\n"
+			, core_id, venc_vcmd_core_num);
+		return -1;
+	}
+	dev = &hantrovcmd_data[core_id];
+
+	spin_lock_irqsave(dev->spinlock, flags);
+
+	/** reset asic*/
+	vcmd_reset_asic(dev);
+
+	/** re-initialize the dev state.*/
+    u32 working_state = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_WORK_STATE);
+    u32 rdy_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT);
+    u32 exe_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_EXE_CMDBUF_COUNT);
+
+	LOG_INFO("vc8000e_vcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
+        , core_id, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
+    dev->working_state = working_state;
+    dev->sw_cmdbuf_rdy_num = rdy_cmdbuf_count;
+    /** reset the sw_exe_cmdbuf_count, because the vcmd was aborted*/
+    if (exe_cmdbuf_count > dev->sw_cmdbuf_rdy_num) {
+        LOG_WARN("vc8000e_vcmd_reset, unexpected vcmd cmdbuf count, exe_cmdbuf_count > rdy_cmdbuf_count, 0x%x > 0x%x\n"
+            , exe_cmdbuf_count, dev->sw_cmdbuf_rdy_num);
+    }
+	spin_unlock_irqrestore(dev->spinlock, flags);
+
+	return 0;
+}
+
+void vc8000e_vcmd_restart(u32 core_id) {
+    struct hantrovcmd_dev *dev = NULL;
+
+    if (core_id >= venc_vcmd_core_num) {
+        LOG_ERR("vc8000e_vcmd_restart, invalid core_id = %u, venc_vcmd_core_num = %u\n"
+            , core_id, venc_vcmd_core_num);
+        return;
+    }
+    dev = &hantrovcmd_data[core_id];
+
+    LOG_INFO("vc8000e_vcmd_restart for core_id %u\n", dev->core_id);
+	/** create the kthread firstly*/
+	_vcmd_kthread_create();
+	/** donot need to create watchdog timer, it would be started if startup vcmd task*/
+	restart_vcmd(dev);
 }
 
 /** get status statistcs*/

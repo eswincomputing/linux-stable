@@ -4485,7 +4485,6 @@ int hantrovcmd_reset(u32 core_id) {
 			, core_id, total_vcmd_core_num);
 		return -1;
 	}
-	LOG_INFO("hantrovcmd_reset for core %u\n", core_id);
 	dev = &hantrovcmd_data[core_id];
 
 	spin_lock_irqsave(dev->spinlock, flags);
@@ -4497,8 +4496,8 @@ int hantrovcmd_reset(u32 core_id) {
 	u32 rdy_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT);
 	u32 exe_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_EXE_CMDBUF_COUNT);
 
-	LOG_INFO("hantrovcmd_reset, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
-		, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
+	LOG_INFO("hantrovcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
+		, core_id, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
 	dev->working_state = working_state;
 	dev->sw_cmdbuf_rdy_num = rdy_cmdbuf_count;
 	/** reset the sw_exe_cmdbuf_count, because the vcmd was aborted*/
