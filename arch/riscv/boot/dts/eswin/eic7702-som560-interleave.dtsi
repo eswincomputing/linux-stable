@@ -553,10 +553,6 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dc_out_dsi: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&dsi_input>;
-		};
 		dc_out_dpi1: endpoint@1 {
 			reg = <1>;
 			remote-endpoint = <&vd_input>;
@@ -573,10 +569,6 @@
 	d1_dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		d1_dc_out_dsi: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&d1_dsi_input>;
-		};
 		d1_dc_out_dpi1: endpoint@1 {
 			reg = <1>;
 			remote-endpoint = <&d1_vd_input>;
@@ -611,91 +603,6 @@
 			remote-endpoint = <&d1_dc_out_dpi1>;
 		};
 	};
-};
-
-&dsi_controller {
-    status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0>;
-			dsi_input: endpoint {
-				remote-endpoint = <&dc_out_dsi>;
-			};
-		};
-		port@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-			mipi_dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
-			};
-		};
-	};
-
-	dsi_panel:dsi_panel@0 {
-		compatible = "eswin,generic-panel";
-		reg = <0>;
-		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
-		dsi,lanes = <4>;
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&mipi_dsi_out>;
-			};
-		};
-	};
-};
-&d1_dsi_controller {
-	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0>;
-			d1_dsi_input: endpoint {
-				remote-endpoint = <&d1_dc_out_dsi>;
-			};
-		};
-		port@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-			d1_mipi_dsi_out: endpoint {
-				remote-endpoint = <&d1_panel_in>;
-			};
-		};
-	};
-	d1_dsi_panel:dsi_panel@0 {
-		compatible = "eswin,generic-panel";
-		reg = <0>;
-		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
-		dsi,lanes = <4>;
-		port {
-			d1_panel_in: endpoint {
-				remote-endpoint = <&d1_mipi_dsi_out>;
-			};
-		};
-	};
-};
-
-&dsi_panel {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio27_default &pinctrl_die0_gpio106_default>;
-	backlight0-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
-};
-&d1_dsi_panel {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die1_gpio69_default &pinctrl_die1_gpio21_default>;
-	backlight0-gpios = <&d1_portc 5 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
 };
 
 &dw_hdmi {
