@@ -1018,12 +1018,17 @@ const struct component_ops dc_component_ops = {
 	.unbind = dc_unbind,
 };
 
-static void vo_qos_cfg(void)
+static void vo_qos_cfg(int die_id)
 {
 	void __iomem *qos;
+	uint32_t vo_pos;
 
-#define VO_QOS_CSR 0x50281050UL
-	qos = ioremap(VO_QOS_CSR, 8);
+	if (die_id == 0)
+		vo_pos = 0x50281050;
+	else
+		vo_pos = 0x70281050;
+
+	qos = ioremap(vo_pos, 8);
 	if (!qos) {
 		printk("qos ioremap fail---------------\n");
 		return;
@@ -1047,7 +1052,7 @@ static int dc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct es_dc *dc;
-	int irq, ret;
+	int irq, ret, die_id;
 
 	dc = devm_kzalloc(dev, sizeof(*dc), GFP_KERNEL);
 	if (!dc)
@@ -1169,7 +1174,13 @@ static int dc_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(dev, dc);
-	vo_qos_cfg();
+	ret = of_property_read_u32(dev->of_node, "numa-node-id", &die_id);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "Failed to read index property, ret = %d\n",
+			      ret);
+		return ret;
+	}
+	vo_qos_cfg(die_id);
 	return component_add(dev, &dc_component_ops);
 }
 
