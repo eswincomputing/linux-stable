@@ -422,7 +422,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 				cpu_target_voltage, rate);
 			goto switch_back;
 		} else {
-			pr_debug("cpu voltage change to %d mV, target rate %ld\n",
+			pr_info("cpu voltage change to %d mV, target rate %ld\n",
 				cpu_target_voltage, rate);
 			clk->cpu_current_voltage =
 				cpu_target_voltage;
