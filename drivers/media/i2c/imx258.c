@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+﻿// SPDX-License-Identifier: GPL-2.0
 // Copyright (C) 2018 Intel Corporation
 
 #include <linux/acpi.h>
@@ -1121,6 +1121,7 @@ static int imx258_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = imx258_update_digital_gain(imx258, IMX258_REG_VALUE_16BIT,
 				ctrl->val);
 		break;
+	case V4L2_CID_NOTIFY_GAINS:break;
 	case V4L2_CID_TEST_PATTERN:
 		ret = imx258_write_reg(imx258, IMX258_REG_TEST_PATTERN,
 				IMX258_REG_VALUE_16BIT,
@@ -1691,6 +1692,10 @@ static int imx258_init_controls(struct imx258 *imx258)
 				IMX258_DGTL_GAIN_MIN, IMX258_DGTL_GAIN_MAX,
 				IMX258_DGTL_GAIN_STEP,
 				IMX258_DGTL_GAIN_DEFAULT);
+	v4l2_ctrl_new_std(ctrl_hdlr, &imx258_ctrl_ops, V4L2_CID_NOTIFY_GAINS,
+		IMX258_DGTL_GAIN_MIN, IMX258_DGTL_GAIN_MAX,
+		IMX258_DGTL_GAIN_STEP,
+		IMX258_DGTL_GAIN_DEFAULT);
 
 	v4l2_ctrl_new_std(ctrl_hdlr, &imx258_ctrl_ops, V4L2_CID_WIDE_DYNAMIC_RANGE,
 				0, 1, 1, IMX258_HDR_RATIO_DEFAULT);

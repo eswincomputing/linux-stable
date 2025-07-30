@@ -1520,6 +1520,8 @@ static int imx586_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(&client->dev, "set analog gain 0x%x\n",
 			ctrl->val);
 		break;
+	case V4L2_CID_DIGITAL_GAIN:
+	case V4L2_CID_NOTIFY_GAINS: break;
 	case V4L2_CID_VBLANK:
 		ret = imx586_write_reg(imx586->client,
 				       IMX586_REG_VTS_H,
@@ -1632,6 +1634,21 @@ static int imx586_initialize_controls(struct imx586 *imx586)
 					      IMX586_GAIN_MAX,
 					      IMX586_GAIN_STEP,
 					      IMX586_GAIN_DEFAULT);
+
+	v4l2_ctrl_new_std(handler, &imx586_ctrl_ops,
+						V4L2_CID_NOTIFY_GAINS,
+						IMX586_GAIN_MIN,
+						IMX586_GAIN_MAX,
+						IMX586_GAIN_STEP,
+						IMX586_GAIN_DEFAULT);
+
+	v4l2_ctrl_new_std(handler, &imx586_ctrl_ops,
+						V4L2_CID_DIGITAL_GAIN,
+						IMX586_GAIN_MIN,
+						IMX586_GAIN_MAX,
+						IMX586_GAIN_STEP,
+						IMX586_GAIN_DEFAULT);
+
 	imx586->test_pattern = v4l2_ctrl_new_std_menu_items(handler,
 							    &imx586_ctrl_ops,
 				V4L2_CID_TEST_PATTERN,

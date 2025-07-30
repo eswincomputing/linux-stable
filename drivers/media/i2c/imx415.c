@@ -892,7 +892,8 @@ static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_ANALOGUE_GAIN:
 		/* analogue gain in 0.3 dB step size */
 		return imx415_write(sensor, IMX415_GAIN_PCG_0, ctrl->val);
-
+	case V4L2_CID_NOTIFY_GAINS:return 0;
+	case V4L2_CID_DIGITAL_GAIN:return 0;
 	case V4L2_CID_HFLIP:
 	case V4L2_CID_VFLIP:
 		flip = (sensor->hflip->val << IMX415_HREVERSE_SHIFT) |
@@ -960,6 +961,15 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 			  V4L2_CID_ANALOGUE_GAIN, IMX415_AGAIN_MIN,
 			  IMX415_AGAIN_MAX, IMX415_AGAIN_STEP,
 			  IMX415_AGAIN_MIN);
+	v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
+			  V4L2_CID_NOTIFY_GAINS, IMX415_AGAIN_MIN,
+			  IMX415_AGAIN_MAX, IMX415_AGAIN_STEP,
+			  IMX415_AGAIN_MIN);
+
+	v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
+		      V4L2_CID_DIGITAL_GAIN, IMX415_AGAIN_MIN,
+		      IMX415_AGAIN_MAX, IMX415_AGAIN_STEP,
+		      IMX415_AGAIN_MIN);
 
 	hblank_min = (supported_modes[sensor->cur_mode].hmax_min[sensor->num_data_lanes == 2 ? 0 : 1] *
 		      IMX415_HMAX_MULTIPLIER) - IMX415_PIXEL_ARRAY_WIDTH;
