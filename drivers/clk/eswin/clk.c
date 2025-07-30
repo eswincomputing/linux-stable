@@ -35,11 +35,9 @@
 #define NUMA_NODE_NUMS 2
 
 struct cpu_info {
-	bool cpu_no_boost_1_6ghz;
 	uint64_t cpu_freqhz[NUMA_NODE_NUMS];
 };
-struct cpu_info g_cpu_info = {.cpu_no_boost_1_6ghz = true,
-								.cpu_freqhz = {0}};
+struct cpu_info g_cpu_info = {.cpu_freqhz = {0}};
 static DEFINE_MUTEX(lock);
 
 struct clk_hw *eswin_clk_find_parent(struct eswin_clock_data *data,
@@ -223,6 +221,12 @@ static int eswin_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *fbdiv_val,
 			*fbdiv_val = 200;
 			*refdiv_val = 1;
 			break;
+		case CLK_FREQ_1100M:
+			*frac_val = 5592405;
+			*postdiv1_val = 0;
+			*fbdiv_val = 183;
+			*refdiv_val = 1;
+			break;
 		case CLK_FREQ_1000M:
 			*frac_val = 11184810;
 			*postdiv1_val = 0;
@@ -295,14 +299,6 @@ static int eswin_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *fbdiv_val,
 	return ret;
 }
 
-static bool cpu_no_boost_1_6ghz;
-static int __init cpu_no_boost_1_6ghz_setup(char *__unused)
-{
-	cpu_no_boost_1_6ghz = true;
-	return 1;
-}
-__setup("cpu_no_boost_1_6ghz", cpu_no_boost_1_6ghz_setup);
-
 #define to_pll_clk(_hw) container_of(_hw, struct eswin_clk_pll, hw)
 static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			    unsigned long parent_rate)
@@ -320,6 +316,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	char clk_cpu_lp_pll_name[50] = { 0 };
 	char clk_cpu_pll_name[50] = { 0 };
 	enum voltage_level cpu_target_voltage = VOLTAGE_0_8V;
+	unsigned long max_rate = rate;
 
 	ret = eswin_calc_pll(&frac_val, &postdiv1_val, &fbdiv_val, &refdiv_val,
 			     (u64)rate, clk);
@@ -382,7 +379,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		mutex_lock(&lock);
 		if (clk->numa_id >= 0) {
 			g_cpu_info.cpu_freqhz[clk->numa_id] = rate;
-			rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ? 
+			max_rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ? 
 				g_cpu_info.cpu_freqhz[0] : g_cpu_info.cpu_freqhz[1];
 		}
 		/*
@@ -391,16 +388,12 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		 * If the board cpu voltage does not support boosting to 0.9V,
 		 * then the frequency cannot exceed 1.6GHz.
 		 */
-		switch (rate) {
+		switch (max_rate) {
 		case CLK_FREQ_1800M:
 		case CLK_FREQ_1700M:
-			cpu_target_voltage = VOLTAGE_0_9V;
-			break;
 		case CLK_FREQ_1600M:
 		case CLK_FREQ_1500M:
-			cpu_target_voltage = true == g_cpu_info.cpu_no_boost_1_6ghz ?
-						     VOLTAGE_0_8V :
-						     VOLTAGE_0_9V;
+			cpu_target_voltage = VOLTAGE_0_9V;
 			break;
 		default:
 			cpu_target_voltage = VOLTAGE_0_8V;
@@ -411,24 +404,27 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			 */
 			break;
 		}
-	}
-	mutex_unlock(&lock);
 
-	if (clk->cpu_current_voltage !=	cpu_target_voltage) {
-		ret = eswin_clk_set_cpu_voltage(clk->cpu_voltage_gpio,
-						cpu_target_voltage);
-		if (ret) {
-			pr_warn("failed to change cpu voltage to %d mV, not support rate %ld\n",
-				cpu_target_voltage, rate);
-			goto switch_back;
+		if (clk->cpu_current_voltage !=	cpu_target_voltage) {
+			ret = eswin_clk_set_cpu_voltage(clk->cpu_voltage_gpio,
+							cpu_target_voltage);
+			if (ret) {
+				pr_warn("cluster%d failed to change cpu to %s voltage, not support rate %ld\n",
+						clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
+				mutex_unlock(&lock);
+				goto switch_back;
+			} else {
+				pr_info("cluster%d change to %s voltage, target rate %ld\n",
+						clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
+				clk->cpu_current_voltage = cpu_target_voltage;
+			}
 		} else {
-			pr_info("cpu voltage change to %d mV, target rate %ld\n",
-				cpu_target_voltage, rate);
-			clk->cpu_current_voltage =
-				cpu_target_voltage;
+			pr_info("cluster%d keep %s voltage, target rate %ld\n",
+					clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
 		}
-	}
 
+		mutex_unlock(&lock);
+	}
 
 	/*first disable pll */
 	val = readl_relaxed(clk->ctrl_reg0);
@@ -556,6 +552,9 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 		case 200:
 			rate = CLK_FREQ_1200M;
 			break;
+		case 183:
+			rate = CLK_FREQ_1100M;
+			break;
 		case 166:
 			rate = CLK_FREQ_1000M;
 			break;
@@ -611,12 +610,20 @@ static long clk_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 
 	/*Must be sorted in ascending order*/
 	u64 apll_clk[] = { APLL_LOW_FREQ, APLL_HIGH_FREQ };
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	u64 cpu_pll_clk[] = { CLK_FREQ_100M,  CLK_FREQ_200M,  CLK_FREQ_400M,
 			      CLK_FREQ_500M,  CLK_FREQ_600M,  CLK_FREQ_700M,
 			      CLK_FREQ_800M,  CLK_FREQ_900M,  CLK_FREQ_1000M,
-			      CLK_FREQ_1200M, CLK_FREQ_1300M, CLK_FREQ_1400M,
-			      CLK_FREQ_1500M, CLK_FREQ_1600M, CLK_FREQ_1700M,
-			      CLK_FREQ_1800M };
+			      CLK_FREQ_1100M, CLK_FREQ_1400M, CLK_FREQ_1500M,
+			      CLK_FREQ_1600M, CLK_FREQ_1700M, CLK_FREQ_1800M };
+#else
+	u64 cpu_pll_clk[] = { CLK_FREQ_100M,  CLK_FREQ_200M,  CLK_FREQ_400M,
+			      CLK_FREQ_500M,  CLK_FREQ_600M,  CLK_FREQ_700M,
+			      CLK_FREQ_800M,  CLK_FREQ_900M,  CLK_FREQ_1000M,
+			      CLK_FREQ_1100M, CLK_FREQ_1200M, CLK_FREQ_1300M,
+			      CLK_FREQ_1400M, CLK_FREQ_1500M, CLK_FREQ_1600M,
+			      CLK_FREQ_1700M, CLK_FREQ_1800M };
+#endif
 
 	switch (clk->id) {
 	case EIC7700_APLL_FOUT1:
@@ -675,9 +682,6 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 	}
 
 	mutex_lock(&lock);
-	if (g_cpu_info.cpu_no_boost_1_6ghz)
-		g_cpu_info.cpu_no_boost_1_6ghz = true == cpu_no_boost_1_6ghz;
-
 	if(data->numa_id >= 0)
 		g_cpu_info.cpu_freqhz[data->numa_id] = CLK_FREQ_1400M;
 

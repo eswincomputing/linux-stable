@@ -221,6 +221,8 @@
 };
 
 &d0_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
 	opp-1500000000 {
 		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
 		opp-microvolt = <900000>;
@@ -244,6 +246,8 @@
 };
 
 &d1_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
 	opp-1500000000 {
 		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
 		opp-microvolt = <900000>;

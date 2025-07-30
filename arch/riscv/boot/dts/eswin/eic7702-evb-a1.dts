@@ -188,6 +188,16 @@
 	};
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
+&d1_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
 &D1CACHE {
 	status = "okay";
 	d1_zero_device: zero-device@3a000000 {
