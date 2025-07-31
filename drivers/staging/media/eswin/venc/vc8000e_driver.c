@@ -481,7 +481,7 @@ static int venc_sys_clk_enable(struct device *dev)
 			LOG_ERR("Video encoder: failed to set aclk: %d\n", ret);
 			return ret;
 		}
-		LOG_INFO("VE set aclk to %ldHZ\n", rate);
+		LOG_DBG("VE set aclk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for aclk %ld\n", rate);
 		return -1;
@@ -496,7 +496,7 @@ static int venc_sys_clk_enable(struct device *dev)
 			return ret;
 		}
 		prvdata->freq_cur_je = rate;
-		LOG_INFO("VE set je_clk to %ldHZ\n", rate);
+		LOG_DBG("VE set je_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", rate);
 		return -1;
@@ -511,7 +511,7 @@ static int venc_sys_clk_enable(struct device *dev)
 			return ret;
 		}
 		prvdata->freq_cur_ve = rate;
-		LOG_INFO("VE set ve_clk to %ldHZ\n", rate);
+		LOG_DBG("VE set ve_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", rate);
 		return -1;
