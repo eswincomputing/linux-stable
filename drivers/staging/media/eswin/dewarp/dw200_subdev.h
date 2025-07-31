@@ -355,10 +355,6 @@ struct dw200_subdev {
 	dw_clk_rst_t dw_crg;
 	struct buffer_info buf_info[DW200_BUFFER_INDEX];
 	struct timer_list reset_timer;
-	u16 d0_src_vsize;
-	u16 d0_src_hsize;
-	u16 d1_src_vsize;
-	u16 d1_src_hsize;
 	u8 numa_node_id;
 };
 

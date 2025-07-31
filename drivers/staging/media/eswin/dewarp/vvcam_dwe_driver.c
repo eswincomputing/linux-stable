@@ -102,6 +102,7 @@
 #include <linux/jiffies.h>
 #include <linux/of.h>
 #include <linux/es_proc.h>
+#include <linux/version.h>
 
 #include "dw200_fe.h"
 #include "dw200_ioctl.h"
@@ -144,7 +145,11 @@ MODULE_PARM_DESC(fe_enable, "FE(command buffer) enable for DW200");
 static unsigned int dwe_irq_num_id0 = 0, dwe_load_num_id0 = 0,
 		vse_irq_num_id0 = 0, vse_load_num_id0 = 0,
 		dwe_irq_num_id1 = 0, dwe_load_num_id1 = 0,
-		vse_irq_num_id1 = 0, vse_load_num_id1 = 0;
+		vse_irq_num_id1 = 0, vse_load_num_id1 = 0,
+		d0_src_hsize = 0, d0_src_vsize =0,
+		d1_src_vsize = 0, d1_src_hsize = 0;
+struct device *load_dev0 = NULL;
+struct device *load_dev1 = NULL;
 static void __iomem *d0_vse_base;
 static void __iomem *d1_vse_base;
 struct es_dewarp_driver_dev {
@@ -886,15 +891,14 @@ static ssize_t dw200_reset_write(struct file *filp, const char __user *buffer,
 
 static int dwe_load_read(es_proc_entry_t *s)
 {
-	struct dw200_subdev *pdwe_dev = s->private;
 	u32 d0_reg_val = 0;
 
-	pm_runtime_get_sync(pdwe_dev->dev);
+	pm_runtime_get_sync(load_dev0);
 
 	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
 	d0_reg_val = readl(d0_vse_base + SRC_IMG_SIZE);
-	pdwe_dev->d0_src_hsize = d0_reg_val & 0x1FFF;
-	pdwe_dev->d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
+	d0_src_hsize = d0_reg_val & 0x1FFF;
+	d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
 	es_seq_printf(s, "dev_id          : 0\n"
                      "hwtype          : dwe\n"
                      "polling_ms      : %u\n"
@@ -906,13 +910,14 @@ static int dwe_load_read(es_proc_entry_t *s)
 	1000, dwe_load_num_id0,
 	1000, vse_load_num_id0);
 	#else
+	pm_runtime_get_sync(load_dev1);
 	u32 d1_reg_val = 0;
 	d0_reg_val = readl(d0_vse_base + SRC_IMG_SIZE);
-	pdwe_dev->d0_src_hsize = d0_reg_val & 0x1FFF;
-	pdwe_dev->d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
+	d0_src_hsize = d0_reg_val & 0x1FFF;
+	d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
 	d1_reg_val = readl(d1_vse_base + SRC_IMG_SIZE);
-	pdwe_dev->d1_src_hsize = d1_reg_val & 0x1FFF;
-	pdwe_dev->d1_src_vsize = (d1_reg_val >> 16) & 0x1FFF;
+	d1_src_hsize = d1_reg_val & 0x1FFF;
+	d1_src_vsize = (d1_reg_val >> 16) & 0x1FFF;
 	es_seq_printf(s, "dev_id          : 0\n"
                      "hwtype          : dwe\n"
                      "polling_ms      : %u\n"
@@ -933,9 +938,10 @@ static int dwe_load_read(es_proc_entry_t *s)
 	1000, dwe_load_num_id1,
 	1000, vse_load_num_id0,
 	1000, vse_load_num_id1);
+	pm_runtime_put(load_dev1);
 	#endif
 
-	pm_runtime_put(pdwe_dev->dev);
+	pm_runtime_put(load_dev0);
 	return 0;
 }
 
@@ -1054,6 +1060,7 @@ static long dewarp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	long ret = 0;
 	struct es_dw200_private *pes_dw200_priv;
 	pes_dw200_priv = file->private_data;
+
 	if (!pes_dw200_priv) {
 		pr_err("file private invalid\n");
 		return -EFAULT;
@@ -1375,15 +1382,15 @@ static void load_reset(struct timer_list *t)
 
 	if(dev->numa_node_id == 0)
 	{
-		dwe_load_num_id0 = (dwe_irq_num_id0 * 100) / ((4096 * 3072) / dev->d0_src_hsize / dev->d0_src_vsize * 45);
-		vse_load_num_id0 = (vse_irq_num_id0 * 100) / ((4096 * 2160) / dev->d0_src_hsize / dev->d0_src_vsize * 45);
+		dwe_load_num_id0 = (dwe_irq_num_id0 * 100) / ((4096 * 3072) / d0_src_hsize / d0_src_vsize * 45);
+		vse_load_num_id0 = (vse_irq_num_id0 * 100) / ((4096 * 2160) / d0_src_hsize / d0_src_vsize * 45);
 		dwe_irq_num_id0 = 0;
 		vse_irq_num_id0 = 0;
 	}
 	if(dev->numa_node_id == 1)
 	{
-		dwe_load_num_id1 = (dwe_irq_num_id1 * 100) / ((4096 * 3072) / dev->d1_src_hsize / dev->d1_src_vsize * 45);
-		vse_load_num_id1 = (vse_irq_num_id1 * 100) / ((4096 * 2160) / dev->d1_src_hsize / dev->d1_src_vsize * 45);
+		dwe_load_num_id1 = (dwe_irq_num_id1 * 100) / ((4096 * 3072) / d1_src_hsize / d1_src_vsize * 45);
+		vse_load_num_id1 = (vse_irq_num_id1 * 100) / ((4096 * 2160) / d1_src_hsize / d1_src_vsize * 45);
 		dwe_irq_num_id1 = 0;
 		vse_irq_num_id1 = 0;
 	}
@@ -1396,7 +1403,7 @@ static int es_dewarp_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct es_dewarp_driver_dev *pdriver_dev;
 	struct dw200_subdev *pdwe_dev;
-	char debug_dw200_reset[64] = "dw200_reset";
+	char debug_dw200_reset[64];
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df;
 #endif
@@ -1487,12 +1494,11 @@ static int es_dewarp_probe(struct platform_device *pdev)
 
 	if(pdwe_dev->numa_node_id == 0) {
 		d0_vse_base = pdwe_dev->vse_base;
+		load_dev0 = &pdev->dev;
 	} else if(pdwe_dev->numa_node_id == 1) {
 		d1_vse_base = pdwe_dev->vse_base;
+		load_dev1 = &pdev->dev;
 	}
-
-	timer_setup(&pdwe_dev->reset_timer, load_reset, 0);
-	mod_timer(&pdwe_dev->reset_timer, jiffies + msecs_to_jiffies(1000));
 
 #ifdef DWE_REG_RESET
 	pdwe_dev->dwe_reset = ioremap(DWE_REG_RESET, 4);
@@ -1546,15 +1552,18 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		dw200_fe_init(pdwe_dev);
 	}
 
+	sprintf(debug_dw200_reset, "d%d_dw200_reset", id);
+
 	pdwe_dev->dw200_reset = debugfs_create_file(
 		debug_dw200_reset, 0644, NULL, pdwe_dev, &dw200_reset_fops);
 
-	pdwe_dev->dewarp_dir = es_proc_mkdir(PROC_ENTRY_DEWARP, 0777, NULL);
-	if(pdwe_dev->dewarp_dir == NULL) {
-		printk(KERN_INFO "/proc/eswin has not been created yet\n");
-		return -ENODEV;
-	}
 	if(pdwe_dev->numa_node_id == 0) {
+		pdwe_dev->dewarp_dir = es_proc_mkdir(PROC_ENTRY_DEWARP, 0777, NULL);
+		if(pdwe_dev->dewarp_dir == NULL) {
+			printk(KERN_INFO "/proc/eswin has not been created yet\n");
+			return -ENODEV;
+		}
+
 		pdwe_dev->load_stat = es_create_proc_entry("stat", 0666, pdwe_dev->dewarp_dir);
 		if (pdwe_dev->load_stat == NULL) {
 			pr_err("Kernel: Register load_stat proc failed!\n");
@@ -1563,6 +1572,9 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		pdwe_dev->load_stat->private = (void *)pdwe_dev;
 		pdwe_dev->load_stat->read = dwe_load_read;
 	}
+
+	timer_setup(&pdwe_dev->reset_timer, load_reset, 0);
+	mod_timer(&pdwe_dev->reset_timer, jiffies + msecs_to_jiffies(1000));
 
 	/* The code below assumes runtime PM to be disabled. */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
@@ -1611,13 +1623,12 @@ static int es_dewarp_remove(struct platform_device *pdev)
 		dw200_fe_destory(pdwe_dev);
 	}
 
-	if (pdwe_dev) {
-		del_timer_sync(&pdwe_dev->reset_timer);
-	}
+	del_timer_sync(&pdwe_dev->reset_timer);
 
 	device_destroy(es_dewarp_class, devt + pdriver_dev->id);
 	cdev_del(&pdriver_dev->cdev);
 
+	debugfs_remove(pdwe_dev->dw200_reset);
 	es_remove_proc_entry("stat", pdwe_dev->dewarp_dir);
 	es_remove_proc_entry(PROC_ENTRY_DEWARP, NULL);
 
