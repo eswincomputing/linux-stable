@@ -175,6 +175,12 @@
 		states = <800000 0x0>,
 				<900000 0x1>;
 	};
+	reg_vcc1v8: vcc1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
 };
 
 &d0_clock {
@@ -523,6 +529,7 @@
 	non-removable;
 	no-sd;
 	no-mmc;
+	vqmmc-supply = <&reg_vcc1v8>;
 	aw3155:wifi_aw3155@0 {
 		compatible = "aml_w1_sdio";
 		reg = <0x0>;
@@ -535,6 +542,12 @@
 		rst-gpios = <&portb 2 GPIO_ACTIVE_HIGH>;
 
 	};
+	mdhd_wlan {
+                compatible = "android,bcmdhd_wlan";
+                pinctrl-names = "default";
+                pinctrl-0 = <&pinctrl_gpio34_default>;
+                gpio_wl_reg_on = <&portb 2 GPIO_ACTIVE_HIGH>;
+        };
 };
 
 &d0_gmac0 {
