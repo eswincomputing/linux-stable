@@ -458,7 +458,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			(ntoh16(eh->ether_type) != ETHER_TYPE_BRCM))
 #endif /* PROP_TXSTATUS_VSDB */
 		{
-			DHD_ERROR(("%s: net device is NOT registered yet. drop packet\n",
+			DHD_INFO(("%s: net device is NOT registered yet. drop packet\n",
 			__FUNCTION__));
 			PKTCFREE(dhdp->osh, pktbuf, FALSE);
 			continue;
@@ -897,7 +897,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 				dhd->pub.up))
 #endif /* PROP_TXSTATUS_VSDB */
 			{
-				DHD_ERROR(("%s: net device is NOT registered. drop event packet\n",
+				DHD_INFO(("%s: net device is NOT registered. drop event packet\n",
 				__FUNCTION__));
 				PKTFREE_CTRLBUF(dhdp->osh, pktbuf, FALSE);
 				continue;

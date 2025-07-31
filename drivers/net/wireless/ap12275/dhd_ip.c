@@ -375,7 +375,7 @@ int dhd_tcpack_suppress_set(dhd_pub_t *dhdp, uint8 mode)
 	prev_mode = dhdp->tcpack_sup_mode;
 
 	if (prev_mode == mode) {
-		DHD_ERROR(("%s %d: already set to %d\n", __FUNCTION__, __LINE__, mode));
+		DHD_INFO(("%s %d: already set to %d\n", __FUNCTION__, __LINE__, mode));
 		goto exit;
 	}
 

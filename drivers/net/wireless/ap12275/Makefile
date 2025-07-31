@@ -63,8 +63,8 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
 	-DPOWERUP_MAX_RETRY=0 -DIFACE_HANG_FORCE_DEV_CLOSE -DWAIT_DEQUEUE     \
 	-DUSE_NEW_RSPEC_DEFS                                                  \
 	-DWL_EXT_IAPSTA -DWL_ESCAN -DCCODE_LIST -DSUSPEND_EVENT               \
-	-DKEY_INSTALL_CHECK                                                   \
-	-DENABLE_INSMOD_NO_FW_LOAD -DENODEBUG
+	-DKEY_INSTALL_CHECK -DENODEBUG
+#	-DENABLE_INSMOD_NO_FW_LOAD
 
 DHDOFILES = aiutils.o siutils.o sbutils.o                                 \
 	bcmutils.o bcmwifi_channels.o bcmxtlv.o bcm_app_utils.o bcmstdlib_s.o \
