@@ -617,7 +617,9 @@ module_param(dhd_console_ms, uint, 0644);
 uint dhd_console_ms = 0;
 #endif /* DHD_DEBUG */
 
-uint dhd_slpauto = TRUE;
+// Eswin change to FALSE
+//uint dhd_slpauto = TRUE;
+uint dhd_slpauto = FALSE;
 module_param(dhd_slpauto, uint, 0);
 
 #ifdef PKT_FILTER_SUPPORT
@@ -5089,12 +5091,17 @@ void dhd_set_scb_probe(dhd_pub_t *dhd)
 
 	memcpy(&scb_probe, iovbuf, sizeof(wl_scb_probe_t));
 
+	if (NUM_SCB_MAX_PROBE == scb_probe.scb_max_probe){
+		DHD_INFO(("%s: max_scb_probe is the same as the preset value\n", __FUNCTION__));
+		return;
+	}
+
 	scb_probe.scb_max_probe = NUM_SCB_MAX_PROBE;
 
 	ret = dhd_iovar(dhd, 0, "scb_probe", (char *)&scb_probe, sizeof(wl_scb_probe_t), NULL, 0,
 			TRUE);
 	if (ret < 0) {
-		DHD_ERROR(("%s: max_scb_probe setting failed\n", __FUNCTION__));
+		DHD_ERROR(("%s: max_scb_probe setting failed ret=%d\n", __FUNCTION__, ret));
 		return;
 	}
 }
@@ -10260,7 +10267,7 @@ dhd_bus_start(dhd_pub_t *dhdp)
 
 #if defined(DHD_DEBUG) && defined(BCMSDIO)
 	f2_sync_end = OSL_SYSUPTIME();
-	DHD_ERROR(("Time taken for FW download and F2 ready is: %d msec\n",
+	DHD_INFO(("Time taken for FW download and F2 ready is: %d msec\n",
 			(fw_download_end - fw_download_start) + (f2_sync_end - f2_sync_start)));
 #endif /* DHD_DEBUG && BCMSDIO */
 
