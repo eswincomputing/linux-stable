@@ -1,7 +1,7 @@
 &vi_subsys {
-	eswin,isp_dvp0_hor = <8000>;
-	eswin,isp_dvp0_ver = <6000>;
-	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
+	eswin,isp_dvp0_hor = <4608>; /* full model hor */
+	eswin,isp_dvp0_ver = <2592>; /* full model ver */
+    phy_mode = <5>; /* 2lane sensor */
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
@@ -104,9 +104,13 @@
 };
 
 &mipi_csi2_0 {
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
+	ipi2_en            = <0>;
+    ipi2_vcid          = <1>;      /* data mapped to VC1 */
+    ipi3_en            = <0>;
+    ipi3_vcid          = <2>;      /* data mapped to VC2 */
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -143,7 +147,7 @@
 };
 
 &mipi_csi2_2 {
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
 	ports {
@@ -204,8 +208,8 @@
 
 
 &csi2_dphy_hw {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>; 	// 2lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
 };
 
@@ -222,7 +226,7 @@
 
 			mipidphy0_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx586_out0>;
+				remote-endpoint = <&imx708_out0>;
 			};
 		};
 
@@ -240,8 +244,8 @@
 };
 
 &csi2_dphy_hw2 {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>; 	// 2lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
 };
 
@@ -258,8 +262,7 @@
 
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx586_out1>;
-				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&imx708_out1>;
 			};
 		};
 
@@ -279,16 +282,16 @@
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
 	status = "okay";
-	imx586_0: imx586@1a {
-			compatible = "sony,imx586";
+	imx708_0: imx708@1a {
+			compatible = "sony,imx708";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
 			reg = <0x1a>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
+			clock-names = "inclk";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 			eswin,camera-module-index = <0>;
 			eswin,camera-module-facing = "back";
@@ -296,10 +299,10 @@
 			eswin,camera-module-lens-name = "default";
 
 			port {
-				imx586_out0: endpoint {
+				imx708_out0: endpoint {
 					remote-endpoint = <&mipidphy0_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <625000000>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <450000000>;
 				};
 			};
 		};
@@ -308,17 +311,16 @@
 &d0_i2c2 {
 	/* mipi csi2/csi3 */
 	status = "okay";
-	imx586_1: imx586@1a {
+	imx708_1: imx708@1a {
 			compatible = "sony,imx219";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
 			reg = <0x1a>;
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
-			clock-frequency = <24000000>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
+			clock-names = "inclk";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 			eswin,camera-module-index = <0>;
 			eswin,camera-module-facing = "back";
@@ -326,10 +328,10 @@
 			eswin,camera-module-lens-name = "default";
 
 			port {
-				imx586_out1: endpoint {
+				imx708_out1: endpoint {
 					remote-endpoint = <&mipidphy2_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <625000000>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <450000000>;
 				};
 			};
 		};

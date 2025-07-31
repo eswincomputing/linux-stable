@@ -2,7 +2,6 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 &vi_subsys {
-	board_compat = "eic7700,evb_vi";
 	eswin,isp_dvp0_hor = <8000>;
 	eswin,isp_dvp0_ver = <6000>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes

@@ -1,5 +1,4 @@
 &vi_subsys {
-	board_compat = "eic7700,dvb_vi";
 	eswin,isp_dvp0_hor = <4208>;
 	eswin,isp_dvp0_ver = <3120>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
@@ -307,7 +306,7 @@
 };
 
 &d0_i2c2 {
-	/* mipi csi0/csi1 */
+	/* mipi csi2/csi3 */
 	status = "okay";
 	imx258_1: imx258@1a {
 			compatible = "sony,imx219";
