@@ -317,6 +317,17 @@
 	status = "okay";
 };
 
+&pcie {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die1_gpio21_default>;
+	pci-socket-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
+};
+
+&d1_pcie {
+	status = "okay";
+};
+
 &pinctrl {
 	status = "okay";
 	pinctrl-names = "default";
