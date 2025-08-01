@@ -139,7 +139,7 @@ static ssize_t es_dvp2axi_store_line_int_num(struct device *dev,
 	if (!ret && val >= 0 && val <= 0x3fff)
 		dvp2axi_dev->wait_line_cache = val;
 	else
-		dev_info(dvp2axi_dev->dev, "set line int num failed\n");
+		dev_dbg(dvp2axi_dev->dev, "set line int num failed\n");
 	return len;
 }
 
@@ -174,7 +174,7 @@ static ssize_t es_dvp2axi_store_dummybuf_mode(struct device *dev,
 		else
 			dvp2axi_dev->is_use_dummybuf = false;
 	} else {
-		dev_info(dvp2axi_dev->dev, "set dummy buf mode failed\n");
+		dev_dbg(dvp2axi_dev->dev, "set dummy buf mode failed\n");
 	}
 	return len;
 }
@@ -236,7 +236,7 @@ static ssize_t es_dvp2axi_store_memory_mode(struct device *dev,
 
 		for (i = 0; i < index; i++) {
 			if (dvp2axi_dev->stream[i].is_compact) {
-				dev_info(
+				dev_dbg(
 					dvp2axi_dev->dev,
 					"stream[%d] set memory align fail, is compact mode\n",
 					i);
@@ -316,7 +316,7 @@ static ssize_t es_dvp2axi_store_scale_ch0_blc(struct device *dev,
 		dvp2axi_dev->scale_vdev[0].blc.pattern01 = val[1];
 		dvp2axi_dev->scale_vdev[0].blc.pattern02 = val[2];
 		dvp2axi_dev->scale_vdev[0].blc.pattern03 = val[3];
-		dev_info(
+		dev_dbg(
 			dvp2axi_dev->dev,
 			"set ch0 pattern00: %d, pattern01: %d, pattern02: %d, pattern03: %d\n",
 			dvp2axi_dev->scale_vdev[0].blc.pattern00,
@@ -394,7 +394,7 @@ static ssize_t es_dvp2axi_store_scale_ch1_blc(struct device *dev,
 		dvp2axi_dev->scale_vdev[1].blc.pattern02 = val[2];
 		dvp2axi_dev->scale_vdev[1].blc.pattern03 = val[3];
 
-		dev_info(
+		dev_dbg(
 			dvp2axi_dev->dev,
 			"set ch1 pattern00: %d, pattern01: %d, pattern02: %d, pattern03: %d\n",
 			dvp2axi_dev->scale_vdev[1].blc.pattern00,
@@ -472,7 +472,7 @@ static ssize_t es_dvp2axi_store_scale_ch2_blc(struct device *dev,
 		dvp2axi_dev->scale_vdev[2].blc.pattern02 = val[2];
 		dvp2axi_dev->scale_vdev[2].blc.pattern03 = val[3];
 
-		dev_info(
+		dev_dbg(
 			dvp2axi_dev->dev,
 			"set ch2 pattern00: %d, pattern01: %d, pattern02: %d, pattern03: %d\n",
 			dvp2axi_dev->scale_vdev[2].blc.pattern00,
@@ -549,7 +549,7 @@ static ssize_t es_dvp2axi_store_scale_ch3_blc(struct device *dev,
 		dvp2axi_dev->scale_vdev[3].blc.pattern02 = val[2];
 		dvp2axi_dev->scale_vdev[3].blc.pattern03 = val[3];
 
-		dev_info(
+		dev_dbg(
 			dvp2axi_dev->dev,
 			"set ch3 pattern00: %d, pattern01: %d, pattern02: %d, pattern03: %d\n",
 			dvp2axi_dev->scale_vdev[3].blc.pattern00,
@@ -600,7 +600,7 @@ static ssize_t es_dvp2axi_store_capture_fps(struct device *dev,
 				}
 			}
 		}
-		dev_info(dvp2axi_dev->dev,
+		dev_dbg(dvp2axi_dev->dev,
 			 "set fps id0: %d, id1: %d, id2: %d, id3: %d\n", val[0],
 			 val[1], val[2], val[3]);
 	}
@@ -633,7 +633,7 @@ static ssize_t es_dvp2axi_store_rdbk_debug(struct device *dev,
 	if (!ret)
 		dvp2axi_dev->rdbk_debug = val;
 	else
-		dev_info(dvp2axi_dev->dev, "set rdbk debug failed\n");
+		dev_dbg(dvp2axi_dev->dev, "set rdbk debug failed\n");
 	return len;
 }
 static DEVICE_ATTR(rdbk_debug, 0200, es_dvp2axi_show_rdbk_debug,
@@ -1150,7 +1150,7 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 
 	if (linked_sensor.mbus.type != V4L2_MBUS_BT656 &&
 	    linked_sensor.mbus.type != V4L2_MBUS_PARALLEL) {
-			// pr_info("%s:%d yfx is linked \n", __func__, __LINE__);
+			// pr_dev("%s:%d yfx is linked \n", __func__, __LINE__);
 			*mipi_lvds_linked = true;
 		}
 	return ret;
@@ -1278,7 +1278,7 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct es_dvp2axi_async_subdev *s_asd =
 		container_of(asd, struct es_dvp2axi_async_subdev, asd);
 
-	// pr_info("%s:%d yfx! subdev %p, asd %p \n", __func__, __LINE__,subdev, asd);
+	// pr_dev("%s:%d yfx! subdev %p, asd %p \n", __func__, __LINE__,subdev, asd);
 
 	if (dvp2axi_dev->num_sensors == ARRAY_SIZE(dvp2axi_dev->sensors)) {
 		v4l2_err(&dvp2axi_dev->v4l2_dev,
@@ -1333,7 +1333,7 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 			// .bus_type = V4L2_MBUS_CSI2_DPHY
 			.bus_type = V4L2_MBUS_UNKNOWN
 		};
-		// pr_info("%s:%d yfx! i %d \n", __func__, __LINE__, i);
+		// pr_dev("%s:%d yfx! i %d \n", __func__, __LINE__, i);
 		struct es_dvp2axi_async_subdev *s_asd;
 		struct fwnode_handle *ep;
 		struct fwnode_handle *remote_ep = NULL;
@@ -1351,7 +1351,7 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 		}
 
 		ret = v4l2_fwnode_endpoint_parse(ep, &vep);
-		// pr_info("%s:%d yfx!!!\n", __func__, __LINE__);
+		// pr_dev("%s:%d yfx!!!\n", __func__, __LINE__);
 		if (ret)
 			goto err_parse;
 		
@@ -1461,7 +1461,7 @@ int es_dvp2axi_attach_hw(struct es_dvp2axi_device *dvp2axi_dev)
 	hw->dev_num++;
 	dvp2axi_dev->hw_dev = hw;
 	dvp2axi_dev->chip_id = hw->chip_id;
-	dev_info(dvp2axi_dev->dev, "attach to dvp2axi hw node\n");
+	dev_dbg(dvp2axi_dev->dev, "attach to dvp2axi hw node\n");
 
 	return 0;
 }
@@ -1481,7 +1481,7 @@ static int es_dvp2axi_detach_hw(struct es_dvp2axi_device *dvp2axi_dev)
 			}
 
 			hw->dev_num--;
-			dev_info(dvp2axi_dev->dev, "detach to dvp2axi hw node\n");
+			dev_dbg(dvp2axi_dev->dev, "detach to dvp2axi hw node\n");
 			break;
 		}
 	}
@@ -1689,7 +1689,7 @@ static void es_dvp2axi_parse_dts(struct es_dvp2axi_device *dvp2axi_dev)
 	ret = of_property_read_u32(node, OF_DVP2AXI_WAIT_LINE, &dvp2axi_dev->wait_line);
 	if (ret != 0)
 		dvp2axi_dev->wait_line = 0;
-	dev_info(dvp2axi_dev->dev, "es_dvp2axi wait line %d\n", dvp2axi_dev->wait_line);
+	dev_dbg(dvp2axi_dev->dev, "es_dvp2axi wait line %d\n", dvp2axi_dev->wait_line);
 }
 
 static int es_dvp2axi_plat_probe(struct platform_device *pdev)
@@ -1701,7 +1701,7 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 	const struct es_dvp2axi_match_data *data;
 	int ret;
 
-	dev_info(dev, "es_dvp2axi driver version: %s\n", es_dvp2axi_version);
+	dev_dbg(dev, "es_dvp2axi driver version: %s\n", es_dvp2axi_version);
 
 	match = of_match_node(es_dvp2axi_plat_of_match, node);
 	if (IS_ERR(match))
@@ -1731,7 +1731,7 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
 	es_dvp2axi_init_reset_monitor(dvp2axi_dev);
 	pm_runtime_enable(&pdev->dev);
-	pr_info("%s succsess\n", __func__);
+	pr_debug("%s succsess\n", __func__);
 	return 0;
 }
 

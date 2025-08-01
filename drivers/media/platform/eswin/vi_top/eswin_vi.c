@@ -280,7 +280,7 @@ UNUSED_FUNC static int eswin_vi_sys_clk_config(struct eswin_vi_clk_rst *vi_crg)
 			pr_err("DW: failed to set aclk: %d\n", ret);
 			return ret;
 		}
-		pr_info("DW set aclk to %ldHZ\n", rate);
+		pr_debug("DW set aclk to %ldHZ\n", rate);
 	}
 
 	return 0;
@@ -336,7 +336,7 @@ UNUSED_FUNC static int eswin_vi_sys_reset_release(struct eswin_vi_clk_rst *vi_cr
 
 static int eswin_open(struct inode *inode, struct file *file)
 {
-    pr_info(DRIVER_NAME ": Device opened\n");
+    pr_debug(DRIVER_NAME ": Device opened\n");
     struct eswin_vi_device *es_vi_dev = container_of(inode->i_cdev, struct eswin_vi_device, es_vi_cdev);
     file->private_data = es_vi_dev;
     return 0;
@@ -344,19 +344,19 @@ static int eswin_open(struct inode *inode, struct file *file)
 
 static int eswin_release(struct inode *inode, struct file *file)
 {
-    pr_info(DRIVER_NAME ": Device closed\n");
+    pr_debug(DRIVER_NAME ": Device closed\n");
     return 0;
 }
 
 static ssize_t eswin_read(struct file *file, char __user *buffer, size_t len, loff_t *offset)
 {
-    pr_info(DRIVER_NAME ": Read operation not implemented\n");
+    pr_debug(DRIVER_NAME ": Read operation not implemented\n");
     return 0;
 }
 
 static ssize_t eswin_write(struct file *file, const char __user *buffer, size_t len, loff_t *offset)
 {
-    pr_info(DRIVER_NAME ": Write operation not implemented\n");
+    pr_debug(DRIVER_NAME ": Write operation not implemented\n");
     return len;
 }
 
@@ -373,17 +373,17 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     struct eswin_vi_device *es_vi_dev = file->private_data;
     struct soc_control_context soc_ctrl;
     struct isp_control_HxV isp_control_h_v;
-    pr_info(DRIVER_NAME ": IOCTL In\n");
+    pr_debug(DRIVER_NAME ": IOCTL In\n");
 
     switch (cmd) {
         case VI_IOCTL_RESET:
-            pr_info(DRIVER_NAME ": VI_IOCTL_RESET\n");
+            pr_debug(DRIVER_NAME ": VI_IOCTL_RESET\n");
             retval = copy_from_user(&soc_ctrl, (int __user *)arg, sizeof(soc_ctrl));
 		    CHECK_COPY_RETVAL(retval);
             ret = eswin_vi_reset(es_vi_dev, &soc_ctrl);
             break;
         case VI_IOCTL_ISP_H_V:
-            pr_info(DRIVER_NAME ": VI_IOCTL_ISP_H_V\n");
+            pr_debug(DRIVER_NAME ": VI_IOCTL_ISP_H_V\n");
             retval = copy_from_user(&isp_control_h_v, (int __user *)arg, sizeof(isp_control_h_v));
             es_vi_dev->isp_dvp0_hor = isp_control_h_v.horizontal;
             es_vi_dev->isp_dvp0_ver = isp_control_h_v.vertical;
@@ -393,7 +393,7 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             return -EINVAL;
     }
 
-    pr_info(DRIVER_NAME ": IOCTL Out\n");
+    pr_debug(DRIVER_NAME ": IOCTL Out\n");
 
     return ret;
 }
@@ -563,8 +563,6 @@ static int eswin_vi_probe(struct platform_device *pdev)
 
 
     eic770x_vi_init(es_vi_dev);
-    dev_info(dev, "Probe successful\n");
-
 
     return 0;
 }
@@ -580,7 +578,7 @@ static int eswin_remove(struct platform_device *pdev)
     class_destroy(es_vi_dev->es_vi_class);
     unregister_chrdev(major_number, DEVICE_NAME);
     of_platform_depopulate(&pdev->dev);
-    pr_info(DRIVER_NAME ": Removed\n");
+    pr_debug(DRIVER_NAME ": Removed\n");
     return 0;
 }
 

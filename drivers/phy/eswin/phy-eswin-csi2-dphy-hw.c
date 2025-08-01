@@ -595,7 +595,7 @@ static void eic770x_csi2_dphy_match_best_rate(struct csi2_dphy *dphy)
 			break;
 	}
 
-	dev_info(dphy->dev, "Matched DPHY rate: %lld Mbps (closest to requested %lld Mbps)\n",
+	dev_dbg(dphy->dev, "Matched DPHY rate: %lld Mbps (closest to requested %lld Mbps)\n",
 		hw->dphy_rate_tbl.rate, rate);
 }
 
@@ -616,8 +616,8 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 
 	mutex_lock(&hw->mutex);
 
-	dev_info(hw->dev, "stream on\n");
-	dev_info(hw->dev, "mipi sensor data rate %lld Mpbs \n",  dphy->data_rate_mbps);
+	dev_dbg(hw->dev, "stream on\n");
+	dev_dbg(hw->dev, "mipi sensor data rate %lld Mpbs \n",  dphy->data_rate_mbps);
 
 	eic770x_csi2_dphy_match_best_rate(dphy);
 	writel(0x2c3f5, hw->phy_cfg_base_addr + 0x0);
@@ -648,7 +648,7 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 	int count = 20;
 	while (count-- && phy_ready != 0x3) {
 		phy_ready = readl(hw->phy_cfg_base_addr + 0x4); 
-        dev_info(hw->dev, "0x%x: csi phy status 0x%x\n", hw->phy_cfg_addr, phy_ready);
+        dev_dbg(hw->dev, "0x%x: csi phy status 0x%x\n", hw->phy_cfg_addr, phy_ready);
         udelay(200000);
     }
 
@@ -657,7 +657,7 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 		phy_ready = 0x0;
 		while (count-- && phy_ready != 0x3) {
 			phy_ready = readl(hw->combine_dphy_base_addr +0x18000 + 0x4); 
-			dev_info(hw->dev, "0x%x: csi phy status 0x%x\n", hw->combine_dphy_phy_addr+0x18000, phy_ready);
+			dev_dbg(hw->dev, "0x%x: csi phy status 0x%x\n", hw->combine_dphy_phy_addr+0x18000, phy_ready);
 			udelay(200000);
 		}
 	}
@@ -762,7 +762,7 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 	struct device *parent = pdev->dev.parent;
 	u32 ret;
 
-	dev_info(dev, "csi2 dphy hw probe in!\n");
+	dev_dbg(dev, "csi2 dphy hw probe in!\n");
 
 	es_vi_dev = dev_get_drvdata(parent);
 
@@ -867,14 +867,14 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 			dev_err(dphy_hw->dev, "Failed to map Combine PHY address\n");
 			return PTR_ERR(dphy_hw->combine_dphy_base_addr);
 		}
-		pr_info("%s: combine_phy = 0x%x\n", __func__, dphy_hw->combine_dphy_phy_addr);
+		pr_debug("%s: combine_phy = 0x%x\n", __func__, dphy_hw->combine_dphy_phy_addr);
 	}
 
 	atomic_set(&dphy_hw->stream_cnt, 0);
 	mutex_init(&dphy_hw->mutex);
 	platform_set_drvdata(pdev, dphy_hw);
 
-	dev_info(dev, "csi2 dphy hw probe successfully!\n");
+	dev_dbg(dev, "csi2 dphy hw probe successfully!\n");
 	return 0;
 }
 

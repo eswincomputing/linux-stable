@@ -290,10 +290,6 @@
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
 
 			port {
 				imx586_out0: endpoint {
@@ -309,7 +305,7 @@
 	/* mipi csi2/csi3 */
 	status = "okay";
 	imx586_1: imx586@1a {
-			compatible = "sony,imx219";
+			compatible = "sony,imx586";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
@@ -320,10 +316,6 @@
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
 
 			port {
 				imx586_out1: endpoint {

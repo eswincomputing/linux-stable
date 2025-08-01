@@ -290,10 +290,6 @@
 		clock-names = "xvclk";
 
         eswin,board-type = "d560";
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "rpi-camera-v2";
-		eswin,camera-module-lens-name = "default";
 
 		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
@@ -323,10 +319,6 @@
 		clock-names = "xvclk";
 
         eswin,board-type = "d560";
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "rpi-camera-v2";
-		eswin,camera-module-lens-name = "default";
 
 		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;

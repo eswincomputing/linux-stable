@@ -136,10 +136,6 @@
 			assigned-clock-rates = <24000000>;
 			clock-names = "inck";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
 
 			port {
 				imx258_out0: endpoint {
@@ -165,10 +161,6 @@
 			assigned-clock-rates = <24000000>;
 			clock-names = "inck";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-			eswin,camera-module-index = <0>;
-			eswin,camera-module-facing = "back";
-			eswin,camera-module-name = "rpi-camera-v2";
-			eswin,camera-module-lens-name = "default";
 
 			port {
 				imx258_out2: endpoint {
@@ -194,10 +186,6 @@
 		assigned-clock-rates = <24000000>;
 		clock-names = "inck";
 		mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "rpi-camera-v2";
-		eswin,camera-module-lens-name = "default";
 
 		port {
 			imx258_out4: endpoint {

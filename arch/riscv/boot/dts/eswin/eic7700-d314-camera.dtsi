@@ -132,10 +132,6 @@
 				pinctrl-0 = <&pinctrl_gpio72_default>;
 				mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 				xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;
-				eswin,camera-module-index = <0>;
-				eswin,camera-module-facing = "back";
-				eswin,camera-module-name = "rpi-camera-v2";
-				eswin,camera-module-lens-name = "default";
 
 				port {
 					imx219_out0: endpoint {
@@ -160,11 +156,6 @@
 				//clocks = <&clk_cam_24m>;
 				//clock-names = "xvclk";
 
-				eswin,camera-module-index = <0>;
-				eswin,camera-module-facing = "back";
-				eswin,camera-module-name = "rpi-camera-v2";
-				eswin,camera-module-lens-name = "default";
-
 				port {
 					imx219_out1: endpoint {
 						remote-endpoint = <&mipidphy1_in_ucam0>;
@@ -188,11 +179,6 @@
 				//clocks = <&clk_cam_24m>;
 				//clock-names = "xvclk";
 
-				eswin,camera-module-index = <0>;
-				eswin,camera-module-facing = "back";
-				eswin,camera-module-name = "rpi-camera-v2";
-				eswin,camera-module-lens-name = "default";
-
 				port {
 					imx219_out2: endpoint {
 						remote-endpoint = <&mipidphy2_in_ucam0>;
@@ -215,11 +201,6 @@
 
 				//clocks = <&clk_cam_24m>;
 				//clock-names = "xvclk";
-
-				eswin,camera-module-index = <0>;
-				eswin,camera-module-facing = "back";
-				eswin,camera-module-name = "rpi-camera-v2";
-				eswin,camera-module-lens-name = "default";
 
 				port {
 					imx219_out3: endpoint {

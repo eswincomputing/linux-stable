@@ -2055,7 +2055,7 @@ static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 #ifdef VI_CAPTURE_DEBUG
 	end_time = ktime_get_ns();
 	delta_us = (end_time - start_time) / 1000;
-	pr_info("CYY[TIME CAL] es_dvp2axi_start_streaming took %llu us\n", delta_us);
+	pr_debug("[TIME CAL] es_dvp2axi_start_streaming took %llu us\n", delta_us);
 #endif
 
 	struct es_dvp2axi_stream *stream = queue->drv_priv;
@@ -2074,7 +2074,7 @@ static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 		dev_dbg(stream->dvp2axidev->hw_dev->dev, "all streams have been stopped, dvp2axi_hw_soft_reset \n");
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	}
-	dev_info(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %lld \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
+	dev_dbg(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %lld \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
 }
 
 /**
@@ -2221,7 +2221,7 @@ static int es_dvp2axi_sanity_check_fmt(struct es_dvp2axi_stream *stream,
 			v4l2_err(v4l2_dev, "Input fmt is invalid\n");
 			return -EINVAL;
 		}
-		pr_info("%s:%d input.width %d, input.height %d\n", __func__, __LINE__, input.width, input.height);
+		pr_debug("%s:%d input.width %d, input.height %d\n", __func__, __LINE__, input.width, input.height);
 	} else {
 		v4l2_err(v4l2_dev, "terminal_sensor is invalid\n");
 		return -EINVAL;
@@ -2658,7 +2658,7 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		dvpx_bpl |= bpl;
 	}
 
-	pr_info("dvp2axi stream[%d] bpl %d, dvpx_bpl %d, dvp2axi_bpp %d\n",
+	pr_debug("dvp2axi stream[%d] bpl %d, dvpx_bpl %d, dvp2axi_bpp %d\n",
 		stream->id, bpl, dvpx_bpl, dvp2axi_bpp);
 
 	mutex_lock(&dvp2axi_hw->dev_multi_chn_lock);
@@ -2679,7 +2679,7 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
 	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
 
-	pr_info("dvp2axi enabled=0x%x\n", csr0);
+	pr_debug("dvp2axi enabled=0x%x\n", csr0);
 #ifdef VI_CAPTURE_DEBUG
 	start_time = ktime_get_ns();	
 #endif
@@ -3137,7 +3137,7 @@ void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, struct es_dvp2axi_str
 	int2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR);
 
     if(mask) {
-		dev_info(dvp2axi_hw->dev, "mask dvp2axi stream%d interrupt\n", stream->id);
+		dev_dbg(dvp2axi_hw->dev, "mask dvp2axi stream%d interrupt\n", stream->id);
 		if(stream->id < 3) {
 			int0 |= (0x7 << stream->id);
 		} else {
@@ -3148,7 +3148,7 @@ void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, struct es_dvp2axi_str
     	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, int1);
     	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, int2);
 	} else {
-		dev_info(dvp2axi_hw->dev, "unmask dvp2axi stream%d interrupt\n", stream->id);
+		dev_dbg(dvp2axi_hw->dev, "unmask dvp2axi stream%d interrupt\n", stream->id);
 		if(stream->id < 3) {
 			int0 &= ~(0x7 << stream->id);
 		} else {
@@ -4401,7 +4401,7 @@ void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev
 	struct es_dvp2axi_hw	*dvp2axi_hw =  dev_get_drvdata(dev);
 	vi_dvp2axi_int_err = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR);
 
-	dev_info(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
+	dev_dbg(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_FULL)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[0]);
 	

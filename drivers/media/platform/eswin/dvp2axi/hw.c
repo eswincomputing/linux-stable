@@ -319,7 +319,7 @@ static int dvp2axi_smmu_sid_cfg(struct device* dev)
     struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
     if (fwspec == NULL) {
-        pr_info("Device is not behind SMMU, using default streamID(0)\n");
+        pr_debug("Device is not behind SMMU, using default streamID(0)\n");
         return 0;
     }
 

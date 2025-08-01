@@ -165,7 +165,7 @@ static int eswin_csi2_dphy_attach_hw(struct csi2_dphy *dphy, int csi_idx,
 			}
 		} else if (csi_idx == 1 || csi_idx == 3) {
 			if (lanes == 4) {
-				dev_info(
+				dev_dbg(
 					dphy->dev,
 					"%s csi host%d only support PHY_SPLIT_23\n",
 					__func__, csi_idx);
@@ -179,7 +179,7 @@ static int eswin_csi2_dphy_attach_hw(struct csi2_dphy *dphy, int csi_idx,
 			else
 				dphy->phy_index = 5;
 		} else {
-			dev_info(dphy->dev, "%s error csi host%d\n", __func__,
+			dev_dbg(dphy->dev, "%s error csi host%d\n", __func__,
 				 csi_idx);
 			mutex_unlock(&dphy_hw->mutex);
 			return -EINVAL;
@@ -299,7 +299,7 @@ static int csi2_dphy_update_config(struct v4l2_subdev *sd)
 					       ESMODULE_GET_BUS_CONFIG,
 					       &bus_config);
 			if (!ret) {
-				dev_info(dphy->dev, "phy_mode %d,lane %d\n",
+				dev_dbg(dphy->dev, "phy_mode %d,lane %d\n",
 					 bus_config.bus.phy_mode,
 					 bus_config.bus.lanes);
 				if (bus_config.bus.phy_mode == PHY_FULL_MODE) {
@@ -390,7 +390,7 @@ static int csi2_dphy_s_stream_stop(struct v4l2_subdev *sd)
 
 	dphy->is_streaming = false;
 
-	dev_info(dphy->dev, "%s stream stop, dphy%d\n", __func__,
+	dev_dbg(dphy->dev, "%s stream stop, dphy%d\n", __func__,
 		 dphy->phy_index);
 
 	return 0;
@@ -472,7 +472,7 @@ static int csi2_dphy_s_stream(struct v4l2_subdev *sd, int on)
 	}
 	mutex_unlock(&dphy->mutex);
 
-	dev_info(dphy->dev, "%s stream on:%d, dphy%d, ret %d\n", __func__, on,
+	dev_dbg(dphy->dev, "%s stream on:%d, dphy%d, ret %d\n", __func__, on,
 		 dphy->phy_index, ret);
 
 	return ret;
@@ -665,7 +665,7 @@ static int eswin_csi2_dphy_notifier_bound(struct v4l2_async_notifier *notifier,
 	sensor->mbus = s_asd->mbus;
 	sensor->sd = sd;
 
-	dev_info(dphy->dev, "dphy%d matches %s:bus type %d\n", dphy->phy_index,
+	dev_dbg(dphy->dev, "dphy%d matches %s:bus type %d\n", dphy->phy_index,
 		 sd->name, s_asd->mbus.type);
 
 	for (pad = 0; pad < sensor->sd->entity.num_pads; pad++)
@@ -935,7 +935,7 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
-	dev_info(dev, "csi2 dphy%d probe successfully!\n", csi2dphy->phy_index);
+	dev_dbg(dev, "csi2 dphy%d probe successfully!\n", csi2dphy->phy_index);
 	return 0;
 
 detach_hw:

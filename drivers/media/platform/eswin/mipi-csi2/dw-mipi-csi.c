@@ -277,7 +277,7 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 		break;
 	}
 
-	dev_info(dev, "Selected IPI Data Type 0x%X\n", csi_dev->hw.ipi_dt);
+	dev_dbg(dev, "Selected IPI Data Type 0x%X\n", csi_dev->hw.ipi_dt);
 }
 
 void dw_mipi_csi_fill_timings(struct dw_csi *dev)
@@ -643,10 +643,10 @@ int dw_mipi_csi_specific_mappings(struct dw_csi *csi_dev)
 			csi_int.ECC_CORRECTED = BIT(7);
 
 		} else {
-			dev_info(dev, "Version minor not supported.");
+			dev_dbg(dev, "Version minor not supported.");
 		}
 	} else {
-		dev_info(dev, "Version major not supported.");
+		dev_dbg(dev, "Version major not supported.");
 	}
 	return 0;
 }

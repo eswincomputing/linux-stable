@@ -63,11 +63,6 @@
 		assigned-clock-rates = <37125000>;
 		clock-names = "xvclk";
 
-		eswin,camera-module-index = <0>;
-		eswin,camera-module-facing = "back";
-		eswin,camera-module-name = "LT";
-		eswin,camera-module-lens-name = "HDMI-IN";
-
 		port {
 			hdmiin_out0: endpoint {
 				remote-endpoint = <&mipidphy0_in_ucam0>;
