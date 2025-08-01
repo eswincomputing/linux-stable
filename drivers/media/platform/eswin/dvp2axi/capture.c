@@ -2074,7 +2074,7 @@ static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 		dev_dbg(stream->dvp2axidev->hw_dev->dev, "all streams have been stopped, dvp2axi_hw_soft_reset \n");
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	}
-	dev_info(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %d \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
+	dev_info(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %lld \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
 }
 
 /**
