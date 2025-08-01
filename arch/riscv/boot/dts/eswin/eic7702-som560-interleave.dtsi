@@ -223,56 +223,12 @@
 &d0_cpu_opp_table {
 	/delete-node/ opp-1200000000;
 	/delete-node/ opp-1300000000;
-	opp-1500000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1600000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1700000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1800000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
 };
 
 &d1_cpu_opp_table {
 	/delete-node/ opp-1200000000;
 	/delete-node/ opp-1300000000;
-	opp-1500000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1600000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1700000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1800000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
 };
-
-// &cpu_0 {
-//	cpu-supply = <&vdd_soc>;
-// };
 
 &d0_clock {
 	status = "okay";

@@ -158,6 +158,9 @@
 
 &d0_clock {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio106_default>;
+	cpu-voltage-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_reset {

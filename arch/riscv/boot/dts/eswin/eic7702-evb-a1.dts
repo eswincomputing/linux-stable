@@ -207,11 +207,26 @@
 	};
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
+&d1_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
 &d0_clock {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio19_default>;
+	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
 };
+
 &d1_clock {
 	status = "okay";
+	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_reset {

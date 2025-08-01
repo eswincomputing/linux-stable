@@ -81,3 +81,10 @@
 	label = "HDMI Audio";
 	dais = <&d0_i2s0_port>;
 };
+
+&d0_cpu_opp_table {
+	/delete-node/ opp-1500000000;
+	/delete-node/ opp-1600000000;
+	/delete-node/ opp-1700000000;
+	/delete-node/ opp-1800000000;
+};
