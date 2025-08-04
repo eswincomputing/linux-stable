@@ -2023,6 +2023,7 @@
 
 		d0_usbdrd3_0: usb0@50480000 {
 			compatible = "eswin,win2030-dwc3";
+			phy_reg = <0x0 0x504a0000 0x0 0x10000>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			clocks = <&d0_clock EIC7700_CLK_HSP_ACLK>,
@@ -2063,6 +2064,7 @@
 
 		d0_usbdrd3_1: usb1@50490000  {
 			compatible = "eswin,win2030-dwc3";
+			phy_reg = <0x0 0x504b0000 0x0 0x10000>;
 			#address-cells = <2>;
 			#size-cells = <2>;
 			clocks = <&d0_clock EIC7700_CLK_HSP_ACLK>,

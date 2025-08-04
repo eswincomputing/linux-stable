@@ -67,6 +67,12 @@
 #define HSP_USB_AXI_LP_XM_CSYSREQ (0x1 << 0)
 #define HSP_USB_AXI_LP_XS_CSYSREQ (0x1 << 16)
 
+#define RX_REG_OFFSET 0x4018
+#define RX_EQ_EN (1 << 6)
+#define RX_EQ_EN_OVRD (1 << 7)
+#define RX_EQ (1 << 9)
+#define RX_EQ_OVRD (1 << 11)
+
 struct dwc3_eswin {
 	int num_clocks;
 	bool connected;
@@ -283,6 +289,49 @@ static int dwc3_eswin_assert(struct dwc3_eswin *eswin)
 	return 0;
 }
 
+static int dwc3_rx_equalization_init(struct device *dev)
+{
+
+	struct device_node *rx = dev->of_node;
+	void __iomem *phy_base;
+	void __iomem *phy_base_reg;
+	int ret;
+	u32 phy_reg[4];
+	u16 reg_val;
+
+	if (device_property_read_bool(dev, "rt_equalization")) {
+
+		ret = of_property_read_u32_array(rx, "phy_reg", phy_reg, ARRAY_SIZE(phy_reg));
+		if (ret)
+			return ret;
+
+		phy_base = devm_ioremap(dev, phy_reg[1], phy_reg[3]);
+		if (!phy_base) {
+			pr_err("Failed to ioremap phy_reg\n");
+			return -ENOMEM;
+		}
+
+		/* Get rx register */
+		phy_base_reg =  phy_base + RX_REG_OFFSET;
+		reg_val = readw(phy_base_reg);
+
+		reg_val &= ~RX_EQ_EN;
+		writew(reg_val, phy_base_reg);
+
+		reg_val |= RX_EQ_EN_OVRD;
+		writew(reg_val, phy_base_reg);
+
+		reg_val &= ~(0x7 << 8);
+		reg_val |= RX_EQ;
+		writew(reg_val, phy_base_reg);
+
+		reg_val |= RX_EQ_OVRD;
+		writew(reg_val, phy_base_reg);
+	}
+
+	return 0;
+}
+
 static int dwc_usb_clk_init(struct device *dev)
 {
 	struct regmap *regmap;
@@ -476,7 +525,9 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 	}
 
 	dwc3_eswin_deassert(eswin);
+
 	dwc_usb_clk_init(dev);
+	dwc3_rx_equalization_init(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);

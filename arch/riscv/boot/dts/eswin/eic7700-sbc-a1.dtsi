@@ -471,6 +471,7 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
+	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -484,6 +485,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio23_default>;
 	hub-rst-gpios = <&porta 23 GPIO_ACTIVE_HIGH>;
+	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_1 {

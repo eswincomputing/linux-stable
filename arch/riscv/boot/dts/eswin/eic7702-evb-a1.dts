@@ -922,9 +922,11 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
+	rt_equalization;
 };
 &d1_usbdrd3_0 {
 	status = "okay";
+	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -941,10 +943,12 @@
 
 &d0_usbdrd3_1 {
 	status = "okay";
+	rt_equalization;
 };
 
 &d1_usbdrd3_1 {
 	status = "okay";
+	rt_equalization;
 };
 
 &d0_usbdrd_dwc3_1 {
