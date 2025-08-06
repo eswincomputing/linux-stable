@@ -235,13 +235,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio94_default>;
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
-	cpu-default-frequency = <CLK_FREQ_1800M>;
 };
 
 &d1_clock {
 	status = "okay";
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
-	cpu-default-frequency = <CLK_FREQ_1800M>;
 };
 
 &D1CACHE {
@@ -251,13 +249,6 @@
 		/*reg = <0x0 0x3a000000 0x0 0x400000>;*/
 		memory-region = <&nid_1_zero_device_simu>;
 	};
-};
-
-&d0_clock {
-	status = "okay";
-};
-&d1_clock {
-	status = "okay";
 };
 
 &d0_reset {

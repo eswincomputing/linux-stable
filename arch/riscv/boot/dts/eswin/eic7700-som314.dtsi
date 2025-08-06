@@ -119,10 +119,6 @@
 	};
 };
 
-&d0_clock {
-	status = "okay";
-};
-
 &d0_reset {
 	status = "okay";
 };
