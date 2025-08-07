@@ -948,8 +948,8 @@ struct es_dvp2axi_device {
 
 
 void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *es_dvp2axi_hw);
-
-void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, struct es_dvp2axi_stream *stream, int mask);
+void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, u32 stream_id, int mask);
+void dvp2axi_hw_irq_axi_mask(struct es_dvp2axi_hw *dvp2axi_hw, int mask);
 
 extern struct platform_driver es_dvp2axi_plat_drv;
 #ifdef CONFIG_NUMA

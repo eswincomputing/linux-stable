@@ -52,10 +52,6 @@ int es_dvp2axi_debug = 0;
 module_param_named(debug, es_dvp2axi_debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-1)");
 
-static char es_dvp2axi_version[ES_DVP2AXI_VERNO_LEN];
-module_param_string(version, es_dvp2axi_version, ES_DVP2AXI_VERNO_LEN, 0444);
-MODULE_PARM_DESC(version, "version number");
-
 static DEFINE_MUTEX(es_dvp2axi_dev_mutex);
 static LIST_HEAD(es_dvp2axi_device_list);
 
@@ -943,39 +939,6 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 		    (!on && atomic_dec_return(&p->stream_cnt) > 0))
 			return 0;
 
-		if (on) {
-			dvp2axi_dev->irq_stats.csi_overflow_cnt = 0;
-			dvp2axi_dev->irq_stats.csi_bwidth_lack_cnt = 0;
-			dvp2axi_dev->irq_stats.dvp_bus_err_cnt = 0;
-			dvp2axi_dev->irq_stats.dvp_line_err_cnt = 0;
-			dvp2axi_dev->irq_stats.dvp_overflow_cnt = 0;
-			dvp2axi_dev->irq_stats.dvp_pix_err_cnt = 0;
-			dvp2axi_dev->irq_stats.all_err_cnt = 0;
-			dvp2axi_dev->irq_stats.csi_size_err_cnt = 0;
-			dvp2axi_dev->irq_stats.dvp_size_err_cnt = 0;
-			dvp2axi_dev->irq_stats.dvp_bwidth_lack_cnt = 0;
-			dvp2axi_dev->irq_stats.frm_end_cnt[0] = 0;
-			dvp2axi_dev->irq_stats.frm_end_cnt[1] = 0;
-			dvp2axi_dev->irq_stats.frm_end_cnt[2] = 0;
-			dvp2axi_dev->irq_stats.frm_end_cnt[3] = 0;
-			dvp2axi_dev->irq_stats.not_active_buf_cnt[0] = 0;
-			dvp2axi_dev->irq_stats.not_active_buf_cnt[1] = 0;
-			dvp2axi_dev->irq_stats.not_active_buf_cnt[2] = 0;
-			dvp2axi_dev->irq_stats.not_active_buf_cnt[3] = 0;
-			dvp2axi_dev->irq_stats.trig_simult_cnt[0] = 0;
-			dvp2axi_dev->irq_stats.trig_simult_cnt[1] = 0;
-			dvp2axi_dev->irq_stats.trig_simult_cnt[2] = 0;
-			dvp2axi_dev->irq_stats.trig_simult_cnt[3] = 0;
-			dvp2axi_dev->reset_watchdog_timer.is_triggered = false;
-			dvp2axi_dev->reset_watchdog_timer.is_running = false;
-			dvp2axi_dev->err_state_work.last_timestamp = 0;
-			dvp2axi_dev->is_toisp_reset = false;
-			for (i = 0; i < dvp2axi_dev->num_channels; i++)
-				dvp2axi_dev->reset_watchdog_timer
-					.last_buf_wakeup_cnt[i] = 0;
-			dvp2axi_dev->reset_watchdog_timer.run_cnt = 0;
-		}
-
 		/* phy -> sensor */
 		for (i = 0; i < p->num_subdevs; i++) {
 			if (p->subdevs[i] == dvp2axi_dev->terminal_sensor.sd &&
@@ -991,7 +954,6 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 			    ret != -ENODEV)
 				goto err_stream_off;
 		}
-
 	} else {
 		if (!on && atomic_dec_return(&p->stream_cnt) > 0)
 			return 0;
@@ -1014,41 +976,6 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 		}
 
 		if ((on && can_be_set) || !on) {
-			if (on) {
-				dvp2axi_dev->irq_stats.csi_overflow_cnt = 0;
-				dvp2axi_dev->irq_stats.csi_bwidth_lack_cnt = 0;
-				dvp2axi_dev->irq_stats.dvp_bus_err_cnt = 0;
-				dvp2axi_dev->irq_stats.dvp_line_err_cnt = 0;
-				dvp2axi_dev->irq_stats.dvp_overflow_cnt = 0;
-				dvp2axi_dev->irq_stats.dvp_pix_err_cnt = 0;
-				dvp2axi_dev->irq_stats.dvp_bwidth_lack_cnt = 0;
-				dvp2axi_dev->irq_stats.all_err_cnt = 0;
-				dvp2axi_dev->irq_stats.csi_size_err_cnt = 0;
-				dvp2axi_dev->irq_stats.dvp_size_err_cnt = 0;
-				dvp2axi_dev->irq_stats.frm_end_cnt[0] = 0;
-				dvp2axi_dev->irq_stats.frm_end_cnt[1] = 0;
-				dvp2axi_dev->irq_stats.frm_end_cnt[2] = 0;
-				dvp2axi_dev->irq_stats.frm_end_cnt[3] = 0;
-				dvp2axi_dev->irq_stats.not_active_buf_cnt[0] = 0;
-				dvp2axi_dev->irq_stats.not_active_buf_cnt[1] = 0;
-				dvp2axi_dev->irq_stats.not_active_buf_cnt[2] = 0;
-				dvp2axi_dev->irq_stats.not_active_buf_cnt[3] = 0;
-				dvp2axi_dev->irq_stats.trig_simult_cnt[0] = 0;
-				dvp2axi_dev->irq_stats.trig_simult_cnt[1] = 0;
-				dvp2axi_dev->irq_stats.trig_simult_cnt[2] = 0;
-				dvp2axi_dev->irq_stats.trig_simult_cnt[3] = 0;
-				dvp2axi_dev->is_start_hdr = true;
-				dvp2axi_dev->reset_watchdog_timer.is_triggered =
-					false;
-				dvp2axi_dev->reset_watchdog_timer.is_running =
-					false;
-				dvp2axi_dev->is_toisp_reset = false;
-				for (i = 0; i < dvp2axi_dev->num_channels; i++)
-					dvp2axi_dev->reset_watchdog_timer
-						.last_buf_wakeup_cnt[i] = 0;
-				dvp2axi_dev->reset_watchdog_timer.run_cnt = 0;
-			}
-
 			/* phy -> sensor */
 			for (i = 0; i < p->num_subdevs; i++) {
 				if (p->subdevs[i] ==
@@ -1068,7 +995,6 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 			}
 		}
 	}
-
 
 	return 0;
 
@@ -1134,6 +1060,7 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 					break;
 				}
 			}
+			break;
 		}
 	}
 
@@ -1579,10 +1506,8 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 	memset(&dvp2axi_dev->channels[0].capture_info, 0,
 	       sizeof(dvp2axi_dev->channels[0].capture_info));
 
-	INIT_WORK(&dvp2axi_dev->err_state_work.work, es_dvp2axi_err_print_work);
 	INIT_WORK(&dvp2axi_dev->sensor_work.work, es_dvp2axi_set_sensor_stream);
 	INIT_DELAYED_WORK(&dvp2axi_dev->work_deal_err, es_dvp2axi_deal_err_intr);
-	pr_debug("t1 %s, %d \n", __func__, __LINE__);
 
 	if (of_property_read_u32(node, "dvp2axi_id", &dvp2axi_dev->dvp2axi_id))
 		dvp2axi_id = 0;
@@ -1701,8 +1626,6 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 	const struct es_dvp2axi_match_data *data;
 	int ret;
 
-	dev_dbg(dev, "es_dvp2axi driver version: %s\n", es_dvp2axi_version);
-
 	match = of_match_node(es_dvp2axi_plat_of_match, node);
 	if (IS_ERR(match))
 		return PTR_ERR(match);
@@ -1731,7 +1654,7 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
 	es_dvp2axi_init_reset_monitor(dvp2axi_dev);
 	pm_runtime_enable(&pdev->dev);
-	pr_debug("%s succsess\n", __func__);
+	dev_info(dvp2axi_dev->dev, "probe succsess\n");
 	return 0;
 }
 

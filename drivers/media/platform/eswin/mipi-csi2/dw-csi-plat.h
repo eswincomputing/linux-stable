@@ -59,13 +59,33 @@ struct mipi_fmt dw_mipi_csi_formats[] = {
 		/* RAW 10 */
 		.mbus_code = MEDIA_BUS_FMT_SBGGR10_1X10,
 		.depth = 10,
+	},{
+		/* RAW 10 */
+		.mbus_code = MEDIA_BUS_FMT_SGBRG10_1X10,
+		.depth = 10,
 	}, {
-		/* RAW 8 */
-		.mbus_code = 0x3001,
-		.depth = 8,
+		/* RAW 10 */
+		.mbus_code = MEDIA_BUS_FMT_SGRBG10_1X10,
+		.depth = 10,
+	}, {
+		/* RAW 10 */
+		.mbus_code = MEDIA_BUS_FMT_SRGGB10_1X10,
+		.depth = 10,
 	}, {
 		/* RAW 12 */
 		.mbus_code = MEDIA_BUS_FMT_SBGGR12_1X12,
+		.depth = 12,
+	}, {
+		/* RAW 12 */
+		.mbus_code = MEDIA_BUS_FMT_SGBRG12_1X12,
+		.depth = 12,
+	}, {
+		/* RAW 12 */
+		.mbus_code = MEDIA_BUS_FMT_SGRBG12_1X12,
+		.depth = 12,
+	}, {
+		/* RAW 12 */
+		.mbus_code = MEDIA_BUS_FMT_SRGGB12_1X12,
 		.depth = 12,
 	}, {
 		/* RAW 14 */

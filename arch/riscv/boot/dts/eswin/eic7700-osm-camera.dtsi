@@ -287,7 +287,10 @@
 		address-cells = <1>;
 		size-cells = <0>;
 		reg = <0x10>;
-
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xvclk";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio72_default &pinctrl_gpio70_default>;
 		mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
@@ -311,7 +314,10 @@
 		address-cells = <1>;
 		size-cells = <0>;
 		reg = <0x10>;
-
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xvclk";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio78_default>;
 		mclk-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;

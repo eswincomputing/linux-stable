@@ -76,11 +76,6 @@
  * @xsubs: horizontal color samples in a 4*4 matrix, for yuv
  * @ysubs: vertical color samples in a 4*4 matrix, for yuv
  */
-// #define VI_CAPTURE_DEBUG
-#ifdef VI_CAPTURE_DEBUG
-ktime_t start_time, end_time;
-u64 delta_us;
-#endif
 
 static inline void DVP2AXI_HalWriteReg(struct es_dvp2axi_hw *dvp2axi_hw, u32 address, u32 data) {
     writel(data, dvp2axi_hw->base_addr + address);
@@ -1871,10 +1866,6 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 
 	mutex_lock(&dev->stream_lock);
 
-	v4l2_info(&dev->v4l2_dev,
-		  "stream[%d] start stopping, total mode 0x%x, cur 0x%x\n",
-		  stream->id, stream->cur_stream_mode, mode);
-
 	if (mode == stream->cur_stream_mode) {
 		if (stream->dma_en) {
 			if (!dev->sensor_linetime)
@@ -2044,7 +2035,7 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 
 	stream->cur_stream_mode &= ~mode;
 	INIT_LIST_HEAD(&stream->vb_done_list);
-	v4l2_info(&dev->v4l2_dev, "stream[%d] stopping finished, dma_en 0x%x\n",
+	v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev, "stream[%d] stopping finished, dma_en 0x%x\n",
 		  stream->id, stream->dma_en);
 	mutex_unlock(&dev->stream_lock);
 	es_dvp2axi_detach_sync_mode(dev);
@@ -2052,28 +2043,23 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 
 static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 {
-#ifdef VI_CAPTURE_DEBUG
-	end_time = ktime_get_ns();
-	delta_us = (end_time - start_time) / 1000;
-	pr_debug("[TIME CAL] es_dvp2axi_start_streaming took %llu us\n", delta_us);
-#endif
-
 	struct es_dvp2axi_stream *stream = queue->drv_priv;
 	int stream_id = stream->id;
 	uint32_t csr0;
 
 	mutex_lock(&stream->dvp2axidev->hw_dev->dev_multi_chn_lock);
-
+	dvp2axi_hw_irq_mask(stream->dvp2axidev->hw_dev, stream->id, 1);
 	csr0 = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
 	es_dvp2axi_do_stop_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
 	csr0 &= ~(1 << stream_id); // disable stream channel
 	DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, csr0);
-	mutex_unlock(&stream->dvp2axidev->hw_dev->dev_multi_chn_lock);
-
 	if((csr0 & 0x3f) == 0) {
 		dev_dbg(stream->dvp2axidev->hw_dev->dev, "all streams have been stopped, dvp2axi_hw_soft_reset \n");
+		dvp2axi_hw_irq_axi_mask(stream->dvp2axidev->hw_dev, 1);
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	}
+	mutex_unlock(&stream->dvp2axidev->hw_dev->dev_multi_chn_lock);
+	stream->state = ES_DVP2AXI_STATE_READY;
 	dev_dbg(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %lld \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
 }
 
@@ -2325,10 +2311,10 @@ int es_dvp2axi_update_sensor_info(struct es_dvp2axi_stream *stream)
 				__func__, terminal_sensor->sd->name);
 			// return ret;
 			ret = 0;
-		} 
+		}
 		terminal_sensor->fi.interval.numerator = 1;
 		terminal_sensor->fi.interval.denominator = 30;
-		
+
 		// if (v4l2_subdev_call(terminal_sensor->sd, core, ioctl,
 		// 		     ESMODULE_GET_CSI_DSI_INFO,
 		// 		     &terminal_sensor->dsi_input_en)) {
@@ -2373,8 +2359,23 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 	int ret;
 	int i = 0;
 	u32 skip_frame = 0;
+	struct v4l2_subdev_format csi_fmt;
 
-	v4l2_info(&dev->v4l2_dev, "stream[%d] start streaming, stream addr %p\n", stream->id, stream);
+	v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev, "sensor info: %s, mbus type: %d, lanes: %d, width: %d, height: %d, code: 0x%x\n",
+		  sensor_info->sd ? sensor_info->sd->name : "NULL",
+		  sensor_info->mbus.type, sensor_info->lanes, stream->pixm.width, stream->pixm.height,
+		  stream->dvp2axi_fmt_in->mbus_code);
+
+	csi_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	csi_fmt.pad = 0;
+	csi_fmt.format.width = stream->pixm.width;
+	csi_fmt.format.height = stream->pixm.height;
+	csi_fmt.format.code = stream->dvp2axi_fmt_in->mbus_code;
+	ret = v4l2_subdev_call(sensor_info->sd, pad, set_fmt, NULL, &csi_fmt);
+	if (ret) {
+		v4l2_err(v4l2_dev, "set csi fmt failed %d\n", ret);
+		goto destroy_buf;
+	}
 
 	if ((stream->cur_stream_mode & ES_DVP2AXI_STREAM_MODE_CAPTURE) == mode) {
 		ret = -EBUSY;
@@ -2590,7 +2591,7 @@ void es_dvp2axi_dump_reg(struct es_dvp2axi_hw *hw)
 {
 	for(int offset = 0; offset < 0xb8; offset += 4) {
 		uint32_t reg_val = DVP2AXI_HalReadReg(hw, offset);
-		pr_debug("DVP2AXI_REG[0x%02x] = 0x%08x\n", offset, reg_val);
+		dev_dbg(hw->dev, "DVP2AXI_REG[0x%02x] = 0x%08x\n", offset, reg_val);
 	}
 }
 
@@ -2602,9 +2603,8 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	uint32_t dvpx_bpl = 0;
 	uint32_t dvp2axi_ctrl2, dvp2axi_ctrl33;
 	uint32_t dvp2axi_bpp;
-
 	int ret = 0;
-	
+
 	switch(stream->id) {
 		case 0:
 			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK ) >> 20;
@@ -2658,31 +2658,45 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		dvpx_bpl |= bpl;
 	}
 
-	pr_debug("dvp2axi stream[%d] bpl %d, dvpx_bpl %d, dvp2axi_bpp %d\n",
+	dev_dbg(stream->dvp2axidev->dev, "dvp2axi stream[%d] bpl %d, dvpx_bpl %d, dvp2axi_bpp %d\n",
 		stream->id, bpl, dvpx_bpl, dvp2axi_bpp);
 
 	mutex_lock(&dvp2axi_hw->dev_multi_chn_lock);
 	if(stream->id == 0 || stream->id == 2 || stream->id == 4)  {
 		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4);
-		dvp2axi_ctrl33 |= dvpx_bpl;
+		dvp2axi_ctrl33 =(dvp2axi_ctrl33 & 0xffff0000) | dvpx_bpl;
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4, dvp2axi_ctrl33);
 	} else {
 		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4);
-		dvp2axi_ctrl33 |= (dvpx_bpl << 16);
+		dvp2axi_ctrl33 |= (dvp2axi_ctrl33 & 0xffff) | (dvpx_bpl << 16);
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, dvp2axi_ctrl33);
 	}
 
+	//flush irq before start stream
+	if(stream->id < 3) {
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, (0x7 << stream->id));
+	} else {
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, (0x7 << (stream->id - 3)));
+	}
+	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR,(0x1 << (stream->id+2)));
+
 	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-	es_dvp2axi_dump_reg(dvp2axi_hw);
+	if((csr0 & 0x3f) == 0)
+		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	csr0 = csr0 | (1 << stream->id);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
-	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
+	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
+	dvp2axi_hw_irq_axi_mask(stream->dvp2axidev->hw_dev, 0);
 	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
-
-	pr_debug("dvp2axi enabled=0x%x\n", csr0);
-#ifdef VI_CAPTURE_DEBUG
-	start_time = ktime_get_ns();	
-#endif
+	if(ret < 0) {
+		csr0 = csr0 & ~(1 << stream->id);
+		dev_err(stream->dvp2axidev->dev, "es_dvp2axi_do_start_stream failed %d\n", ret);
+		goto unlock;
+	}
+	es_dvp2axi_dump_reg(dvp2axi_hw);
+	dev_dbg(stream->dvp2axidev->dev, "dvp2axi enabled=0x%x\n", csr0);
+unlock:
+	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
 	return ret;
 }
 
@@ -3117,50 +3131,55 @@ static int es_dvp2axi_fh_release(struct file *filp)
 	int ret = 0;
 
 	stream->is_first_flush = true;
-
 	ret = vb2_fop_release(filp);
-	
 	pm_runtime_put_sync(dvp2axidev->dev);
-	
 	return ret;
 }
 
-void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, struct es_dvp2axi_stream *stream, int mask)
+void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, u32 stream_id, int mask)
 {
-	return;
 	u32 int0;
 	u32 int1;
 	u32 int2;
-
 	int0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR);
 	int1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR);
 	int2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR);
 
-    if(mask) {
-		dev_dbg(dvp2axi_hw->dev, "mask dvp2axi stream%d interrupt\n", stream->id);
-		if(stream->id < 3) {
-			int0 |= (0x7 << stream->id);
+	if(mask) {
+		if(stream_id < 3) {
+			int0 |= (0x7 << stream_id);
 		} else {
-			int1 |= (0x7 << (stream->id - 3));
+			int1 |= (0x7 << (stream_id - 3));
 		}
-		int2 |= (0x1 << (stream->id + 2));
+		int2 |= (0x1 << (stream_id + 2));
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR, int0);
-    	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, int1);
-    	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, int2);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, int1);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, int2);
 	} else {
-		dev_dbg(dvp2axi_hw->dev, "unmask dvp2axi stream%d interrupt\n", stream->id);
-		if(stream->id < 3) {
-			int0 &= ~(0x7 << stream->id);
+		if(stream_id < 3) {
+			int0 &= ~(0x7 << stream_id);
 		} else {
-			int1 &= ~(0x7 << (stream->id - 3));
+			int1 &= ~(0x7 << (stream_id - 3));
 		}
-		int2 &= ~(0x1 << (stream->id + 2));
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR, 0x0);
-    	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, 0x0);
-    	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, 0x0);
+		int2 &= ~(0x1 << (stream_id + 2));
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK0_CSR, int0);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK1_CSR, int1);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, int2);
 	}
 }
 
+void dvp2axi_hw_irq_axi_mask(struct es_dvp2axi_hw *dvp2axi_hw, int mask)
+{
+	u32 int2;
+	int2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR);
+	if (mask) {
+		int2 |= 0x3 | (0x1 << 8);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, int2);
+	} else {
+		int2 &= ~(0x3 | (0x1 << 8));
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT_MASK2_CSR, int2);
+	}
+}
 
 static const struct v4l2_file_operations es_dvp2axi_fops = {
 	.open = es_dvp2axi_fh_open,
@@ -4320,34 +4339,25 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 
 
 	if(frame0_done_detect) {
+		stream->frame_idx++;
 		active_buf = stream->curr_buf;
 		stream->frame_phase = DVP2AXI_CSI_FRAME0_READY;
 	}
 	if(frame1_done_detect) {
+		stream->frame_idx++;
 		active_buf = stream->next_buf;
 		stream->frame_phase = DVP2AXI_CSI_FRAME1_READY;
 	}
 	if (frame2_done_detect) {
+		stream->frame_idx++;
 		active_buf = stream->last_buf;
 		stream->frame_phase = DVP2AXI_CSI_FRAME2_READY;
 	}
 
 	if(stream->is_first_flush) {
 		stream->is_first_flush = false;
-	} 
+	}
 	es_dvp2axi_addr_state = ES_DVP2AXI_YUV_ADDR_STATE_UPDATE;
-	//TODO need to check whether the frame is done but not get flush signal
-	// if ((vi_dvp2axi_int0 & VI_DVP2AXI_DVP0_ID0_FRAME_FLUSH_MASK) && (stream->frame_phase == DVP2AXI_CSI_FRAME0_READY)) {  // done handle
-	// 	ret = es_dvp2axi_assign_new_buffer_oneframe(stream, es_dvp2axi_addr_state);
-	// }
-	// if((vi_dvp2axi_int0 & VI_DVP2AXI_DVP0_ID1_FRAME_FLUSH_MASK) && (stream->frame_phase == DVP2AXI_CSI_FRAME1_READY)) {
-	// 	ret = es_dvp2axi_assign_new_buffer_oneframe(stream, es_dvp2axi_addr_state);
-	// }
-	// if((vi_dvp2axi_int0 & VI_DVP2AXI_DVP0_ID2_FRAME_FLUSH_MASK) && (stream->frame_phase == DVP2AXI_CSI_FRAME2_READY)) {
-	// 		//TODO not use now
-	// 	ret = es_dvp2axi_assign_new_buffer_oneframe(stream, es_dvp2axi_addr_state);
-	// }
-
 	if (stream->frame_phase == DVP2AXI_CSI_FRAME0_READY) {  // done handle
 		ret = es_dvp2axi_assign_new_buffer_oneframe(stream, es_dvp2axi_addr_state);
 	}
@@ -4390,8 +4400,6 @@ void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev)
 		flush_intr1 = vi_dvp2axi_int1 & (0x7 << ((stream->id-3) * 3));
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, flush_intr1 | done_intr1);
 	}
-	// DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, vi_dvp2axi_int0);
-	// DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, vi_dvp2axi_int1);
 	stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
 }
 
@@ -4401,10 +4409,10 @@ void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev
 	struct es_dvp2axi_hw	*dvp2axi_hw =  dev_get_drvdata(dev);
 	vi_dvp2axi_int_err = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR);
 
-	dev_dbg(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
+	dev_err_ratelimited(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_FULL)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[0]);
-	
+
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_RESP_ERROR)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[1]);
 
@@ -4428,7 +4436,6 @@ void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev
 
 	if(vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_AFULL)
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[8]);
-	// dvp2axi_hw_soft_reset(dvp2axi_hw);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, vi_dvp2axi_int_err);
 }
 
@@ -5131,123 +5138,6 @@ static int es_dvp2axi_stop_dma_capture(struct es_dvp2axi_stream *stream)
 	return 0;
 }
 
-void es_dvp2axi_err_print_work(struct work_struct *work)
-{
-	struct es_dvp2axi_err_state_work *err_state_work =
-		container_of(work, struct es_dvp2axi_err_state_work, work);
-	struct es_dvp2axi_device *dev = container_of(
-		err_state_work, struct es_dvp2axi_device, err_state_work);
-	u32 err_state = 0;
-	int intstat = 0;
-	int lastline = 0;
-	int lastpixel = 0;
-	u64 cur_time = 0;
-	bool is_print = false;
-
-	cur_time = es_dvp2axi_time_get_ns(dev);
-	if (err_state_work->last_timestamp == 0) {
-		is_print = true;
-	} else {
-		if (cur_time - err_state_work->last_timestamp > 500000000)
-			is_print = true;
-	}
-	err_state_work->last_timestamp = cur_time;
-	err_state = err_state_work->err_state;
-	intstat = err_state_work->intstat;
-	lastline = err_state_work->lastline;
-	lastpixel = err_state_work->lastpixel;
-	if (err_state & ES_DVP2AXI_ERR_ID0_NOT_BUF && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[0] not active buffer, frame num %d, cnt %llu\n",
-			dev->stream[0].frame_idx,
-			dev->irq_stats.not_active_buf_cnt[0]);
-	if (err_state & ES_DVP2AXI_ERR_ID1_NOT_BUF && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[1] not active buffer, frame num %d, cnt %llu\n",
-			dev->stream[1].frame_idx,
-			dev->irq_stats.not_active_buf_cnt[1]);
-	if (err_state & ES_DVP2AXI_ERR_ID2_NOT_BUF && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[2] not active buffer, frame num %d, cnt %llu\n",
-			dev->stream[2].frame_idx,
-			dev->irq_stats.not_active_buf_cnt[2]);
-	if (err_state & ES_DVP2AXI_ERR_ID3_NOT_BUF && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[3] not active buffer, frame num %d, cnt %llu\n",
-			dev->stream[3].frame_idx,
-			dev->irq_stats.not_active_buf_cnt[3]);
-	if (err_state & ES_DVP2AXI_ERR_ID0_TRIG_SIMULT && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[0], frm0/frm1 end simultaneously,frm id:%d, cnt %llu\n",
-			dev->stream[0].frame_idx,
-			dev->irq_stats.trig_simult_cnt[0]);
-	if (err_state & ES_DVP2AXI_ERR_ID1_TRIG_SIMULT && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[1], frm0/frm1 end simultaneously,frm id:%d, cnt %llu\n",
-			dev->stream[1].frame_idx,
-			dev->irq_stats.trig_simult_cnt[1]);
-	if (err_state & ES_DVP2AXI_ERR_ID2_TRIG_SIMULT && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[2], frm0/frm1 end simultaneously,frm id:%d, cnt %llu\n",
-			dev->stream[2].frame_idx,
-			dev->irq_stats.trig_simult_cnt[2]);
-	if (err_state & ES_DVP2AXI_ERR_ID3_TRIG_SIMULT && is_print)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"stream[3], frm0/frm1 end simultaneously,frm id:%d, cnt %llu\n",
-			dev->stream[3].frame_idx,
-			dev->irq_stats.trig_simult_cnt[3]);
-	if (err_state & ES_DVP2AXI_ERR_SIZE) {
-		if (dev->chip_id >= CHIP_EIC770X_DVP2AXI)
-			v4l2_err(
-				&dev->v4l2_dev,
-				"ERROR: csi size err, intstat:0x%x, size:0x%x,0x%x,0x%x,0x%x, cnt %llu\n",
-				intstat, err_state_work->size_id0,
-				err_state_work->size_id1,
-				err_state_work->size_id2,
-				err_state_work->size_id3,
-				dev->irq_stats.csi_size_err_cnt);
-		else
-			v4l2_err(
-				&dev->v4l2_dev,
-				"ERROR: csi size err, intstat:0x%x, lastline:0x%x, cnt %llu\n",
-				intstat, lastline,
-				dev->irq_stats.csi_size_err_cnt);
-	}
-	if (err_state & ES_DVP2AXI_ERR_OVERFLOW)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"ERROR: csi fifo overflow, intstat:0x%x, lastline:0x%x, cnt %llu\n",
-			intstat, lastline, dev->irq_stats.csi_overflow_cnt);
-	if (err_state & ES_DVP2AXI_ERR_BANDWIDTH_LACK)
-		v4l2_err(
-			&dev->v4l2_dev,
-			"ERROR: csi bandwidth lack, intstat:0x%x, lastline:0x%x, cnt %llu\n",
-			intstat, lastline, dev->irq_stats.csi_bwidth_lack_cnt);
-	if (err_state & ES_DVP2AXI_ERR_ID0_MULTI_FS)
-		v4l2_err(&dev->v4l2_dev,
-			 "ERR: multi fs in oneframe in id0, fs_num:%u\n",
-			 dev->stream[0].fs_cnt_in_single_frame);
-	if (err_state & ES_DVP2AXI_ERR_BUS)
-		v4l2_err(&dev->v4l2_dev,
-			 "dvp bus err, intstat 0x%x, last line 0x%x\n", intstat,
-			 lastline);
-	if (err_state & ES_DVP2AXI_ERR_PIXEL)
-		v4l2_err(&dev->v4l2_dev,
-			 "dvp pix err, intstat 0x%x, last pixel 0x%x\n",
-			 intstat, lastpixel);
-	if (err_state & ES_DVP2AXI_ERR_LINE)
-		v4l2_err(&dev->v4l2_dev,
-			 "dvp line err, intstat 0x%x, last line 0x%x\n",
-			 intstat, lastline);
-}
 int es_dvp2axi_stream_suspend(struct es_dvp2axi_device *dvp2axi_dev, int mode)
 {
 	return 0;
