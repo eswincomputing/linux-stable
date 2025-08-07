@@ -740,8 +740,8 @@
 &sdhci_emmc {
 	/* emmc */
 	status = "okay";
-	delay_code = <0x17>;
-	drive-impedance-ohm = <50>;
+	delay_code = <0x50>;
+	drive-impedance-ohm = <33>;
 	enable-cmd-pullup;
 	enable-data-pullup;
 	no-sdio;
