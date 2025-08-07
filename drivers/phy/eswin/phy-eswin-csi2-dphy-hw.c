@@ -110,8 +110,7 @@ struct hsfreq_range {
 static inline void eic770x_write_csi2_dphy_reg(void __iomem *hw_base_addr, u32 offset,
 				       u32 value)
 {
-		writel(value, hw_base_addr + 4 * offset);
-		pr_debug("%s : write reg:0x%x, val:0x%x\n", __func__, offset, value);
+	writel(value, hw_base_addr + 4 * offset);
 }
 
 //	{445, {{0x1229, 0xa70}, {0x3080, 0xe1d}, {0x3280, 0xe1d},  {0x1029, 0xbf0}, {0x1229, 0xb70}, {0x1429, 0xbf0},}} 这应该是400Mpbs速率
@@ -762,8 +761,6 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 	struct device *parent = pdev->dev.parent;
 	u32 ret;
 
-	dev_dbg(dev, "csi2 dphy hw probe in!\n");
-
 	es_vi_dev = dev_get_drvdata(parent);
 
 	dphy_hw = devm_kzalloc(dev, sizeof(*dphy_hw), GFP_KERNEL);
@@ -861,20 +858,20 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 			return ret;
 		}
 		u32 combine_phy_addr_size = 0x20000;
-	
+
 		dphy_hw->combine_dphy_base_addr = devm_ioremap(dphy_hw->dev, dphy_hw->combine_dphy_phy_addr, combine_phy_addr_size);
 		if (IS_ERR(dphy_hw->combine_dphy_base_addr)) {
 			dev_err(dphy_hw->dev, "Failed to map Combine PHY address\n");
 			return PTR_ERR(dphy_hw->combine_dphy_base_addr);
 		}
-		pr_debug("%s: combine_phy = 0x%x\n", __func__, dphy_hw->combine_dphy_phy_addr);
+		dev_dbg(dev, "combine_phy = 0x%x\n", dphy_hw->combine_dphy_phy_addr);
 	}
 
 	atomic_set(&dphy_hw->stream_cnt, 0);
 	mutex_init(&dphy_hw->mutex);
 	platform_set_drvdata(pdev, dphy_hw);
 
-	dev_dbg(dev, "csi2 dphy hw probe successfully!\n");
+	dev_info(dev, "csi2 dphy hw probe successfully!\n");
 	return 0;
 }
 

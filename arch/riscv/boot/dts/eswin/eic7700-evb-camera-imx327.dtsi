@@ -155,10 +155,10 @@
 
 &d0_i2c4 {
 	/* mipi csi2/csi3 */
-	status = "disabled";
+	status = "okay";
 	imx327_2: imx327@36 {
 			compatible = "sony,imx327";
-			status = "disabled";
+			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
 			#reg = <0x0 0x36 0x0 0x0>;
@@ -166,19 +166,14 @@
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <37125000>;
-			clock-names = "xvclk";
+			clock-names = "xclk";
 			/* Reset and power down GPIOs controlled by tca6416_0 */
 			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
 			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
 			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
-			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
-			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
-			//pinctrl-names = "default";
-			//pinctrl-0 = <&cif_clkout>;
-			
+
 			port {
 				imx327_out2: endpoint {
-					// remote-endpoint = <&mipi_in_ucam0>;
 					remote-endpoint = <&mipidphy2_in_ucam0>;
 					data-lanes = <1 2 3 4>;
 					link-frequencies = /bits/ 64 <222750000>;
@@ -189,10 +184,10 @@
 
 &d0_i2c5 {
 	/* mipi csi4/csi5 */
-	status = "disabled";
+	status = "okay";
 	imx327_4: imx327@36 {
 			compatible = "sony,imx327";
-			status = "disabled";
+			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
 			#reg = <0x0 0x36 0x0 0x0>;
@@ -200,19 +195,14 @@
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <37125000>;
-			clock-names = "xvclk";
+			clock-names = "xclk";
 			/* Reset and power down GPIOs controlled by tca6416_0 */
 			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
 			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
 			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
-			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
-			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
-			//pinctrl-names = "default";
-			//pinctrl-0 = <&cif_clkout>;
-			
+
 			port {
 				imx327_out4: endpoint {
-					// remote-endpoint = <&mipi_in_ucam0>;
 					remote-endpoint = <&mipidphy4_in_ucam0>;
 					data-lanes = <1 2 3 4>;
 					link-frequencies = /bits/ 64 <222750000>;
@@ -290,10 +280,10 @@
 &csi2_dphy_hw2 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <3 3 3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
-	status = "disabled";
+	status = "okay";
 };
 &csi2_dphy2 {
-	status = "disabled";
+	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -326,10 +316,10 @@
 &csi2_dphy_hw4 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <3 3 3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
-	status = "disabled";
+	status = "okay";
 };
 &csi2_dphy4 {
-	status = "disabled";
+	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -400,7 +390,7 @@
 &mipi_csi2_2 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	status = "disabled";
+	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -431,7 +421,7 @@
 &mipi_csi2_4 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	status = "disabled";
+	status = "okay";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -483,11 +473,11 @@
 
 &dvp2axi_mipi_lvds1 {
 	dvp2axi_id = <1>;
-	status = "disabled";
+	status = "okay";
 };
 
 &dvp2axi_mipi_lvds2 {
-	status = "disabled";
+	status = "okay";
 	dvp2axi_id = <2>;
 	port@0 {
 		axi2dvp_mipi2_in2: endpoint@0 {
@@ -498,12 +488,12 @@
 
 &dvp2axi_mipi_lvds3 {
 	dvp2axi_id = <3>;
-	status = "disabled";
+	status = "okay";
 };
 
 &dvp2axi_mipi_lvds4 {
 	dvp2axi_id = <4>;
-	status = "disabled";
+	status = "okay";
 	port@0 {
 		axi2dvp_mipi2_in4: endpoint@0 {
 			remote-endpoint = <&mipi_csi2_4_output0>;
@@ -513,7 +503,7 @@
 
 &dvp2axi_mipi_lvds5 {
 	dvp2axi_id = <5>;
-	status = "disabled";
+	status = "okay";
 };
 
 &isp_0 {

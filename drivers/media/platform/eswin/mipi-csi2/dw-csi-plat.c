@@ -138,6 +138,7 @@ dw_mipi_csi_set_fmt(struct v4l2_subdev *sd,
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
 			dev->fmt = dev_fmt;
 		dev->fmt->mbus_code = mf->code;
+		dev->format = *mf;
 		dw_mipi_csi_set_ipi_fmt(dev);
 	}
 
@@ -492,23 +493,20 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 			 __func__, csi2->num_sensors);
 		return -EBUSY;
 	}
-	pr_debug("%s:%d csi2->num_sensors %d\n", __func__, __LINE__, csi2->num_sensors);
+
 	sensor = &csi2->sensors[csi2->num_sensors++];
 	sensor->sd = sd;
 
 	for (pad = 0; pad < sd->entity.num_pads; pad++)
 		if (sensor->sd->entity.pads[pad].flags & MEDIA_PAD_FL_SOURCE)
 			break;
-	pr_debug("%s:%d sensor->sd->name %s\n", __func__, __LINE__, sensor->sd->name);
-	pr_debug("%s:%d sensor->sd->entity->name %s\n", __func__, __LINE__, sensor->sd->entity.name);
-	
+
 	if (pad == sensor->sd->entity.num_pads) {
 		dev_err(csi2->dev, "failed to find src pad for %s\n", sd->name);
 
 		return -ENXIO;
 	}
 
-//TODO 为什么这里创建了link，但是没有enable
 	ret = media_create_pad_link(
 		&sensor->sd->entity, pad, &csi2->sd.entity, DWC_CSI2_PAD_SINK,
 		0 /* csi2->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED */);
@@ -615,7 +613,6 @@ static int csi2_notifier(struct dw_csi *csi2)
 	return ret;
 }
 
-
 static int dw_csi_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id = NULL;
@@ -625,17 +622,12 @@ static int dw_csi_probe(struct platform_device *pdev)
 	struct v4l2_subdev *sd;
 	struct device *parent = pdev->dev.parent;
 	struct eswin_vi_device* es_vi_dev;
-
 	int ret;
-	
-	es_vi_dev = dev_get_drvdata(parent);
 
-	dev_dbg(dev, "DW MIPI CSI-2 Host Probe in. \n");
+	es_vi_dev = dev_get_drvdata(parent);
 
 	if (!IS_ENABLED(CONFIG_OF))
 		pdata = pdev->dev.platform_data;
-
-	dev_vdbg(dev, "Probing started\n");
 
 	/* Resource allocation */
 	csi = devm_kzalloc(dev, sizeof(*csi), GFP_KERNEL);
