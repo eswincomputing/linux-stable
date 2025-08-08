@@ -79,17 +79,17 @@
 				};
 				*/
 				map4 {
-					trip = <&target>;
+					trip = <&d1_target>;
 					contribution = <1024>;
 					cooling-device = <&venc1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map5 {
-					trip = <&target>;
+					trip = <&d1_target>;
 					contribution = <1024>;
 					cooling-device = <&vdec1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				map6 {
-					trip = <&target>;
+					trip = <&d1_target>;
 					contribution = <1024>;
 					cooling-device = <&d1_gc820 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
