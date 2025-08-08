@@ -5082,7 +5082,7 @@ int dhd_sync_with_dongle(dhd_pub_t *dhd)
 		dhd->wlc_ver_minor = ((wl_wlc_version_t*)buf)->wlc_ver_minor;
 	}
 
-	DHD_ERROR(("wlc_ver_major %d, wlc_ver_minor %d\n",
+	DHD_INFO(("wlc_ver_major %d, wlc_ver_minor %d\n",
 		dhd->wlc_ver_major, dhd->wlc_ver_minor));
 #ifndef OEM_ANDROID
 	/* Get the device MAC address */

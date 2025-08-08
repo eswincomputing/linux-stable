@@ -270,18 +270,15 @@ int npu_dev_deassert(struct nvdla_device *nvdla_dev)
 			ret);
 		return ret;
 	}
-
 	ret = npu_core_rst(nvdla_dev->numa_id, true);
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "npu_core_rst fail,error: %d\n",
 			ret);
 		return ret;
 	}
-
 	reset_control_deassert(nvdla_dev->rstc_e31_core);
 	return ret;
 }
-
 int npu_dev_assert(struct nvdla_device *nvdla_dev)
 {
 	int ret = 0;
@@ -498,6 +495,7 @@ int npu_hardware_reset(struct nvdla_device *nvdla_dev)
 	}
 	if(nvdla_dev != NULL)
 		npu_dev_reset(nvdla_dev);
+
 	return 0;
 }
 
@@ -946,6 +944,13 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 		return ret;
 	}
 
+	nvdla_dev->fixed_rate_clk_spll2_fout1 = devm_clk_get(&pdev->dev, "clk_clk_npu_llc_src1");
+	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll2_fout1)) {
+		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll2_fout1);
+		nvdla_dev->fixed_rate_clk_spll2_fout1 = NULL;
+		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout1 clk: %d.\n", ret);
+		return ret;
+	}
 	nvdla_dev->fixed_rate_clk_vpll_fout1 = devm_clk_get(&pdev->dev, "fixed_rate_clk_vpll_fout1");
 	if (IS_ERR(nvdla_dev->fixed_rate_clk_vpll_fout1)) {
 		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_vpll_fout1);
@@ -1106,7 +1111,6 @@ int npu_disable_clock(struct nvdla_device *ndev)
 
 	clk_disable_unprepare(ndev->core_clk);
 
-	clk_disable_unprepare(ndev->cfg_clk);
 	return 0;
 }
 
@@ -1114,16 +1118,10 @@ int npu_enable_clock(struct nvdla_device *ndev)
 {
 	int ret;
 
-	ret = clk_prepare_enable(ndev->cfg_clk);
-	if (ret) {
-		dla_error("failed to enable cfg_clk: %d\n", ret);
-		return ret;
-	}
-
 	ret = clk_prepare_enable(ndev->core_clk);
 	if (ret) {
 		dla_error("failed to enable core_clk: %d\n", ret);
-		goto core_clk;
+		return ret;
 	}
 
 	ret = clk_prepare_enable(ndev->e31_core_clk);
@@ -1142,8 +1140,7 @@ err_mbox_clk:
 	clk_disable_unprepare(ndev->e31_core_clk);
 err_e31_clk:
 	clk_disable_unprepare(ndev->core_clk);
-core_clk:
-	clk_disable_unprepare(ndev->cfg_clk);
+
 	return ret;
 }
 
@@ -1154,21 +1151,17 @@ int npu_platform_init(void)
 
 int npu_pm_get(struct nvdla_device *ndev)
 {
-	int ret;
-
 	if (ndev == NULL) {
+		dla_error("nvdla device is null.\n");
 		return -EINVAL;
 	}
-	ret = pm_runtime_resume_and_get(&ndev->pdev->dev);
-	if (ret < 0) {
-		return ret;
-	}
-	return 0;
+	return pm_runtime_resume_and_get(&ndev->pdev->dev);
 }
 
 int npu_pm_put(struct nvdla_device *ndev)
 {
 	if (ndev == NULL) {
+		dla_error("nvdla device is null.\n");
 		return -EINVAL;
 	}
 	pm_runtime_mark_last_busy(&ndev->pdev->dev);

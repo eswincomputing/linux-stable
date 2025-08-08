@@ -199,6 +199,8 @@ typedef struct _emission_node {
     DECLARE_HETERO_CHANNEL(chn_from_program, 16)
 
     // Message body
+    u32 frame_start_ts;
+    u64 total_ran_time;
     hetero_ipc_frame_t frame_desc[NUM_TIKTOK];
 } emission_node_t;
 

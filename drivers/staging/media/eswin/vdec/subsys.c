@@ -187,6 +187,7 @@ void CheckSubsysCoreArray(struct subsys_config *subsys, int *vcmd)
 				subsys[i].submodule_offset[HW_MMU_WR];
 			vcmd_core_array[i].submodule_axife_addr =
 				subsys[i].submodule_offset[HW_AXIFE];
+			vcmd_core_array[i].freq = subsys_array[i].freq;
 		}
 	}
 	memset(multicorebase, 0, sizeof(multicorebase[0]) * HXDEC_MAX_CORES);

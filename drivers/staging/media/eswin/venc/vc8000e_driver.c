@@ -34,6 +34,7 @@
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <linux/dma-mapping.h>
 #include <linux/eswin-win2030-sid-cfg.h>
+#include <linux/es_proc.h>
 
 #if defined(CONFIG_PM_DEVFREQ)
 #include <linux/devfreq.h>
@@ -81,6 +82,17 @@ typedef struct {
 	venc_clk_rst_t vcrt;
 
 	u8 numa_id;
+	atomic_t dev_close_gate;
+	atomic_t dev_open_gate;
+	u8 dev_closed;
+
+	/** default frequency*/
+	unsigned long freq_def_aclk;
+	unsigned long freq_def_je;
+	unsigned long freq_def_ve;
+	/** current frequency*/
+	unsigned long freq_cur_je;
+	unsigned long freq_cur_ve;
 } venc_dev_prvdata;
 
 SUBSYS_CONFIG vc8000e_subsys_array[4] = {0};
@@ -99,6 +111,8 @@ extern int vc8000e_vcmd_init(void);
 extern int vc8000e_vcmd_cleanup(void);
 extern int vc8000e_vcmd_reset(u32 core_id);
 extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
+/* proc functions*/
+extern void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *core_freq);
 
 static int venc_dev_open(struct device *dev);
 static int venc_dev_close(struct device *dev);
@@ -215,6 +229,9 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 	static int core_index = 0;
 	struct fwnode_handle *child = NULL;
 	unsigned int vcmd_addr[2] = {0}, axife_addr[2] = {0}, venc_addr[2] = {0};
+	unsigned int venc_freq = 0;
+	unsigned int jenc_freq = 0;
+	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "vcmd-core", vcmd_addr, 2)) {
 		LOG_ERR("Encoder VCMD core not found\n");
@@ -228,6 +245,16 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 
 	if (of_property_read_u32_array(pdev->dev.of_node, "venc-core", venc_addr, 2)) {
 		LOG_ERR("Encoder core not found\n");
+		return -1;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "venc-core-frequency", &venc_freq)) {
+		LOG_ERR("Encoder venc-core-frequency not found\n");
+		return -1;
+	}
+
+	if (of_property_read_u32(pdev->dev.of_node, "jenc-core-frequency", &jenc_freq)) {
+		LOG_ERR("Encoder jenc-core-frequency not found\n");
 		return -1;
 	}
 
@@ -258,14 +285,15 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 		vc8000e_subsys_array[subsys_id].iosize = 0x3000;
 		vc8000e_subsys_array[subsys_id].resource_shared = 0;
 
+		if (strstr(core_name, "jpeg"))
+			hw_type = CORE_VC8000EJ;
+
 		if (vcmd_supported) {
 			venc_vcmd_core_num++;
 			vc8000e_vcmd_core_array[subsys_id].vcmd_base_addr = base_addr + vcmd_addr[0];
 			vc8000e_vcmd_core_array[subsys_id].vcmd_irq = child_irq;
+			vc8000e_vcmd_core_array[subsys_id].freq = hw_type == CORE_VC8000E ? venc_freq : jenc_freq;
 		}
-
-		if (strstr(core_name, "jpeg"))
-			hw_type = CORE_VC8000EJ;
 
 		numa_id_array[subsys_id] = numa_id;
 
@@ -273,6 +301,11 @@ static int venc_trans_device_nodes(struct platform_device *pdev, u8 numa_id)
 		VENC_CORE_ARRAY_ASSIGN(core_index, subsys_id, CORE_AXIFE, axife_addr[0], axife_addr[1], -1);
 		subsys_id++;
 	}
+
+	/** initialize the default clock frequency of aclk, ve_clk, je_clk*/
+	prvdata->freq_def_aclk = VC_ACLK_HIGHEST;
+	prvdata->freq_def_ve = prvdata->freq_cur_ve = venc_freq;
+	prvdata->freq_def_je = prvdata->freq_cur_je = jenc_freq;
 
 	return 0;
 }
@@ -429,10 +462,12 @@ static int venc_sys_clk_init(struct platform_device *pdev, venc_clk_rst_t *vcrt)
 	return 0;
 }
 
-static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
+static int venc_sys_clk_enable(struct device *dev)
 {
 	int ret = 0;
 	long rate = 0;
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 
 	ret = clk_set_parent(vcrt->vc_mux, vcrt->spll2_fout1);
 	if (ret < 0) {
@@ -440,7 +475,7 @@ static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 		return ret;
 	}
 
-	rate = clk_round_rate(vcrt->aclk, VC_ACLK_HIGHEST);
+	rate = clk_round_rate(vcrt->aclk, prvdata->freq_def_aclk);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->aclk, rate);
 		if (ret) {
@@ -453,26 +488,30 @@ static int venc_sys_clk_enable(venc_clk_rst_t *vcrt)
 		return -1;
 	}
 
-	rate = clk_round_rate(vcrt->je_clk, VENC_SYS_CLK_HIGHEST);
+	/** reset current frequency as default when probe or pm resume.*/
+	rate = clk_round_rate(vcrt->je_clk, prvdata->freq_def_je);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->je_clk, rate);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
 			return ret;
 		}
+		prvdata->freq_cur_je = rate;
 		LOG_DBG("VE set je_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", rate);
 		return -1;
 	}
 
-	rate = clk_round_rate(vcrt->ve_clk, VENC_SYS_CLK_HIGHEST);
+	/** reset current frequency as default when probe or pm resume.*/
+	rate = clk_round_rate(vcrt->ve_clk, prvdata->freq_def_ve);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->ve_clk, rate);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
 			return ret;
 		}
+		prvdata->freq_cur_ve = rate;
 		LOG_DBG("VE set ve_clk to %ldHZ\n", rate);
 	} else {
 		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", rate);
@@ -622,23 +661,6 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 }
 #endif /** end of SUPPORT_DMA_HEAP*/
 
-/* Temporary using this func to do crg init for d1 */
-static int venc_d1_clk_reset_init(void)
-{
-	void __iomem *d1_crg_reg = NULL;
-
-	d1_crg_reg = ioremap(0x71828000, 0x1000);
-	writel(0x80000020, (d1_crg_reg + 0x1c4));
-	writel(0x30003f, (d1_crg_reg + 0x1d0));
-	writel(0x80000020, (d1_crg_reg + 0x1d4));
-	writel(0x80000020, (d1_crg_reg + 0x1e0));
-	writel(0x7, (d1_crg_reg + 0x458));
-	writel(0x3, (d1_crg_reg + 0x460));
-	writel(0x3, (d1_crg_reg + 0x468));
-
-	return 0;
-}
-
 static int enc_reset_core(struct device *dev, u16 module_type)
 {
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
@@ -695,6 +717,7 @@ static int venc_pm_enable(struct platform_device *pdev) {
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_idle(&pdev->dev);
 
 	return 0;
 }
@@ -707,13 +730,12 @@ static int venc_dev_open(struct device *dev)
 {
 	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 	int ret = -1;
 	u32 core_id = 0;
 
 	LOG_DBG("dev open, enter\n");
 
-	ret = venc_sys_clk_enable(vcrt);
+	ret = venc_sys_clk_enable(dev);
 	if (ret) {
 		LOG_ERR("open device, venc enable clock failed\n");
 		goto end;
@@ -861,38 +883,111 @@ int enc_reset_system(u32 core_id) {
 }
 /** end of interface functions*/
 
+/** status statistics*/
+static int enc_stat_proc_show(es_proc_entry_t *s)
+{
+	int core_id = 0;
+	const static char *module_type_str[] = {
+		"MODULE_TYPE_ENCODER",
+		"MODULE_TYPE_CUTREE",
+		"MODULE_TYPE_DECODER",
+		"MODULE_TYPE_JPEG_ENCODER",
+		"MODULE_TYPE_JPEG_DECODER",
+		"MAX_MODULE_TYPE"
+	};
+	u64 ktm = ktime_get_real_ns();
+
+	for (core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
+		u32 module_type = MAX_VCMD_TYPE;
+		u64 tot_cycles = 0;
+		u64 core_freq = 0;
+
+		hantroenc_dev_stat(core_id, &module_type, &tot_cycles, &core_freq);
+		es_seq_printf(s, "enc%d %s(%u) %llu %llu %llu\n"
+			, core_id
+			, module_type_str[module_type]
+			, module_type
+			, tot_cycles
+			, core_freq
+			, ktm);
+	}
+	return 0;
+}
+
+#define PROC_ENTRY_VENC_STAT ("stat")
+static struct es_proc_dir_entry *es_proc_entry_venc = NULL;
+
+int hantroenc_create_procfs(void)
+{
+	LOG_INFO("create proc fs.\n");
+	es_proc_entry_venc = es_proc_mkdir(PROC_ENTRY_VENC, 0555, NULL);
+	if (NULL == es_proc_entry_venc) {
+		LOG_ERR("create proc venc dir err.\n");
+		return -ENOMEM;
+	}
+
+	es_proc_entry_t *es_proc_entry_venc_stat = es_create_proc_entry(PROC_ENTRY_VENC_STAT, 0444, es_proc_entry_venc);
+	if (NULL == es_proc_entry_venc_stat) {
+		LOG_ERR("error create proc venc stat file.\n");
+		goto err_stat;
+	}
+	es_proc_entry_venc_stat->read = enc_stat_proc_show;
+	/*NULL means use the default routine*/
+	es_proc_entry_venc_stat->write = NULL;
+	es_proc_entry_venc_stat->open = NULL;
+
+	LOG_INFO("create proc venc stat file success.\n");
+
+	return 0;
+
+err_stat:
+	es_remove_proc_entry(PROC_ENTRY_VENC, NULL);
+	return -1;
+}
+
+void hantroenc_remove_procfs(void)
+{
+	es_remove_proc_entry(PROC_ENTRY_VENC_STAT, es_proc_entry_venc);
+	es_remove_proc_entry(PROC_ENTRY_VENC, NULL);
+	LOG_INFO("remove proc venc stat file success.\n");
+}
+/** end of status statistics*/
+
 #if defined(CONFIG_PM_DEVFREQ)
 static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	int ret;
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
 	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	unsigned long freq_target = *freq;
 
-	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, *freq);
-	*freq = clk_round_rate(vcrt->je_clk, *freq);
-	if (*freq > 0) {
+	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, freq_target);
+	*freq = clk_round_rate(vcrt->je_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("Video encoder: failed to round rate for je_clk %lu\n", freq_target);
+		return -1;
+	} else if (prvdata->freq_cur_je != *freq) {
 		ret = clk_set_rate(vcrt->je_clk, *freq);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set je_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set je_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("Video encoder: failed to round rate for je_clk %ld\n", *freq);
-		return -1;
+		LOG_DBG("devfreq, set je_clk %lu --> %luHZ\n", prvdata->freq_cur_je, *freq);
+		prvdata->freq_cur_je = *freq;
 	}
 
-	*freq = clk_round_rate(vcrt->ve_clk, *freq);
-	if (*freq > 0) {
+	*freq = clk_round_rate(vcrt->ve_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("Video encoder: failed to round rate for ve_clk %lu\n", freq_target);
+		return -1;
+	} else if (prvdata->freq_cur_ve != *freq) {
 		ret = clk_set_rate(vcrt->ve_clk, *freq);
 		if (ret) {
 			LOG_ERR("Video encoder: failed to set ve_clk: %d\n", ret);
 			return ret;
 		}
-		LOG_DBG("VE set ve_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("Video encoder: failed to round rate for ve_clk %ld\n", *freq);
-		return -1;
+		LOG_INFO("devfreq, set ve_clk %lu --> %luHZ\n", prvdata->freq_cur_ve, *freq);
+		prvdata->freq_cur_ve = *freq;
 	}
 
 	return 0;
@@ -901,11 +996,28 @@ static int venc_devfreq_target(struct device *dev, unsigned long *freq, u32 flag
 static int venc_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 {
 	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
 
-	*freq = clk_get_rate(vcrt->ve_clk);
+	*freq = prvdata->freq_cur_ve;
 
 	return 0;
+}
+
+static int venc_devfreq_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	venc_dev_prvdata *prvdata = dev_get_drvdata(dev);
+
+	stat->busy_time = 1024;
+	stat->total_time = 1024;
+	stat->current_frequency = prvdata->freq_cur_ve;
+	LOG_DBG("devfreq, get current ve freq = %lu\n", stat->current_frequency);
+
+	return 0;
+}
+
+static void venc_devfreq_exit(struct device *dev)
+{
+
 }
 
 /** devfreq profile */
@@ -915,6 +1027,15 @@ static struct devfreq_dev_profile venc_devfreq_profile = {
 	.polling_ms = 1000, /** Poll every 1000ms to monitor load */
 	.target = venc_devfreq_target,
 	.get_cur_freq = venc_devfreq_get_cur_freq,
+	.get_dev_status = venc_devfreq_get_dev_status,
+	.exit = venc_devfreq_exit,
+	.is_cooling_device = true,
+};
+
+static struct devfreq_simple_ondemand_data venc_devfreq_ondemand_data =
+{
+	.upthreshold = 80,
+	.downdifferential = 10,
 };
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -923,10 +1044,17 @@ static int hantro_venc_probe(struct platform_device *pdev)
 	static int pdev_count = 0;
 	int ret, numa_id, venc_dev_num = 0;
 	venc_dev_prvdata *prvdata = devm_kzalloc(&pdev->dev, sizeof(venc_dev_prvdata), GFP_KERNEL);
-	venc_clk_rst_t *vcrt = &prvdata->vcrt;
+	venc_clk_rst_t *vcrt = NULL;
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df = NULL;
 #endif
+
+	if (!prvdata) {
+		LOG_ERR("malloc drvdata failed\n");
+		return -ENOMEM;
+	}
+	platform_set_drvdata(pdev, (void *)prvdata);
+	vcrt = &prvdata->vcrt;
 
 	venc_dev_num = venc_device_nodes_check();
 	if (venc_dev_num <= 0) {
@@ -934,10 +1062,13 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	platform_set_drvdata(pdev, (void *)prvdata);
-
 	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
 		numa_id = 0;
+	}
+	ret = venc_trans_device_nodes(pdev, numa_id);
+	if (ret < 0) {
+		LOG_ERR("venc: dts parse failed");
+		return -1;
 	}
 
 	LOG_INFO("initializing venc, numa id %d\n", numa_id);
@@ -949,44 +1080,40 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		LOG_ERR("%s, %d, Failed to add OPP table\n", __func__, __LINE__);
 		return -1;
 	}
-	df = devm_devfreq_add_device(&pdev->dev, &venc_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(&pdev->dev, &venc_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &venc_devfreq_ondemand_data);
 	if (IS_ERR(df)) {
 		LOG_ERR("%s, %d, add devfreq failed\n", __func__, __LINE__);
 		return -1;
 	}
+	/* Register opp_notifier to catch the change of OPP*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (ret < 0) {
+		LOG_ERR("failed to register opp notifier\n");
+		return ret;
+	}
 #endif /** CONFIG_PM_DEVFREQ*/
 
-	if (!numa_id) {
-		ret = venc_sys_reset_init(pdev, vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: reset initialization failed");
-			return -1;
-		}
-
-		ret = venc_sys_clk_init(pdev, vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: clk init failed");
-			return -1;
-		}
-
-		ret = venc_sys_clk_enable(vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: clk enable failed");
-			return -1;
-		}
-
-		ret = venc_sys_reset_release(vcrt);
-		if (ret < 0) {
-			LOG_ERR("venc: reset release failed");
-			return -1;
-		}
-	} else {
-		venc_d1_clk_reset_init();
+	ret = venc_sys_reset_init(pdev, vcrt);
+	if (ret < 0) {
+		LOG_ERR("venc: reset initialization failed");
+		return -1;
 	}
 
-	ret = venc_trans_device_nodes(pdev, numa_id);
+	ret = venc_sys_clk_init(pdev, vcrt);
 	if (ret < 0) {
-		LOG_ERR("venc: dts parse failed");
+		LOG_ERR("venc: clk init failed");
+		return -1;
+	}
+
+	ret = venc_sys_clk_enable(&pdev->dev);
+	if (ret < 0) {
+		LOG_ERR("venc: clk enable failed");
+		return -1;
+	}
+
+	ret = venc_sys_reset_release(vcrt);
+	if (ret < 0) {
+		LOG_ERR("venc: reset release failed");
 		return -1;
 	}
 
@@ -1046,6 +1173,8 @@ static int hantro_venc_probe(struct platform_device *pdev)
 		}
 	}
 
+	hantroenc_create_procfs();
+
 	return ret;
 }
 
@@ -1057,6 +1186,7 @@ static int hantro_venc_remove(struct platform_device *pdev)
 #endif
 	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
 
+	hantroenc_remove_procfs();
 	enc_pm_disable(pdev);
 	if (vcmd_supported == 0)
 		hantroenc_normal_cleanup();

@@ -61,7 +61,7 @@ static inline void reset_uart_mutex(struct nvdla_device *nvdla_dev)
 /**************** hardware_context.c (nvdla_core_callback.c) ****************/
 
 /**************** user_context.c ****************/
-#define MAX_EVENT_SINK_SAVE_NUM 64
+#define MAX_EVENT_SINK_SAVE_NUM 4096
 
 #define NPU_RT_MUTX_IDLE 0x0
 #define NPU_RT_MUTX_LOCKED 0x1

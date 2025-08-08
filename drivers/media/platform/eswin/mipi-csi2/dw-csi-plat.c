@@ -45,11 +45,9 @@ find_dw_mipi_csi_format(struct v4l2_mbus_framefmt *mf)
 {
 	unsigned int i;
 
-	pr_info("%s entered mbus: 0x%x\n", __func__, mf->code);
-
 	for (i = 0; i < ARRAY_SIZE(dw_mipi_csi_formats); i++)
 		if (mf->code == dw_mipi_csi_formats[i].mbus_code) {
-			pr_info("Found mbus 0x%x\n", dw_mipi_csi_formats[i].mbus_code);
+			pr_debug("Found mbus 0x%x\n", dw_mipi_csi_formats[i].mbus_code);
 			return &dw_mipi_csi_formats[i];
 		}
 	return NULL;
@@ -100,16 +98,16 @@ static struct v4l2_mbus_framefmt *
 dw_mipi_csi_get_format(struct dw_csi *dev, struct v4l2_subdev_state *cfg,
 		       enum v4l2_subdev_format_whence which)
 {
-	pr_info("%s entered\n", __func__);
+	pr_debug("%s entered\n", __func__);
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
 		return cfg ? v4l2_subdev_get_try_format(&dev->sd, cfg, 0) : NULL;
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"%s got v4l2_mbus_pixelcode. 0x%x\n", __func__,
 		dev->format.code);
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"%s got width. 0x%x\n", __func__,
 		dev->format.width);
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"%s got height. 0x%x\n", __func__,
 		dev->format.height);
 	return &dev->format;
@@ -123,14 +121,14 @@ dw_mipi_csi_set_fmt(struct v4l2_subdev *sd,
 	struct dw_csi *dev = sd_to_mipi_csi_dev(sd);
 	struct mipi_fmt *dev_fmt = NULL;
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
-	pr_info("%s entered\n", __func__);
+	pr_debug("%s entered\n", __func__);
 
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"%s got mbus_pixelcode. 0x%x\n", __func__,
 		fmt->format.code);
 
 	dev_fmt = dw_mipi_csi_try_format(&fmt->format);
-	dev_info(dev->dev,
+	dev_dbg(dev->dev,
 		"%s got v4l2_mbus_pixelcode. 0x%x\n", __func__,
 		dev_fmt->mbus_code);
 	if (!fmt)
@@ -285,7 +283,7 @@ dw_mipi_csi_log_status(struct v4l2_subdev *sd)
 static void dw_mipi_csi_start_phy(struct dw_csi *csi_dev)
 {
 	int ret = 0;
-	pr_info("%s:%d sensor name %s\n", __func__, __LINE__, csi_dev->sensors[0].sd->name);
+	pr_debug("%s:%d sensor name %s\n", __func__, __LINE__, csi_dev->sensors[0].sd->name);
 	ret = v4l2_subdev_call(csi_dev->sensors[0].sd, video, s_stream, 1);
 	if (ret) {
 		dev_err(csi_dev->dev, "Failed to start dphy: %d\n", ret);
@@ -298,7 +296,7 @@ dw_mipi_csi_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct dw_csi *dev = sd_to_mipi_csi_dev(sd);
 
-	dev_info(dev->dev, "%s: on=%d\n", __func__, on);
+	dev_dbg(dev->dev, "%s: on=%d\n", __func__, on);
 
 	if (on) {
 		dw_mipi_csi_hw_stdby(dev);
@@ -312,8 +310,6 @@ dw_mipi_csi_s_power(struct v4l2_subdev *sd, int on)
 	}
 	return 0;
 }
-
-
 
 #if IS_ENABLED(CONFIG_VIDEO_ADV_DEBUG)
 static int
@@ -445,6 +441,9 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 	if (of_property_read_u32(node, "index", &dev->index))
 		dev->index = 0;
 
+	if (of_property_read_u32(dev->dev->of_node, "ipi_dt", &dev->hw.ipi_dt))
+		dev->hw.ipi_dt = 0x2b;
+
 	node = of_graph_get_next_endpoint(node, NULL);
 	if (!node) {
 		dev_err(&pdev->dev, "No port node at %pOF\n",
@@ -454,22 +453,22 @@ dw_mipi_csi_parse_dt(struct platform_device *pdev, struct dw_csi *dev)
 
 	/* Get port node and validate MIPI-CSI channel id. */
 	// ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(node), &ep);
-	// pr_info("%s:%d (node)->name %s \n", __func__, __LINE__, node->name);
+	// pr_debug("%s:%d (node)->name %s \n", __func__, __LINE__, node->name);
 
 
 	// if (ret)
 	// 	goto err;
 	// dev->index = vep.base.port - 1;
 	// // dev->index = ep.base.port - 1;
-	// pr_info("%s:%d dev->index %d \n", __func__, __LINE__, dev->index);
+	// pr_debug("%s:%d dev->index %d \n", __func__, __LINE__, dev->index);
 	// if (dev->index >= CSI_MAX_ENTITIES) {
 	// 	ret = -ENXIO;
 	// 	goto err;
 	// }
-	dev->hw.num_lanes = 2;//vep.bus.mipi_csi2.num_data_lanes;
+	// dev->hw.num_lanes = 2;//vep.bus.mipi_csi2.num_data_lanes;
 
 // err:
-// 	pr_info("%s:%d \n", __func__, __LINE__);
+// 	pr_debug("%s:%d \n", __func__, __LINE__);
 
 
 	of_node_put(node);
@@ -509,6 +508,7 @@ static int csi2_notifier_bound(struct v4l2_async_notifier *notifier,
 		return -ENXIO;
 	}
 
+//TODO 为什么这里创建了link，但是没有enable
 	ret = media_create_pad_link(
 		&sensor->sd->entity, pad, &csi2->sd.entity, DWC_CSI2_PAD_SINK,
 		0 /* csi2->num_sensors != 1 ? 0 : MEDIA_LNK_FL_ENABLED */);
@@ -540,7 +540,6 @@ static void csi2_notifier_unbind(struct v4l2_async_notifier *notifier,
 
 	if (sensor)
 		sensor->sd = NULL;
-	pr_info("t1 %s, %d succsess\n", __func__, __LINE__);
 }
 
 static const struct v4l2_async_notifier_operations csi2_async_ops = {
@@ -631,7 +630,7 @@ static int dw_csi_probe(struct platform_device *pdev)
 	
 	es_vi_dev = dev_get_drvdata(parent);
 
-	dev_info(dev, "DW MIPI CSI-2 Host Probe in. \n");
+	dev_dbg(dev, "DW MIPI CSI-2 Host Probe in. \n");
 
 	if (!IS_ENABLED(CONFIG_OF))
 		pdata = pdev->dev.platform_data;
@@ -671,7 +670,7 @@ static int dw_csi_probe(struct platform_device *pdev)
 				phys[pdata->id].name);
 			return PTR_ERR(csi->phy);
 		}
-		dev_info(dev, "got D-PHY %s with id %d\n", phys[pdata->id].name,
+		dev_dbg(dev, "got D-PHY %s with id %d\n", phys[pdata->id].name,
 			 csi->phy->id);
 #endif
 	}
@@ -761,7 +760,7 @@ static int dw_csi_probe(struct platform_device *pdev)
 	dw_mipi_csi_mask_irq_power_off(csi);
 	dw_mipi_csi_fill_timings(csi);
 
-	dev_info(dev, "DW MIPI CSI-2 Host registered successfully HW v%u.%u\n",
+	dev_dbg(dev, "DW MIPI CSI-2 Host registered successfully HW v%u.%u\n",
 		 csi->hw_version_major, csi->hw_version_minor);
 
 #ifdef DWC_PHY_USING
@@ -806,7 +805,7 @@ static int dw_csi_remove(struct platform_device *pdev)
 #else
 	v4l2_device_unregister(mipi_csi->vdev.v4l2_dev);
 #endif
-	dev_info(&pdev->dev, "DW MIPI CSI-2 Host module removed\n");
+	dev_dbg(&pdev->dev, "DW MIPI CSI-2 Host module removed\n");
 
 	return 0;
 }

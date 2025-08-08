@@ -29,11 +29,9 @@ int disabled_cpus;
 
 u64 acpi_saved_sp;
 
-#define MAX_CORE_PIC 256
-
 #define PREFIX			"ACPI: "
 
-struct acpi_madt_core_pic acpi_core_pic[NR_CPUS];
+struct acpi_madt_core_pic acpi_core_pic[MAX_CORE_PIC];
 
 void __init __iomem * __acpi_map_table(unsigned long phys, unsigned long size)
 {
@@ -216,18 +214,6 @@ fdt_earlycon:
 static __init int setup_node(int pxm)
 {
 	return acpi_map_pxm_to_node(pxm);
-}
-
-/*
- * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
- * I/O localities since SRAT does not list them.  I/O localities are
- * not supported at this point.
- */
-unsigned int numa_distance_cnt;
-
-static inline unsigned int get_numa_distances_cnt(struct acpi_table_slit *slit)
-{
-	return slit->locality_count;
 }
 
 void __init numa_set_distance(int from, int to, int distance)

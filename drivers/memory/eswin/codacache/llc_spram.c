@@ -105,9 +105,6 @@ struct spram_dev {
 	struct clk *cfg_clk;
 	struct clk *llc_clk;
 	struct clk *core_clk;
-	struct clk *mux_u_npu_core_3mux1_gfree;
-	struct clk *fixed_rate_clk_spll2_fout2;
-	struct clk *fixed_rate_clk_spll1_fout1;
 	struct reset_control *rstc_axi;
 	struct reset_control *rstc_cfg;
 	struct reset_control *rstc_core;
@@ -485,61 +482,6 @@ int npu_cfg_rst(int nid, bool enable)
 }
 EXPORT_SYMBOL(npu_cfg_rst);
 
-static int npu_clk_enable(struct platform_device *pdev, struct spram_dev *spram)
-{
-	int ret;
-
-	if (!__clk_is_enabled(spram->cfg_clk)) {
-		ret = clk_prepare_enable(spram->cfg_clk);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to enable cfg_clk: %d\n", ret);
-			return ret;
-		}
-	}
-
-	if (!__clk_is_enabled(spram->core_clk)) {
-		ret = clk_prepare_enable(spram->core_clk);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to enable core_clk: %d\n", ret);
-			return ret;
-		}
-	}
-	return 0;
-}
-
-static int npu_clk_disable(struct platform_device *pdev, struct spram_dev *spram)
-{
-	clk_disable_unprepare(spram->core_clk);
-	clk_disable_unprepare(spram->cfg_clk);
-	return 0;
-}
-
-int npu_clk_gate_set(int nid, bool enable)
-{
-	struct platform_device *pdev = pdevs[nid];
-	struct spram_dev *spram;
-
-	if (NULL == pdev) {
-		pr_err("%s, Invalid node id:%d\n", __func__, nid);
-		return -EINVAL;
-	}
-
-	spram = platform_get_drvdata(pdev);
-	if (spram == NULL)
-		return -EINVAL;
-
-	if (enable == true) {
-		return npu_clk_enable(pdev, spram);
-	} else if (enable == false) {
-		return npu_clk_disable(pdev, spram);
-	} else {
-		pr_err("param enable=%d error.\n", enable);
-		return -EINVAL;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(npu_clk_gate_set);
-
 int npu_core_rst(int nid, bool enable)
 {
 	struct platform_device *pdev = pdevs[nid];
@@ -649,35 +591,11 @@ static int llc_clk_init(struct platform_device *pdev)
 		return ret;
 	}
 
-
-
 	spram->core_clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(spram->core_clk)) {
 		ret = PTR_ERR(spram->core_clk);
 		spram->core_clk = NULL;
 		dev_err(&pdev->dev, "failed to get core_clk: %d\n", ret);
-		return ret;
-	}
-
-	spram->mux_u_npu_core_3mux1_gfree = devm_clk_get(&pdev->dev, "mux_u_npu_core_3mux1_gfree");
-	if (IS_ERR(spram->mux_u_npu_core_3mux1_gfree)) {
-		ret = PTR_ERR(spram->mux_u_npu_core_3mux1_gfree);
-		dev_err(&pdev->dev, "failed to get mux_u_npu_core_3mux1_gfree: %d\n", ret);
-		return ret;
-	}
-
-	spram->fixed_rate_clk_spll2_fout2 = devm_clk_get(&pdev->dev, "fixed_rate_clk_spll2_fout2");
-	if (IS_ERR(spram->fixed_rate_clk_spll2_fout2)) {
-		ret = PTR_ERR(spram->fixed_rate_clk_spll2_fout2);
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout2: %d\n", ret);
-		return ret;
-	}
-	spram->fixed_rate_clk_spll1_fout1 =
-		devm_clk_get(&pdev->dev, "fixed_rate_clk_spll1_fout1");
-	if (IS_ERR(spram->fixed_rate_clk_spll1_fout1))
-	{
-		ret = PTR_ERR(spram->fixed_rate_clk_spll1_fout1);
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll1_fout1: %d\n", ret);
 		return ret;
 	}
 
@@ -708,6 +626,7 @@ static int llc_clk_enable(struct spram_dev *spram)
 		dev_err(spram->dev, "failed to enable llc_clk: %d\n", ret);
 		return ret;
 	}
+
 	ret = clk_prepare_enable(spram->core_clk);
 	if (ret) {
 		dev_err(spram->dev, "failed to enable core_clk: %d\n", ret);
@@ -724,7 +643,6 @@ static int llc_clk_disable(struct spram_dev *spram)
 	clk_disable_unprepare(spram->aclk);
 	clk_disable_unprepare(spram->cfg_clk);
 	clk_disable_unprepare(spram->llc_clk);
-	clk_disable_unprepare(spram->core_clk);
 
 	return 0;
 }
@@ -1544,36 +1462,13 @@ static int __maybe_unused llc_resume(struct device *dev)
 		return ret;
 	}
 
-	return ret;
-}
-
-
-static int __maybe_unused llc_runtime_suspend(struct device *dev)
-{
-	struct spram_dev *spram = dev_get_drvdata(dev);
-
-	llc_clk_disable(spram);
-
-	return 0;
-}
-
-static int __maybe_unused llc_runtime_resume(struct device *dev)
-{
-	struct spram_dev *spram = dev_get_drvdata(dev);
-	int ret = 0;
-
-	ret = llc_clk_enable(spram);
-	if(ret != 0){
-		dev_err(spram->dev, "llc_clk_enable error: %d\n", ret);
-	}
+	clk_disable_unprepare(spram->core_clk);
 
 	return ret;
 }
 
 static const struct dev_pm_ops llc_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(llc_suspend, llc_resume)
-	SET_RUNTIME_PM_OPS(llc_runtime_suspend,
-				   llc_runtime_resume, NULL)
 };
 
 #define DEV_PM_OPS (&llc_dev_pm_ops)
@@ -1851,6 +1746,9 @@ static int llc_probe(struct platform_device *pdev)
 	ret = sysfs_create_group(&pdev->dev.kobj, &llc_attr_group);
 	if (ret)
 		dev_err(&pdev->dev, "failed to create sysfs group: %d\n", ret);
+
+	clk_disable_unprepare(spram->core_clk);
+
 	return 0;
 }
 

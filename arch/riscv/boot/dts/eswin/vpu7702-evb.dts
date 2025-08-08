@@ -94,9 +94,14 @@
 			reg = <0x0 0x59000000 0x0 0x400000>;
 		};
 
-		g2d_4GB_boundary_reserved_4k {
+		ramoops@fff00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xfff00000 0x0 0x100000>;
+			console-size = <0x40000>;
+			record-size = <0x40000>;
+			ftrace-size = <0x40000>;
+			pmsg-size = <0x40000>;
 			no-map;
-			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
 		g2d_8GB_boundary_reserved_4k {
@@ -111,7 +116,7 @@
 
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x3 0x0 0x1 0x80000000>;
+			reg = <0x3 0x0 0x1 0x0>;
 			no-map;
 		};
 
@@ -843,7 +848,7 @@
 
 &d0_i2c0 {
 	/* codec es8388 */
-	status = "disabled";
+	status = "okay";
 	d0_es8388_0: es8388-0@10 {
 		compatible = "eswin,es8388";
 		reg = <0x10>;
@@ -892,7 +897,7 @@
 
 &d0_i2c2 {
 	/* touch screen*/
-	status = "disabled";
+	status = "okay";
 	gt911:touchscreen@14 {
 		compatible = "goodix,gt911";
 		reg = <0x14>;
@@ -907,7 +912,7 @@
 
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_i2c4 {
@@ -963,7 +968,7 @@
 
 &d0_aon_i2c0 {
 	/* temp sensor & rtc */
-	status = "disabled";
+	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
 	pcf_rtc:rtc@51 {
 		compatible = "nxp,pcf8563";

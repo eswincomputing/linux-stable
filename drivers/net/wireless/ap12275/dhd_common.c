@@ -6198,7 +6198,7 @@ wl_process_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, uint pktlen
 
 		/* Ignore the event if NOIF is set */
 		if (ifevent->reserved & WLC_E_IF_FLAGS_BSSCFG_NOIF) {
-			DHD_ERROR(("WLC_E_IF: NO_IF set, event Ignored\r\n"));
+			DHD_INFO(("WLC_E_IF: NO_IF set, event Ignored\r\n"));
 			return (BCME_UNSUPPORTED);
 		}
 #ifdef PCIE_FULL_DONGLE
@@ -8323,13 +8323,13 @@ int dhd_get_download_buffer(dhd_pub_t	*dhd, char *file_path, download_type_t com
 		if (file_path) {
 			image = dhd_os_open_image1(dhd, file_path);
 			if (image == NULL) {
-				printf("%s: Open image file failed %s\n", __FUNCTION__, file_path);
+				DHD_TRACE(("%s: Open image file failed %s\n", __FUNCTION__, file_path));
 				goto err;
 			}
 		}
 		buf = MALLOCZ(dhd->osh, file_len);
 		if (buf == NULL) {
-			DHD_ERROR(("%s: Failed to allocate memory %d bytes\n",
+			DHD_TRACE(("%s: Failed to allocate memory %d bytes\n",
 				__FUNCTION__, file_len));
 			ret = BCME_NOMEM;
 			goto err;
@@ -8375,7 +8375,6 @@ int dhd_get_download_buffer(dhd_pub_t	*dhd, char *file_path, download_type_t com
 err:
 	if (image)
 		dhd_os_close_image1(dhd, image);
-
 	return ret;
 }
 #endif /* DHD_LINUX_STD_FW_API */
@@ -8764,7 +8763,7 @@ dhd_apply_default_clm(dhd_pub_t *dhd, char *clm_path)
 
 #if defined(LINUX) || defined(linux)
 	if (memblock == NULL) {
-		printf("%s: Ignore clm file %s\n", __FUNCTION__, clm_path);
+		DHD_TRACE(("%s: Ignore clm file %s\n", __FUNCTION__, clm_path));
 #if defined(DHD_BLOB_EXISTENCE_CHECK)
 		if (!dhd->is_blob) {
 			status = dhd_check_current_clm_data(dhd);
@@ -10545,7 +10544,6 @@ dhd_print_fw_ver_from_file(dhd_pub_t *dhdp, char *fwpath)
 
 	if (!fwpath)
 		return BCME_BADARG;
-
 	file = dhd_os_open_image1(dhdp, fwpath);
 	if (!file) {
 		ret = BCME_ERROR;
@@ -10590,7 +10588,7 @@ dhd_print_fw_ver_from_file(dhd_pub_t *dhdp, char *fwpath)
 		goto exit;
 	}
 
-	DHD_ERROR(("FW version in file '%s': %s\n", fwpath, str));
+	DHD_INFO(("FW version in file '%s': %s\n", fwpath, str));
 	/* copy to global variable, so that in case FW load fails, the
 	* core capture logs will contain FW version read from the file
 	*/

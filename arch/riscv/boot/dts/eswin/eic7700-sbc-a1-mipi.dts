@@ -133,3 +133,7 @@
 	};
 };
 
+&dw_hdmi {
+        status = "disabled";
+};
+

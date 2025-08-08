@@ -217,7 +217,11 @@ _DmabufAttach(gckALLOCATOR Allocator, gcsATTACH_DESC_PTR Desc, PLINUX_MDL Mdl)
     if (!attachment)
         gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+    sgt = dma_buf_map_attachment_unlocked(attachment, DMA_BIDIRECTIONAL);
+#else
     sgt = dma_buf_map_attachment(attachment, DMA_BIDIRECTIONAL);
+#endif
 
     if (!sgt)
         gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
@@ -288,7 +292,11 @@ OnError:
     }
 
     if (sgt)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+        dma_buf_unmap_attachment_unlocked(attachment, sgt, DMA_BIDIRECTIONAL);
+#else
         dma_buf_unmap_attachment(attachment, sgt, DMA_BIDIRECTIONAL);
+#endif
 
     if (!os->device->platform->params.holdCrossAddr && dmabuf) {
         /** not release this dmabuf for keeping it as used,
@@ -312,7 +320,11 @@ _DmabufFree(gckALLOCATOR Allocator, PLINUX_MDL Mdl)
     list_del(&buf_desc->list);
     mutex_unlock(&priv->lock);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+    dma_buf_unmap_attachment_unlocked(buf_desc->attachment, buf_desc->sgt, DMA_BIDIRECTIONAL);
+#else
     dma_buf_unmap_attachment(buf_desc->attachment, buf_desc->sgt, DMA_BIDIRECTIONAL);
+#endif
 
     dma_buf_detach(buf_desc->dmabuf, buf_desc->attachment);
 

@@ -91,3 +91,7 @@
 	status = "okay";
 };
 
+&sdio1 {
+        /* disable this port */
+        status = "okay";
+};

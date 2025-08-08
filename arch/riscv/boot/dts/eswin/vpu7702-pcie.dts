@@ -93,9 +93,14 @@
 			reg = <0x0 0x59000000 0x0 0x400000>;
 		};
 
-		g2d_4GB_boundary_reserved_4k {
+		ramoops@fff00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xfff00000 0x0 0x100000>;
+			console-size = <0x40000>;
+			record-size = <0x40000>;
+			ftrace-size = <0x40000>;
+			pmsg-size = <0x40000>;
 			no-map;
-			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
 		g2d_8GB_boundary_reserved_4k {
@@ -253,6 +258,59 @@
 	};
 };
 
+/ {
+	thermal-zones {
+		thermal0 {
+			trips {
+				threshold: trip-point0 {
+					temperature = <65000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				target: trip-point1 {
+					temperature = <75000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+				crit: trip-point2 {
+					temperature     = <95000>;
+					hysteresis      = <0>;
+					type            = "critical";
+				};
+			};
+
+			cooling-maps {
+				/*
+				map0 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device =
+						<&cpu_0 0 10>,
+						<&cpu_1 0 10>,
+						<&cpu_2 0 10>,
+						<&cpu_3 0 10>;
+				};
+				map1 {
+					trip = <&target>;
+					contribution = <4096>;
+					cooling-device = <&g2d_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&venc_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&target>;
+					contribution = <1024>;
+					cooling-device = <&vdec_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				*/
+			};
+		};
+	};
+};
+
 &d0_clock {
 	status = "okay";
 };
@@ -263,6 +321,13 @@
 
 &d0_pmu {
 	status = "okay";
+
+	d0_pmu_vi: win2030-pmu-controller-port@80 {
+		power_status = <0>;
+	};
+	d0_pmu_vo: win2030-pmu-controller-port@c0 {
+		power_status = <0>;
+	};
 };
 
 &ddr0 {
@@ -375,7 +440,7 @@
 };
 
 &d0_npu{
-	status = "disabled";
+	status = "okay";
 	apply_npu_1G_freq;
 	npu-supply=<&npu_vcc1>;
 };
@@ -670,21 +735,21 @@
 };
 
 &d0_usbdrd3_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_usbdrd_dwc3_0 {
-	status = "okay";
+	status = "disabled";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
 };
 
 &d0_usbdrd3_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_usbdrd_dwc3_1 {
-	status = "okay";
+	status = "disabled";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
 };
@@ -724,7 +789,7 @@
 
 &ssi0 {
 	/* spi flash */
-	status = "okay";
+	status = "disabled";
 	num-cs = <2>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128fw",
@@ -845,6 +910,7 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "supply vdd1", "npu vdd1";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
@@ -1112,5 +1178,5 @@
 &dev_llc_d0{
 	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
-	status = "disabled";
+	status = "okay";
 };

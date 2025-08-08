@@ -163,22 +163,14 @@
 };
 
 &d1_i2c0 {
-	/* eeprom(at24c02c) & rtc(pcf8563) & power monitor(ina236) */
+	/* power monitor(ina236) */
 	status = "okay";
-	pcf_rtc:rtc@51 {
-		compatible = "nxp,pcf8563";
-		reg = <0x51>;
-	};
 	ina226@45 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
 		label = "cpu_vdd";
 		reg = <0x45>;
 		shunt-resistor = <1000>;
-	};
-	aon_eeprom@50 {
-		compatible = "atmel,24c02";
-		reg = <0x50>;
 	};
 };
 
@@ -191,8 +183,16 @@
 	status = "okay";
 };
 &d1_i2c1 {
-	/* ch347 */
+	/* eeprom(at24c02c) & rtc(rs4c411) */
 	status = "okay";
+	rtc_m41t11: m41t11@68 {
+		compatible = "st,m41t11";
+		reg = <0x68>;
+	};
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
 };
 
 &d0_i2c2 {

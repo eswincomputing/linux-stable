@@ -21,8 +21,9 @@
 #include <media/v4l2-event.h>
 #include <linux/pinctrl/consumer.h>
 
-#define CONFIG_VIDEO_V4L2_SUBDEV_API
-#define CONFIG_MEDIA_CONTROLLER
+static int es_camera_debug = 0;
+module_param_named(debug, es_camera_debug, int, 0644);
+MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable");
 
 #define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x06)
 #ifndef V4L2_CID_DIGITAL_GAIN
@@ -67,7 +68,8 @@
 #define	IMX327_EXPOSURE_MIN		2
 #define	IMX327_EXPOSURE_STEP		1
 #define IMX327_VTS_MAX			0x7fff
-
+#define IMX327_HTS_MAX			0x7fff
+#define IMX327_HTS_MIN			0x0898
 #define IMX327_GAIN_SWITCH_REG		0x3009
 #define IMX327_REG_LF_GAIN		0x3014
 #define IMX327_REG_SF_GAIN		0x30f2
@@ -89,9 +91,15 @@
 #define IMX327_REG_VTS_H		0x301a
 #define IMX327_REG_VTS_M		0x3019
 #define IMX327_REG_VTS_L		0x3018
+#define IMX327_REG_HMAX_L		0x301c
+#define IMX327_REG_HMAX_H		0x301d
+
 #define IMX327_FETCH_HIGH_BYTE_VTS(VAL)	(((VAL) >> 16) & 0x03)
 #define IMX327_FETCH_MID_BYTE_VTS(VAL)	(((VAL) >> 8) & 0xFF)
 #define IMX327_FETCH_LOW_BYTE_VTS(VAL)	((VAL) & 0xFF)
+
+#define IMX327_FETCH_HIGH_BYTE_HTS(VAL)		(((VAL) >> 8) & 0xFF)
+#define IMX327_FETCH_LOW_BYTE_HTS(VAL)		((VAL) & 0xFF)
 
 #define REG_NULL			0xFFFF
 #define REG_DELAY			0xFFFE
@@ -110,6 +118,12 @@ static bool g_isHCG;
 #define IMX327_FLIP_REG			0x3007
 #define MIRROR_BIT_MASK			BIT(1)
 #define FLIP_BIT_MASK			BIT(0)
+
+#if defined(__GNUC__) || defined(__clang__)
+    #define UNUSED_FUNC __attribute__((unused))
+#else
+    #define UNUSED_FUNC
+#endif
 
 static const char * const imx327_supply_names[] = {
 	"avdd",		/* Analog power */
@@ -140,6 +154,11 @@ struct regval {
 	u8 val;
 };
 
+struct imx327_lanes_mode {
+	u32 lanes; /* number of data lanes */
+	const struct regval *reg_list;
+	u32 hts_def;
+};
 struct imx327_mode {
 	u32 bus_fmt;
 	u32 width;
@@ -186,9 +205,11 @@ struct imx327 {
 	u32			support_modes_num;
 	const struct imx327_mode *cur_mode;
 	u32			cur_vts;
+	u32			cur_hts;
 	bool			has_init_exp;
 	struct v4l2_fwnode_endpoint bus_cfg;
 	u8			flip;
+	int			lanes; /* number of data lanes */
 };
 
 #define to_imx327(sd) container_of(sd, struct imx327, subdev)
@@ -199,6 +220,34 @@ struct imx327 {
 static const struct regval imx327_global_regs[] = {
 	{REG_NULL, 0x00},
 };
+
+static const struct regval imx327_2lane_mode_regs[] = {
+	{ 0x3000, 0x01 },
+	{ 0x3407, 0x01 }, /* IMX327_PHY_LANE_NUM */
+	{ 0x3443, 0x01 }, /* IMX327_CSI_LANE_MODE */
+	{ 0x3009, 0x02 }, /* IMX327_FR_FDG_SEL 30fps*/
+	{ REG_NULL, 0x00 },
+};
+
+static const struct regval imx327_4lane_mode_regs[] = {
+	{ 0x3000, 0x01 },
+	{ 0x3407, 0x03 }, /* IMX327_PHY_LANE_NUM */
+	{ 0x3443, 0x03 }, /* IMX327_CSI_LANE_MODE */
+	{ 0x3009, 0x01 }, /* IMX327_FR_FDG_SEL 60fps*/
+	{ REG_NULL, 0x00 },
+};
+
+static const struct  imx327_lanes_mode imx327_lanes_modes[] = {
+	{
+		.lanes = IMX327_2LANES,
+		.reg_list = imx327_2lane_mode_regs,
+	},
+	{
+		.lanes = IMX327_4LANES,
+		.reg_list = imx327_4lane_mode_regs,
+	},
+};
+
 
 /*
  * Xclk 37.125Mhz
@@ -343,13 +392,13 @@ static const struct regval imx327_linear_1920x1080_mipi_regs[] = {
 	{0x317C, 0x12},
 	{0x31EC, 0x37},
 	{0x3405, 0x20},
-	{0x3407, 0x03},
+	{0x3407, 0x01},
 	{0x3414, 0x0A},
 	{0x3418, 0x49},
 	{0x3419, 0x04},
 	{0x3441, 0x0a},
 	{0x3442, 0x0a},
-	{0x3443, 0x03},
+	{0x3443, 0x01},
 	{0x3444, 0x20},
 	{0x3445, 0x25},
 	{0x3446, 0x47},
@@ -375,266 +424,72 @@ static const struct regval imx327_linear_1920x1080_mipi_regs[] = {
 	{REG_NULL, 0x00},
 };
 
-//2 lane regs config
-static const struct regval imx327_1280x720_regs[] = {
-	
-	/* standby */
-	{0x3000, 0x01},
+static struct regval imx327_regs_cfgs_lanes_1080p[] = {
 
-    {0x3407, 0x01}, /* IMX327_PHY_LANE_NUM */
-    {0x3443, 0x01}, /* IMX327_CSI_LANE_MODE */
-    #ifdef IMX327_BASIC_RATE_FPS
-    {0x3009, 0x02}, /* IMX327_FR_FDG_SEL 30fps*/
-    #else
-    {0x3009, 0x01}, /* 60fps is not working */
-    #endif
-    // {REG_NULL, 0x00},
-	
-    // /* read back for checking */
-    // {0x3009, 0x01},
-    // {0x3443, 0x01},
+	{ 0x3020, 0x40 }, /* SHS1 setting */
+	{ 0x3021, 0x04 },
+	{ 0x3022, 0x00 },
 
-    {0x3020, 0x00}, /* SHS1 setting */
-    {0x3021, 0x05},
-    {0x3022, 0x00},  
+	/* imx327_global_init_settings */
+	{ 0x3007, 0x00 }, /* 1080p */
+	{ 0x300c, 0x00 },
+	{ 0x3045, 0x00 },
 
-    /* imx327_global_init_settings */
-    {0x3007, 0x10},  /* 720p */
-    {0x300c, 0x00},
-    {0x3045, 0x00},
-    /* imx327_720p_settings */
-	{0x303a, 0x06}, /* WINWV_OB */
-    #ifdef IMX327_USER_PACKET_ENABLE
-    {0x3414, 0x04},
-    #else
-	{0x3414, 0x00}, /* OPB_SIZE_V */
-    #endif
-
-    {0x3444, 0x20}, /* EXTCK_FREQ 37.125MHz */
-    {0x3445, 0x25},
-
-    // corner
-    {0x3040, 0x04}, /* WINPH[10:0] 0 */
-    {0x3041, 0x00},
-    {0x303c, 0x0c}, /* WINPV[10:0] 0 */
-    {0x303d, 0x00},
-
-    {0x3042, 0x10}, /* WINWH[10:0] for 1280+16 */
-    {0x3043, 0x05},
-    {0x303e, 0xd5}, /* WINWV[10:0] for 720+5 */
-    {0x303f, 0x02},
-
-	{0x3472, 0x00}, /* X OUT SIZE (1280)*/
-	{0x3473, 0x05},
-	{0x3418, 0xd0}, /* Y OUT SIZE (720)*/
-	{0x3419, 0x02},
-
-#ifdef SENSOR_OUT_12BIT
-    /* imx327_12bit_settings */
-    {0x3005, 0x01},
-    {0x3046, 0x01},
-    {0x3129, 0x00},
-    {0x317c, 0x00},
-    {0x31ec, 0x00},
-    {0x3441, 0x0c},
-    {0x3442, 0x0c},
+	{ 0x303a, 0x0c }, /* WINWV_OB */
+#ifdef IMX327_USER_PACKET_ENABLE
+	{ 0x3414, 0x0a },
 #else
-    /* imx327_10bit_settings */
-    {0x3005, 0x00},
-    {0x3046, 0x00},
-    {0x3129, 0x1d},
-    {0x317c, 0x12},
-    {0x31ec, 0x37},
-    {0x3441, 0x0a},
-    {0x3442, 0x0a},
-#endif
-    {0x300a, 0x3c},
-    {0x300b, 0x00},
-
-	{0x3012, 0x64},
-	{0x3013, 0x00},
-	{0x305c, 0x18},
-	{0x305d, 0x03},
-	{0x305e, 0x20},
-	{0x305f, 0x01},
-	{0x315e, 0x1a},
-	{0x3164, 0x1a},
-	{0x3480, 0x49},
-
-    #ifdef IMX327_BASIC_RATE_FPS
-	/* data rate settings */
-	{ 0x3405, 0x10 },
-
-	{ 0x3446, 0x4f },
-	{ 0x3447, 0x00 },
-
-	{ 0x3448, 0x2f },
-	{ 0x3449, 0x00 },
-
-	{ 0x344a, 0x17 },
-	{ 0x344b, 0x00 },
-
-	{ 0x344c, 0x17 },
-	{ 0x344d, 0x00 },
-
-	{ 0x344e, 0x17 },
-	{ 0x344f, 0x00 },
-
-	{ 0x3450, 0x57 },
-	{ 0x3451, 0x00 },
-
-	{ 0x3452, 0x17 },
-	{ 0x3453, 0x00 },
-
-	{ 0x3454, 0x17 },
-	{ 0x3455, 0x00 },
-
-    // {0x3018, 0xee}, /* VMAX[17:0] */
-    // {0x3019, 0x02},
-    // {0x301a, 0x00},
-    // {0x301c, 0xc8}, /* HMAX[15:0] */
-    // {0x301d, 0x19},
-    /* VMAX&HMAX*2 for 7.5 fps */
-    {0x3018, 0xdc}, /* VMAX[17:0] */
-    {0x3019, 0x05},
-    {0x301a, 0x00},
-    {0x301c, 0x90}, /* HMAX[15:0] */
-    {0x301d, 0x33},
-    #else
-	/* data rate settings */
-	{ 0x3405, 0x00 },
-
-	{ 0x3446, 0x67 },
-	{ 0x3447, 0x00 },
-
-	{ 0x3448, 0x57 },
-	{ 0x3449, 0x00 },
-
-	{ 0x344a, 0x2f },
-	{ 0x344b, 0x00 },
-
-	{ 0x344c, 0x27 },
-	{ 0x344d, 0x00 },
-
-	{ 0x344e, 0x2f },
-	{ 0x344f, 0x00 },
-
-	{ 0x3450, 0xbf },
-	{ 0x3451, 0x00 },
-
-	{ 0x3452, 0x2f },
-	{ 0x3453, 0x00 },
-
-	{ 0x3454, 0x27 },
-	{ 0x3455, 0x00 },
-
-    {0x3018, 0xee}, /* VMAX[17:0] */
-    {0x3019, 0x02},
-    {0x301a, 0x00},
-    {0x301c, 0xe4}, /* HMAX[15:0] */
-    {0x301d, 0x0c},
-    #endif
-
-    #ifdef IMX327_TEST_PATERN_ENABLE
-    // /* pattern */
-    {0x308c, 0x33, 0, 10000},
-    #else
-    {0x308c, 0x00, 0, 10000},
-    #endif
-    {0x300a, 0x3c},
-    {0x300b, 0x00},
-	// {REG_NULL, 0x00},
-    /* standby */
-    {0x3000, 0},
-
-    /* start */
-    {0x3002, 0},
-	{REG_NULL, 0x00}
-};
-
-static struct regval imx327_1920x1080_2lanes_regs[] = {
-
-    /* standby */
-    {0x3000, 0x01},
-
-    {0x3407, 0x01}, /* IMX327_PHY_LANE_NUM */
-    {0x3443, 0x01}, /* IMX327_CSI_LANE_MODE */
-    {0x3009, 0x02}, /* IMX327_FR_FDG_SEL 30fps*/
-    
-    /* read back for checking */
-    {0x3009, 0x01, 1, 0},
-    {0x3443, 0x01, 1, 0},
-
-    {0x3018, 0x65}, /* VMAX[17:0] */
-    {0x3019, 0x04},
-    {0x301a, 0x00},
-    {0x301c, 0x60}, /* HMAX[15:0] */
-    {0x301d, 0x22},
-
-    {0x3020, 0x40}, /* SHS1 setting */
-    {0x3021, 0x04},
-    {0x3022, 0x00},  
-
-    /* imx327_global_init_settings */
-    {0x3007, 0x00},  /* 1080p */
-    {0x300c, 0x00},
-    {0x3045, 0x00},
-
-	{0x303a, 0x0c}, /* WINWV_OB */
-    #ifdef IMX327_USER_PACKET_ENABLE
-    {0x3414, 0x0a},
-    #else
-	{0x3414, 0x00}, /* OPB_SIZE_V */
-    #endif
-
-    {0x3444, 0x20}, /* EXTCK_FREQ 37.125MHz */
-    {0x3445, 0x25},
-
-    // corner
-    {0x3040, 0x0c}, /* WINPH[10:0] 0 */
-    {0x3041, 0x00},
-    {0x303c, 0x08}, /* WINPV[10:0] 0 */
-    {0x303d, 0x00},
-
-    {0x3042, 0x90}, /* WINWH[10:0] 1920+16 */
-    {0x3043, 0x07},
-    {0x303e, 0x41}, /* WINWV[10:0] 1080+9 */
-    {0x303f, 0x04},
-
-	{0x3472, 0x80}, /* X OUT SIZE (1920)*/
-	{0x3473, 0x07},
-	{0x3418, 0x38}, /* Y OUT SIZE (1080)*/
-	{0x3419, 0x04},
-
-#ifdef SENSOR_OUT_12BIT
-    /* imx327_12bit_settings */
-    {0x3005, 0x01},
-    {0x3046, 0x01},
-    {0x3129, 0x00},
-    {0x317c, 0x00},
-    {0x31ec, 0x00},
-    {0x3441, 0x0c},
-    {0x3442, 0x0c},
-#else
-    /* imx327_10bit_settings */
-    {0x3005, 0x00},
-    {0x3046, 0x00},
-    {0x3129, 0x1d},
-    {0x317c, 0x12},
-    {0x31ec, 0x37},
-    {0x3441, 0x0a},
-    {0x3442, 0x0a},
+	{ 0x3414, 0x00 }, /* OPB_SIZE_V */
 #endif
 
-	{0x3012, 0x64},
-	{0x3013, 0x00},
-	{0x305c, 0x18},
-	{0x305d, 0x03},
-	{0x305e, 0x20},
-	{0x305f, 0x01},
-	{0x315e, 0x1a},
-	{0x3164, 0x1a},
-	{0x3480, 0x49},
+	{ 0x3444, 0x20 }, /* EXTCK_FREQ 37.125MHz */
+	{ 0x3445, 0x25 },
+
+	// corner
+	{ 0x3040, 0x0c }, /* WINPH[10:0] 0 */
+	{ 0x3041, 0x00 },
+	{ 0x303c, 0x08 }, /* WINPV[10:0] 0 */
+	{ 0x303d, 0x00 },
+
+	{ 0x3042, 0x90 }, /* WINWH[10:0] 1920+16 */
+	{ 0x3043, 0x07 },
+	{ 0x303e, 0x41 }, /* WINWV[10:0] 1080+9 */
+	{ 0x303f, 0x04 },
+
+	{ 0x3472, 0x80 }, /* X OUT SIZE (1920)*/
+	{ 0x3473, 0x07 },
+	{ 0x3418, 0x38 }, /* Y OUT SIZE (1080)*/
+	{ 0x3419, 0x04 },
+
+#ifdef SENSOR_OUT_12BIT
+	/* imx327_12bit_settings */
+	{ 0x3005, 0x01 },
+	{ 0x3046, 0x01 },
+	{ 0x3129, 0x00 },
+	{ 0x317c, 0x00 },
+	{ 0x31ec, 0x00 },
+	{ 0x3441, 0x0c },
+	{ 0x3442, 0x0c },
+#else
+	/* imx327_10bit_settings */
+	{ 0x3005, 0x00 },
+	{ 0x3046, 0x00 },
+	{ 0x3129, 0x1d },
+	{ 0x317c, 0x12 },
+	{ 0x31ec, 0x37 },
+	{ 0x3441, 0x0a },
+	{ 0x3442, 0x0a },
+#endif
+
+	{ 0x3012, 0x64 },
+	{ 0x3013, 0x00 },
+	{ 0x305c, 0x18 },
+	{ 0x305d, 0x03 },
+	{ 0x305e, 0x20 },
+	{ 0x305f, 0x01 },
+	{ 0x315e, 0x1a },
+	{ 0x3164, 0x1a },
+	{ 0x3480, 0x49 },
 
 	/* data rate settings */
 	{ 0x3405, 0x10 },
@@ -663,23 +518,15 @@ static struct regval imx327_1920x1080_2lanes_regs[] = {
 	{ 0x3454, 0x17 },
 	{ 0x3455, 0x00 },
 
+	{ 0x300a, 0x3c },
+	{ 0x300b, 0x00 },
 
-    #ifdef IMX327_TEST_PATERN_ENABLE
-    /* pattern */
-    {0x308c, 0x33},
-    #else
-    {0x308c, 0x00},
-    #endif
-    {0x300a, 0x3c},
-    {0x300b, 0x00},
+	/* standby */
+	{ 0x3000, 0 },
 
-    /* standby */
-    {0x3000, 0},
-
-    /* start */
-    {0x3002, 0}
+	/* start */
+	{ 0x3002, 0 }
 };
-
 
 /*
  * Xclk 37.125Mhz
@@ -693,19 +540,19 @@ static const struct regval imx327_hdr2_1920x1080_mipi_regs[] = {
 	{0x3001, 0x00},
 	{0x3002, 0x01},
 	{0x3005, 0x00},
-	{0x3007, 0x40},
-	{0x3009, 0x01},
+	{0x3007, 0x00},
+	{0x3009, 0x02},
 	{0x300a, 0x3c},
-	{0x300c, 0x11}, //hdr+
+	{0x300c, 0x11}, //hdr+ ?
 	{0x3011, 0x02},
-	{0x3018, 0xb8},/* VMAX L */
-	{0x3019, 0x05},/* VMAX M */
+	{0x3018, 0x65},/* VMAX L */
+	{0x3019, 0x04},/* VMAX M */
 	{0x301a, 0x00},
-	{0x301c, 0xEc},/* HMAX L */
-	{0x301d, 0x07},/* HMAX H */
-	{0x3045, 0x05},//hdr+
+	{0x301c, 0x30},/* HMAX L */
+	{0x301d, 0x11},/* HMAX H */
+	{0x3045, 0x05},//hdr+ ?
 	{0x3046, 0x00},
-	{0x304b, 0x0a},
+	// {0x304b, 0x0a},
 	{0x305c, 0x18},
 	{0x305d, 0x03},
 	{0x305e, 0x20},
@@ -722,14 +569,14 @@ static const struct regval imx327_hdr2_1920x1080_mipi_regs[] = {
 	{0x317c, 0x12},
 	{0x31ec, 0x37},
 	{0x3405, 0x10},
-	{0x3407, 0x03},
+	{0x3407, 0x01},
 	{0x3414, 0x00},
 	{0x3415, 0x00},//hdr+
-	{0x3418, 0x72},
-	{0x3419, 0x09},
+	{0x3418, 0x38},
+	{0x3419, 0x04},
 	{0x3441, 0x0a},
 	{0x3442, 0x0a},
-	{0x3443, 0x03},
+	{0x3443, 0x01},
 	{0x3444, 0x20},
 	{0x3445, 0x25},
 	{0x3446, 0x57},
@@ -748,7 +595,7 @@ static const struct regval imx327_hdr2_1920x1080_mipi_regs[] = {
 	{0x3453, 0x00},
 	{0x3454, 0x17},
 	{0x3455, 0x00},
-	{0x3472, 0xa0},
+	{0x3472, 0x80},
 	{0x3473, 0x07},
 	{0x347b, 0x23},
 	{0x3480, 0x49},
@@ -757,16 +604,21 @@ static const struct regval imx327_hdr2_1920x1080_mipi_regs[] = {
 	{0x3020, 0x02},//hdr+ shs1 l  short
 	{0x3021, 0x00},//hdr+ shs1 m
 	{0x3022, 0x00},//hdr+ shs1 h
+
+	{ 0x3020, 0x40 }, /* SHS1 setting */
+	{ 0x3021, 0x04 },
+	{ 0x3022, 0x00 },
+
 	{0x3030, 0xe1},//hdr+ IMX327_RHS1
 	{0x3031, 0x00},//hdr+IMX327_RHS1
 	{0x3032, 0x00},//hdr+
 	{0x31A0, 0xe8},//hdr+ HBLANK1
 	{0x31A1, 0x01},//hdr+
-	{0x303c, 0x04},
+	{0x303c, 0x08},
 	{0x303d, 0x00},
 	{0x303e, 0x41},
 	{0x303f, 0x04},
-	{0x303A, 0x08},//hdr+
+	{0x303A, 0x0c},//hdr+  ?
 	{0x3024, 0xc9},//hdr+ shs2 l
 	{0x3025, 0x06},//hdr+ shs2 m
 	{0x3026, 0x00},//hdr+ shs2 h
@@ -801,7 +653,7 @@ static const struct imx327_mode lvds_supported_modes[] = {
 		},
 		.exp_def = 0x03fe,
 		.hts_def = 0x1130,
-		.vts_def = 0x0546,
+		.vts_def = 0x0465,
 		.reg_list = imx327_linear_1920x1080_lvds_regs,
 		.hdr_mode = NO_HDR,
 	}, {
@@ -821,27 +673,7 @@ static const struct imx327_mode lvds_supported_modes[] = {
 };
 
 static const struct imx327_mode mipi_supported_modes[] = {
-	
-	{
-		.bus_fmt = MEDIA_BUS_FMT_SRGGB10_1X10,
-		.width = 1280,
-		.height = 720,
-		.crop = {
-			.left = 0,
-			.top = 0,
-			.width = 1280,
-			.height = 720
-		},
-		.max_fps = {
-			.numerator = 10000,
-			.denominator = 500000,
-		},
-		.exp_def = 0x0002,
-		.hts_def = 0x07ec,
-		.vts_def = 0x05b8,
-		.reg_list = imx327_1280x720_regs,
-	},
-	{
+  	{
 		.bus_fmt = MEDIA_BUS_FMT_SRGGB10_1X10,
 		.width = 1920,
 		.height = 1080,
@@ -857,8 +689,8 @@ static const struct imx327_mode mipi_supported_modes[] = {
 		},
 		.exp_def = 0x03fe,
 		.hts_def = 0x1130,
-		.vts_def = 0x0546,
-		.reg_list = imx327_1920x1080_2lanes_regs,
+		.vts_def = 0x0465,
+		.reg_list = imx327_regs_cfgs_lanes_1080p,
 		.hdr_mode = NO_HDR,
 	},
 	{
@@ -933,31 +765,6 @@ static int imx327_write_reg(struct i2c_client *client, u16 reg,
 	return 0;
 }
 
-////delete
-// static int imx327_write_array(struct i2c_client *client,
-// 			      const struct regval *regs)
-// {
-// 	u32 i;
-// 	int ret = 0;
-
-// 	u32 val_test;
-
-// 	printk("********** imx327_write_array ***********\n");
-// 	for (i = 0; ret == 0 && regs[i].addr != REG_NULL; i++)
-// 		if (unlikely(regs[i].addr == REG_DELAY))
-// 			usleep_range(regs[i].val * 1000, regs[i].val * 2000);
-// 		else
-// 		{
-// 			ret = imx327_write_reg(client, regs[i].addr,
-// 				IMX327_REG_VALUE_08BIT,
-// 				regs[i].val);
-
-// 			imx327_read_reg(client, regs[i].addr, IMX327_REG_VALUE_08BIT, &val_test);////add
-// 			printk("R: reg=0x%x,    val=0x%x\n", regs[i].addr, val_test);////add
-// 		}
-// 	return ret;
-// }
-
 /* Read registers up to 4 at a time */
 static int imx327_read_reg(struct i2c_client *client, u16 reg,
 			   unsigned int len, u32 *val)
@@ -998,7 +805,7 @@ static int imx327_write_array(struct i2c_client *client,
 	u32 i;
 	int ret = 0;
 
-	for (i = 0; ret == 0 && regs[i].addr != REG_NULL; i++)
+	for (i = 0; ret == 0 && regs[i].addr != REG_NULL; i++) {
 		if (unlikely(regs[i].addr == REG_DELAY))
 			usleep_range(regs[i].val * 1000, regs[i].val * 2000);
 		else
@@ -1007,6 +814,7 @@ static int imx327_write_array(struct i2c_client *client,
 				IMX327_REG_VALUE_08BIT,
 				regs[i].val);
 		}
+	}
 	return ret;
 }
 
@@ -1088,7 +896,7 @@ static int imx327_get_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_format *fmt)
 {
 	struct imx327 *imx327 = to_imx327(sd);
-	const struct imx327_mode *mode = imx327->cur_mode;
+	// const struct imx327_mode *mode = imx327->cur_mode;
 
 	mutex_lock(&imx327->mutex);
 	/*
@@ -1219,12 +1027,12 @@ static int imx327_g_frame_interval(struct v4l2_subdev *sd,
 static int imx327_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 				struct v4l2_mbus_config *config)
 {
-	struct imx327 *imx327 = to_imx327(sd);
+	// struct imx327 *imx327 = to_imx327(sd);
 
 	///TODO
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	// struct i2c_client *client = v4l2_get_subdevdata(sd);
 	config->type = V4L2_MBUS_CSI2_DPHY;
-	config->bus.mipi_csi2.num_data_lanes = 2;///Revise
+	config->bus.mipi_csi2.num_data_lanes = 4;///Revise
 	return 0;
 }
 
@@ -1433,7 +1241,7 @@ static long imx327_compat_ioctl32(struct v4l2_subdev *sd,
 }
 #endif
 
-static int imx327_init_conversion_gain(struct imx327 *imx327)
+UNUSED_FUNC static int imx327_init_conversion_gain(struct imx327 *imx327)
 {
 	int ret = 0;
 	struct i2c_client *client = imx327->client;
@@ -1453,10 +1261,72 @@ static int imx327_init_conversion_gain(struct imx327 *imx327)
 	return ret;
 }
 
+static int imx327_set_hts_vts(struct imx327 *imx327)
+{
+	int ret;
+	int vts =imx327->cur_vts;
+	int hts = imx327->cur_hts;
+	struct device *dev = &imx327->client->dev;
+
+	dev_dbg(dev, "hts: %d, vts: %d\n", hts, vts);
+
+	if (imx327->cur_mode->hdr_mode == HDR_X2)
+		vts /= 2;
+	
+	ret = imx327_write_reg(imx327->client,
+		IMX327_REG_VTS_H,
+		IMX327_REG_VALUE_08BIT,
+		IMX327_FETCH_HIGH_BYTE_VTS(vts));
+	ret |= imx327_write_reg(imx327->client,
+		IMX327_REG_VTS_M,
+		IMX327_REG_VALUE_08BIT,
+		IMX327_FETCH_MID_BYTE_VTS(vts));
+	ret |= imx327_write_reg(imx327->client,
+		IMX327_REG_VTS_L,
+		IMX327_REG_VALUE_08BIT,
+		IMX327_FETCH_LOW_BYTE_VTS(vts));
+	
+	ret = imx327_write_reg(imx327->client,
+		IMX327_REG_HMAX_H,
+		IMX327_REG_VALUE_08BIT,
+		IMX327_FETCH_HIGH_BYTE_HTS(hts));
+	ret = imx327_write_reg(imx327->client,
+		IMX327_REG_HMAX_L,
+		IMX327_REG_VALUE_08BIT,
+		IMX327_FETCH_LOW_BYTE_HTS(hts));
+
+	return ret;
+}
+
+
+static int imx327_set_mode(struct imx327 *imx327)
+{
+	int ret = 0;
+	int lanes_mode_num = sizeof(imx327_lanes_modes) / sizeof(imx327_lanes_modes[0]);
+	for(int i = 0; i < lanes_mode_num; i++) {
+		if(imx327->lanes == imx327_lanes_modes[i].lanes) {
+			ret = imx327_write_array(imx327->client, imx327_lanes_modes[i].reg_list);
+			if (ret) {
+				v4l2_err(&imx327->subdev, "Failed to set lanes mode %d\n", imx327->lanes);
+				return ret;
+			}
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
 static int __imx327_start_stream(struct imx327 *imx327)
 {
 	int ret;
 
+	ret = imx327_set_mode(imx327);
+	if (ret) 
+		return ret;
+	
+	ret = imx327_set_hts_vts(imx327);
+	if (ret)
+		return ret;
 
 	ret = imx327_write_array(imx327->client, imx327->cur_mode->reg_list);
 	if (ret)
@@ -1700,10 +1570,10 @@ static int imx327_enum_frame_interval(struct v4l2_subdev *sd,
 }
 
 #define CROP_START(SRC, DST) (((SRC) - (DST)) / 2 / 4 * 4)
-// #define DST_WIDTH 1920
-// #define DST_HEIGHT 1080
-#define DST_WIDTH 1280
-#define DST_HEIGHT 720
+#define DST_WIDTH 1920
+#define DST_HEIGHT 1080
+//#define DST_WIDTH 1280
+//#define DST_HEIGHT 720
 
 /*
  * The resolution of the driver configuration needs to be exactly
@@ -1802,6 +1672,7 @@ static int imx327_set_ctrl(struct v4l2_ctrl *ctrl)
 	u32 shs1 = 0;
 	u32 vts = 0;
 	u32 val = 0;
+	u32 hts = 0;
 
 	/* Propagate change of current control to all related controls */
 	switch (ctrl->id) {
@@ -1815,8 +1686,12 @@ static int imx327_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 
-	if (!pm_runtime_get_if_in_use(&client->dev))
-		return 0;
+	if(es_camera_debug > 0)
+		pm_runtime_get_sync(&client->dev);
+	else {
+		if (!pm_runtime_get_if_in_use(&client->dev))
+	 	return 0;
+	}
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
@@ -1870,6 +1745,20 @@ static int imx327_set_ctrl(struct v4l2_ctrl *ctrl)
 			IMX327_FETCH_LOW_BYTE_VTS(vts));
 		dev_dbg(&client->dev, "set vts 0x%x\n",
 			vts);
+		break;
+	case V4L2_CID_HBLANK:
+		hts = ctrl->val + imx327->cur_mode->width;
+		imx327->cur_hts = hts;
+		ret = imx327_write_reg(imx327->client,
+			IMX327_REG_HMAX_H,
+			IMX327_REG_VALUE_08BIT,
+			IMX327_FETCH_HIGH_BYTE_HTS(hts));
+		ret = imx327_write_reg(imx327->client,
+			IMX327_REG_HMAX_L,
+			IMX327_REG_VALUE_08BIT,
+			IMX327_FETCH_LOW_BYTE_HTS(hts));
+		dev_dbg(&client->dev, "set hts 0x%x\n",
+			ctrl->val);
 		break;
 	case V4L2_CID_TEST_PATTERN:
 #ifdef USED_TEST_PATTERN
@@ -1927,8 +1816,7 @@ static int imx327_initialize_controls(struct imx327 *imx327)
 {
 	const struct imx327_mode *mode;
 	struct v4l2_ctrl_handler *handler;
-	s64 exposure_max, vblank_def;
-	u32 h_blank;
+	s64 exposure_max, vblank_def, hblank_def;
 	int ret;
 	s32 dst_link_freq = 0;
 	s64 dst_pixel_rate = 0;
@@ -1943,24 +1831,34 @@ static int imx327_initialize_controls(struct imx327 *imx327)
 	imx327->link_freq = v4l2_ctrl_new_int_menu(handler, NULL, V4L2_CID_LINK_FREQ,
 				      1, 0, link_freq_menu_items);
 
-	if (imx327->cur_mode->hdr_mode == NO_HDR) {
-		dst_link_freq = 0;
-		dst_pixel_rate = IMX327_PIXEL_RATE_NORMAL;
-	} else {
+	// if (imx327->cur_mode->hdr_mode == NO_HDR) {
+	// 	dst_link_freq = 0;
+	// 	dst_pixel_rate = IMX327_PIXEL_RATE_NORMAL;
+	// } else {
+	// 	dst_link_freq = 1;
+	// 	dst_pixel_rate = IMX327_PIXEL_RATE_HDR;
+	// }
+
+	if(imx327->lanes == 2) {
 		dst_link_freq = 1;
 		dst_pixel_rate = IMX327_PIXEL_RATE_HDR;
+	} else if(imx327->lanes == 4) {
+		dst_link_freq = 1;
+		dst_pixel_rate = IMX327_PIXEL_RATE_HDR;
+	} else {
+		dev_err(&imx327->client->dev, "imx327 lanes %d not supported\n", imx327->lanes);
+		return -EINVAL;
 	}
+
 	__v4l2_ctrl_s_ctrl(imx327->link_freq,
 			   dst_link_freq);
 	imx327->pixel_rate = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
 			  0, IMX327_PIXEL_RATE_HDR, 1, dst_pixel_rate);
 
-	h_blank = mode->hts_def - mode->width;
-
-	imx327->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
-				h_blank, h_blank, 1, h_blank);
-	if (imx327->hblank)
-		imx327->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+	hblank_def = IMX327_HTS_MIN - mode->width;
+	imx327->cur_hts = mode->hts_def;
+	imx327->hblank = v4l2_ctrl_new_std(handler, &imx327_ctrl_ops, V4L2_CID_HBLANK,
+		hblank_def, IMX327_HTS_MAX, 1, mode->hts_def);
 
 	vblank_def = mode->vts_def - mode->height;
 	imx327->cur_vts = mode->vts_def;
@@ -2054,47 +1952,105 @@ static int imx327_configure_regulators(struct imx327 *imx327)
 				       imx327->supplies);
 }
 
+static int imx327_check_hwcfg(struct device *dev, struct imx327 *imx327)
+{
+	struct fwnode_handle *endpoint;
+	struct v4l2_fwnode_endpoint ep_cfg = {
+		.bus_type = V4L2_MBUS_CSI2_DPHY
+	};
+	int ret = -EINVAL;
+	bool link_frequency_valid = false;
+
+	imx327->support_modes = mipi_supported_modes;
+	imx327->support_modes_num = ARRAY_SIZE(mipi_supported_modes);
+
+	endpoint = fwnode_graph_get_next_endpoint(dev_fwnode(dev), NULL);
+	if (!endpoint) {
+		dev_err(dev, "endpoint node not found\n");
+		return -EINVAL;
+	}
+
+	if (v4l2_fwnode_endpoint_alloc_parse(endpoint, &ep_cfg)) {
+		dev_err(dev, "could not parse endpoint\n");
+		goto error_out;
+	}
+
+	/* Check the number of MIPI CSI2 data lanes */
+	if (ep_cfg.bus.mipi_csi2.num_data_lanes != 2 &&
+	    ep_cfg.bus.mipi_csi2.num_data_lanes != 4) {
+		dev_err(dev, "only 2 or 4 data lanes are currently supported\n");
+		goto error_out;
+	}
+
+	imx327->lanes = ep_cfg.bus.mipi_csi2.num_data_lanes;
+	dev_info(dev, "bus_type %d, lanes %d\n",
+		imx327->bus_cfg.bus_type, imx327->lanes);
+
+	if (!ep_cfg.nr_of_link_frequencies) {
+		dev_err(dev, "link-frequency property not found in DT\n");
+		goto error_out;
+	}
+
+	if (ep_cfg.nr_of_link_frequencies == 1) {
+		switch (imx327->lanes) {
+		case 2:
+			if (ep_cfg.link_frequencies[0] == IMX327_LINK_FREQ_222M)
+				link_frequency_valid = true;
+			break;
+		case 4:
+			if (ep_cfg.link_frequencies[0] == IMX327_LINK_FREQ_222M)
+				link_frequency_valid = true;
+			break;
+		}
+	}
+
+	if (!link_frequency_valid) {
+		dev_err_probe(dev, -EINVAL,
+				  "Link frequency not supported: %lld\n",
+				  ep_cfg.link_frequencies[0]);
+		goto error_out;
+	}
+	
+	ret = 0;
+
+error_out:
+	v4l2_fwnode_endpoint_free(&ep_cfg);
+	fwnode_handle_put(endpoint);
+
+	return ret;
+}
+
 static int imx327_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
-	//struct device_node *node = dev->of_node;
 	struct imx327 *imx327;
 	struct v4l2_subdev *sd;
 	int ret;
-	struct device_node *endpoint;
 
 	dev_info(dev, "driver version: %02x.%02x.%02x",
 		DRIVER_VERSION >> 16,
 		(DRIVER_VERSION & 0xff00) >> 8,
 		DRIVER_VERSION & 0x00ff);
 
-		// printk("%s in \n", __func__);
-
 	imx327 = devm_kzalloc(dev, sizeof(*imx327), GFP_KERNEL);
 	if (!imx327)
 		return -ENOMEM;
 
-	// endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
-	// if (!endpoint) {
-	// 	dev_err(dev, "Failed to get endpoint\n");
-	// 	return -EINVAL;
-	// }
-
-	ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(endpoint),
-		&imx327->bus_cfg);
-	if (imx327->bus_cfg.bus_type == V4L2_MBUS_CCP2) {
-		imx327->support_modes = lvds_supported_modes;
-		imx327->support_modes_num = ARRAY_SIZE(lvds_supported_modes);
-	} else {
-		imx327->support_modes = mipi_supported_modes;
-		imx327->support_modes_num = ARRAY_SIZE(mipi_supported_modes);
+	sd = &imx327->subdev;
+	v4l2_i2c_subdev_init(sd, client, &imx327_subdev_ops);
+	
+	ret = imx327_check_hwcfg(dev, imx327);
+	if (ret) {
+		dev_err(dev, "Failed to check hardware configuration\n");
+		return ret;
 	}
+
 	imx327->client = client;
 	imx327->cur_mode = &imx327->support_modes[0];
 
-	imx327->xvclk = devm_clk_get(dev, "xvclk");
+	imx327->xvclk = devm_clk_get(dev, "xclk");
 	if (IS_ERR(imx327->xvclk)) {
-		dev_err(dev, "Failed to get xvclk\n");
+		dev_err(dev, "Failed to get xclk\n");
 		return -EINVAL;
 	}
 
@@ -2129,8 +2085,6 @@ static int imx327_probe(struct i2c_client *client)
 
 	mutex_init(&imx327->mutex);
 
-	sd = &imx327->subdev;
-	v4l2_i2c_subdev_init(sd, client, &imx327_subdev_ops);
 	ret = imx327_initialize_controls(imx327);
 	if (ret)
 		goto err_destroy_mutex;
@@ -2176,6 +2130,7 @@ static int imx327_probe(struct i2c_client *client)
 
 	imx327_read_reg(client, 0x3008,
 			      IMX327_REG_VALUE_08BIT, &ret);
+
 	dev_info(dev, "v4l2 async register subdev success\n");
 	return 0;
 
@@ -2253,3 +2208,4 @@ module_exit(sensor_mod_exit);
 
 MODULE_DESCRIPTION("Sony imx327 sensor driver");
 MODULE_LICENSE("GPL v2");
+MODULE_VERSION("0.1");

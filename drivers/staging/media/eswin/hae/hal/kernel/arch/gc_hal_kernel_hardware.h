@@ -64,7 +64,7 @@ extern "C" {
 #endif
 
 #define EVENT_ID_INVALIDATE_PIPE 29
-
+#define HARDWARE_USAGE_MEASURE_TIME_MS 1000
 #define gcmSEMAPHORESTALL(buffer)                                                                       \
     do {                                                                                                \
         /* Arm the PE-FE Semaphore. */                                                                  \
@@ -251,6 +251,15 @@ struct _gckHARDWARE {
     gctBOOL                     largeVA;
 
     gctSIGNAL                   feIdleSignal;
+    gctPOINTER                  hardwareLoadTimer;
+    gctUINT64                   totalRunCycle;
+    gctUINT32                   totalCycle;
+    gctUINT32                   totalIdleCycle;
+    gctUINT32                   load;
+    gctUINT64                   mcStart;
+    gctUINT64                   shStart;
+    gctUINT64                   threadMcClk;
+    gctUINT64                   threadShClk;
 };
 
 gceSTATUS

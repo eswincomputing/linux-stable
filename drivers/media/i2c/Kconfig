@@ -223,6 +223,16 @@ config VIDEO_IMX415
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx415.
 
+config VIDEO_IMX586
+	tristate "Sony IMX586 sensor support"
+	depends on OF_GPIO
+	help
+	  This is a Video4Linux2 sensor driver for the Sony
+	  IMX586 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called imx586.
+
 config VIDEO_MAX9271_LIB
 	tristate
 
@@ -634,6 +644,15 @@ config VIDEO_ST_VGXY61
 	help
 	  This is a Video4Linux2 sensor driver for the ST VGXY61
 	  camera sensor.
+
+config VIDEO_LT6911UXE
+	tristate "LT6911UXE support"
+	# depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 hdmi2mipi driver
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called lt6911uxe.
 
 source "drivers/media/i2c/ccs/Kconfig"
 source "drivers/media/i2c/et8ek8/Kconfig"

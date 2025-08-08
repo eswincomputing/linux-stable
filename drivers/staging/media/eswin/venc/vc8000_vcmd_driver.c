@@ -263,6 +263,9 @@ struct hantrovcmd_dev {
 	u8 watchdog_triggered;
 	u32 vce_hang;
 	u32 restart_cmdbuf_id;
+
+	/* status statistics*/
+	atomic64_t core_tot_cycles;
 };
 
 /*
@@ -1663,6 +1666,7 @@ static long link_and_run_cmdbuf(struct file *filp,
 
 	return_value = select_vcmd(new_cmdbuf_node, input_para->numa_id);
 	if (return_value) {
+		up(&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]);
 		LOG_ERR("vcmd: error return from select_vcmd\n");
 		return return_value;
 	}
@@ -1672,7 +1676,14 @@ static long link_and_run_cmdbuf(struct file *filp,
 	LOG_DBG("Venc Allocate cmd buffer [%d] to core [%d], filp = %p\n", cmdbuf_id, input_para->core_id, filp);
 	if (filp) {
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
-		enc_pm_runtime_get(dev->core_id);
+
+		return_value = enc_pm_runtime_get(dev->core_id);
+		/** check if the device be resumed ok*/
+		if (return_value < 0) {
+			up(&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]);
+			LOG_ERR("pm_runtime_get_sync failed, return %d\n", return_value);
+			return return_value;
+		}
 		atomic_inc(&(fp_priv->core_tasks[dev->core_id]));
 	}
 	LOG_DBG("Venc link_and_run cmd buffer [%d] in core [%d]\n", cmdbuf_id, input_para->core_id);
@@ -1851,6 +1862,18 @@ static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 		//vcmd_write_register_value((const void *)dev->hwregs,dev->reg_mirror,HWIF_VCMD_START_TRIGGER,0);
 		return -ERESTARTSYS;
 	}
+
+	/** statistics the total cycles*/
+	u32 *status_base_virt_addr =
+			vcmd_status_buf_mem_pool.virtualAddress + cmdbuf_id * CMDBUF_MAX_SIZE / 4 +
+			(dev->vcmd_core_cfg.submodule_main_addr / 2 / 4 + 0);
+	u32 cycles = status_base_virt_addr[82];
+
+	atomic64_add(cycles, &dev->core_tot_cycles);
+	// LOG_DBG("cmdbuf_id = %u, status_base_virt_addr=0x%llx, cycles = %u, tot_cycles=%llu, hwid = 0x%x\n"
+	// 	, cmdbuf_id, (unsigned long long)status_base_virt_addr
+	// 	, cycles, atomic64_read(&dev->core_tot_cycles), status_base_virt_addr[0]);
+
 	return 0;
 }
 
@@ -3727,8 +3750,9 @@ int hantroenc_vcmd_init(void)
 
 	// pr_info("[%s]build version: %s\n", VENC_DEV_NAME, ES_VENC_GIT_VER);
 	for (i = 0; i < venc_vcmd_core_num; i++) {
-		LOG_INFO("module init - vcore[%d] addr =0x%llx\n", i,
-			(unsigned long long)vc8000e_vcmd_core_array[i].vcmd_base_addr);
+		LOG_INFO("module init - vcore[%d] addr =0x%llx, freq =%u\n", i,
+			(unsigned long long)vc8000e_vcmd_core_array[i].vcmd_base_addr,
+			vc8000e_vcmd_core_array[i].freq);
 	}
 	hantrovcmd_data = vmalloc(sizeof(struct hantrovcmd_dev) * venc_vcmd_core_num);
 	if (!hantrovcmd_data)
@@ -3780,6 +3804,7 @@ int hantroenc_vcmd_init(void)
 #endif
 		hantrovcmd_data[i].vce_hang = 0;
 		hantrovcmd_data[i].restart_cmdbuf_id = 0XFFFF;
+		atomic64_set(&hantrovcmd_data[i].core_tot_cycles, 0);
 	}
 
 	result = register_chrdev(hantrovcmd_major, DRIVER_NAME, &hantrovcmd_fops);
@@ -4689,4 +4714,22 @@ int vc8000e_vcmd_wait_core_idle(u32 core_id)
 	LOG_DBG("enc wait core idle exit, core_id = %u, ret = %d\n", core_id, ret);
 
 	return ret;
+}
+
+/** get status statistcs*/
+void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *freq)
+{
+	if (core_id >= venc_vcmd_core_num) {
+		LOG_ERR("hantroenc_dev_stat, unknown core_id = %u\n", core_id);
+		return;
+	}
+	if (module_type) {
+		*module_type = hantrovcmd_data[core_id].vcmd_core_cfg.sub_module_type;
+	}
+	if (tot_cycles) {
+		*tot_cycles = atomic64_read(&hantrovcmd_data[core_id].core_tot_cycles);
+	}
+	if (freq) {
+		*freq = hantrovcmd_data[core_id].vcmd_core_cfg.freq;
+	}
 }

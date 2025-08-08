@@ -32,7 +32,12 @@
 #include <wl_escan.h>
 #endif /* WL_ESCAN */
 
+
+#ifndef ENODEBUG
 uint android_msg_level = ANDROID_ERROR_LEVEL | ANDROID_MSG_LEVEL;
+#else
+uint android_msg_level = ANDROID_ERROR_LEVEL;
+#endif
 
 #define AEXT_ERROR(name, arg1, args...) \
 	do { \

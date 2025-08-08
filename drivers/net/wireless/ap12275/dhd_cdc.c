@@ -713,7 +713,7 @@ dhd_sync_with_dongle(dhd_pub_t *dhd)
 		dhd->wlc_ver_major = ((wl_wlc_version_t*)buf)->wlc_ver_major;
 		dhd->wlc_ver_minor = ((wl_wlc_version_t*)buf)->wlc_ver_minor;
 	}
-	DHD_ERROR(("wlc_ver_major %d, wlc_ver_minor %d\n", dhd->wlc_ver_major, dhd->wlc_ver_minor));
+	DHD_INFO(("wlc_ver_major %d, wlc_ver_minor %d\n", dhd->wlc_ver_major, dhd->wlc_ver_minor));
 
 #if defined(BCMDBUS) && defined(BCMDHDUSB)
 	/* dbus_set_revinfo(dhd->dbus, revinfo.chipnum, revinfo.chiprev); */

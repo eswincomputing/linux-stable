@@ -55,41 +55,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
-#ifdef CONFIG_PRINTK_TO_SHMEM
-#include <linux/of.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
-#endif
-
 #include "printk_ringbuffer.h"
 #include "console_cmdline.h"
 #include "braille.h"
 #include "internal.h"
 
-#ifdef CONFIG_PRINTK_TO_SHMEM
-#define KDR_MEM_SIZE 0x100000
-#define PACMSG_BUF_SIZE 0x40000
-#define PACMSG_MAX_OFFSET                               \
-	(PACMSG_BUF_SIZE - sizeof(struct paclog_iter) - \
-	 sizeof(struct paclog_info))
-
-struct paclog_info {
-	u16 len;
-	u16 text_len;
-};
-
-struct paclog_iter {
-	u32 log_first_idx;
-	u32 log_next_idx;
-	u64 log_first_seq;
-	u64 log_next_seq;
-};
-
-static DEFINE_SPINLOCK(shm_lock);
-static bool shm_ready_flag;
-static u64 reserved_next_seq;
-static void __iomem *shm_va;
-#endif
 
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
@@ -505,7 +475,7 @@ static struct latched_seq clear_seq = {
 /* record buffer */
 #define LOG_ALIGN __alignof__(unsigned long)
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
-#define LOG_BUF_LEN_MAX (u32)(1 << 31)
+#define LOG_BUF_LEN_MAX ((u32)1 << 31)
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
@@ -1881,10 +1851,23 @@ static bool console_waiter;
  */
 static void console_lock_spinning_enable(void)
 {
+	/*
+	 * Do not use spinning in panic(). The panic CPU wants to keep the lock.
+	 * Non-panic CPUs abandon the flush anyway.
+	 *
+	 * Just keep the lockdep annotation. The panic-CPU should avoid
+	 * taking console_owner_lock because it might cause a deadlock.
+	 * This looks like the easiest way how to prevent false lockdep
+	 * reports without handling races a lockless way.
+	 */
+	if (panic_in_progress())
+		goto lockdep;
+
 	raw_spin_lock(&console_owner_lock);
 	console_owner = current;
 	raw_spin_unlock(&console_owner_lock);
 
+lockdep:
 	/* The waiter may spin on us after setting console_owner */
 	spin_acquire(&console_owner_dep_map, 0, 0, _THIS_IP_);
 }
@@ -1908,6 +1891,22 @@ static void console_lock_spinning_enable(void)
 static int console_lock_spinning_disable_and_check(int cookie)
 {
 	int waiter;
+
+	/*
+	 * Ignore spinning waiters during panic() because they might get stopped
+	 * or blocked at any time,
+	 *
+	 * It is safe because nobody is allowed to start spinning during panic
+	 * in the first place. If there has been a waiter then non panic CPUs
+	 * might stay spinning. They would get stopped anyway. The panic context
+	 * will never start spinning and an interrupted spin on panic CPU will
+	 * never continue.
+	 */
+	if (panic_in_progress()) {
+		/* Keep lockdep happy. */
+		spin_release(&console_owner_dep_map, _THIS_IP_);
+		return 0;
+	}
 
 	raw_spin_lock(&console_owner_lock);
 	waiter = READ_ONCE(console_waiter);
@@ -2008,6 +2007,12 @@ static int console_trylock_spinning(void)
 	 * complain.
 	 */
 	mutex_acquire(&console_lock_dep_map, 0, 1, _THIS_IP_);
+
+	/*
+	 * Update @console_may_schedule for trylock because the previous
+	 * owner may have been schedulable.
+	 */
+	console_may_schedule = 0;
 
 	return 1;
 }
@@ -2180,159 +2185,6 @@ static u16 printk_sprint(char *text, u16 size, int facility,
 	return text_len;
 }
 
-#ifdef CONFIG_PRINTK_TO_SHMEM
-static int pacmsg_share_memory_init(void)
-{
-	struct device_node *shm = NULL;
-	struct resource res;
-	struct paclog_iter msg_iter;
-	int ret;
-
-	shm = of_find_node_by_name(NULL, "kernel_debug_reserved");
-	if (!shm) {
-		pr_err("get share_memory failed\n");
-		return -EINVAL;
-	}
-
-	ret = of_address_to_resource(shm, 0, &res);
-	if (ret) {
-		pr_err("Failed to get kernel_debug_reserved resource\n");
-		return -EINVAL;
-	}
-
-	shm_va = ioremap(res.start, PACMSG_BUF_SIZE);
-	if (!shm_va) {
-		pr_err("Failed to ioremap share memory\n");
-		return -EIO;
-	}
-
-	memset(shm_va, 0, PACMSG_BUF_SIZE);
-
-	memset(&msg_iter, 0, sizeof(struct paclog_iter));
-	memcpy((void *)shm_va, &msg_iter, sizeof(struct paclog_iter));
-
-	shm_ready_flag = true;
-
-	return ret;
-}
-
-static int reserve_log_to_share_memory(char *buffer, size_t line_len)
-{
-	struct paclog_info old_info;
-	struct paclog_info new_info;
-	struct paclog_iter *iter;
-	unsigned long pacmsg_base;
-	unsigned long pacmsg_buf;
-	unsigned long target_address;
-	u32 first_idx, next_idx;
-	u64 first_seq, next_seq;
-	u32 offset;
-
-	if (buffer == NULL)
-		return 0;
-
-	pacmsg_base = (unsigned long)shm_va;
-	pacmsg_buf = pacmsg_base + sizeof(struct paclog_iter);
-
-	iter = (struct paclog_iter *)(pacmsg_base);
-	first_idx = iter->log_first_idx;
-	first_seq = iter->log_first_seq;
-	next_idx = iter->log_next_idx;
-	next_seq = iter->log_next_seq;
-
-	offset = sizeof(struct paclog_info) + line_len;
-
-	memset(&new_info, 0, sizeof(struct paclog_info));
-
-	if (next_idx + offset >= PACMSG_MAX_OFFSET) {
-		while (first_seq < next_seq) {
-			memcpy(&old_info, (void *)(pacmsg_buf + first_idx),
-			       sizeof(struct paclog_info));
-
-			if (old_info.len) {
-				if (first_idx >= next_idx) {
-					first_idx += old_info.len;
-					first_seq++;
-				} else
-					break;
-			} else
-				break;
-		}
-
-		memcpy((void *)(pacmsg_buf + next_idx), &new_info,
-		       sizeof(struct paclog_info));
-		next_idx = 0;
-	}
-
-	while (first_seq < next_seq) {
-		memcpy(&old_info, (void *)(pacmsg_buf + first_idx),
-		       sizeof(struct paclog_info));
-
-		if (old_info.len) {
-			if (first_idx >= next_idx &&
-			    first_idx < (next_idx + offset)) {
-				first_idx += old_info.len;
-				first_seq++;
-			} else
-				break;
-		} else
-			first_idx = 0;
-	}
-
-	new_info.len = offset;
-	new_info.text_len = line_len;
-
-	target_address = pacmsg_buf + next_idx;
-	memcpy((void *)target_address, &new_info, sizeof(struct paclog_info));
-	memcpy((void *)(target_address + sizeof(struct paclog_info)), buffer,
-	       line_len);
-
-	next_idx += offset;
-	next_seq++;
-
-	iter->log_first_idx = first_idx;
-	iter->log_next_idx = next_idx;
-	iter->log_first_seq = first_seq;
-	iter->log_next_seq = next_seq;
-
-	reserved_next_seq = next_seq;
-
-	return 0;
-}
-
-static int reserve_record_to_share_memory(void)
-{
-	struct printk_info info;
-	struct printk_record r;
-	char *text;
-	u64 seq;
-	unsigned long flags;
-
-	spin_lock_irqsave(&shm_lock, flags);
-
-	text = kmalloc(PRINTK_MESSAGE_MAX, GFP_ATOMIC);
-	if (!text)
-		return -ENOMEM;
-
-	prb_rec_init_rd(&r, &info, text, PRINTK_MESSAGE_MAX);
-
-	prb_for_each_record(reserved_next_seq, prb, seq, &r)
-	{
-		int textlen;
-
-		textlen = record_print_text(
-			&r, console_msg_format & MSG_FORMAT_SYSLOG,
-			printk_time);
-		reserve_log_to_share_memory(text, textlen);
-	}
-
-	kfree(text);
-
-	spin_unlock_irqrestore(&shm_lock, flags);
-	return 0;
-}
-#endif
-
 __printf(4, 0)
 int vprintk_store(int facility, int level,
 		  const struct dev_printk_info *dev_info,
@@ -2443,10 +2295,6 @@ int vprintk_store(int facility, int level,
 
 	ret = text_len + trunc_msg_len;
 out:
-#ifdef CONFIG_PRINTK_TO_SHMEM
-	if (shm_ready_flag) 
-		reserve_record_to_share_memory();
-#endif
 	printk_exit_irqrestore(recursion_ptr, irqflags);
 	return ret;
 }
@@ -2462,8 +2310,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	if (unlikely(suppress_printk))
 		return 0;
 
-	if (unlikely(suppress_panic_printk) &&
-	    atomic_read(&panic_cpu) != raw_smp_processor_id())
+	if (unlikely(suppress_panic_printk) && other_cpu_in_panic())
 		return 0;
 
 	if (level == LOGLEVEL_SCHED) {
@@ -3443,6 +3290,21 @@ static int __init keep_bootcon_setup(char *str)
 
 early_param("keep_bootcon", keep_bootcon_setup);
 
+static int console_call_setup(struct console *newcon, char *options)
+{
+	int err;
+
+	if (!newcon->setup)
+		return 0;
+
+	/* Synchronize with possible boot console. */
+	console_lock();
+	err = newcon->setup(newcon, options);
+	console_unlock();
+
+	return err;
+}
+
 /*
  * This is called by register_console() to try to match
  * the newly registered console with any of the ones selected
@@ -3478,8 +3340,8 @@ static int try_enable_preferred_console(struct console *newcon,
 			if (_braille_register_console(newcon, c))
 				return 0;
 
-			if (newcon->setup &&
-			    (err = newcon->setup(newcon, c->options)) != 0)
+			err = console_call_setup(newcon, c->options);
+			if (err)
 				return err;
 		}
 		newcon->flags |= CON_ENABLED;
@@ -3505,7 +3367,7 @@ static void try_enable_default_console(struct console *newcon)
 	if (newcon->index < 0)
 		newcon->index = 0;
 
-	if (newcon->setup && newcon->setup(newcon, NULL) != 0)
+	if (console_call_setup(newcon, NULL) != 0)
 		return;
 
 	newcon->flags |= CON_ENABLED;
@@ -3856,10 +3718,6 @@ void __init console_init(void)
 		trace_initcall_finish(call, ret);
 		ce++;
 	}
-
-#ifdef CONFIG_PRINTK_TO_SHMEM
-	pacmsg_share_memory_init();
-#endif
 }
 
 /*

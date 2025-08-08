@@ -247,12 +247,12 @@ int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long
 	}
 #ifdef CONFIG_DTS
 	if (on) {
-		printf("======== PULL WL_REG_ON HIGH! ========\n");
+		DHD_INFO(("======== PULL WL_REG_ON HIGH! ========\n"));
 		err = regulator_enable(wifi_regulator);
 		is_power_on = TRUE;
 	}
 	else {
-		printf("======== PULL WL_REG_ON LOW! ========\n");
+		DHD_INFO(("======== PULL WL_REG_ON LOW! ========\n"));
 		err = regulator_disable(wifi_regulator);
 		is_power_on = FALSE;
 	}
@@ -267,14 +267,14 @@ int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long
 	}
 	plat_data = adapter->wifi_plat_data;
 
-	DHD_ERROR(("%s = %d, delay: %lu msec\n", __FUNCTION__, on, msec));
+	DHD_INFO(("%s = %d, delay: %lu msec\n", __FUNCTION__, on, msec));
 	if (plat_data->set_power) {
 #ifdef ENABLE_4335BT_WAR
 		if (on) {
-			printk("WiFi: trying to acquire BT lock\n");
+			DHD_INFO(("WiFi: trying to acquire BT lock\n"));
 			if (bcm_bt_lock(lock_cookie_wifi) != 0)
-				printk("** WiFi: timeout in acquiring bt lock**\n");
-			printk("%s: btlock acquired\n", __FUNCTION__);
+				DHD_INFO(("** WiFi: timeout in acquiring bt lock**\n"));
+			DHD_INFO(("%s: btlock acquired\n", __FUNCTION__));
 		}
 		else {
 			/* For a exceptional case, release btlock */
@@ -291,7 +291,7 @@ int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long
 
 	if (msec && !err) {
 		OSL_SLEEP(msec);
-		DHD_ERROR(("%s = %d, sleep done: %lu msec\n", __FUNCTION__, on, msec));
+		DHD_INFO(("%s = %d, sleep done: %lu msec\n", __FUNCTION__, on, msec));
 	}
 
 	if (on && !err)
@@ -320,7 +320,7 @@ int wifi_platform_bus_enumerate(wifi_adapter_info_t *adapter, bool device_presen
 		return -EINVAL;
 	plat_data = adapter->wifi_plat_data;
 
-	DHD_ERROR(("%s device present %d\n", __FUNCTION__, device_present));
+	DHD_INFO(("%s device present %d\n", __FUNCTION__, device_present));
 	if (plat_data->set_carddetect) {
 		err = plat_data->set_carddetect(device_present);
 	}
@@ -945,8 +945,8 @@ static int dhd_wifi_platform_load_sdio(void)
 #endif
 
 	if (dhd_wifi_platdata == NULL) {
-		DHD_ERROR(("DHD wifi platform data is required for Android build\n"));
-		DHD_ERROR(("DHD registering bus directly\n"));
+		DHD_INFO(("DHD wifi platform data is required for Android build\n"));
+		DHD_INFO(("DHD registering bus directly\n"));
 		/* x86 bring-up PC needs no power-up operations */
 		err = dhd_bus_register();
 		return err;
@@ -963,7 +963,7 @@ static int dhd_wifi_platform_load_sdio(void)
 
 		adapter = &dhd_wifi_platdata->adapters[i];
 
-		DHD_ERROR(("Power-up adapter '%s'\n", adapter->name));
+		DHD_INFO(("Power-up adapter '%s'\n", adapter->name));
 		DHD_INFO((" - irq %d [flags %d], firmware: %s, nvram: %s\n",
 			adapter->irq_num, adapter->intr_flags, adapter->fw_path, adapter->nv_path));
 		DHD_INFO((" - bus type %d, bus num %d, slot num %d\n\n",
@@ -973,7 +973,7 @@ static int dhd_wifi_platform_load_sdio(void)
 #ifdef DHD_INSMOD_NOWAIT
 			err = wifi_platform_set_power(adapter, TRUE, WIFI_TURNON_DELAY);
 			if (err) {
-				DHD_ERROR(("%s: wifi pwr on error ! \n", __FUNCTION__));
+				DHD_TRACE(("%s: wifi pwr on error ! \n", __FUNCTION__));
 				wifi_platform_set_power(adapter, FALSE, WIFI_TURNOFF_DELAY);
 				continue;
 			} else {
@@ -1143,7 +1143,7 @@ static int dhd_wifi_platform_load_usb(void)
 static int dhd_wifi_platform_load(void)
 {
 	int err = 0;
-	printf("%s: Enter\n", __FUNCTION__);
+	DHD_INFO(("%s: Enter\n", __FUNCTION__));
 
 #if defined(OEM_ANDROID)
 	wl_android_init();

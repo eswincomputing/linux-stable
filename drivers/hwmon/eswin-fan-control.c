@@ -39,6 +39,10 @@
 #define FAN_PWM_PERIOD			0x1
 #define FAN_PWM_FREE			0x2
 #define DDR_TRAINING_TEMP		0x3
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+#define PMIX_LOWEST_TEMP		0x4
+#define D2D_RECOVERY			0x5
+#endif
 
 #define FAN_RPM_MAX_VALUE			(100000)
 #define FAN_RPM_MAX_READ_CNT		(100)
@@ -50,10 +54,15 @@
 #define REG_FAN_INT				0x0
 #define REG_FAN_RPM				0x4
 /* test register map */
-#define REG_TEST_0				(0x0)
-#define REG_TEST_1				(0x4)
-#define REG_TEST_2				(0x8)
-#define REG_TEST_3				(0xC)
+#define SYS_CON_TESTREG0		(0x0) //0x51810668 and 0x71810668
+#define SYS_CON_TESTREG1		(0x4) //0x5181066C and 0x7181066C
+#define SYS_CON_TESTREG2		(0x8) //0x51810670 and 0x71810670
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+#define D2D_RECOVERY_MASK		BIT(31) //d2d recovery bit
+#define PMIX_LOWEST_TEMP_MASK	GENMASK(20, 0) //pmix lowest temperature
+#endif
+#define SYS_CON_TESTREG3		(0xC) //0x51810674 and 0x71810674
+
 
 /* wait for 50 times pwm period to trigger read interrupt */
 #define TIMEOUT(period)        nsecs_to_jiffies(50*(period))
@@ -62,7 +71,10 @@ struct eswin_fan_control_data {
 	struct reset_control *fan_rst;
 	struct clk *clk;
 	void __iomem *base;
-	void __iomem *test_reg_base;
+	void __iomem *cur_die_test_reg_base;
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+	void __iomem *other_die_test_reg_base;
+#endif
 	struct device *hdev;
 	unsigned long clk_rate;
 	int pwm_id;
@@ -95,94 +107,6 @@ static inline u32 fan_ioread(const u32 reg,
 	return ioread32(ctl->base + reg);
 }
 
-static ssize_t eswin_fan_pwm_ctl_show(struct device *dev, struct device_attribute *da, char *buf)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	long temp = 0;
-	long period = 0;
-	if (FAN_PWM_DUTY == attr->index) {
-		temp = pwm_get_duty_cycle(ctl->pwm);
-		if(1 ==  ctl->pwm_inverted)
-		{
-			period = pwm_get_period(ctl->pwm);
-			temp = period - temp;
-		}
-	}
-	else if (FAN_PWM_PERIOD == attr->index) {
-		temp = pwm_get_period(ctl->pwm);
-	}
-	else {
-		dev_err(dev, "get error attr index 0x%x\n", attr->index);
-	}
-
-	return sprintf(buf, "%lu\n", temp);
-}
-
-static ssize_t eswin_fan_pwm_ctl_store(struct device *dev, struct device_attribute *da,
-				     const char *buf, size_t count)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	struct pwm_state state;
-	int ret;
-
-	pwm_get_state(ctl->pwm, &state);
-
-	if (FAN_PWM_DUTY == attr->index) {
-		long val = 0;
-		ret = kstrtoul(buf, 10, &val);
-		if (ret)
-			return ret;
-		if(1 ==  ctl->pwm_inverted)
-		{
-			state.duty_cycle =  state.period - val;
-		}
-		else
-		{
-			state.duty_cycle = val;
-		}
-	}
-	else if (FAN_PWM_PERIOD == attr->index) {
-		long val = 0;
-		ret = kstrtoul(buf, 10, &val);
-		if (ret)
-			return ret;
-		if (val >= ctl->min_period)
-			state.period = val;
-		else
-			dev_err(dev, "invalid pwm period!\n");
-	}
-	else {
-		dev_err(dev, "get error attr index 0x%x\n", attr->index);
-	}
-
-	mutex_lock(&ctl->fan_lock);
-	pwm_apply_state(ctl->pwm, &state);
-	mutex_unlock(&ctl->fan_lock);
-
-	return count;
-}
-
-static ssize_t eswin_fan_pwm_free_store(struct device *dev, struct device_attribute *da,
-				     const char *buf, size_t count)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	long val;
-	int ret;
-	ret = kstrtoul(buf, 10, &val);
-	if (ret)
-		return ret;
-
-	if (val) {
-		mutex_lock(&ctl->fan_lock);
-		pwm_put(ctl->pwm);
-		mutex_unlock(&ctl->fan_lock);
-	}
-
-	return count;
-}
-
 static ssize_t eswin_ddr_training_temp_show(struct device *dev, struct device_attribute *da, char *buf)
 {
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
@@ -190,7 +114,7 @@ static ssize_t eswin_ddr_training_temp_show(struct device *dev, struct device_at
 	int temp = 0;
 
 	if (DDR_TRAINING_TEMP == attr->index) {
-		temp = ioread32(ctl->test_reg_base + REG_TEST_3);
+		temp = ioread32(ctl->cur_die_test_reg_base + SYS_CON_TESTREG3);
 	} else {
 		dev_err(dev, "get error attr index 0x%x\n", attr->index);
 	}
@@ -198,6 +122,43 @@ static ssize_t eswin_ddr_training_temp_show(struct device *dev, struct device_at
 	return sprintf(buf, "%d\n", temp);
 }
 
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+static ssize_t eswin_pmix_lowest_temp_show(struct device *dev, struct device_attribute *da, char *buf)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	int temp = 0;
+
+	if (PMIX_LOWEST_TEMP == attr->index) {
+		temp = ioread32(ctl->cur_die_test_reg_base + SYS_CON_TESTREG2) & PMIX_LOWEST_TEMP_MASK;
+	} else {
+		dev_err(dev, "get error attr index 0x%x\n", attr->index);
+	}
+
+	return sprintf(buf, "%d\n", temp);
+}
+
+static ssize_t eswin_d2d_recovery_show(struct device *dev, struct device_attribute *da, char *buf)
+{
+	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
+	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	int recovery = 0;
+	int cur_die_val = 0;
+	int other_die_val = 0;
+
+	if (D2D_RECOVERY == attr->index) {
+		cur_die_val = ioread32(ctl->cur_die_test_reg_base + SYS_CON_TESTREG2) & D2D_RECOVERY_MASK;
+		other_die_val = ioread32(ctl->other_die_test_reg_base + SYS_CON_TESTREG2) & D2D_RECOVERY_MASK;
+		if (cur_die_val || other_die_val) {
+			recovery = 1;
+		}
+	} else {
+		dev_err(dev, "get error attr index 0x%x\n", attr->index);
+	}
+
+	return sprintf(buf, "%d\n", recovery);
+}
+#endif
 
 static long eswin_fan_control_get_pwm_duty(const struct eswin_fan_control_data *ctl)
 {
@@ -345,7 +306,7 @@ static int eswin_fan_control_set_pwm_duty(const long val, struct eswin_fan_contr
 	mutex_lock(&ctl->fan_lock);
 	pwm_get_state(ctl->pwm, &state);
 	pwm_set_relative_duty_cycle(&state, val, 100);
-	pwm_apply_state(ctl->pwm, &state);
+	pwm_apply_might_sleep(ctl->pwm, &state);
 	mutex_unlock(&ctl->fan_lock);
 
 	return 0;
@@ -522,17 +483,18 @@ static const struct hwmon_chip_info eswin_chip_info = {
 	.info = eswin_fan_control_info,
 };
 
-static SENSOR_DEVICE_ATTR_RW(fan_pwm_duty, eswin_fan_pwm_ctl, FAN_PWM_DUTY);
-static SENSOR_DEVICE_ATTR_RW(fan_pwm_period, eswin_fan_pwm_ctl, FAN_PWM_PERIOD);
-static SENSOR_DEVICE_ATTR_WO(fan_pwm_free, eswin_fan_pwm_free, FAN_PWM_FREE);
 static SENSOR_DEVICE_ATTR_RO(ddr_training_temp, eswin_ddr_training_temp, DDR_TRAINING_TEMP);
-
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+static SENSOR_DEVICE_ATTR_RO(pmix_lowest_temp, eswin_pmix_lowest_temp, PMIX_LOWEST_TEMP);
+static SENSOR_DEVICE_ATTR_RO(d2d_recovery, eswin_d2d_recovery, D2D_RECOVERY);
+#endif
 
 static struct attribute *eswin_fan_control_attrs[] = {
-	&sensor_dev_attr_fan_pwm_duty.dev_attr.attr,
-	&sensor_dev_attr_fan_pwm_period.dev_attr.attr,
-	&sensor_dev_attr_fan_pwm_free.dev_attr.attr,
 	&sensor_dev_attr_ddr_training_temp.dev_attr.attr,
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+	&sensor_dev_attr_pmix_lowest_temp.dev_attr.attr,
+	&sensor_dev_attr_d2d_recovery.dev_attr.attr,
+#endif
 	NULL,
 };
 ATTRIBUTE_GROUPS(eswin_fan_control);
@@ -568,10 +530,19 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res)
 		return -ENODEV;
-	ctl->test_reg_base = ioremap(res->start, res->end - res->start + 1);
-	if (IS_ERR_OR_NULL(ctl->test_reg_base)) {
-		return PTR_ERR(ctl->test_reg_base);
+	ctl->cur_die_test_reg_base = ioremap(res->start, res->end - res->start + 1);
+	if (IS_ERR_OR_NULL(ctl->cur_die_test_reg_base)) {
+		return PTR_ERR(ctl->cur_die_test_reg_base);
 	}
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!res)
+		return -ENODEV;
+	ctl->other_die_test_reg_base = ioremap(res->start, res->end - res->start + 1);
+	if (IS_ERR_OR_NULL(ctl->other_die_test_reg_base)) {
+		return PTR_ERR(ctl->other_die_test_reg_base);
+	}
+#endif
 
 	ctl->clk = devm_clk_get(&pdev->dev, "pclk");
 	if (IS_ERR(ctl->clk)) {
@@ -632,20 +603,20 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	if (0 == ctl->pwm_inverted)
 	{
 		state.period = pwm_args.period;
-		state.duty_cycle = state.period * 99 / 100; /* default set max speed */
+		state.duty_cycle = state.period * 50 / 100; /* default set medium speed */
 	}
 	else
 	{
 		state.period = pwm_args.period;
-		state.duty_cycle = state.period / 100; /* default set max speed */
+		state.duty_cycle = state.period / 100; /* default set medium speed */
 		if(0 == state.duty_cycle)
 		{
-			state.duty_cycle = 1;
+			state.duty_cycle = 50;
 		}
 	}
 	dev_err(&pdev->dev, "state.period: %lld state.duty_cycle: %lld\n",
 			state.period,state.duty_cycle);
-	ret = pwm_apply_state(ctl->pwm, &state);
+	ret = pwm_apply_might_sleep(ctl->pwm, &state);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to apply initial PWM state: %d\n",
 			ret);

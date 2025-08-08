@@ -234,10 +234,6 @@ static void es_dvp2axi_show_mixed_info(struct es_dvp2axi_device *dev, struct seq
 {
 	enum es_dvp2axi_monitor_mode monitor_mode;
 
-	seq_printf(f, "Driver Version:v%02x.%02x.%02x\n",
-		   ES_DVP2AXI_DRIVER_VERSION >> 16,
-		   (ES_DVP2AXI_DRIVER_VERSION & 0xff00) >> 8,
-		    ES_DVP2AXI_DRIVER_VERSION & 0x00ff);
 	seq_printf(f, "Work Mode:%s\n",
 		   dev->workmode == ES_DVP2AXI_WORKMODE_ONEFRAME ? "one frame" :
 		   dev->workmode == ES_DVP2AXI_WORKMODE_PINGPONG ? "ping pong" : "line loop");

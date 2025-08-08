@@ -568,8 +568,8 @@ static int fusb303b_probe(struct i2c_client *client)
 	chip->dev = &client->dev;
 	mutex_init(&chip->lock);
 	spin_lock_init(&chip->irq_lock);
-	fusb303b_init(chip);
 	fusb303b_debugfs_init(chip);
+	fusb303b_init(chip);
 	if (client->irq)
 	{
 		chip->gpio_int_n_irq = client->irq;

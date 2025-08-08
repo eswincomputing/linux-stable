@@ -773,7 +773,7 @@ static int mpq8785_write(struct device *dev, enum hwmon_sensor_types type,
 	}
 	return ret;
 }
-static const struct hwmon_ops pac193x_hwmon_ops = {
+static const struct hwmon_ops mpq8785_hwmon_ops = {
 	.is_visible = mpq8785_is_visible,
 	.read = mpq8785_read,
 	.write = mpq8785_write,
@@ -781,7 +781,7 @@ static const struct hwmon_ops pac193x_hwmon_ops = {
 };
 
 static struct hwmon_chip_info mpq8785_chip_info = {
-	.ops = &pac193x_hwmon_ops,
+	.ops = &mpq8785_hwmon_ops,
 	.info = mpq8785_info,
 
 };
@@ -1067,10 +1067,6 @@ int mpq8785_regulator_enable(struct regulator_dev *rdev)
 {
 	struct i2c_client *client = to_i2c_client(rdev->dev.parent);
 	struct MPQ8785_DRIVER_DATA *data = i2c_get_clientdata(client);
-	u32 set_value = 0;
-	u32 get_value = 0;
-	int count = 0;
-	int ret;
 
 	dev_dbg(&rdev->dev, "%s.%d\n", __FUNCTION__, __LINE__);
 	return mpq8785_enable(&rdev->dev,data,  MPQ8785_MASK_OPERATION_ENABLE);

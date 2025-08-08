@@ -221,54 +221,14 @@
 };
 
 &d0_cpu_opp_table {
-	opp-1500000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1600000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1700000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1800000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
 };
 
 &d1_cpu_opp_table {
-	opp-1500000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1600000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1700000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
-	opp-1800000000 {
-		opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
-		opp-microvolt = <900000>;
-		clock-latency-ns = <70000>;
-	};
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
 };
-
-// &cpu_0 {
-//	cpu-supply = <&vdd_soc>;
-// };
 
 &d0_clock {
 	status = "okay";
@@ -501,7 +461,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio0_default &pinctrl_die1_gpio7_on_default>;
 	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
-	vddctrl = <21 0 0>;
+	soc-vdd-ctrl = <21 0 0>;
 };
 
 &d1_lpcpu {
@@ -1075,7 +1035,7 @@
 };
 
 &d1_uart0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart1 {
@@ -1329,7 +1289,8 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		label = "d0_npu_vdd";
+		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
 				regulator-name="NPU_SVCC";
@@ -1350,6 +1311,7 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "supply vdd1", "npu vdd1";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
@@ -1367,6 +1329,10 @@
 &pwm0 {
 	/* fan */
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_die0_pwm0_default>;
+	pinctrl-1 = <&pinctrl_die0_gpio68_default>;
+	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 &d1_pwm0 {
 	status = "disabled";

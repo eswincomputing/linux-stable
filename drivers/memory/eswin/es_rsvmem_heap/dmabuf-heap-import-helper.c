@@ -28,6 +28,7 @@
 #include <linux/miscdevice.h>
 #include <linux/dma-map-ops.h>
 #include <linux/dma-heap.h>
+#include <linux/dma-resv.h>
 #include <linux/dmabuf-heap-import-helper.h>
 
 static struct device *split_dmabuf_dev;
@@ -214,7 +215,7 @@ static struct heap_mem *dmabuf_heap_import(struct heap_root *root, int fd)
         goto clean_up;
     }
 
-    sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+    sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
@@ -248,6 +249,7 @@ static struct heap_mem *dmabuf_heap_import(struct heap_root *root, int fd)
     return heap_obj;
 
 fail_add_handle:
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
 fail_detach:
     dma_buf_detach(dma_buf, attach);
 clean_up:
@@ -289,7 +291,7 @@ static struct heap_mem *dmabuf_heap_import_with_dma_buf_st(struct heap_root *roo
         goto clean_up;
     }
 
-    sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+    sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
@@ -321,6 +323,7 @@ static struct heap_mem *dmabuf_heap_import_with_dma_buf_st(struct heap_root *roo
     return heap_obj;
 
 fail_add_handle:
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
 fail_detach:
     dma_buf_detach(dma_buf, attach);
 clean_up:
@@ -339,7 +342,7 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int 
 	/* get dmabuf handle */
 	dma_buf = dma_buf_get(fd);
 	if (IS_ERR(dma_buf))
-		return NULL;
+		return ERR_CAST(dma_buf);
 
 	mutex_lock(&root->lock);
 	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, (uint64_t *)&heap_obj);
@@ -349,7 +352,7 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int 
 	if (0 == ret)
 		return heap_obj;
 	else
-		return NULL;
+		return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(common_dmabuf_lookup_heapobj_by_fd);
 
@@ -367,7 +370,7 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_dma_buf_st(struct heap_root *ro
 	if (0 == ret)
 		return heap_obj;
 	else
-		return NULL;
+		return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(common_dmabuf_lookup_heapobj_by_dma_buf_st);
 
@@ -398,7 +401,7 @@ static void __common_dmabuf_heap_release(struct kref *kref)
 
 	common_dmabuf_heap_umap_vaddr(heap_obj);
 
-	dma_buf_unmap_attachment(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
 
 	dma_buf_detach(heap_obj->dbuf, heap_obj->import_attach);
 
@@ -410,8 +413,12 @@ static void __common_dmabuf_heap_release(struct kref *kref)
 
 void common_dmabuf_heap_release(struct heap_mem *heap_obj)
 {
-	struct heap_root *root = heap_obj->root;
+	struct heap_root *root;
 
+	if (WARN_ON(IS_ERR(heap_obj)))
+		return;
+
+	root = heap_obj->root;
 	mutex_lock(&root->lock);
 	kref_put(&heap_obj->refcount, __common_dmabuf_heap_release);
 	mutex_unlock(&root->lock);
@@ -423,14 +430,13 @@ void *common_dmabuf_heap_map_vaddr(struct heap_mem *heap_obj)
     struct dma_buf_map map;
     int ret;
 
-	WARN_ON(!heap_obj);
-	if (!heap_obj)
+	if (WARN_ON(IS_ERR(heap_obj)))
 		return NULL;
 
     if (heap_obj->vaddr)
         return heap_obj->vaddr;
 
-    ret = dma_buf_vmap(heap_obj->dbuf, &map);
+    ret = dma_buf_vmap_unlocked(heap_obj->dbuf, &map);
     if (ret)
         return NULL;
 
@@ -445,11 +451,13 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj)
 {
 	struct dma_buf_map map;
 
-	WARN_ON(!heap_obj);
+	if (WARN_ON(IS_ERR(heap_obj)))
+		return;
+
 	if (heap_obj && heap_obj->vaddr) {
         map.vaddr = heap_obj->vaddr;
         map.is_iomem = 0;
-        dma_buf_vunmap(heap_obj->dbuf, &map);
+        dma_buf_vunmap_unlocked(heap_obj->dbuf, &map);
         heap_obj->vaddr = NULL;
     }
 }
@@ -581,8 +589,12 @@ static void __common_dmabuf_heap_rsv_iova_unmap(struct kref *kref)
 
 void common_dmabuf_heap_rsv_iova_unmap(struct heap_mem *heap_obj)
 {
-	struct heap_root *root = heap_obj->root;
+	struct heap_root *root;
 
+	if (WARN_ON(IS_ERR(heap_obj)))
+		return;
+
+	root = heap_obj->root;
 	mutex_lock(&root->lock);
 	kref_put(&heap_obj->refcount, __common_dmabuf_heap_rsv_iova_unmap);
 	mutex_unlock(&root->lock);

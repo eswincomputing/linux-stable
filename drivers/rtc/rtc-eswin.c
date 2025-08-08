@@ -34,6 +34,7 @@
 #include <linux/mfd/syscon.h>
 
 #define RTC_INT_TO_U84  0xffff9fff
+#define RTC_INT_TO_LPCPU  0x2000
 /* RTC CSR Registers */
 #define RTC_CCVR        0x00
 #define RTC_CMR         0x04
@@ -158,6 +159,8 @@ static int eswin_rtc_probe(struct platform_device *pdev)
 	unsigned int int_off;
 	unsigned int clk_freq;
 	struct regmap *regmap;
+	bool wakeup_source;
+
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
@@ -187,15 +190,23 @@ static int eswin_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No syscfg phandle specified\n");
 		return PTR_ERR(regmap);
 	}
-
 	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscfg", 1, &int_off);
 	if (ret) {
 		dev_err(&pdev->dev, "No rtc interrupt offset found\n");
 		return -1;
 	}
-	regmap_read(regmap, int_off, &reg_val);
-	reg_val &= (RTC_INT_TO_U84);
-	regmap_write(regmap, int_off, reg_val);
+
+	wakeup_source = of_property_read_bool(pdev->dev.of_node, "wakeup-source");
+	if (wakeup_source) {
+		regmap_read(regmap, int_off, &reg_val);
+		reg_val &= ~(0x3 << 13);
+		reg_val |= (RTC_INT_TO_LPCPU);
+		regmap_write(regmap, int_off, reg_val);
+	} else {
+		regmap_read(regmap, int_off, &reg_val);
+		reg_val &= (RTC_INT_TO_U84);
+		regmap_write(regmap, int_off, reg_val);
+	}
 
 	ret = of_property_read_u32(pdev->dev.of_node, "clock-frequency", &clk_freq);
 	if (ret) {

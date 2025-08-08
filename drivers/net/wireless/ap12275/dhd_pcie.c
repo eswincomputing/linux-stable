@@ -2470,7 +2470,7 @@ dhdpcie_dongle_attach(dhd_bus_t *bus)
 		goto fail;
 	}
 
-	DHD_ERROR(("DHD: dongle ram size is set to %d(orig %d) at 0x%x\n",
+	DHD_INFO(("DHD: dongle ram size is set to %d(orig %d) at 0x%x\n",
 	           bus->ramsize, bus->orig_ramsize, bus->dongle_ram_base));
 
 	dhdpcie_bar1_window_switch_enab(bus);
@@ -3186,14 +3186,14 @@ void dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 		return;
 
 	if (bus->dhd->busstate == DHD_BUS_DOWN) {
-		DHD_ERROR(("%s: already down by net_dev_reset\n", __FUNCTION__));
+		DHD_INFO(("%s: already down by net_dev_reset\n", __FUNCTION__));
 		goto done;
 	}
 
 	DHD_STOP_RPM_TIMER(bus->dhd);
 
 	DHD_GENERAL_LOCK(bus->dhd, flags);
-	DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
+	DHD_INFO(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 	bus->dhd->busstate = DHD_BUS_DOWN;
 	DHD_GENERAL_UNLOCK(bus->dhd, flags);
 
@@ -4346,7 +4346,7 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 				break;
 			}
 		}
-		DHD_ERROR(("%s: Download, Upload and compare succeeded.\n", __FUNCTION__));
+		DHD_INFO(("%s: Download, Upload and compare succeeded.\n", __FUNCTION__));
 
 upload_err:
 		if (ulblock)

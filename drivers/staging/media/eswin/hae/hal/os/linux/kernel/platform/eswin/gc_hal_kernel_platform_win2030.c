@@ -246,54 +246,93 @@ static void show_clk_status(int dieIndex)
 }
 
 #if defined(CONFIG_PM_DEVFREQ)
-static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags) {
-    int i, j;
-    unsigned long rate = *freq;
-    int ret = -1;
-    struct clk *aclk;
-
-    for (i = 0; i < gpd.num_domains; i++) {
-        if (gpd.dev[i] != dev) continue;
-        for (j = 0; j < nc_of_clks; j++) {
-            if (strcmp("g2d_clk", clk_names[j]) && strcmp("g2d_aclk", clk_names[j])) continue;
-            aclk = gpd.clks[i][j];
-            rate = clk_round_rate(aclk, rate);
-            if (rate > 0) {
-                ret = clk_set_rate(aclk, rate);
-                if (ret) {
-                    dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
-                    return ret;
-                }
-            }
-            dev_info(dev, "set %s rate to %ldHZ\n", clk_names[j], rate);
-        }
-    }
-    if (!ret) {
-        *freq = rate;
-        return 0;
-    } else {
-        dev_err(dev, "set rate to %ldHZ\n failed", rate);
-        return -1;
-    }
-}
 static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
     int i, j;
+
     for (i = 0; i < gpd.num_domains; i++) {
-        if (gpd.dev[i] != dev) continue;
+        if (gpd.dev[i] != dev) {
+            continue;
+        }
+
         for (j = 0; j < nc_of_clks; j++) {
             if (!strcmp("g2d_clk", clk_names[j])) {
-                return clk_get_rate(gpd.clks[i][j]);
+                *freq = clk_get_rate(gpd.clks[i][j]);
+                return 0;
             }
         }
     }
+
+    return -1;
+}
+
+static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags) {
+    int i, j;
+    static unsigned long pre_rate = 0;
+    unsigned long round_rate = 0;
+    int ret = -1;
+    struct clk *clk_handle;
+
+    for (i = 0; i < gpd.num_domains; i++) {
+        if (gpd.dev[i] != dev) {
+            continue;
+        }
+
+        for (j = 0; j < nc_of_clks; j++) {
+            if (strcmp("g2d_clk", clk_names[j])) {
+                continue;
+            }
+
+            clk_handle = gpd.clks[i][j];
+
+            pre_rate = clk_get_rate(clk_handle);
+            round_rate = clk_round_rate(clk_handle, *freq);
+            if (round_rate <= 0) {
+                dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
+                return -1;
+            }
+        }
+    }
+
+    if (round_rate != *freq) {
+        dev_info(dev, "sys set freq: %lu round: %lu not the same.\n", *freq, round_rate);
+        *freq = round_rate;
+    }
+
+    if (pre_rate == round_rate) {
+        return 0;
+    }
+
+    ret = clk_set_rate(clk_handle, round_rate);
+    if (ret) {
+        dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
+        return -1;
+    }
+
+    dev_info(dev, "sys set rate from %luHz to %luHz\n", pre_rate, round_rate);
+
     return 0;
 }
+
+static void eswin_exit(struct device *dev)
+{
+    return;
+}
+
+static struct devfreq_simple_ondemand_data ondemand_data =
+{
+    .upthreshold =80,
+    .downdifferential=10,
+};
+
 static struct devfreq_dev_profile g2d_devfreq_profile = {
     .initial_freq = G2D_HILOAD_CLK,
     .timer = DEVFREQ_TIMER_DELAYED,
     .polling_ms = 1000, /* Poll every 1000ms to monitor load */
     .target = g2d_devfreq_target,
     .get_cur_freq = g2d_devfreq_get_cur_freq,
+    .get_dev_status = gckGALDEVICE_GetDevFreqInfo,
+    .exit = eswin_exit,
+    .is_cooling_device = true,
 };
 #endif
 
@@ -393,10 +432,15 @@ static int gpu_add_power_domains(struct platform_device *pdev, gcsMODULE_PARAMET
             hae_print("Failed to add OPP table");
             goto error;
         }
-        df = devm_devfreq_add_device(gpd.dev[i], &g2d_devfreq_profile, "userspace", NULL);
+        df = devm_devfreq_add_device(gpd.dev[i], &g2d_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
         if (IS_ERR(df)) {
             ret = PTR_ERR(df);
             hae_print("add devfreq failed");
+            goto error;
+        }
+        ret = devm_devfreq_register_opp_notifier(gpd.dev[i], df);
+        if (ret < 0) {
+            hae_print("i: %d, dev: %p, failed to register opp notifier\n", i, gpd.dev[i]);
             goto error;
         }
         gpd.df[i] = df;

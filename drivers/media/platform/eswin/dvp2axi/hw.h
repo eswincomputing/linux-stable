@@ -32,7 +32,6 @@
 #include <media/v4l2-mc.h>
 #include "../../../../phy/eswin/es-camera-module.h"
 #include "regs.h"
-#include "version.h"
 #include "dev.h"
 
 #define ES_DVP2AXI_DEV_MAX		7
@@ -41,6 +40,11 @@
 #define ES_DVP2AXI_MAX_RESET		15
 
 #define ES_DVP2AXI_MAX_GROUP		4
+
+#define ES_DVP2AXI_ERR_IRQ		6
+#define ES_DVP2AXI_AFULL_IRQ	7		
+#define ES_DVP2AXI_IRQ_NUM      8
+#define ES_DVP2AXI_ERRIRQ_NUM	9
 
 #define write_dvp2axi_reg(base, addr, val) \
 	writel(val, (addr) + (base))
@@ -131,6 +135,7 @@ struct es_dvp2axi_hw_match_data {
 struct es_dvp2axi_hw {
 	struct device			*dev;
 	int				irq;
+	int devm_irq_num[ES_DVP2AXI_IRQ_NUM];
 	void __iomem			*base_addr;
 	void __iomem			*csi_base;
 	struct regmap			*grf;
@@ -157,32 +162,10 @@ struct es_dvp2axi_hw {
 	bool				adapt_to_usbcamerahal;
 	u64				irq_time;
 	bool				is_eic770xs2;
+	atomic_t 			dvp2axi_errirq_cnts[ES_DVP2AXI_ERRIRQ_NUM]; 
+	struct mutex		dev_multi_chn_lock;
+	spinlock_t			intr_spinlock;
 
-	/* eic770x_mipi_csi2_init */
-	u32 num_lanes:4;
-    u32 ppi_width:2;
-	u32 phy_mode:1;
-
-    u32 vc:5;
-    u32 dt:6;	
-	u32 emb:1;
-	u32 frame_det:1;
-
-    u32 ipi_mode:1;
-    u32 ipi_color_com:1;
-    u32 ipi_auto_flush:1;
-    u32 ipi_cut_through:1;
-    u32 ipi_line_event;
-
-    u32 hsa;
-	u32 hbp;
-	u32 hsd;
-	u32 htotal;
-
-    u32 vsa;
-	u32 vbp;
-	u32 vfp;
-	u32 vactive;
 };
 
 void es_dvp2axi_disable_sys_clk(struct es_dvp2axi_hw *dvp2axi_hw);

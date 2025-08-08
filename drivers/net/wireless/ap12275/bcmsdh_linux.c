@@ -79,6 +79,7 @@ typedef struct bcmsdh_os_info {
 	bool			dev_wake_enabled;
 } bcmsdh_os_info_t;
 
+#ifndef ENODEBUG
 /* debugging macros */
 #ifdef BCMDBG_ERR
 #define SDLX_ERR(x) printf x
@@ -87,7 +88,10 @@ typedef struct bcmsdh_os_info {
 #define SDLX_ERR(x) printf x
 #define SDLX_MSG(x)	printf x
 #endif /* BCMDBG_ERR */
-
+#else
+#define SDLX_MSG(x)
+#define SDLX_ERR(x) printf x
+#endif
 /**
  * Checks to see if vendor and device IDs match a supported SDIO Host Controller.
  */

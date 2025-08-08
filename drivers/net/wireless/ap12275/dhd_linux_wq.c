@@ -174,7 +174,7 @@ dhd_deferred_work_init(void *dhd_info)
 
 	work->dhd_info = dhd_info;
 	work->event_skip_mask = 0;
-	DHD_ERROR(("%s: work queue initialized\n", __FUNCTION__));
+	DHD_INFO(("%s: work queue initialized\n", __FUNCTION__));
 	return work;
 
 return_null:

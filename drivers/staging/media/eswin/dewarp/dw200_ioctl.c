@@ -179,7 +179,7 @@ static u64 get_dma_addr(struct dw200_subdev *dev, int dmabuf_fd,
 	u64 dma_addr;
 
 	hmem = common_dmabuf_lookup_heapobj_by_fd(dev->pheap_root, dmabuf_fd);
-	if (!hmem) {
+	if (IS_ERR(hmem)) {
 		pr_err("Could not find dmabuf-heap for dmabuf fd %d, Please import it first\n",
 		       dmabuf_fd);
 		return -1;
@@ -226,7 +226,7 @@ int dma_heap_iova_release(struct dw200_subdev *dev, int dmabuf_fd)
 	}
 
 	hmem = common_dmabuf_lookup_heapobj_by_fd(dev->pheap_root, dmabuf_fd);
-	if (!hmem) {
+	if (IS_ERR(hmem)) {
 		pr_err("Cannot find dmabuf-heap for dmabuf_fd %d\n", dmabuf_fd);
 		return -1;
 	}

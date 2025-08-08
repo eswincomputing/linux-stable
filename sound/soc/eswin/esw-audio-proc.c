@@ -477,6 +477,7 @@ void audio_proc_module_exit(void)
 	mutex_lock(&audio_proc_lock);
 
 	if (g_proc_uninitialized) {
+		mutex_unlock(&audio_proc_lock);
 		return;
 	}
 

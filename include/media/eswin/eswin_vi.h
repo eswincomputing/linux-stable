@@ -52,7 +52,7 @@ struct eswin_vi_device {
     struct eswin_vi_clk_rst clk_rst; /* Clock and reset control structure */
     u32 isp_dvp0_hor;               /* ISP DVP0 horizontal resolution */
     u32 isp_dvp0_ver;               /* ISP DVP0 vertical resolution */
-
+    u32 phy_mode;
 };
 
 

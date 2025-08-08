@@ -34,7 +34,6 @@
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
-#include <linux/reset.h>
 
 #define ESWIN_SMMU_IRQ_CLEAR_REG	1
 
@@ -1471,6 +1470,28 @@ static void arm_smmu_init_bypass_stes(__le64 *strtab, unsigned int nent, bool fo
 	}
 }
 
+#ifdef CONFIG_ESWIN_PCIE_VPU
+static void eswin_pcie_vpu_smmu_workaround(struct arm_smmu_device *smmu, u32 sid)
+{
+	void *strtab;
+	struct arm_smmu_strtab_cfg *cfg = &smmu->strtab_cfg;
+	struct arm_smmu_strtab_l1_desc *desc = &cfg->l1_desc[sid >> STRTAB_SPLIT];
+	struct arm_smmu_strtab_l1_desc *desc_busx;
+	int i;
+	u32 streamid;
+
+	for (i = 1; i < 256; i++) {
+		streamid = 0xff0000 + (i << 8);
+		strtab = &cfg->strtab[(streamid >> STRTAB_SPLIT) * STRTAB_L1_DESC_DWORDS];
+ 		desc_busx = &cfg->l1_desc[streamid >> STRTAB_SPLIT];
+		desc_busx->span = STRTAB_SPLIT + 1;
+		desc_busx->l2ptr = desc->l2ptr;
+		desc_busx->l2ptr_dma = desc->l2ptr_dma;
+		arm_smmu_write_strtab_l1_desc(strtab, desc_busx);
+	}
+}
+#endif
+
 static int arm_smmu_init_l2_strtab(struct arm_smmu_device *smmu, u32 sid)
 {
 	size_t size;
@@ -1496,29 +1517,46 @@ static int arm_smmu_init_l2_strtab(struct arm_smmu_device *smmu, u32 sid)
 
 	arm_smmu_init_bypass_stes(desc->l2ptr, 1 << STRTAB_SPLIT, false);
 	arm_smmu_write_strtab_l1_desc(strtab, desc);
+
+#ifdef CONFIG_ESWIN_PCIE_VPU
+	if (sid & 0xff0000) {
+		eswin_pcie_vpu_smmu_workaround(smmu, sid);
+	}
+#endif
 	return 0;
+}
+
+static int arm_smmu_streams_cmp_key(const void *lhs, const struct rb_node *rhs)
+{
+	struct arm_smmu_stream *stream_rhs =
+		rb_entry(rhs, struct arm_smmu_stream, node);
+	const u32 *sid_lhs = lhs;
+
+	if (*sid_lhs < stream_rhs->id)
+		return -1;
+	if (*sid_lhs > stream_rhs->id)
+		return 1;
+	return 0;
+}
+
+static int arm_smmu_streams_cmp_node(struct rb_node *lhs,
+				     const struct rb_node *rhs)
+{
+	return arm_smmu_streams_cmp_key(
+		&rb_entry(lhs, struct arm_smmu_stream, node)->id, rhs);
 }
 
 static struct arm_smmu_master *
 arm_smmu_find_master(struct arm_smmu_device *smmu, u32 sid)
 {
 	struct rb_node *node;
-	struct arm_smmu_stream *stream;
 
 	lockdep_assert_held(&smmu->streams_mutex);
 
-	node = smmu->streams.rb_node;
-	while (node) {
-		stream = rb_entry(node, struct arm_smmu_stream, node);
-		if (stream->id < sid)
-			node = node->rb_right;
-		else if (stream->id > sid)
-			node = node->rb_left;
-		else
-			return stream->master;
-	}
-
-	return NULL;
+	node = rb_find(&sid, &smmu->streams, arm_smmu_streams_cmp_key);
+	if (!node)
+		return NULL;
+	return rb_entry(node, struct arm_smmu_stream, node)->master;
 }
 
 /* IRQ and event handlers */
@@ -2352,6 +2390,21 @@ static __le64 *arm_smmu_get_step_for_sid(struct arm_smmu_device *smmu, u32 sid)
 
 	return step;
 }
+/*bus0 all 256 ste2 ttbr point the same.*/
+
+#ifdef CONFIG_ESWIN_PCIE_VPU
+static void eswin_vpu_pcie_ste2_same_ttbr(struct arm_smmu_master *master, u32 sid)
+{
+	struct arm_smmu_device *smmu = master->smmu;
+	__le64 *step;
+	int i;
+
+	for (i = 1; i < 256; i++) {
+		step = arm_smmu_get_step_for_sid(smmu, sid + i);
+		arm_smmu_write_strtab_ent(master, sid + i, step);
+	}
+}
+#endif
 
 static void arm_smmu_install_ste_for_dev(struct arm_smmu_master *master)
 {
@@ -2370,7 +2423,13 @@ static void arm_smmu_install_ste_for_dev(struct arm_smmu_master *master)
 			continue;
 
 		arm_smmu_write_strtab_ent(master, sid, step);
+#ifdef CONFIG_ESWIN_PCIE_VPU
+		if (sid == 0xff0000) {
+			eswin_vpu_pcie_ste2_same_ttbr(master, sid);
+		}
+#endif
 	}
+
 }
 
 static bool arm_smmu_ats_supported(struct arm_smmu_master *master)
@@ -2707,8 +2766,6 @@ static int arm_smmu_insert_master(struct arm_smmu_device *smmu,
 {
 	int i;
 	int ret = 0;
-	struct arm_smmu_stream *new_stream, *cur_stream;
-	struct rb_node **new_node, *parent_node = NULL;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(master->dev);
 
 	master->streams = kcalloc(fwspec->num_ids, sizeof(*master->streams),
@@ -2719,9 +2776,10 @@ static int arm_smmu_insert_master(struct arm_smmu_device *smmu,
 
 	mutex_lock(&smmu->streams_mutex);
 	for (i = 0; i < fwspec->num_ids; i++) {
+		struct arm_smmu_stream *new_stream = &master->streams[i];
+		struct rb_node *existing;
 		u32 sid = fwspec->ids[i];
 
-		new_stream = &master->streams[i];
 		new_stream->id = sid;
 		new_stream->master = master;
 
@@ -2730,35 +2788,29 @@ static int arm_smmu_insert_master(struct arm_smmu_device *smmu,
 			break;
 
 		/* Insert into SID tree */
-		new_node = &(smmu->streams.rb_node);
-		while (*new_node) {
-			cur_stream = rb_entry(*new_node, struct arm_smmu_stream,
-					      node);
-			parent_node = *new_node;
-			if (cur_stream->id > new_stream->id) {
-				new_node = &((*new_node)->rb_left);
-			} else if (cur_stream->id < new_stream->id) {
-				new_node = &((*new_node)->rb_right);
-			} else {
-				dev_warn(master->dev,
-					 "stream %u already in tree\n",
-					 cur_stream->id);
-				ret = -EINVAL;
-				break;
-			}
-		}
-		#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-		if (ret) { //duplicated streamID found, skip inserting new_stream to smmu->streams
+		existing = rb_find_add(&new_stream->node, &smmu->streams,
+				       arm_smmu_streams_cmp_node);
+		if (existing) {
+			struct arm_smmu_master *existing_master =
+				rb_entry(existing, struct arm_smmu_stream, node)
+					->master;
+
+			/* Bridged PCI devices may end up with duplicated IDs */
+			if (existing_master == master)
+				continue;
+
+			dev_warn(master->dev,
+				 "stream %u already in tree from dev %s\n", sid,
+				 dev_name(existing_master->dev));
+			#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+			/*duplicated streamID found, this feature is needed in EIC770X */
 			ret = 0;
 			continue;
-		}
-		#else
-		if (ret)
+			#else
+			ret = -EINVAL;
 			break;
-		#endif
-
-		rb_link_node(&new_stream->node, parent_node, new_node);
-		rb_insert_color(&new_stream->node, &smmu->streams);
+			#endif
+		}
 	}
 
 	if (ret) {
@@ -2891,13 +2943,14 @@ static struct iommu_group *arm_smmu_group_lookup(struct device *dev)
 	struct arm_smmu_group *smmu_group;
 	u32 sid;
 
-	lockdep_assert_held(&smmu->smmu_groups_mutex);
 	if (!master)
-		return NULL;
+		return ERR_PTR(-EFAULT);
+
+	smmu = master->smmu;
+	lockdep_assert_held(&smmu->smmu_groups_mutex);
 
 	/* pick the first sid, since only one sid for each device is allowed */
 	sid = fwspec->ids[0];
-	smmu = master->smmu;
 
 	node = smmu->smmu_groups.rb_node;
 	while (node) {
@@ -2922,11 +2975,11 @@ static struct arm_smmu_group *arm_smmu_insert_to_group_lookup(struct device *dev
 	struct arm_smmu_group *new_smmu_group, *cur_smmu_group;
 	struct rb_node **new_node, *parent_node = NULL;
 
-	lockdep_assert_held(&smmu->smmu_groups_mutex);
 	if (!master)
 		return ERR_PTR(-EFAULT);
 
 	smmu = master->smmu;
+	lockdep_assert_held(&smmu->smmu_groups_mutex);
 
 	new_smmu_group = kzalloc(sizeof(*new_smmu_group), GFP_KERNEL);
 	if (!new_smmu_group)
@@ -3478,7 +3531,7 @@ static void arm_smmu_setup_msis(struct arm_smmu_device *smmu)
 	smmu->priq.q.irq = msi_get_virq(dev, PRIQ_MSI_INDEX);
 
 	/* Add callback to free MSIs on teardown */
-	devm_add_action(dev, arm_smmu_free_msis, dev);
+	devm_add_action_or_reset(dev, arm_smmu_free_msis, dev);
 }
 
 static void arm_smmu_setup_unique_irqs(struct arm_smmu_device *smmu)
@@ -4099,87 +4152,6 @@ static void arm_smmu_rmr_install_bypass_ste(struct arm_smmu_device *smmu)
 	iort_put_rmr_sids(dev_fwnode(smmu->dev), &rmr_list);
 }
 
-#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-static int eswin_smmu_reset_release(struct arm_smmu_device *smmu)
-{
-	int ret = 0;
-	int i;
-	char tbu_rst_name[16] = {0};
-	struct device *dev = smmu->dev;
-	struct eswin_smmu_reset_control *eswin_smmu_rst_ctl_p = &smmu->eswin_smmu_rst_ctl;
-
-	dev_dbg(dev, "Try %s !\n", __func__);
-
-	eswin_smmu_rst_ctl_p->smmu_axi_rst = devm_reset_control_get_optional(dev, "axi_rst");
-	if (IS_ERR_OR_NULL(eswin_smmu_rst_ctl_p->smmu_axi_rst)) {
-		dev_err(dev, "Failed to get eswin smmu_axi_rst handle\n");
-		return -EFAULT;
-	}
-
-	eswin_smmu_rst_ctl_p->smmu_cfg_rst = devm_reset_control_get_optional(dev, "cfg_rst");
-	if (IS_ERR_OR_NULL(eswin_smmu_rst_ctl_p->smmu_cfg_rst)) {
-		dev_err(dev, "Failed to get eswin smmu_cfg_rst handle\n");
-		return -EFAULT;
-	}
-
-	for(i = 0; i < ESWIN_MAX_TBU_COUNT; i++) {
-		snprintf(tbu_rst_name, sizeof(tbu_rst_name), "tbu%d_rst", i);
-		eswin_smmu_rst_ctl_p->tbu_rst[i] = devm_reset_control_get_optional(dev, tbu_rst_name);
-		if (IS_ERR_OR_NULL(eswin_smmu_rst_ctl_p->tbu_rst[i])) {
-			dev_err(dev, "Failed to get eswin %s handle\n", tbu_rst_name);
-			return -EFAULT;
-		}
-	}
-
-	// The order of the reset must be TCU_cfg_rst ---> TCU_axi_rst ---> TBU_rst
-	ret = reset_control_reset(eswin_smmu_rst_ctl_p->smmu_cfg_rst);
-	WARN_ON(0 != ret);
-
-	ret = reset_control_reset(eswin_smmu_rst_ctl_p->smmu_axi_rst);
-	WARN_ON(0 != ret);
-
-	for(i = 0; i < ESWIN_MAX_TBU_COUNT; i++) {
-		ret = reset_control_reset(eswin_smmu_rst_ctl_p->tbu_rst[i]);
-		WARN_ON(0 != ret);
-	}
-
-	dev_dbg(dev, "%s successfully!\n", __func__);
-
-	return ret;
-}
-
-static int eswin_smmu_reset_assert(struct arm_smmu_device *smmu)
-{
-	int ret = 0;
-	int i;
-	struct device *dev = smmu->dev;
-	struct eswin_smmu_reset_control *eswin_smmu_rst_ctl_p = &smmu->eswin_smmu_rst_ctl;
-
-	dev_dbg(dev, "Try %s !\n", __func__);
-
-	for(i = 0; i < ESWIN_MAX_TBU_COUNT; i++) {
-		if (eswin_smmu_rst_ctl_p->tbu_rst[i]) {
-			ret = reset_control_assert(eswin_smmu_rst_ctl_p->tbu_rst[i]);
-			WARN_ON(0 != ret);
-		}
-	}
-
-	if (eswin_smmu_rst_ctl_p->smmu_axi_rst) {
-		ret = reset_control_assert(eswin_smmu_rst_ctl_p->smmu_axi_rst);
-		WARN_ON(0 != ret);
-	}
-
-	if (eswin_smmu_rst_ctl_p->smmu_cfg_rst) {
-		ret = reset_control_assert(eswin_smmu_rst_ctl_p->smmu_cfg_rst);
-		WARN_ON(0 != ret);
-	}
-
-	dev_dbg(dev, "%s successfully!\n", __func__);
-
-	return ret;
-}
-#endif
-
 static int arm_smmu_device_probe(struct platform_device *pdev)
 {
 	int irq, ret;
@@ -4238,13 +4210,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	if (IS_ERR(smmu->s_base))
 		return PTR_ERR(smmu->s_base);
 
-	/* eswin, release the reset of smmu */
-	ret = eswin_smmu_reset_release(smmu);
-	if (ret) {
-		dev_err(dev, "failed to release the reset of SMMU\n");
-		return ret;
-	}
-
 	/* eswin, syscon devie is used for clearing the smmu interrupt */
 	smmu->regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscfg");
 	if (IS_ERR(smmu->regmap)) {
@@ -4286,7 +4251,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	/* Initialise in-memory data structures */
 	ret = arm_smmu_init_structures(smmu);
 	if (ret)
-		return ret;
+		goto err_free_iopf;
 
 	/* Record our private device structure */
 	platform_set_drvdata(pdev, smmu);
@@ -4297,22 +4262,29 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	/* Reset the device */
 	ret = arm_smmu_device_reset(smmu, bypass);
 	if (ret)
-		return ret;
+		goto err_disable;
 
 	/* And we're up. Go go go! */
 	ret = iommu_device_sysfs_add(&smmu->iommu, dev, NULL,
 				     "smmu3.%pa", &ioaddr);
 	if (ret)
-		return ret;
+		goto err_disable;
 
 	ret = iommu_device_register(&smmu->iommu, &arm_smmu_ops, dev);
 	if (ret) {
 		dev_err(dev, "Failed to register iommu\n");
-		iommu_device_sysfs_remove(&smmu->iommu);
-		return ret;
+		goto err_free_sysfs;
 	}
 
 	return 0;
+
+err_free_sysfs:
+	iommu_device_sysfs_remove(&smmu->iommu);
+err_disable:
+	arm_smmu_device_disable(smmu);
+err_free_iopf:
+	iopf_queue_free(smmu->evtq.iopf);
+	return ret;
 }
 
 static void arm_smmu_device_remove(struct platform_device *pdev)
@@ -4324,11 +4296,6 @@ static void arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_device_disable(smmu);
 	iopf_queue_free(smmu->evtq.iopf);
 	ida_destroy(&smmu->vmid_map);
-
-	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-	/* eswin, hold the reset of the smmu */
-	eswin_smmu_reset_assert(smmu);
-	#endif
 }
 
 static void arm_smmu_device_shutdown(struct platform_device *pdev)

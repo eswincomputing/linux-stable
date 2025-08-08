@@ -466,11 +466,7 @@ static int __init win2030_init_streamID(void)
 			syscon_sid_cfg[nid] = mc;
 			g_nodes_cnt++;
 			pr_debug("%s, syscon_sid_cfg[%d] addr is 0x%px\n", __func__, nid, syscon_sid_cfg[nid]);
-			pr_info("power down all tbus of node %d at start up\n", nid);
-			win2030_tbu_power_all(nid, false);
 			print_tcu_node_status(__func__, __LINE__, nid);
-			/* sid configuration was moved into each driver, so skip win2030_program_sid*/
-			// win2030_program_sid(nid);
 
 			of_node_put(child);
 		}
@@ -867,8 +863,6 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 	u32 tbu_id;
 	const struct win2030_tbu_client *tbu_client_p = NULL;
 	struct tbu_priv *tbu_priv_p;
-	struct property *prop;
-	const __be32 *cur;
 	int tbu_num = 0;
 
 	if (nid == NUMA_NO_NODE) {
@@ -882,7 +876,7 @@ int win2030_tbu_power(struct device *dev, bool is_powerUp)
 	}
 
 	dev_dbg(dev, "%s %s!\n", __func__, (is_powerUp == true)? "up":"down");
-	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
+	of_property_for_each_u32(node, "tbus", tbu_id) {
 		pr_debug("tbus = <0x%02x>\n", tbu_id);
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;
@@ -923,8 +917,6 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 	u32 tbu_id;
 	const struct win2030_tbu_client *tbu_client_p = NULL;
 	struct tbu_priv *tbu_priv_p;
-	struct property *prop;
-	const __be32 *cur;
 	int tbu_num = 0;
 
 	if (nid == NUMA_NO_NODE) {
@@ -937,7 +929,7 @@ int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *no
 	#endif
 	}
 
-	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
+	of_property_for_each_u32(node, "tbus", tbu_id) {
 		pr_debug("tbus = <0x%02x>\n", tbu_id);
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;
@@ -978,8 +970,6 @@ int win2030_tbu_force_power_by_dev_and_node(struct device *dev, struct device_no
 	u32 tbu_id;
 	const struct win2030_tbu_client *tbu_client_p = NULL;
 	struct tbu_priv *tbu_priv_p;
-	struct property *prop;
-	const __be32 *cur;
 
 	if (nid == NUMA_NO_NODE) {
 	#ifdef CONFIG_NUMA
@@ -992,7 +982,7 @@ int win2030_tbu_force_power_by_dev_and_node(struct device *dev, struct device_no
 	}
 
 	pr_debug("%s called!\n", __func__);
-	of_property_for_each_u32(node, "tbus", prop, cur, tbu_id) {
+	of_property_for_each_u32(node, "tbus", tbu_id) {
 		pr_debug("tbus = <0x%02x>\n", tbu_id);
 		if (0 == win2030_get_tbu_priv(nid, tbu_id, &tbu_priv_p)) {
 			tbu_client_p = tbu_priv_p->tbu_client_p;

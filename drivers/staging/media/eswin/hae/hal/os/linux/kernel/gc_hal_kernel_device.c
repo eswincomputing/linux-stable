@@ -62,6 +62,8 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 
+#include "gc_hal_kernel_debug_esw.h"
+
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
 
 static gckGALDEVICE     galDevice;
@@ -439,6 +441,40 @@ OnError:
     return status;
 }
 
+static void gc_load_show_hardware_usage(void *m, gckDEVICE device)
+{
+    gctUINT32 i;
+    gctINT32 len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        if (!device->kernels[i]) {
+            continue;
+        }
+
+        if (!device->kernels[i]->hardware) {
+            continue;
+        }
+
+        gckHARDWARE Hardware = device->kernels[i]->hardware;
+        len += fs_printf(ptr,       "dev_id      : %d\n", device->id);
+        len += fs_printf(ptr + len, "dev_core    : %d\n", i);
+        len += fs_printf(ptr + len, "pooling_ms  : %d\n", HARDWARE_USAGE_MEASURE_TIME_MS);
+        len += fs_printf(ptr + len, "load        : %u%%\n", Hardware->load);
+        len += fs_printf(ptr + len, "clk         : %llu\n", Hardware->threadMcClk);
+        len += fs_printf(ptr + len, "total_cycle     : %u\n", Hardware->totalCycle);
+        len += fs_printf(ptr + len, "run_cycle       : %u\n", Hardware->totalCycle - Hardware->totalIdleCycle);
+        len += fs_printf(ptr + len, "total_run_cycle : %llu\n", Hardware->totalRunCycle);
+        len += fs_printf(ptr + len, "\n");
+    }
+
+    return;
+}
+
 int
 gc_load_show(void *m, void *data)
 {
@@ -549,10 +585,19 @@ gc_load_show(void *m, void *data)
                     load[i] = (hi_total_cycle_count[i] - hi_total_idle_cycle_count[i]) * 100 / hi_total_cycle_count[i];
 
                 len += fs_printf(ptr, "core      : %d\n", i);
-                len += fs_printf(ptr + len, "load      : %d%%\n", load[i]);
+                len += fs_printf(ptr + len, "load          : %d%%\n", load[i]);
                 len += fs_printf(ptr + len, "\n");
             }
         }
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
+        }
+
+        gc_load_show_hardware_usage(m, device);
     }
 
 OnError:
@@ -1889,6 +1934,7 @@ _DebugfsInit(gckGALDEVICE Device)
 
     gcmkONERROR(gckDEBUGFS_DIR_Init(dir, gcvNULL, "gc"));
     gcmkONERROR(gckDEBUGFS_DIR_CreateFiles(dir, InfoList, gcmCOUNTOF(InfoList), Device));
+    gcmkONERROR(gc_hal_kernel_dbg_esw_create_procfs(Device));
 #else
     int ret;
     /* TODO. */
@@ -1915,6 +1961,8 @@ _DebugfsCleanup(gckGALDEVICE Device)
 
         gckDEBUGFS_DIR_Deinit(dir);
     }
+
+    gc_hal_kernel_dbg_esw_remove_procfs();
 #else
     /* TODO. */
     struct device *dev = (struct device *)Device->devices[0]->dev;
@@ -2453,6 +2501,7 @@ threadRoutine(void *ctxt)
 
             return 0;
         }
+
         gckOS_Signal(kernel->os, kernel->hardware->feIdleSignal, gcvTRUE);
 
         gckKERNEL_Notify(kernel, gcvNOTIFY_INTERRUPT);
@@ -3429,6 +3478,48 @@ gc_df_exit(gckGALDEVICE Device)
     return status;
 }
 #endif
+
+int gckGALDEVICE_GetDevFreqInfo(struct device *dev, struct devfreq_dev_status *stat)
+{
+    gctINT32 i = 0;
+    gckHARDWARE hardware = NULL;
+
+    if (!dev) {
+        return -1;
+    }
+
+    if (!stat) {
+        return -1;
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        if (galDevice->devices[i] == NULL) {
+            continue;
+        }
+
+        if (dev != galDevice->devices[i]->dev) {
+            continue;
+        }
+
+        //use core 0 usage default
+        if (galDevice->devices[i]->kernels[gcvCORE_2D] == NULL) {
+            continue;
+        }
+
+        hardware = galDevice->devices[i]->kernels[gcvCORE_2D]->hardware;
+        if (hardware) {
+            // IPA use, not user hardware->load to prevent clock change too frequncy;
+            stat->busy_time = 1024; // hardware->load
+            stat->total_time = 1024; // 100
+            stat->current_frequency = hardware->threadMcClk;
+            return 0;
+        }
+    }
+
+    dev_err(dev, "hae get dev freq info failed!\n");
+
+    return -1;
+}
 
 /*******************************************************************************
  *

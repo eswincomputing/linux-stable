@@ -28,6 +28,7 @@
 #include <media/v4l2-fwnode.h>
 #include <media/eswin/dw-mipi-csi-pltfrm.h>
 
+#define ESWIN_MOD
 // #define DWC_PHY_USING
 #define REG_DUMMY_READ
 

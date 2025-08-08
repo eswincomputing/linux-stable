@@ -316,7 +316,7 @@ sdioh_attach(osl_t *osh, struct sdio_func *func)
 			sd_f2_blocksize > 128)
 		sd_f2_blocksize = 128;
 	sd->client_block_size[2] = sd_f2_blocksize;
-	printf("%s: set sd_f2_blocksize %d\n", __FUNCTION__, sd_f2_blocksize);
+	sd_info(("%s: set sd_f2_blocksize %d\n", __FUNCTION__, sd_f2_blocksize));
 	err_ret = sdio_set_block_size(sd->func[2], sd_f2_blocksize);
 	sdio_release_host(sd->func[2]);
 	if (err_ret) {
@@ -326,7 +326,7 @@ sdioh_attach(osl_t *osh, struct sdio_func *func)
 	}
 
 	sd->sd_clk_rate = sdmmc_get_clock_rate(sd);
-	printf("%s: sd clock rate = %u\n", __FUNCTION__, sd->sd_clk_rate);
+	sd_info(("%s: sd clock rate = %u\n", __FUNCTION__, sd->sd_clk_rate));
 	sdioh_sdmmc_card_enablefuncs(sd);
 #if !defined(OOB_INTR_ONLY)
 	mutex_init(&sd->claim_host_mutex); // terence 20140926: fix for claim host issue
@@ -921,7 +921,7 @@ sdioh_cis_read(sdioh_info_t *sd, uint func, uint8 *cisd, uint32 length)
 		return SDIOH_API_RC_FAIL;
 	}
 
-	sd_err(("%s: func_cis_ptr[%d]=0x%04x\n", __FUNCTION__, func, sd->func_cis_ptr[func]));
+	sd_info(("%s: func_cis_ptr[%d]=0x%04x\n", __FUNCTION__, func, sd->func_cis_ptr[func]));
 
 	for (count = 0; count < length; count++) {
 		offset =  sd->func_cis_ptr[func] + count;
@@ -1782,7 +1782,7 @@ static int sdio_sw_reset(sdioh_info_t *sd)
 
 #if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 	/* MMC_SW_RESET */
-	printf("%s: call mmc_sw_reset\n", __FUNCTION__);
+	sd_info(("%s: call mmc_sw_reset\n", __FUNCTION__));
 	sdio_claim_host(sd->func[0]);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
 	err = mmc_sw_reset(card);
@@ -1792,7 +1792,7 @@ static int sdio_sw_reset(sdioh_info_t *sd)
 	sdio_release_host(sd->func[0]);
 #elif defined(MMC_HW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
 	/* MMC_HW_RESET */
-	printf("%s: call mmc_hw_reset\n", __FUNCTION__);
+	sd_info(("%s: call mmc_hw_reset\n", __FUNCTION__));
 	sdio_claim_host(sd->func[0]);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 	while (atomic_read(&card->sdio_funcs_probed) > 1) {
@@ -1807,7 +1807,7 @@ static int sdio_sw_reset(sdioh_info_t *sd)
 	sdio_release_host(sd->func[0]);
 #elif defined(BUS_POWER_RESTORE) && \
 LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-	printf("%s: call mmc_power_restore_host\n", __FUNCTION__);
+	sd_info(("%s: call mmc_power_restore_host\n", __FUNCTION__));
 	mmc_power_restore_host(card->host);
 #else
 	/* sdio_reset_comm */
@@ -1879,7 +1879,7 @@ sdioh_start(sdioh_info_t *sd, int stage)
 					sdio_claim_host(sd->func[2]);
 
 					sd->client_block_size[2] = sd_f2_blocksize;
-					printf("%s: set sd_f2_blocksize %d\n", __FUNCTION__, sd_f2_blocksize);
+					sd_info(("%s: set sd_f2_blocksize %d\n", __FUNCTION__, sd_f2_blocksize));
 					ret = sdio_set_block_size(sd->func[2], sd_f2_blocksize);
 					if (ret) {
 						sd_err(("bcmsdh_sdmmc: Failed to set F2 blocksize"

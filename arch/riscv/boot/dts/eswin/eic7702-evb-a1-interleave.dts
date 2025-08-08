@@ -223,6 +223,16 @@
 	};
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
+&d1_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
 &D1CACHE {
 	status = "okay";
 	d1_zero_device: zero-device@3a000000 {
@@ -1082,7 +1092,7 @@
 };
 
 &d1_uart0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart1 {
@@ -1645,11 +1655,11 @@
 };
 
 &d2d {
-	status = "okay";
+	status = "disabled";
 };
 
 &d1_d2d {
-	status = "okay";
+	status = "disabled";
 };
 
 /* die0 GPIO Function Description

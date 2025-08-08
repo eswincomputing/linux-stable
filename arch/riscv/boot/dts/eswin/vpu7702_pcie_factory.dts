@@ -39,7 +39,7 @@
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
-	model = "ESWIN EIC7702 VPU A1";
+	model = "ESWIN EIC7702 VPU FACTORY A2";
 	compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000",
 		     "sifive,fu740", "eswin,eic7700";
 
@@ -93,9 +93,14 @@
 			reg = <0x0 0x59000000 0x0 0x400000>;
 		};
 
-		g2d_4GB_boundary_reserved_4k {
+		ramoops@fff00000 {
+			compatible = "ramoops";
+			reg = <0x0 0xfff00000 0x0 0x100000>;
+			console-size = <0x40000>;
+			record-size = <0x40000>;
+			ftrace-size = <0x40000>;
+			pmsg-size = <0x40000>;
 			no-map;
-			reg = <0x0 0xfffff000 0x0 0x1000>;
 		};
 
 		g2d_8GB_boundary_reserved_4k {
@@ -826,8 +831,8 @@
 };
 
 &d0_i2c0 {
-	/* PS_PMBUS */
-	status = "okay";
+	/* 12V_DC_IN */
+	status = "disabled";
 	i2c-sda-hold-time-ns = <0x40>;
 	ina226@44 {
 		compatible = "ti,ina226";
@@ -845,6 +850,7 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "supply vdd1", "npu vdd1";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
@@ -861,7 +867,7 @@
 
 &d0_i2c2 {
 	/* Temperature Sensor */
-	status = "okay";
+	status = "disabled";
 	tmp102@48 {
 		compatible = "ti,tmp102";
 		reg = <0x48>;
@@ -871,51 +877,16 @@
 };
 
 &d0_i2c3 {
-	/* mipi csi0/csi1 */
-	status = "okay";
+	/* Die 2 Die Serdes */
+	status = "disabled";
 };
 
 &d0_i2c4 {
-	/* mipi csi2/csi3 */
-	status = "disabled";
-};
-
-&d0_i2c5 {
-	/* AT24C02C EEPROM */
-	status = "okay";
-	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
-	eeprom@50 {
-		compatible = "atmel,24c02";
-		reg = <0x50>;
-	};
-};
-
-&d0_i2c6 {
-	/* unused */
-	status = "disabled";
-};
-
-&d0_i2c7 {
-	/* unused */
-	status = "disabled";
-};
-
-&d0_i2c8 {
-	/* unused */
-	status = "disabled";
-};
-
-&d0_i2c9 {
-	/* unused */
-	status = "disabled";
-};
-
-&d0_aon_i2c0 {
 	/* ADC */
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c10_default>;
-	status = "okay";
+	status = "disabled";
 
 	adc@48 {
 		compatible = "ti,ads1115";
@@ -947,6 +918,41 @@
 			ti,datarate = <7>;
 		};
 	};
+};
+
+&d0_i2c5 {
+	/* AT24C02C EEPROM */
+	status = "disabled";
+	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
+};
+
+&d0_i2c6 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_i2c7 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_i2c8 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_i2c9 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_aon_i2c0 {
+	/* SMBUS */
+	status = "disabled";
 };
 
 &d0_aon_i2c1 {

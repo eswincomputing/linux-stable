@@ -120,20 +120,6 @@ static inline void plic_irq_toggle(const struct cpumask *mask,
 	}
 }
 
-static void plic_irq_enable(struct irq_data *d)
-{
-	struct irq_desc *desc = irq_data_to_desc(d);
-	/* Avoid reporting errors when removing irq. */
-	if(desc->force_resume_depth == 0xffff)
-		desc->force_resume_depth = 0;
-	plic_irq_toggle(irq_data_get_effective_affinity_mask(d), d, 1);
-}
-
-static void plic_irq_disable(struct irq_data *d)
-{
-	plic_irq_toggle(irq_data_get_effective_affinity_mask(d), d, 0);
-}
-
 static void plic_irq_unmask(struct irq_data *d)
 {
 	struct plic_priv *priv = irq_data_get_irq_chip_data(d);
@@ -146,6 +132,23 @@ static void plic_irq_mask(struct irq_data *d)
 	struct plic_priv *priv = irq_data_get_irq_chip_data(d);
 
 	writel(0, priv->regs + PRIORITY_BASE + d->hwirq * PRIORITY_PER_ID);
+}
+
+static void plic_irq_enable(struct irq_data *d)
+{
+#ifdef CONFIG_PM_SLEEP
+	struct irq_desc *desc = irq_data_to_desc(d);
+	/* Avoid reporting errors when removing irq. */
+	if(desc->force_resume_depth == 0xffff)
+		desc->force_resume_depth = 0;
+#endif
+	plic_irq_toggle(irq_data_get_effective_affinity_mask(d), d, 1);
+	plic_irq_unmask(d);
+}
+
+static void plic_irq_disable(struct irq_data *d)
+{
+	plic_irq_toggle(irq_data_get_effective_affinity_mask(d), d, 0);
 }
 
 static void plic_irq_eoi(struct irq_data *d)
@@ -178,6 +181,7 @@ static int plic_set_affinity(struct irq_data *d,
 		cpu = cpumask_any_and(&amask, cpu_online_mask);
 
 	if (cpu >= nr_cpu_ids) {
+#ifdef CONFIG_PM_SLEEP
 		/*
 		 * If no CPU can be migrated, it is likely that all available
 		 * CPUs have been shut down, and the interrupt needs to be 
@@ -185,7 +189,7 @@ static int plic_set_affinity(struct irq_data *d,
 		 */
 		if((!desc->force_resume_depth) && (!irqd_irq_disabled(d)))
 			desc->force_resume_depth = 0xffff;
-
+#endif
 		return -EINVAL;
 	}
 

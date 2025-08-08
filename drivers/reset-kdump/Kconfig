@@ -1,0 +1,9 @@
+#
+# Eswin reset to trigger kdump
+#
+
+menuconfig RSTKDUMP
+	tristate "Eswin reset to trigger kdump"
+	default n
+	help
+	  Eswin reset to trigger kdump.

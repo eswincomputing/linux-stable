@@ -122,9 +122,9 @@
 			no-map;
 		};
 
-		g2d_8GB_boundary_reserved_4k {
+		g2d_8GB_boundary_reserved_4k { // 32M for npu0 runtime
 			no-map;
-			reg = <0x1 0xfffff000 0x0 0x1000>;
+			reg = <0x1 0xfe000000 0x0 0x2000000>;
 		};
 
 		g2d_12GB_boundary_reserved_4k {
@@ -148,9 +148,9 @@
 			reg = <0x20 0xfffff000 0x0 0x1000>;
 		};
 
-		d1_g2d_8GB_boundary_reserved_4k {
+		d1_g2d_8GB_boundary_reserved_4k { // 32M for npu1 runtime
 			no-map;
-			reg = <0x21 0xfffff000 0x0 0x1000>;
+			reg = <0x21 0xfe000000 0x0 0x2000000>;
 		};
 
 		mmz_nid_1_part_0 {
@@ -188,6 +188,16 @@
 	};
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
+&d1_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
 &D1CACHE {
 	status = "okay";
 	d1_zero_device: zero-device@3a000000 {
@@ -197,11 +207,26 @@
 	};
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
+&d1_cpu_opp_table {
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
 &d0_clock {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio19_default>;
+	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
 };
+
 &d1_clock {
 	status = "okay";
+	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_reset {
@@ -1049,7 +1074,7 @@
 };
 
 &d1_uart0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart1 {
@@ -1616,11 +1641,11 @@
 };
 
 &d2d {
-	status = "okay";
+	status = "disabled";
 };
 
 &d1_d2d {
-	status = "okay";
+	status = "disabled";
 };
 
 /* die0 GPIO Function Description

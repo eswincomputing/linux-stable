@@ -39,11 +39,5 @@ int es_dvp2axi_alloc_buffer(struct es_dvp2axi_device *dev,
 void es_dvp2axi_free_buffer(struct es_dvp2axi_device *dev,
 			struct es_dvp2axi_dummy_buffer *buf);
 
-int es_dvp2axi_alloc_common_dummy_buf(struct es_dvp2axi_device *dev, struct es_dvp2axi_dummy_buffer *buf);
-void es_dvp2axi_free_common_dummy_buf(struct es_dvp2axi_device *dev, struct es_dvp2axi_dummy_buffer *buf);
-
-int es_dvp2axi_alloc_reserved_mem_buf(struct es_dvp2axi_device *dev, struct es_dvp2axi_rx_buffer *buf);
-void es_dvp2axi_free_reserved_mem_buf(struct es_dvp2axi_device *dev, struct es_dvp2axi_rx_buffer *buf);
-
 #endif /* _ES_DVP2AXI_COMMON_H */
 

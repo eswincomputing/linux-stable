@@ -964,6 +964,16 @@ static void dw_hdmi_eswin_shutdown(struct platform_device *pdev)
 {
 	struct eswin_hdmi *hdmi = dev_get_drvdata(&pdev->dev);
 
+	if(hdmi == NULL)
+	{
+		pr_err("no hdmi!!!\n");
+		return;
+	}
+	if(hdmi->hdmi == NULL)
+	{
+		pr_err("no hdmi->hdmi!!!\n");
+		return;
+	}
 	dw_hdmi_suspend(hdmi->hdmi);
 }
 

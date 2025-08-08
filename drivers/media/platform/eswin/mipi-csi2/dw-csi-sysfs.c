@@ -45,7 +45,7 @@ static ssize_t n_lanes_store(struct device *dev, struct device_attribute *attr,
 		return count;
 	}
 
-	dev_info(dev, "Lanes %lu\n", lanes);
+	dev_dbg(dev, "Lanes %lu\n", lanes);
 	csi_dev->hw.num_lanes = lanes;
 
 	return count;
@@ -105,7 +105,7 @@ static ssize_t data_type_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "Data type 0x%lx\n", dt);
+	dev_dbg(dev, "Data type 0x%lx\n", dt);
 	csi_dev->ipi_dt = dt;
 
 	return count;
@@ -146,7 +146,7 @@ static ssize_t hsa_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "HSA time 0x%lx\n", hsa);
+	dev_dbg(dev, "HSA time 0x%lx\n", hsa);
 	csi_dev->hw.hsa = hsa;
 
 	return count;
@@ -187,7 +187,7 @@ static ssize_t hbp_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "HBP time 0x%lx\n", hbp);
+	dev_dbg(dev, "HBP time 0x%lx\n", hbp);
 	csi_dev->hw.hbp = hbp;
 
 	return count;
@@ -228,7 +228,7 @@ static ssize_t hsd_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "HSD time 0x%lx\n", hsd);
+	dev_dbg(dev, "HSD time 0x%lx\n", hsd);
 	csi_dev->hw.hsd = hsd;
 
 	return count;
@@ -269,7 +269,7 @@ static ssize_t vsa_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "VSA period 0x%lx\n", vsa);
+	dev_dbg(dev, "VSA period 0x%lx\n", vsa);
 	csi_dev->hw.vsa = vsa;
 
 	return count;
@@ -310,7 +310,7 @@ static ssize_t vbp_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "VBP period 0x%lx\n", vbp);
+	dev_dbg(dev, "VBP period 0x%lx\n", vbp);
 	csi_dev->hw.vbp = vbp;
 
 	return count;
@@ -351,7 +351,7 @@ static ssize_t vfp_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "VFP period 0x%lx\n", vfp);
+	dev_dbg(dev, "VFP period 0x%lx\n", vfp);
 	csi_dev->hw.vfp = vfp;
 
 	return count;
@@ -392,7 +392,7 @@ static ssize_t virtual_channel_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "Virtual Channel %lu\n", virtual_ch);
+	dev_dbg(dev, "Virtual Channel %lu\n", virtual_ch);
 	csi_dev->hw.virtual_ch = virtual_ch;
 
 	return count;
@@ -435,7 +435,7 @@ static ssize_t ipi_color_mode_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "IPI Color mode %lu\n", ipi_color_mode);
+	dev_dbg(dev, "IPI Color mode %lu\n", ipi_color_mode);
 	csi_dev->hw.ipi_color_mode = ipi_color_mode;
 
 	return count;
@@ -478,7 +478,7 @@ static ssize_t ipi_auto_flush_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "IPI Auto Flush %lu\n", ipi_auto_flush);
+	dev_dbg(dev, "IPI Auto Flush %lu\n", ipi_auto_flush);
 	csi_dev->hw.ipi_auto_flush = ipi_auto_flush;
 
 	return count;
@@ -521,7 +521,7 @@ static ssize_t ipi_timings_mode_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "IPI Color mode %lu\n", ipi_mode);
+	dev_dbg(dev, "IPI Color mode %lu\n", ipi_mode);
 	csi_dev->hw.ipi_mode = ipi_mode;
 
 	return count;
@@ -565,7 +565,7 @@ static ssize_t output_type_store(struct device *dev,
 		return count;
 	}
 
-	dev_info(dev, "IPI Color mode %lu\n", output);
+	dev_dbg(dev, "IPI Color mode %lu\n", output);
 	csi_dev->hw.output = output;
 
 	return count;

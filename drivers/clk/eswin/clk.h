@@ -19,6 +19,7 @@
 #define CLK_FREQ_1400M 1400000000
 #define CLK_FREQ_1300M 1300000000
 #define CLK_FREQ_1200M 1200000000
+#define CLK_FREQ_1100M 1100000000
 #define CLK_FREQ_1000M 1000000000
 #define CLK_FREQ_900M 900000000
 #define CLK_FREQ_800M 800000000
@@ -162,7 +163,7 @@ struct eswin_clk_pll {
 	u8 lock_shift;
 	u8 lock_width;
 	struct gpio_desc *cpu_voltage_gpio;
-	enum voltage_level cpu_current_volatge;
+	enum voltage_level cpu_current_voltage;
 };
 
 struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev, int nr_clks);

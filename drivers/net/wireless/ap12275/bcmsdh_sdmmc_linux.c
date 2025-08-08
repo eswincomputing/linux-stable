@@ -89,11 +89,11 @@ static int sdioh_probe(struct sdio_func *func)
 	osl_t *osh = NULL;
 	sdioh_info_t *sdioh = NULL;
 
-	sd_err(("bus num (host idx)=%d, slot num (rca)=%d, caps=0x%x\n",
+	sd_info(("bus num (host idx)=%d, slot num (rca)=%d, caps=0x%x\n",
 		host_idx, rca, func->card->host->caps));
 	adapter = dhd_wifi_platform_get_adapter(SDIO_BUS, host_idx, rca);
 	if (adapter != NULL) {
-		sd_err(("found adapter info '%s'\n", adapter->name));
+		sd_info(("found adapter info '%s'\n", adapter->name));
 		adapter->bus_type = SDIO_BUS;
 		adapter->bus_num = host_idx;
 		adapter->slot_num = rca;
@@ -122,11 +122,11 @@ static int sdioh_probe(struct sdio_func *func)
 		goto fail;
 	}
 	if (!(func->card->host->caps & MMC_CAP_NONREMOVABLE)) {
-		sd_err(("%s: MMC_CAP_NONREMOVABLE not enabled in SDIO driver\n", __FUNCTION__));
+		sd_info(("%s: MMC_CAP_NONREMOVABLE not enabled in SDIO driver\n", __FUNCTION__));
 //		func->card->host->caps |= MMC_CAP_NONREMOVABLE;
 	}
 	if ((func->card->host->caps & MMC_CAP_NEEDS_POLL)) {
-		sd_err(("%s: MMC_CAP_NEEDS_POLL enabled in SDIO driver\n", __FUNCTION__));
+		sd_info(("%s: MMC_CAP_NEEDS_POLL enabled in SDIO driver\n", __FUNCTION__));
 //		func->card->host->caps &= ~MMC_CAP_NEEDS_POLL;
 	}
 	sdioh->bcmsdh = bcmsdh_probe(osh, &func->dev, sdioh, adapter, SDIO_BUS, host_idx, rca);
@@ -172,7 +172,7 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 	if (func == NULL)
 		return -EINVAL;
 
-	sd_err(("%s: Enter num=%d\n", __FUNCTION__, func->num));
+	sd_info(("%s: Enter num=%d\n", __FUNCTION__, func->num));
 	sd_info(("sdio_bcmsdh: func->class=%x\n", func->class));
 	sd_info(("sdio_vendor: 0x%04x\n", func->vendor));
 	sd_info(("sdio_device: 0x%04x\n", func->device));
@@ -310,9 +310,9 @@ static int dummy_probe(struct sdio_func *func,
                               const struct sdio_device_id *id)
 {
 	if (func)
-		sd_err(("%s: func->num=0x%x; \n", __FUNCTION__, func->num));
+		sd_info(("%s: func->num=0x%x; \n", __FUNCTION__, func->num));
 	if (id) {
-		sd_err(("%s: class=0x%x; vendor=0x%x; device=0x%x\n", __FUNCTION__,
+		sd_info(("%s: class=0x%x; vendor=0x%x; device=0x%x\n", __FUNCTION__,
 			id->class, id->vendor, id->device));
 		if ((id->vendor != SDIO_VENDOR_ID_BROADCOM) &&
 			(id->vendor != SDIO_VENDOR_ID_SYNAPTICS))

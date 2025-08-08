@@ -240,6 +240,9 @@
 
 &d0_lpcpu {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio6_default>;
+	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 };
 
 &pcie {
@@ -948,3 +951,9 @@
 	status = "okay";
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-1500000000;
+	/delete-node/ opp-1600000000;
+	/delete-node/ opp-1700000000;
+	/delete-node/ opp-1800000000;
+};

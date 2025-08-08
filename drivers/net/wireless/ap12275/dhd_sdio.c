@@ -4091,13 +4091,13 @@ dhd_bus_check_srmemsize(dhd_pub_t *dhdp)
 			/* 43436/8 default sr size is 64K */
 			bus->srmemsize = 0x10000;
 		}
-		DHD_ERROR(("%s srmem size is set %x\n", __func__, bus->srmemsize));
+		DHD_INFO(("%s srmem size is set %x\n", __func__, bus->srmemsize));
 	}
 
 	err = dhd_iovar(dhdp, 0, "bus:srmem_size", NULL, 0,
 		(char *)&srmem_size, sizeof(srmem_size), FALSE);
 	if (err) {
-		DHD_ERROR(("%s : srmem_size no need to change.\n", __FUNCTION__));
+		DHD_INFO(("%s : srmem_size no need to change.\n", __FUNCTION__));
 		return;
 	}
 
@@ -5311,7 +5311,7 @@ dhdsdio_write_vars(dhd_bus_t *bus)
 		/* XXX: WAR for PR85623 */
 		if ((bus->sih->buscoretype == SDIOD_CORE_ID) && (bus->sdpcmrev == 7)) {
 			if (((varaddr & 0x3C) == 0x3C) && (varsize > 4)) {
-				DHD_ERROR(("PR85623WAR in place\n"));
+				DHD_INFO(("PR85623WAR in place\n"));
 				varsize += 4;
 				varaddr -= 4;
 			}
@@ -5353,9 +5353,9 @@ dhdsdio_write_vars(dhd_bus_t *bus)
 		}
 		/* Compare the org NVRAM with the one read from RAM */
 		if (memcmp(vbuffer, nvram_ularray, varsize)) {
-			DHD_ERROR(("%s: Downloaded NVRAM image is corrupted.\n", __FUNCTION__));
+			DHD_INFO(("%s: Downloaded NVRAM image is corrupted.\n", __FUNCTION__));
 		} else
-			DHD_ERROR(("%s: Download, Upload and compare of NVRAM succeeded.\n",
+			DHD_INFO(("%s: Download, Upload and compare of NVRAM succeeded.\n",
 			__FUNCTION__));
 
 		MFREE(bus->dhd->osh, nvram_ularray, varsize);
@@ -6289,7 +6289,7 @@ dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 
 	if ((bus->dhd->busstate == DHD_BUS_DOWN) || bus->dhd->hang_was_sent) {
 		/* if Firmware already hangs disbale any interrupt */
-		DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
+		DHD_INFO(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 		bus->dhd->busstate = DHD_BUS_DOWN;
 		bus->hostintmask = 0;
 		bcmsdh_intr_disable(bus->sdh);
@@ -6354,7 +6354,7 @@ dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 
 		/* Change our idea of bus state */
 		DHD_LINUX_GENERAL_LOCK(bus->dhd, flags);
-		DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
+		DHD_INFO(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 		bus->dhd->busstate = DHD_BUS_DOWN;
 		DHD_LINUX_GENERAL_UNLOCK(bus->dhd, flags);
 	}
@@ -6442,7 +6442,7 @@ dhd_txglom_enable(dhd_pub_t *dhdp, bool enable)
 	} else
 #endif /* BCMSDIOH_TXGLOM */
 		bus->txglom_enable = FALSE;
-	printf("%s: enable %d\n",  __FUNCTION__, bus->txglom_enable);
+	DHD_TRACE(("%s: enable %d\n",  __FUNCTION__, bus->txglom_enable));
 	dhd_conf_set_txglom_params(bus->dhd, bus->txglom_enable);
 	bcmsdh_set_mode(bus->sdh, bus->dhd->conf->txglom_mode);
 }
@@ -6474,7 +6474,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		dhd_os_sdlock(bus->dhd);
 
 	if (bus->sih->chip == BCM43362_CHIP_ID) {
-		printf("%s: delay 100ms for BCM43362\n", __FUNCTION__);
+		DHD_INFO(("%s: delay 100ms for BCM43362\n", __FUNCTION__));
 		OSL_DELAY(100000); // terence 20131209: delay for 43362
 	}
 
@@ -6500,7 +6500,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 	}
 
 	if (enable) {
-		DHD_ERROR(("Took %u usec before dongle is ready\n", tmo.elapsed));
+		DHD_INFO(("Took %u usec before dongle is ready\n", tmo.elapsed));
 		enable = ready;
 	} else {
 		DHD_ERROR(("dstatus when timed out on f2-fifo not ready = 0x%x\n", dstatus));
@@ -6556,7 +6556,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 
 #endif /* !BCMSPI */
 
-	DHD_ERROR(("%s: enable 0x%02x, ready 0x%02x (waited %uus)\n",
+	DHD_INFO(("%s: enable 0x%02x, ready 0x%02x (waited %uus)\n",
 	          __FUNCTION__, enable, ready, tmo.elapsed));
 
 #if defined(SDIO_ISR_THREAD)
@@ -6663,7 +6663,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 			R_SDREG(intstatus, &bus->regs->intstatus, sdr_retries);
 			intstatus &= bus->hostintmask;
 
-			DHD_ERROR(("%s: interrupts -- host %s device ena/pend 0x%02x/0x%02x\n"
+			DHD_INFO(("%s: interrupts -- host %s device ena/pend 0x%02x/0x%02x\n"
 			           "intstatus 0x%08x, hostmask 0x%08x\n", __FUNCTION__,
 			           (hostpending ? "PENDING" : "NOT PENDING"),
 			           devena, devpend, intstatus, bus->hostintmask));
@@ -6704,7 +6704,7 @@ exit:
 		bl_verif_status_t status;
 
 		(void)dhdsdio_read_fwstatus(bus, &status);
-		DHD_ERROR(("Verification status: (%08x)\n"
+		DHD_INFO(("Verification status: (%08x)\n"
 			"\tstatus: %d\n"
 			"\tstate: %u\n"
 			"\talloc_bytes: %u\n"
@@ -9862,11 +9862,11 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 
 	/* Return the window to backplane enumeration space for core access */
 	if (dhdsdio_set_siaddr_window(bus, si_enum_base(devid))) {
-		DHD_ERROR(("%s: FAILED to return to SI_ENUM_BASE\n", __FUNCTION__));
+		DHD_INFO(("%s: FAILED to return to SI_ENUM_BASE\n", __FUNCTION__));
 	}
 
 #if defined(DHD_DEBUG)
-	DHD_ERROR(("F1 signature read @0x18000000=0x%4x\n",
+	DHD_INFO(("F1 signature read @0x18000000=0x%4x\n",
 		bcmsdh_reg_read(bus->sdh, si_enum_base(devid), 4)));
 #endif
 
@@ -9958,7 +9958,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 	}
 
 #ifdef DHD_DEBUG
-	DHD_ERROR(("F1 signature OK, socitype:0x%x chip:0x%4x rev:0x%x pkg:0x%x\n",
+	DHD_INFO(("F1 signature OK, socitype:0x%x chip:0x%4x rev:0x%x pkg:0x%x\n",
 		bus->sih->socitype, bus->sih->chip, bus->sih->chiprev, bus->sih->chippkg));
 #endif /* DHD_DEBUG */
 
@@ -10065,7 +10065,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 				break;
 			default:
 				bus->dongle_ram_base = 0;
-				DHD_ERROR(("%s: WARNING: Using default ram base at 0x%x\n",
+				DHD_INFO(("%s: WARNING: Using default ram base at 0x%x\n",
 				           __FUNCTION__, bus->dongle_ram_base));
 			}
 		}
@@ -10073,7 +10073,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 		if (dhd_dongle_ramsize)
 			dhd_dongle_setramsize(bus, dhd_dongle_ramsize);
 
-		DHD_ERROR(("DHD: dongle ram size is set to %d(orig %d) at 0x%x\n",
+		DHD_INFO(("DHD: dongle ram size is set to %d(orig %d) at 0x%x\n",
 		           bus->ramsize, bus->orig_ramsize, bus->dongle_ram_base));
 
 		bus->srmemsize = si_socram_srmem_size(bus->sih);
@@ -10210,7 +10210,7 @@ dhdsdio_probe_init(dhd_bus_t *bus, osl_t *osh, void *sdh)
 	bcmsdh_cfg_write(sdh, SDIO_FUNC_0, SDIOD_CCCR_IOEN, SDIO_FUNC_ENABLE_1, NULL);
 #endif /* !BCMSPI */
 
-	DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
+	DHD_INFO(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 	bus->dhd->busstate = DHD_BUS_DOWN;
 	bus->sleeping = FALSE;
 	bus->rxflow = FALSE;
@@ -10994,12 +10994,12 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 	if (bcmerror == BCME_UNSUPPORTED) {
 		file_size = fwpkg->file_size;
-		DHD_ERROR(("%s Using SINGLE image (size %d)\n",
+		DHD_INFO(("%s Using SINGLE image (size %d)\n",
 			__FUNCTION__, file_size));
 	} else {
 		file_size = fwpkg_get_firmware_img_size(fwpkg);
 		strlcpy(bus->fwsig_filename, pfw_path, sizeof(bus->fwsig_filename));
-		DHD_ERROR(("%s Using COMBINED image (size %d)\n",
+		DHD_INFO(("%s Using COMBINED image (size %d)\n",
 			__FUNCTION__, file_size));
 	}
 	bus->fw_download_len = file_size;
@@ -11091,7 +11091,7 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 	}
 
 #ifdef DHD_DEBUG_DOWNLOADTIME
-	DHD_ERROR(("Firmware download time for %u bytes: %u ms\n",
+	DHD_INFO(("Firmware download time for %u bytes: %u ms\n",
 			firmware_sz, jiffies_to_msecs(jiffies - initial_jiffies)));
 #endif
 
@@ -11292,7 +11292,6 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 err:
 	if (memblock)
 		dhd_free_download_buffer(bus->dhd, memblock, memblock_len);
-
 	return bcmerror;
 }
 
@@ -11560,7 +11559,7 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 
 	if (flag == TRUE) {
 		if (!bus->dhd->dongle_reset) {
-			DHD_ERROR(("%s: == Power OFF ==\n", __FUNCTION__));
+			DHD_INFO(("%s: == Power OFF ==\n", __FUNCTION__));
 #ifdef DHD_SI_WD_RESET
 			if (CHIPID(bus->sih->chip) == BCM4381_CHIP_GRPID) {
 				DHD_ERROR(("%s: RESET PMU status\n", __FUNCTION__));
@@ -11595,13 +11594,13 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			dhdsdio_release_dongle(bus, bus->dhd->osh, TRUE, TRUE);
 #endif
 			bus->dhd->dongle_reset = TRUE;
-			DHD_ERROR(("%s: making dhdpub up FALSE\n", __FUNCTION__));
+			DHD_INFO(("%s: making dhdpub up FALSE\n", __FUNCTION__));
 			bus->dhd->up = FALSE;
 			dhd_txglom_enable(dhdp, FALSE);
 			dhd_os_sdunlock(dhdp);
 
 			DHD_LINUX_GENERAL_LOCK(bus->dhd, flags);
-			DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
+			DHD_INFO(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 			bus->dhd->busstate = DHD_BUS_DOWN;
 			DHD_LINUX_GENERAL_UNLOCK(bus->dhd, flags);
 
@@ -11612,10 +11611,10 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 	} else {
 		/* App must have restored power to device before calling */
 
-		printf("%s: == Power ON ==\n", __FUNCTION__);
+		DHD_INFO(("%s: == Power ON ==\n", __FUNCTION__));
 
 #ifdef DHD_SI_WD_RESET
-		DHD_ERROR(("%s: set si_wd FALSE\n", __FUNCTION__));
+		DHD_INFO(("%s: set si_wd FALSE\n", __FUNCTION__));
 		bus->dhd->si_wd = FALSE;
 #endif
 		if (bus->dhd->dongle_reset) {
@@ -11630,7 +11629,7 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 				bus->cl_devid)) {
 
 				DHD_LINUX_GENERAL_LOCK(bus->dhd, flags);
-				DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
+				DHD_INFO(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 				bus->dhd->busstate = DHD_BUS_DOWN;
 				DHD_LINUX_GENERAL_UNLOCK(bus->dhd, flags);
 				/* Attempt to download binary to the dongle */

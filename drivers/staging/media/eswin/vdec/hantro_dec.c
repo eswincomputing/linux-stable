@@ -99,6 +99,7 @@
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <dt-bindings/memory/eswin-win2030-sid.h>
 #include <linux/pm_runtime.h>
+#include <linux/es_proc.h>
 
 #include "subsys.h"
 #include "hantroaxife.h"
@@ -391,26 +392,6 @@ typedef struct {
 	int its_aux_core_id[HXDEC_MAX_CORES];
 } core_cfg;
 
-typedef struct _vdec_clk_rst {
-	struct reset_control        *rstc_cfg;
-	struct reset_control        *rstc_axi;
-	struct reset_control        *rstc_moncfg;
-	struct reset_control        *rstc_jd_cfg;
-	struct reset_control        *rstc_jd_axi;
-	struct reset_control        *rstc_vd_cfg;
-	struct reset_control        *rstc_vd_axi;
-	struct clk          *cfg_clk;
-	struct clk          *aclk;
-	struct clk          *jd_clk;
-	struct clk          *vd_clk;
-	struct clk          *vc_mux;
-	struct clk          *spll0_fout1;
-	struct clk          *spll2_fout1;
-	struct clk          *jd_pclk;
-	struct clk          *vd_pclk;
-	struct clk          *mon_pclk;
-} vdec_clk_rst_t;
-
 static hantrodec_t hantrodec_data; /* dynamic allocation? */
 
 static int ReserveIO(void);
@@ -420,6 +401,10 @@ static void ResetAsic(hantrodec_t *dev);
 
 static int vdec_clk_enable(vdec_clk_rst_t *vcrt);
 static int vdec_pm_enable(struct platform_device *pdev);
+static void vdec_abort_device(struct platform_device *pdev);
+static int vdec_wait_device_idle(struct platform_device *pdev);
+static void vdec_reset_device(struct platform_device *pdev);
+static void vdec_restart_device(struct platform_device *pdev);
 
 #ifdef HANTRODEC_DEBUG
 static void dump_regs(hantrodec_t *dev);
@@ -3739,10 +3724,11 @@ static int vdec_sys_clk_init(struct platform_device *pdev, vdec_clk_rst_t *vcrt)
 	return 0;
 }
 
-static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
+static int vdec_sys_clk_enable(struct device *dev, vdec_clk_rst_t *vcrt)
 {
 	int ret;
 	long rate;
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
 	ret = clk_set_parent(vcrt->vc_mux, vcrt->spll2_fout1);
 	if (ret < 0) {
@@ -3750,7 +3736,7 @@ static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
 		return ret;
 	}
 
-	rate = clk_round_rate(vcrt->aclk, VC_ACLK_HIGHEST);
+	rate = clk_round_rate(vcrt->aclk, prvdata->freq_def_aclk);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->aclk, rate);
 		if (ret) {
@@ -3760,23 +3746,25 @@ static int vdec_sys_clk_enable(vdec_clk_rst_t *vcrt)
 		LOG_INFO("VD set aclk to %ldHZ\n", rate);
 	}
 
-	rate = clk_round_rate(vcrt->jd_clk, VDEC_SYS_CLK_HIGHEST);
+	rate = clk_round_rate(vcrt->jd_clk, prvdata->freq_def_jd);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->jd_clk, rate);
 		if (ret) {
 			LOG_ERR("Video decoder: failed to set jd_clk: %d\n", ret);
 			return ret;
 		}
+		prvdata->freq_cur_jd = rate;
 		LOG_INFO("VD set jd_clk to %ldHZ\n", rate);
 	}
 
-	rate = clk_round_rate(vcrt->vd_clk, VDEC_SYS_CLK_HIGHEST);
+	rate = clk_round_rate(vcrt->vd_clk, prvdata->freq_def_vd);
 	if (rate > 0) {
 		ret = clk_set_rate(vcrt->vd_clk, rate);
 		if (ret) {
 			LOG_ERR("Video decoder: failed to set vd_clk: %d\n", ret);
 			return ret;
 		}
+		prvdata->freq_cur_vd = rate;
 		LOG_INFO("VD set vd_clk to %ldHZ\n", rate);
 	}
 
@@ -3933,54 +3921,111 @@ static int vdec_smmu_dynm_sid_init(struct platform_device *pdev, int numa_id)
 }
 #endif
 
-/* Temporary using this func to do crg init for d1 */
-int d1_clk_reset_init(void)
+/** status statistics*/
+static int dec_stat_proc_show(es_proc_entry_t *s)
 {
-	void __iomem *d1_crg_reg = NULL;
+	int core_id = 0;
+	const static char *module_type_str[] = {
+		"MODULE_TYPE_ENCODER",
+		"MODULE_TYPE_CUTREE",
+		"MODULE_TYPE_DECODER",
+		"MODULE_TYPE_JPEG_ENCODER",
+		"MODULE_TYPE_JPEG_DECODER",
+		"MAX_MODULE_TYPE"
+	};
+	u64 ktm = ktime_get_real_ns();
 
-	d1_crg_reg = ioremap(0x71828000, 0x1000);
-	writel(0x80000020, (d1_crg_reg + 0x1c4));
-	writel(0x30003f, (d1_crg_reg + 0x1d0));
-	writel(0x80000020, (d1_crg_reg + 0x1d8));
-	writel(0x80000020, (d1_crg_reg + 0x1dc));
-	writel(0x7, (d1_crg_reg + 0x458));
-	writel(0x3, (d1_crg_reg + 0x45c));
-	writel(0x3, (d1_crg_reg + 0x464));
+	for (core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+		u32 module_type = MAX_VCMD_TYPE;
+		u64 tot_cycles = 0;
+		u64 core_freq = 0;
 
+		hantrodec_dev_stat(core_id, &module_type, &tot_cycles, &core_freq);
+		es_seq_printf(s, "dec%d %s(%u) %llu %llu %llu\n"
+			, core_id
+			, module_type_str[module_type]
+			, module_type
+			, tot_cycles
+			, core_freq
+			, ktm);
+	}
 	return 0;
 }
+
+#define PROC_ENTRY_VDEC_STAT ("stat")
+static struct es_proc_dir_entry *es_proc_entry_vdec = NULL;
+
+int hantrodec_create_procfs(void)
+{
+	LOG_INFO("create proc fs.\n");
+	es_proc_entry_vdec = es_proc_mkdir(PROC_ENTRY_VDEC, 0555, NULL);
+	if (NULL == es_proc_entry_vdec) {
+		LOG_ERR("create proc vdec dir err.\n");
+		return -ENOMEM;
+	}
+
+	es_proc_entry_t *es_proc_entry_vdec_stat = es_create_proc_entry(PROC_ENTRY_VDEC_STAT, 0444, es_proc_entry_vdec);
+	if (NULL == es_proc_entry_vdec_stat) {
+		LOG_ERR("error create proc vdec stat file.\n");
+		goto err_stat;
+	}
+	es_proc_entry_vdec_stat->read = dec_stat_proc_show;
+	/*NULL means use the default routine*/
+	es_proc_entry_vdec_stat->write = NULL;
+	es_proc_entry_vdec_stat->open = NULL;
+
+	LOG_INFO("create proc vdec stat file success.\n");
+
+	return 0;
+
+err_stat:
+	es_remove_proc_entry(PROC_ENTRY_VDEC, NULL);
+	return -1;
+}
+
+void hantrodec_remove_procfs(void)
+{
+	es_remove_proc_entry(PROC_ENTRY_VDEC_STAT, es_proc_entry_vdec);
+	es_remove_proc_entry(PROC_ENTRY_VDEC, NULL);
+	LOG_INFO("remove proc vcenc stat file success.\n");
+}
+/** end of status statistics*/
 
 #if defined(CONFIG_PM_DEVFREQ)
 static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	int ret;
-	vdec_clk_rst_t *vcrt = dev_get_drvdata(dev);
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	vdec_clk_rst_t *vcrt = &prvdata->vcrt;
+	unsigned long freq_target = *freq;
 
 	LOG_DBG("%s:%d, dev = %p, freq = %lu\n", __func__, __LINE__, dev, *freq);
-	*freq = clk_round_rate(vcrt->jd_clk, *freq);
-	if (*freq > 0) {
+	*freq = clk_round_rate(vcrt->jd_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("%d: failed to round rate for jd_clk %ld\n", __LINE__, *freq);
+		return -1;
+	} else if (*freq != prvdata->freq_cur_jd) {
 		ret = clk_set_rate(vcrt->jd_clk, *freq);
 		if (ret) {
 			LOG_ERR("%d: failed to set jd_clk: %d\n", __LINE__, ret);
 			return ret;
 		}
-		LOG_DBG("set jd_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("%d: failed to round rate for jd_clk %ld\n", __LINE__, *freq);
-		return -1;
+		LOG_DBG("devfreq, set jd_clk %lu --> %luHZ\n", prvdata->freq_cur_jd, *freq);
+		prvdata->freq_cur_jd = *freq;
 	}
 
-	*freq = clk_round_rate(vcrt->vd_clk, *freq);
-	if (*freq > 0) {
+	*freq = clk_round_rate(vcrt->vd_clk, freq_target);
+	if (0 == *freq) {
+		LOG_ERR("%d: failed to round rate for vd_clk %ld\n", __LINE__, *freq);
+		return -1;
+	} else if (*freq != prvdata->freq_cur_vd) {
 		ret = clk_set_rate(vcrt->vd_clk, *freq);
 		if (ret) {
 			LOG_ERR("%d: failed to set vd_clk: %d\n", __LINE__, ret);
 			return ret;
 		}
-		LOG_DBG("set vd_clk to %ldHZ\n", *freq);
-	} else {
-		LOG_ERR("%d: failed to round rate for vd_clk %ld\n", __LINE__, *freq);
-		return -1;
+		LOG_INFO("devfreq, set vd_clk %lu --> %luHZ\n", prvdata->freq_cur_vd, *freq);
+		prvdata->freq_cur_vd = *freq;
 	}
 
 	return 0;
@@ -3988,11 +4033,29 @@ static int vdec_devfreq_target(struct device *dev, unsigned long *freq, u32 flag
 
 static int vdec_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 {
-	vdec_clk_rst_t *vcrt = dev_get_drvdata(dev);
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
-	*freq = clk_get_rate(vcrt->vd_clk);
+	*freq = prvdata->freq_cur_vd;
 
 	return 0;
+}
+
+static int vdec_devfreq_get_dev_status(struct device *dev,
+				     struct devfreq_dev_status *stat)
+{
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
+
+	stat->busy_time = 1024;
+	stat->total_time = 1024;
+	stat->current_frequency = prvdata->freq_cur_vd;
+	LOG_DBG("devfreq, get current vd freq = %lu\n", stat->current_frequency);
+
+	return 0;
+}
+
+static void vdec_devfreq_exit(struct device *dev)
+{
+
 }
 
 /** devfreq profile */
@@ -4002,6 +4065,15 @@ static struct devfreq_dev_profile vdec_devfreq_profile = {
 	.polling_ms = 1000, /** Poll every 1000ms to monitor load */
 	.target = vdec_devfreq_target,
 	.get_cur_freq = vdec_devfreq_get_cur_freq,
+	.get_dev_status = vdec_devfreq_get_dev_status,
+	.exit = vdec_devfreq_exit,
+	.is_cooling_device = true,
+};
+
+static struct devfreq_simple_ondemand_data vdec_devfreq_ondemand_data =
+{
+	.upthreshold = 80,
+	.downdifferential = 10,
 };
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -4012,11 +4084,15 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df = NULL;
 #endif
-	vdec_clk_rst_t *vcrt = devm_kzalloc(&pdev->dev, sizeof(vdec_clk_rst_t), GFP_KERNEL);
-	if (!vcrt) {
+	vdec_dev_prvdata *prvdata = devm_kzalloc(&pdev->dev, sizeof(vdec_dev_prvdata), GFP_KERNEL);
+	vdec_clk_rst_t *vcrt = NULL;
+
+	if (!prvdata) {
 		LOG_ERR("malloc drvdata failed\n");
 		return -ENOMEM;
 	}
+	platform_set_drvdata(pdev, (void *)prvdata);
+	vcrt = &prvdata->vcrt;
 
 	// pr_info("[%s]build version: %s\n", DEC_DEV_NAME, ES_VDEC_GIT_VER);
 	vdec_dev_num = vdec_device_nodes_check();
@@ -4025,10 +4101,13 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	platform_set_drvdata(pdev, (void *)vcrt);
-
 	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
 		numa_id = 0;
+	}
+
+	if (vdec_trans_device_nodes(pdev, numa_id)) {
+		LOG_ERR("Translates video decoder dts to subsys failed");
+		return -1;
 	}
 
 	LOG_INFO("initializing vdec, numa id %d\n", numa_id);
@@ -4040,10 +4119,16 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		LOG_ERR("%s, %d, failed to add OPP table\n", __func__, __LINE__);
 		return -1;
 	}
-	df = devm_devfreq_add_device(&pdev->dev, &vdec_devfreq_profile, "userspace", NULL);
+	df = devm_devfreq_add_device(&pdev->dev, &vdec_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &vdec_devfreq_ondemand_data);
 	if (IS_ERR(df)) {
 		LOG_ERR("%s, %d, add devfreq failed\n", __func__, __LINE__);
 		return -1;
+	}
+	/* Register opp_notifier to catch the change of OPP*/
+	ret = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (ret < 0) {
+		LOG_ERR("failed to register opp notifier\n");
+		return ret;
 	}
 #endif /** CONFIG_PM_DEVFREQ*/
 
@@ -4059,7 +4144,7 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	ret = vdec_sys_clk_enable(vcrt);
+	ret = vdec_sys_clk_enable(&pdev->dev, vcrt);
 	if (ret < 0) {
 		LOG_ERR("vdec: clk enable failed");
 		return -1;
@@ -4074,15 +4159,7 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 	if (!numa_id)
 		platformdev = pdev;
 	else
-	{
 		platformdev_d1 = pdev;
-		d1_clk_reset_init();
-	}
-
-	if (vdec_trans_device_nodes(pdev, numa_id)) {
-		LOG_ERR("Translates video decoder dts to subsys failed");
-		return -1;
-	}
 
 #ifdef SUPPORT_DMA_HEAP
 	ret = win2030_tbu_power(&pdev->dev, true);
@@ -4117,6 +4194,9 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 			LOG_WARN("enable pm for vdec-die1 failed\n");
 		}
 	}
+
+	/** create procfs*/
+	hantrodec_create_procfs();
 	return ret;
 }
 
@@ -4127,6 +4207,7 @@ static int vdec_pm_enable(struct platform_device *pdev) {
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_idle(&pdev->dev);
 
 	return 0;
 }
@@ -4137,6 +4218,9 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 	int ret;
 #endif
 	vdec_clk_rst_t *vcrt;
+
+	/** remove procfs*/
+	hantrodec_remove_procfs();
 
 	pm_runtime_disable(&pdev->dev);
 
@@ -4157,10 +4241,21 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 }
 
 static int eswin_vdec_runtime_suspend(struct device *dev) {
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
 
-	vcrt = dev_get_drvdata(dev);
+	vcrt = &prvdata->vcrt;
+	LOG_DBG("runtime suspend enter\n");
+	ret = vdec_wait_device_idle(pdev);
+	if (!ret) {
+		LOG_ERR("Timeout for vdec_suspend\n");
+		return -ETIMEDOUT;
+	} else if (ret < 0) {
+		LOG_ERR("Interrupt triggered while vdec_suspend\n");
+		return -ERESTARTSYS;
+	}
 	if (vcrt) {
 		ret = win2030_tbu_power(dev, false);
 		if (ret != 0) {
@@ -4169,6 +4264,7 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 		}
 		ret = vdec_clk_disable(vcrt);
 	}
+	LOG_DBG("runtime suspend done\n");
 	return ret;
 }
 
@@ -4178,7 +4274,9 @@ static int eswin_vdec_runtime_resume(struct device *dev) {
 	int ret = -1;
 	u8 numa_id = (pdev == platformdev) ? 0 : 1;
 
-	vcrt = dev_get_drvdata(dev);
+	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
+	vcrt = &prvdata->vcrt;
+	LOG_DBG("runtime resume enter\n");
 	if (vcrt) {
 		ret = vdec_clk_enable(vcrt);
 		if (ret) {
@@ -4198,26 +4296,32 @@ static int eswin_vdec_runtime_resume(struct device *dev) {
 			return -1;
 		}
 #endif
-
-		if (vcmd == 0) {
-			/** <todo> for normal*/
-		} else {
-			/** reset vc8000d vcmd*/
-			for (u32 core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
-				if (numa_id_array[core_id] == numa_id) {
-					hantrovcmd_reset(core_id);
-				}
-			}
-		}
+		vdec_reset_device(pdev);
 	}
+	LOG_DBG("runtime resume done\n");
 	return ret;
 }
 
 /** <TODO> the jd & vd should be seperated as two devices*/
-int vdec_wait_device_idle(struct platform_device *pdev) {
+static void vdec_abort_device(struct platform_device *pdev) {
+	if (pdev == platformdev) {
+		/** abort the devices*/
+		hantrovcmd_abort(0);
+		hantrovcmd_abort(1);
+	} else if (pdev == platformdev_d1) {
+		/** abort the devices*/
+		hantrovcmd_abort(2);
+		hantrovcmd_abort(3);
+	} else {
+		LOG_ERR("vdec_abort_device, Unknown platform device = 0x%llx\n", (unsigned long long)pdev);
+	}
+}
+
+static int vdec_wait_device_idle(struct platform_device *pdev) {
 	int ret;
 
 	if (pdev == platformdev) {
+		/** wait for the devices be idle*/
 		ret = hantrovcmd_wait_core_idle(0, msecs_to_jiffies(500));
 		if (ret <= 0) {
 			return ret;
@@ -4226,6 +4330,7 @@ int vdec_wait_device_idle(struct platform_device *pdev) {
 		return ret;
 	}
 	else if (pdev == platformdev_d1) {
+		/** wait for the devices be idle*/
 		ret = hantrovcmd_wait_core_idle(2, msecs_to_jiffies(500));
 		if (ret <= 0) {
 			return ret;
@@ -4234,36 +4339,65 @@ int vdec_wait_device_idle(struct platform_device *pdev) {
 		return ret;
 	}
 
-	LOG_ERR("Unknown platform device = %p\n", pdev);
+	LOG_ERR("vdec_wait_device_idle, Unknown platform device = 0x%llx\n", (unsigned long long)pdev);
 	return 1;
+}
+
+static void vdec_reset_device(struct platform_device *pdev) {
+	if (vcmd == 0) {
+		/** <todo> for normal*/
+	} else {
+		u8 numa_id = (pdev == platformdev) ? 0 : 1;
+
+		/** reset vc8000d vcmd*/
+		for (u32 core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+			if (numa_id_array[core_id] == numa_id) {
+				hantrovcmd_reset(core_id);
+			}
+		}
+	}
+}
+
+static void vdec_restart_device(struct platform_device *pdev) {
+	if (vcmd == 0) {
+		/** <todo> for normal*/
+	} else {
+		u8 numa_id = (pdev == platformdev) ? 0 : 1;
+
+		/** restart vc8000d vcmd*/
+		for (u32 core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
+			if (numa_id_array[core_id] == numa_id) {
+				hantrovcmd_restart(core_id);
+			}
+		}
+	}
 }
 
 static int eswin_vdec_suspend(struct device *dev) {
 	int ret = 0;
-	struct platform_device *pdev = NULL;
 
+	LOG_DBG("system suspend enter\n");
 	if (!pm_runtime_status_suspended(dev)) {
-		pdev = container_of(dev, struct platform_device, dev);
-		ret = vdec_wait_device_idle(pdev);
-		if (!ret) {
-			LOG_ERR("Timeout for vdec_suspend\n");
-			return -ETIMEDOUT;
-		} else if (ret < 0) {
-			LOG_ERR("Interrupt triggered while vdec_suspend\n");
-			return -ERESTARTSYS;
-		}
-
+		LOG_DBG("system suspend work\n");
+		/** abort device firstly*/
+		vdec_abort_device(container_of(dev, struct platform_device, dev));
 		ret = eswin_vdec_runtime_suspend(dev);
 	}
+	LOG_DBG("system suspend done\n");
 	return ret;
 }
 
 static int eswin_vdec_resume(struct device *dev) {
 	int ret = 0;
 
+	LOG_DBG("system resume enter\n");
 	if (!pm_runtime_status_suspended(dev)) {
+		LOG_DBG("system resume work\n");
 		ret = eswin_vdec_runtime_resume(dev);
+		/** restart pending tasks*/
+		vdec_restart_device(container_of(dev, struct platform_device, dev));
 	}
+	LOG_DBG("system resume done\n");
 	return ret;
 }
 

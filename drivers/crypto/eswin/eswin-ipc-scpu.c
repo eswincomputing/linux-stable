@@ -19,6 +19,8 @@
  * Authors: Min Lin <linmin@eswincomputing.com>
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/types.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -48,6 +50,8 @@
 #include <linux/idr.h>
 #include <linux/dma-map-ops.h>
 #include <asm/smp.h>
+#include <linux/hw_random.h>
+#include <linux/random.h>
 
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <linux/dmabuf-heap-import-helper.h>
@@ -90,6 +94,7 @@ typedef struct ipc_private_data {
 
 struct ipc_session {
 	struct miscdevice miscdev;
+	struct hwrng rng;
 	struct mutex lock;
 	struct mbox_client client;
 	struct mbox_chan *mbox_channel;
@@ -167,7 +172,6 @@ static cipher_mem_resource_info_t *ipc_find_cipher_mem_rsc_info(struct ipc_sessi
 
 static int ipc_session_mem_info_get(struct ipc_session *session, cipher_create_handle_req_t *pstCreate_handle_req);
 static void ipc_session_mem_info_put(struct ipc_session *session);
-
 
 /*
 static struct page *dma_common_vaddr_to_page(void *cpu_addr)
@@ -1492,7 +1496,7 @@ static int ipc_session_mem_info_get(struct ipc_session *session, cipher_create_h
 	for (i = 0; i < kinfo_cnt; i++) {
 		pstK_dma_info = &pstCreate_handle_req->k_dma_infos[i];
 		pstCipher_mem_rsc_infos[i] = ipc_find_cipher_mem_rsc_info(session, pstK_dma_info->id);
-		if (pstCipher_mem_rsc_infos[i] == NULL) 
+		if (pstCipher_mem_rsc_infos[i] == NULL)
 		{
 			dev_err(dev, "Failed to find cipher_mem_rsc_info by id(%d)\n", pstK_dma_info->id);
 			for (j = 0; j < i; j++) {
@@ -1529,16 +1533,140 @@ static void ipc_session_mem_info_put(struct ipc_session *session)
 	session->kinfo_cnt = 0;
 }
 
+static int ipc_msg_mbox_tx(struct ipc_session *session, cipher_create_handle_req_t* req_handle)
+{
+	req_service_t *service_req = NULL;
+	int ret = 0;
+	unsigned long time;
+	struct device *dev = session->miscdev.parent;
+
+	if (!req_handle) {
+		pr_err("req_handle is NULL\n");
+		return -EINVAL;
+	}
+
+	service_req = &req_handle->service_req;
+	/* wait for the service to be ready */
+	time = jiffies;
+	while (mutex_trylock(&session->lock) == 0) {
+		if (msleep_interruptible(10)) {
+			ret = -ERESTARTSYS; // interrupted by a signal from user-space
+			goto OUT_TX_ERR;
+		}
+		if (time_after(jiffies, time + MAX_RX_TIMEOUT)) {
+			pr_err("Time out waiting for mutex be released!\n");
+			ret = -ETIMEDOUT;
+			goto OUT_TX_ERR;
+		}
+	}
+	/* In the case that previous session was interrupted by signal from user-space,
+	   the mutex was unlocked by previous process, but service is still runnning for
+	   the previous process. So, current process needs to wait again.
+	*/
+	while (false == eswin_receive_data_ready(session)) {
+		if (msleep_interruptible(10)) {
+			ret = -ERESTARTSYS; // interrupted by a signal from user-space
+			mutex_unlock(&session->lock);
+			pr_debug("%s,pid[%d] was cancled by user!\n", __func__, task_pid_nr(current));
+			goto OUT_TX_ERR;
+		}
+		if (time_after(jiffies, time + MAX_RX_TIMEOUT)) {
+			pr_err("%s, pid[%d] Time out waiting for Cipher Service be ready!\n",
+				__func__, task_pid_nr(current));
+			ret = -ETIMEDOUT;
+			mutex_unlock(&session->lock);
+			goto OUT_TX_ERR;
+		}
+	}
+
+	pr_debug("---%s:pid[%d],SRVC_TYPE=%d get the session!\n",
+		__func__, task_pid_nr(current), service_req->serivce_type);
+	/* find the mem src info by id, and hold the infos by adding the krefcount */
+	ret = ipc_session_mem_info_get(session, req_handle);
+	if (ret) {
+		pr_err("Failed to hold the cipher_mem_src_info\n");
+		mutex_unlock(&session->lock);
+		goto OUT_TX_ERR;
+	}
+
+	ret = do_ipc_msg_tx(session, service_req);
+	if (ret == 0) {
+		ret = -ETIMEDOUT;
+		atomic_set(&session->receive_data_ready, true);
+		mutex_unlock(&session->lock);
+		dev_err(dev,"pid[%d],session->num:%d,timeout!!!\n",
+			task_pid_nr(current), session->num);
+		goto OUT_TX_ERR;
+	}
+	else if(ret < 0) {
+		mutex_unlock(&session->lock);
+		dev_dbg(dev,"pid[%d],session->num:%d,cancled!!!\n",
+			task_pid_nr(current), session->num);
+		goto OUT_TX_ERR;
+	}
+
+	return 0;
+
+OUT_TX_ERR:
+	return ret;
+}
+
+/**
+ * check the ipc service status
+ */
+int eswin_ipc_session_service_ready(void *pdev)
+{
+	struct ipc_session *session = (struct ipc_session *)platform_get_drvdata((struct platform_device *)pdev);
+	if (!session) {
+		return false;
+	}
+
+	return eswin_ipc_service_ready(session);
+}
+EXPORT_SYMBOL_GPL(eswin_ipc_session_service_ready);
+
+/**
+ * @brief hanlde the request from kernel.
+ * @param pdev refer to ipc_session's platfromdevice.
+ * @param req_handle differents type of request.
+ * @return error or success code
+ */
+int eswin_ipc_session_kernel_request(void *pdev, cipher_create_handle_req_t *req_handle,
+	 res_service_t *res_srv)
+{
+	struct ipc_session *session = platform_get_drvdata((struct platform_device *)pdev);
+	int ret = 0;
+
+	if (!res_srv) {
+		return -EINVAL;
+	}
+
+	if (!session || !atomic_read(&session->ipc_service_ready)) {
+		pr_err("IPC session is not ready\n");
+		return -EBUSY;
+	}
+
+	// Note: session will be locked in following ipc_msg_mbox_tx
+	ret = ipc_msg_mbox_tx(session, req_handle);
+	if (ret < 0) {
+		goto OUT_REQ;
+	}
+
+	memcpy(res_srv, &session->res_srvc, sizeof(*res_srv));
+	mutex_unlock(&session->lock);
+
+OUT_REQ:
+	return ret;
+}
+EXPORT_SYMBOL_GPL(eswin_ipc_session_kernel_request);
+
 static int ipc_ioctl_msg_commu(process_data_list_t *pstProc_data_list, unsigned int cmd, void __user *user_arg)
 {
 	struct ipc_session *session = pstProc_data_list->session;
 	struct device *dev = session->miscdev.parent;
+	cipher_create_handle_req_t *pstCreate_handle_req;// = &stCreate_handle_req;
 	int ret = 0;
 	unsigned int cmd_size = 0;
-	// cipher_create_handle_req_t stCreate_handle_req;
-	cipher_create_handle_req_t *pstCreate_handle_req;// = &stCreate_handle_req;
-	req_service_t *pService_req = NULL;
-	unsigned long time;
 
 	pr_debug("---%s:%d,pid[%d]---\n",
 		__func__, __LINE__, task_pid_nr(current));
@@ -1556,73 +1684,18 @@ static int ipc_ioctl_msg_commu(process_data_list_t *pstProc_data_list, unsigned 
 		ret = -EFAULT;
 		goto OUT_FREE;
 	}
-	pService_req = &pstCreate_handle_req->service_req;
 
-	/* wait for the service to be ready */
-	time = jiffies;
-	while (mutex_trylock(&session->lock) == 0) {
-		if (msleep_interruptible(10)) {
-			ret = -ERESTARTSYS; // interrupted by a signal from user-space
-			goto OUT_FREE;
-		}
-		if (time_after(jiffies, time + MAX_RX_TIMEOUT)) {
-			pr_err("Time out waiting for mutex be released!\n");
-			ret = -ETIMEDOUT;
-			goto OUT_FREE;
-		}
-	}
-	/* In the case that previous session was interrupted by signal from user-space,
-	   the mutex was unlocked by previous process, but service is still runnning for
-	   the previous process. So, current process needs to wait again.
-	*/
-	while (false == eswin_receive_data_ready(session)) {
-		if (msleep_interruptible(10)) {
-			ret = -ERESTARTSYS; // interrupted by a signal from user-space
-			mutex_unlock(&session->lock);
-			pr_debug("%s,pid[%d] was cancled by user!\n", __func__, task_pid_nr(current));
-			goto OUT_FREE;
-		}
-		if (time_after(jiffies, time + MAX_RX_TIMEOUT)) {
-			pr_err("%s, pid[%d] Time out waiting for Cipher Service be ready!\n",
-				__func__, task_pid_nr(current));
-			ret = -ETIMEDOUT;
-			mutex_unlock(&session->lock);
-			goto OUT_FREE;
-		}
-	}
-
-	pr_debug("---%s:pid[%d],SRVC_TYPE=%d get the session!\n",
-		__func__, task_pid_nr(current), pService_req->serivce_type);
-	/* find the mem src info by id, and hold the infos by adding the krefcount */
-	ret = ipc_session_mem_info_get(session, pstCreate_handle_req);
-	if (ret) {
-		pr_err("Failed to hold the cipher_mem_src_info\n");
-		mutex_unlock(&session->lock);
+	ret = ipc_msg_mbox_tx(session, pstCreate_handle_req);
+	if (ret < 0) {
+		dev_err(dev, "Failed to send message via mailbox\r\n");
 		goto OUT_FREE;
 	}
-
-	ret = do_ipc_msg_tx(session, pService_req);
-	if (ret == 0) {
-		ret = -ETIMEDOUT;
-		mutex_unlock(&session->lock);
-		dev_err(dev,"pid[%d],session->num:%d,timeout!!!\n",
-			task_pid_nr(current), session->num);
-		goto OUT_FREE;
-	}
-	else if(ret < 0) {
-		mutex_unlock(&session->lock);
-		dev_dbg(dev,"pid[%d],session->num:%d,cancled!!!\n",
-			task_pid_nr(current), session->num);
-		goto OUT_FREE;
-	}
-	else
-		ret = 0;
 
 	/* copy response data to user */
 	pr_debug("---%s:%d,(%d), sizeof(res_srvc)=0x%lx, res_size=0x%x\n",
 		__func__, __LINE__, task_pid_nr(current), sizeof(session->res_srvc), session->res_size);
 	pr_debug("---%s:pid[%d],SRVC_TYPE=%d release the session!\n",
-		__func__, task_pid_nr(current), pService_req->serivce_type);
+		__func__, task_pid_nr(current), pstCreate_handle_req->service_req.serivce_type);
 	memcpy(&pstCreate_handle_req->service_resp, &session->res_srvc, session->res_size);
 	mutex_unlock(&session->lock);
 
@@ -2261,6 +2334,24 @@ static int ipc_cipher_destroy_all_handles(struct ipc_session *session)
 	return ret;
 }
 
+static int eswin_ipc_suspend(struct device *dev)
+{
+	struct ipc_session *session = dev_get_drvdata(dev);
+
+	atomic_set(&session->ipc_service_ready, false);
+	return 0;
+}
+
+static int eswin_ipc_resume(struct device *dev)
+{
+	struct ipc_session *session = dev_get_drvdata(dev);
+
+	atomic_set(&session->ipc_service_ready, true);
+	return 0;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(eswin_ipc_pm_ops, eswin_ipc_suspend, eswin_ipc_resume);
+
 static int eswin_ipc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2342,6 +2433,7 @@ static int eswin_ipc_probe(struct platform_device *pdev)
 
 	atomic_set(&session->receive_data_ready, true);
 	atomic_set(&session->ipc_service_ready, true);
+
 	pr_debug("sizeof(cipher_create_handle_req_t)=%ld, sizeof(req_service_t)=%ld, sizeof(res_service_t)=%ld, sizeof(req_data_domain_t)=%ld\n",
 		sizeof(cipher_create_handle_req_t), sizeof(req_service_t), sizeof(res_service_t), sizeof(req_data_domain_t));
 
@@ -2394,6 +2486,7 @@ static struct platform_driver eswin_ipc_driver = {
 		.name = "win2030-ipc",
 		.of_match_table = eswin_ipc_match,
 		.suppress_bind_attrs	= true,
+		.pm = pm_sleep_ptr(&eswin_ipc_pm_ops),
 	},
 	.probe = eswin_ipc_probe,
 	.remove = eswin_ipc_remove,

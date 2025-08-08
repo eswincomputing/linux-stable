@@ -191,7 +191,7 @@ source "drivers/iommu/iommufd/Kconfig"
 config IRQ_REMAP
 	bool "Support for Interrupt Remapping"
 	depends on X86_64 && X86_IO_APIC && PCI_MSI && ACPI
-	select DMAR_TABLE
+	select DMAR_TABLE if INTEL_IOMMU
 	help
 	  Supports Interrupt remapping for IO-APIC and MSI devices.
 	  To use x2apic mode in the CPU's which support x2APIC enhancements or
@@ -411,6 +411,12 @@ config ARM_SMMU_V3_SVA
 
 	  Say Y here if your system supports SVA extensions such as PCIe PASID
 	  and PRI.
+
+config ESWIN_PCIE_VPU
+	bool "Eswin PCIe VPU Card StreamID Macro"
+	depends on ARM_SMMU_V3 || ARCH_ESWIN_EIC770X_SOC_FAMILY
+	help
+	  support for eswin pcie card smmu problem
 
 config S390_IOMMU
 	def_bool y if S390 && PCI

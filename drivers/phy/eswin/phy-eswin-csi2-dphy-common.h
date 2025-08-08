@@ -1,6 +1,7 @@
 #ifndef _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 #define _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 
+#include <media/eswin/eswin_vi.h>
 #include "es-camera-module.h"
 #include "es-dvp2axi-config.h"
 
@@ -38,6 +39,18 @@ struct csi2dphy_reg {
 
 #define MAX_DPHY_SENSORS	(2)
 #define MAX_NUM_CSI2_DPHY	(0x2)
+#define CSI2_DPHY_4LANES	(0x4)
+#define CSI2_DPHY_2LANES	(0x2)
+
+struct reg_val {
+	u32 addr;
+	u32 val;
+};
+
+struct csi2_dphy_rate_table {
+	u64 rate;
+	struct reg_val reg_vals[10];
+};
 
 struct csi2_sensor {
 	struct v4l2_subdev *sd;
@@ -73,18 +86,14 @@ struct csi2_dphy {
 	int lane_mode;
 	const struct dphy_drv_data *drv_data;
 	struct esmodule_csi_dphy_param dphy_param;
+	int phy_num;
 };
 
 struct dphy_hw_drv_data {
-	const struct hsfreq_range *hsfreq_ranges;
-	int num_hsfreq_ranges;
-	const struct hsfreq_range *hsfreq_ranges_cphy;
-	int num_hsfreq_ranges_cphy;
-	const struct grf_reg *grf_regs;
-	int num_grf_regs;
-	const struct csi2dphy_reg *csi2dphy_regs;
-	int num_csi2dphy_regs;
-	void (*individual_init)(struct csi2_dphy_hw *hw);
+	const struct csi2_dphy_rate_table *dphy_hsfreq_ranges;
+	int dphy_num_hsfreq_ranges;
+	const struct csi2_dphy_rate_table *cphy_hsfreq_ranges;
+	int cphy_num_hsfreq_ranges;
 	int (*stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	enum csi2_dphy_chip_id chip_id;
@@ -100,9 +109,12 @@ struct csi2_dphy_hw {
 	phys_addr_t dphy_hw_phy_addr;
 	u32 phy_cfg_addr;
 	u32 csi_addr;
+	u32 combine_dphy_phy_addr;
 	void __iomem *hw_base_addr;
-	void __iomem *hw_base_phy0_addr;
+	void __iomem *phy_cfg_base_addr;
 	void __iomem *csi_base_addr;
+	void __iomem *combine_dphy_base_addr;
+
 	struct clk_bulk_data	*clks_bulk;
 	struct reset_control	*rsts_bulk;
 	struct csi2_dphy *dphy_dev[MAX_NUM_CSI2_DPHY];
@@ -114,6 +126,12 @@ struct csi2_dphy_hw {
 	int dphy_dev_num;
 	enum csi2_dphy_lane_mode lane_mode;
 
+	int num_lanes;
+	int lanes_array[4];
+	int lanes_dp_dn[4];
+	u64 rate;
+	struct csi2_dphy_rate_table dphy_rate_tbl;
+
 	int (*stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*ttl_mode_enable)(struct csi2_dphy_hw *hw);
@@ -121,6 +139,8 @@ struct csi2_dphy_hw {
 	int (*quick_stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*quick_stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 };
+
+
 
 int eswin_csi2_dphy_hw_init(void);
 int eswin_csi2_dphy_init(void);

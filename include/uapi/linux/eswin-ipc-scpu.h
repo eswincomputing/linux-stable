@@ -677,7 +677,6 @@ struct dmabuf_bank_info {
 	struct dma_allocation_data dma_alloc_info;
 };
 
-
 typedef struct {
 	int cpuid;
 	int nid;
@@ -696,6 +695,11 @@ typedef struct {
 	__u32 kinfo_cnt;
 	khandle_dma_allocation_data_t k_dma_infos[MAX_NUM_K_DMA_ALLOC_INFO];
 }cipher_create_handle_req_t;
+
+
+int eswin_ipc_session_kernel_request(void *pdev, cipher_create_handle_req_t *req_handle,
+	 res_service_t *res_srv);
+int eswin_ipc_session_service_ready(void *pdev);
 
 #define SCPU_IOC_MAGIC 'S'
 #define SCPU_IOC_ALLOCATE_MEM_BY_DRIVER_WITH_DMA_HEAP	_IOWR(SCPU_IOC_MAGIC, 0x1, struct dmabuf_bank_info)

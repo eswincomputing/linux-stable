@@ -91,6 +91,11 @@ int vvcam_isp_post_event(struct v4l2_subdev *sd, struct vvcam_isp_event_pkg *eve
     int timeout_ms = 200000;
     int i = 0;
 
+    if (!sd || !sd->dev || !sd->devnode) {
+        pr_err("%s: invalid sd/dev/devnode\n", __func__);
+        return -ENODEV;
+    }
+
     memset(&event, 0, sizeof(event));
 
     event.type   = VVCAM_ISP_DEAMON_EVENT;
@@ -261,6 +266,10 @@ int vvcam_isp_s_ctrl_event(struct vvcam_isp_dev *isp_dev,
 int vvcam_isp_g_ctrl_event(struct vvcam_isp_dev *isp_dev,
             int pad, struct v4l2_ctrl *ctrl)
 {
+    if (!isp_dev || !isp_dev->sd.dev || !isp_dev->sd.devnode) {
+        pr_err("%s: invalid isp_dev or sd not registered\n", __func__);
+        return -ENODEV;
+    }
     struct vvcam_isp_event_pkg *event_pkg = isp_dev->event_shm.virt_addr;
     int ret = 0;
     struct vvcam_isp_ctrl *isp_ctrl;

@@ -1382,7 +1382,10 @@ PMRAcquireKernelMappingDataDmaBuf(PMR_IMPL_PRIVDATA pvPriv,
 		goto fail;
 	}
 
+	_pvr_dma_resv_lock(psDmaBuf);
 	err = dma_buf_vmap(psDmaBuf, &psPrivData->sMap);
+	_pvr_dma_resv_unlock(psDmaBuf);
+
 	if (err != 0 || psPrivData->sMap.vaddr == NULL)
 	{
 		eError = PVRSRV_ERROR_PMR_NO_KERNEL_MAPPING;
@@ -1411,7 +1414,9 @@ static void PMRReleaseKernelMappingDataDmaBuf(PMR_IMPL_PRIVDATA pvPriv,
 	struct dma_buf *psDmaBuf = psPrivData->psAttachment->dmabuf;
 	int err;
 
+	_pvr_dma_resv_lock(psDmaBuf);
 	dma_buf_vunmap(psDmaBuf, &psPrivData->sMap);
+	_pvr_dma_resv_unlock(psDmaBuf);
 
 	do {
 		err = dma_buf_end_cpu_access(psDmaBuf, DMA_BIDIRECTIONAL);

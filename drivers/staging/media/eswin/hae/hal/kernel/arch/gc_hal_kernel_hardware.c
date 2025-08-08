@@ -684,6 +684,87 @@ _PowerStateTimerFunc(gctPOINTER Data)
 }
 #endif
 
+static gceSTATUS threadCheckHardwareCycle(gckHARDWARE hardware)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gctUINT64 mcClk = 0;
+    gctUINT64 shClk = 0;
+
+    if (hardware->mcStart) {
+        gcmkONERROR(gckHARDWARE_ExitQueryClock(hardware, hardware->mcStart, hardware->shStart, &mcClk, &shClk));
+        hardware->threadMcClk = mcClk;
+        hardware->threadShClk = shClk;
+    }
+
+    gcmkONERROR(gckHARDWARE_EnterQueryClock(hardware, &hardware->mcStart, &hardware->shStart));
+
+OnError:
+    return status;
+}
+
+static gceSTATUS threadCheckHardwareload(gckHARDWARE hardware)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmkONERROR(gckHARDWARE_QueryCycleCount(hardware, &hardware->totalCycle, &hardware->totalIdleCycle));
+
+    hardware->totalRunCycle += hardware->totalCycle - hardware->totalIdleCycle;
+
+    if (hardware->totalIdleCycle) {
+        hardware->load =
+                (gctUINT32)((gctUINT64)(hardware->totalCycle - hardware->totalIdleCycle) * 100 / hardware->totalCycle);
+    }
+
+    gcmkONERROR(gckHARDWARE_CleanCycleCount(hardware));
+
+OnError:
+    return status;
+}
+
+static gceSTATUS threadCheckHardwareUsage(gckHARDWARE hardware)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gceCHIPPOWERSTATE power = gcvPOWER_INVALID;
+
+    status = gckOS_AcquireMutex(hardware->os, hardware->powerMutex, 0);
+    if (status != gcvSTATUS_OK) {
+        return gcvSTATUS_INVALID_REQUEST;
+    }
+
+    gcmkONERROR(gckHARDWARE_QueryPowerStateUnlocked(hardware, &power));
+    /* exit when power not on and clear cycle info */
+    if (power != gcvPOWER_ON) {
+        hardware->totalCycle = 0;
+        hardware->totalIdleCycle = 0;
+        hardware->load = 0;
+        hardware->mcStart = 0;
+        hardware->shStart = 0;
+        hardware->threadMcClk = 0;
+        hardware->threadShClk = 0;
+        goto OnError;
+    }
+
+    gcmkONERROR(threadCheckHardwareload(hardware));
+
+    gcmkONERROR(threadCheckHardwareCycle(hardware));
+
+OnError:
+    gcmkVERIFY_OK(gckOS_ReleaseMutex(hardware->os, hardware->powerMutex));
+
+    return status;
+}
+
+static void _HardwareUsageTimerFunc(gctPOINTER Data)
+{
+    gckHARDWARE hardware = (gckHARDWARE)Data;
+
+    threadCheckHardwareUsage(hardware);
+
+    gckOS_StartTimer(hardware->os, hardware->hardwareLoadTimer, HARDWARE_USAGE_MEASURE_TIME_MS);
+
+    return;
+}
+
 static gceSTATUS
 _VerifyDMA(gckOS Os,
            gckHARDWARE Hardware,
@@ -2097,6 +2178,12 @@ gckHARDWARE_Construct(gckOS Os, gckKERNEL Kernel, gckHARDWARE *Hardware)
                                     &hardware->powerStateTimer));
 #endif
 
+    gcmkVERIFY_OK(gckOS_CreateTimer(Os, _HardwareUsageTimerFunc,
+                                    (gctPOINTER)hardware,
+                                    &hardware->hardwareLoadTimer));
+
+    gckOS_StartTimer(Os, hardware->hardwareLoadTimer, HARDWARE_USAGE_MEASURE_TIME_MS);
+
     for (i = 0; i < gcvENGINE_GPU_ENGINE_COUNT; i++) {
         gcmkONERROR(gckOS_AtomConstruct(Os,
                                         &hardware->pageTableDirty[i]));
@@ -2172,6 +2259,11 @@ OnError:
             gcmkVERIFY_OK(gckOS_DestroyTimer(Os, hardware->powerStateTimer));
         }
 #endif
+
+        if (hardware->hardwareLoadTimer != gcvNULL) {
+            gcmkVERIFY_OK(gckOS_StopTimer(Os, hardware->hardwareLoadTimer));
+            gcmkVERIFY_OK(gckOS_DestroyTimer(Os, hardware->hardwareLoadTimer));
+        }
 
         for (i = 0; i < gcvENGINE_GPU_ENGINE_COUNT; i++) {
             if (hardware->pageTableDirty[i] != gcvNULL)
@@ -2310,6 +2402,8 @@ gckHARDWARE_Destroy(gckHARDWARE Hardware)
     gcmkVERIFY_OK(gckOS_StopTimer(Hardware->os, Hardware->powerStateTimer));
     gcmkVERIFY_OK(gckOS_DestroyTimer(Hardware->os, Hardware->powerStateTimer));
 #endif
+    gcmkVERIFY_OK(gckOS_StopTimer(Hardware->os, Hardware->hardwareLoadTimer));
+    gcmkVERIFY_OK(gckOS_DestroyTimer(Hardware->os, Hardware->hardwareLoadTimer));
 
     for (i = 0; i < gcvENGINE_GPU_ENGINE_COUNT; i++)
         gcmkVERIFY_OK(gckOS_AtomDestroy(Hardware->os, Hardware->pageTableDirty[i]));
@@ -10890,7 +10984,10 @@ gckHARDWARE_CleanCycleCount(gckHARDWARE Hardware)
 
     gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x0007C, 0));
 
-    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00438, 0));
+    /* chip module is GC820, gckHARDWARE_QueryCycleCount will not use it.
+     * gckHARDWARE_EnterQueryClock will reset it for clk count.
+     */
+    // gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00438, 0));
 
     gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00078, 0));
 

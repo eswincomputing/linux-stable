@@ -230,7 +230,7 @@ static void dependency_consumer2producer(struct win_executor *executor,
 		    task->op_desc[i].event_op.submodel_type == E31)
 		{
 			npu_info->peer_type = E31;
-			dla_debug("e31 event op:%d,depcnt:%d,peer_type:%d\n", i,
+			dla_debug("e31 event op:%d,depcnt:%d,peer_type:%lld\n", i,
 			           dependency_count[i], npu_info->peer_type);
 		}
 

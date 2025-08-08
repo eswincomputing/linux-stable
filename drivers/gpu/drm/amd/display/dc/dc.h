@@ -49,7 +49,7 @@ struct dmub_notification;
 
 #define DC_VER "3.2.247"
 
-#define MAX_SURFACES 3
+#define MAX_SURFACES 4
 #define MAX_PLANES 6
 #define MAX_STREAMS 6
 #define MIN_VIEWPORT_SIZE 12
@@ -1563,7 +1563,9 @@ struct dc_link {
 		bool dongle_mode_timing_override;
 		bool blank_stream_on_ocs_change;
 		bool read_dpcd204h_on_irq_hpd;
+		bool force_dp_ffe_preset;
 	} wa_flags;
+	union dc_dp_ffe_preset forced_dp_ffe_preset;
 	struct link_mst_stream_allocation_table mst_stream_alloc_table;
 
 	struct dc_link_status link_status;
@@ -2116,11 +2118,11 @@ int dc_link_dp_dpia_handle_usb4_bandwidth_allocation_for_link(
  *
  * @dc: pointer to dc struct
  * @stream: pointer to all possible streams
- * @num_streams: number of valid DPIA streams
+ * @count: number of valid DPIA streams
  *
  * return: TRUE if bw used by DPIAs doesn't exceed available BW else return FALSE
  */
-bool dc_link_validate(struct dc *dc, const struct dc_stream_state *streams,
+bool dc_link_dp_dpia_validate(struct dc *dc, const struct dc_stream_state *streams,
 		const unsigned int count);
 
 /* Sink Interfaces - A sink corresponds to a display output device */

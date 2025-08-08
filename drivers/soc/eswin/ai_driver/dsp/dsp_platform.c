@@ -254,7 +254,7 @@ void es_dsp_reset(struct es_dsp_hw *hw)
 					DSP_RESET_REG_BIT_DEBUG_RESET);
 		WARN_ON(0 != ret);
 
-		dev_info(dsp->dev, "reset device, ret %d\n", ret);
+		dev_dbg(dsp->dev, "reset device, ret %d\n", ret);
 	}
 	return;
 }
@@ -358,7 +358,7 @@ void es_dsp_halt(struct es_dsp_hw *hw)
 				      DSP_RESET_REG_BIT_RUNSTALL_ON_RESET);
 		WARN_ON(0 != ret);
 
-		dev_info(dsp->dev, "halt device, ret %d\n", ret);
+		dev_dbg(dsp->dev, "halt device, ret %d\n", ret);
 	}
 	return;
 }
@@ -382,7 +382,7 @@ void es_dsp_release(struct es_dsp_hw *hw)
 			    REG_OFFSET(REG_OFFSET_DSP_RESET, dsp->process_id),
 			    &val);
 
-		dev_info(dsp->dev, "release device, ret %d, val=0x%x\n", ret,
+		dev_dbg(dsp->dev, "release device, ret %d, val=0x%x\n", ret,
 			 val);
 	}
 
@@ -1038,13 +1038,7 @@ err_uart:
 
 int es_dsp_pm_get_sync(struct es_dsp *dsp)
 {
-	int rc;
-
-	rc = pm_runtime_resume_and_get(dsp->dev);
-	if (rc < 0)
-		return rc;
-
-	return 0;
+	return pm_runtime_resume_and_get(dsp->dev);
 }
 
 void es_dsp_pm_put_sync(struct es_dsp *dsp)

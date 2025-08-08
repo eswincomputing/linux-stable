@@ -113,16 +113,13 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 	unsigned int reg_value;
 
     pr_debug("ISP Top Setting ...\n");
-    #ifdef SENSOR_OUT_2LANES
-	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, 5);
-    #else
-	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, 3);
-    #endif
+    
+    vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, es_vi_dev->phy_mode);
 
     vi_top_register_write(es_vi_dev, VI_TOP_CONTROLLER_SELECT, 0);
 	
 	val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
-    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
+    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP3_SEL_OFFSET);
     val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP1_SEL_OFFSET);
     val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
 
@@ -183,24 +180,13 @@ static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
     syscrg_register_write(regmap, 0x480, 0x1);///shutter_rst_ctl
     udelay(20000);
 
-
     syscrg_register_write(regmap, 0x184, 0x80000020);///vi_dwclk_ctl
     syscrg_register_write(regmap, 0x188, 0xc0000020);///vi_aclk_ctl
     syscrg_register_write(regmap, 0x18c, 0x80000020);///vi_dig_isp_clk_ctl
-	#ifdef CONFIG_EIC7700_EVB_VI
     syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
-	#else
-    syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
-	#endif
-    
-	#ifdef CONFIG_EIC7700_EVB_VI
-    syscrg_register_write(regmap, 0x194, 0x80000100);///vi_shutter0
-    syscrg_register_write(regmap, 0x198, 0x80000100);///vi_shutter1
-	#else
+
 	syscrg_register_write(regmap, 0x194, 0x80000180);///vi_shutter0
 	syscrg_register_write(regmap, 0x198, 0x80000180);///vi_shutter1
-	#endif
-
     syscrg_register_write(regmap, 0x19c, 0x80000100);///vi_shutter2
     syscrg_register_write(regmap, 0x1a0, 0x80000100);///vi_shutter3
     syscrg_register_write(regmap, 0x1a4, 0x80000100);///vi_shutter4
@@ -294,7 +280,7 @@ UNUSED_FUNC static int eswin_vi_sys_clk_config(struct eswin_vi_clk_rst *vi_crg)
 			pr_err("DW: failed to set aclk: %d\n", ret);
 			return ret;
 		}
-		pr_info("DW set aclk to %ldHZ\n", rate);
+		pr_debug("DW set aclk to %ldHZ\n", rate);
 	}
 
 	return 0;
@@ -350,7 +336,7 @@ UNUSED_FUNC static int eswin_vi_sys_reset_release(struct eswin_vi_clk_rst *vi_cr
 
 static int eswin_open(struct inode *inode, struct file *file)
 {
-    pr_info(DRIVER_NAME ": Device opened\n");
+    pr_debug(DRIVER_NAME ": Device opened\n");
     struct eswin_vi_device *es_vi_dev = container_of(inode->i_cdev, struct eswin_vi_device, es_vi_cdev);
     file->private_data = es_vi_dev;
     return 0;
@@ -358,19 +344,19 @@ static int eswin_open(struct inode *inode, struct file *file)
 
 static int eswin_release(struct inode *inode, struct file *file)
 {
-    pr_info(DRIVER_NAME ": Device closed\n");
+    pr_debug(DRIVER_NAME ": Device closed\n");
     return 0;
 }
 
 static ssize_t eswin_read(struct file *file, char __user *buffer, size_t len, loff_t *offset)
 {
-    pr_info(DRIVER_NAME ": Read operation not implemented\n");
+    pr_debug(DRIVER_NAME ": Read operation not implemented\n");
     return 0;
 }
 
 static ssize_t eswin_write(struct file *file, const char __user *buffer, size_t len, loff_t *offset)
 {
-    pr_info(DRIVER_NAME ": Write operation not implemented\n");
+    pr_debug(DRIVER_NAME ": Write operation not implemented\n");
     return len;
 }
 
@@ -387,17 +373,17 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     struct eswin_vi_device *es_vi_dev = file->private_data;
     struct soc_control_context soc_ctrl;
     struct isp_control_HxV isp_control_h_v;
-    pr_info(DRIVER_NAME ": IOCTL In\n");
+    pr_debug(DRIVER_NAME ": IOCTL In\n");
 
     switch (cmd) {
         case VI_IOCTL_RESET:
-            pr_info(DRIVER_NAME ": VI_IOCTL_RESET\n");
+            pr_debug(DRIVER_NAME ": VI_IOCTL_RESET\n");
             retval = copy_from_user(&soc_ctrl, (int __user *)arg, sizeof(soc_ctrl));
 		    CHECK_COPY_RETVAL(retval);
             ret = eswin_vi_reset(es_vi_dev, &soc_ctrl);
             break;
         case VI_IOCTL_ISP_H_V:
-            pr_info(DRIVER_NAME ": VI_IOCTL_ISP_H_V\n");
+            pr_debug(DRIVER_NAME ": VI_IOCTL_ISP_H_V\n");
             retval = copy_from_user(&isp_control_h_v, (int __user *)arg, sizeof(isp_control_h_v));
             es_vi_dev->isp_dvp0_hor = isp_control_h_v.horizontal;
             es_vi_dev->isp_dvp0_ver = isp_control_h_v.vertical;
@@ -407,7 +393,7 @@ long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             return -EINVAL;
     }
 
-    pr_info(DRIVER_NAME ": IOCTL Out\n");
+    pr_debug(DRIVER_NAME ": IOCTL Out\n");
 
     return ret;
 }
@@ -434,13 +420,11 @@ static int eswin_vi_probe(struct platform_device *pdev)
     struct media_device *media_dev;
     struct device_node *np = pdev->dev.of_node;
     struct resource* res;
+    int numa_id =0;
+    char class_name[32];
     __maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
 
-    pr_info("%s: enter\n", __func__);
     es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
-    
-    es_vi_dev->isp_dvp0_hor = SENSOR_OUT_H;
-    es_vi_dev->isp_dvp0_ver = SENSOR_OUT_V;
 
 #if 1
     //TODO: next step is to get the vi clk and rst from the device tree
@@ -502,7 +486,14 @@ static int eswin_vi_probe(struct platform_device *pdev)
         return ret;
     }
 
-    es_vi_dev->es_vi_class = class_create("eswin_vi_class");
+    ret = of_property_read_u32(np, "numa-node-id", &numa_id);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read numa-node-id property! Use Default 0!\n");
+        numa_id = 0;
+    }
+
+    snprintf(class_name, sizeof(class_name), "eswin_vi_class%d", numa_id);
+    es_vi_dev->es_vi_class = class_create(class_name);
     if (IS_ERR(es_vi_dev->es_vi_class)) {
         cdev_del(&es_vi_dev->es_vi_cdev);
         unregister_chrdev_region(major_number, 1);
@@ -510,7 +501,7 @@ static int eswin_vi_probe(struct platform_device *pdev)
     }
 
     // 创建设备节点
-    device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "eswin_vi");
+    device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "es_vi%d", numa_id);
     media_device_init(media_dev);
     media_dev->dev = &pdev->dev;
     media_dev->ops = &es_mdev_ops;
@@ -544,6 +535,26 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		}
 	}
 
+    ret = of_property_read_u32(np, "eswin,isp_dvp0_hor", &es_vi_dev->isp_dvp0_hor);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read isp_dvp0_hor property! Use Default 3280!\n");
+        es_vi_dev->isp_dvp0_hor = 3280;
+    }
+    ret = of_property_read_u32(np, "eswin,isp_dvp0_ver", &es_vi_dev->isp_dvp0_ver);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read isp_dvp0_ver property! Use Default 2464!\n");
+        es_vi_dev->isp_dvp0_ver = 2464;
+    }
+
+    dev_dbg(dev, "isp_dvp0_hor: %d\n", es_vi_dev->isp_dvp0_hor);
+    dev_dbg(dev,  "isp_dvp0_ver: %d\n", es_vi_dev->isp_dvp0_ver);
+
+    ret = of_property_read_u32(np, "phy_mode", &es_vi_dev->phy_mode);
+    if (ret) {
+        pr_warn(DRIVER_NAME ": Failed to read phy_mode property! Use Default 5!\n");
+        es_vi_dev->phy_mode = 5;
+    }
+
     es_vi_dev->syscrg_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscrg_csr");
     if (IS_ERR(es_vi_dev->syscrg_regmap)) {
         dev_err(dev, "No syscrg_csr phandle specified\n");
@@ -552,8 +563,6 @@ static int eswin_vi_probe(struct platform_device *pdev)
 
 
     eic770x_vi_init(es_vi_dev);
-    pr_info(DRIVER_NAME ": Probe successful\n");
-
 
     return 0;
 }
@@ -569,7 +578,7 @@ static int eswin_remove(struct platform_device *pdev)
     class_destroy(es_vi_dev->es_vi_class);
     unregister_chrdev(major_number, DEVICE_NAME);
     of_platform_depopulate(&pdev->dev);
-    pr_info(DRIVER_NAME ": Removed\n");
+    pr_debug(DRIVER_NAME ": Removed\n");
     return 0;
 }
 
@@ -607,5 +616,5 @@ module_exit(es_vi_drv_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("yufangxian@eswincomputing.com");
-MODULE_DESCRIPTION("ESWIN VI TOP Driver");
+MODULE_DESCRIPTION("ESWIN VI Driver");
 MODULE_VERSION("0.1");

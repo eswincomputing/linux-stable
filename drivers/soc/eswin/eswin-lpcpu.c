@@ -52,7 +52,7 @@ struct lowpower_info {
 };
 
 #define LPCPU_IOC_MAGIC 'L'
-#define LPCPU_IOC_SAVEPOWER                          \
+#define LPCPU_IOC_SAVEPOWER						  \
 	_IOWR(LPCPU_IOC_MAGIC, 0x1, struct lowpower_info)
 
 #define FW_LOAD_UNKNOW 0
@@ -148,15 +148,15 @@ static int eswin_lpcpu_open(struct inode *inode, struct file *filp)
 }
 
 static ssize_t eswin_lpcpu_read(struct file *filp, char __user *userbuf,
-				      size_t count, loff_t *ppos)
+					  size_t count, loff_t *ppos)
 {
 	printk("lpcpu read\n");
 	return 0;
 }
 
 static ssize_t eswin_lpcpu_write(struct file *filp,
-				       const char __user *userbuf, size_t count,
-				       loff_t *ppos)
+					   const char __user *userbuf, size_t count,
+					   loff_t *ppos)
 {
 	printk("lpcpu write\n");
 	u8 msg[8];
@@ -192,7 +192,7 @@ static int eswin_lpcpu_release(struct inode *inode, struct file *filp)
 }
 
 static long eswin_lpcpu_ioctl(struct file *filp, unsigned int cmd,
-			    unsigned long arg)
+				unsigned long arg)
 {
 	struct lowpower_info lowpower;
 	struct device *dev = lpcpu->mdev.parent;
@@ -286,16 +286,20 @@ static const struct file_operations eswin_lpcpu_ops = {
 	.unlocked_ioctl = eswin_lpcpu_ioctl,
 };
 
-static int lpcpu_boot_status(struct mbox_chan *mbox_channel, u32 vdd_config_msg)
+static int lpcpu_boot_status(struct mbox_chan *mbox_channel, u32 boot_config_msg,
+		u32 boot_config_msg_l)
 {
 	int ret = 0;
 	u8 msg[8];
 	msg[0] = 0xca;
 	msg[1] = 0xec;
 	msg[2] = 0x55;
-    // vdd config msg
-    msg[4] = vdd_config_msg & 0xff;
-    msg[7] = (vdd_config_msg >> 24) & 0xff;
+	// boot config msg
+	msg[3] = (boot_config_msg_l >> 24) & 0xff;
+	msg[4] = boot_config_msg & 0xff;
+	msg[5] = (boot_config_msg >> 8) & 0xff;
+	msg[6] = (boot_config_msg >> 16) & 0xff;
+	msg[7] = (boot_config_msg >> 24) & 0xff;
 
 	ret = mbox_send_message(mbox_channel, msg);
 	if (ret < 0){
@@ -316,8 +320,8 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 	int numa_id = 0;
 	int ret;
 	long timeout;
-    u32 vdd_config_gpio = 0, vdd_config_die = 0, vdd_config_polarity = 0;
-    u32 buff[3], vdd_config_msg = 0;
+	u32 config_gpio = 0, config_die = 0, config_polarity = 0, buff[3];
+	u32 boot_config_msg = 0, boot_config_msg_l = 0;
 
 	lpcpu = devm_kzalloc(dev, sizeof(*lpcpu), GFP_KERNEL);
 	if (!lpcpu)
@@ -358,32 +362,83 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		goto err_mailbox;
 	}
 
-    /* soc vdd config
-     * vdd_config_msg:  31      can not be used
-     *                  30      vdd config exists 1: exist 0: not exist
-     *                  29:25   reserved
-     *                  24      soc vdd polarity 0: positive 1: negative
-     *                  23:8    reserved
-     *                  7       die number 0-1, ignored on single die chips
-     *                  6:0     gpio number 0-127
-     * of_property:     vddctrl = <GPIO [POLARITY] [DIE]>;
-     *                  GPIO:       gpio port number which vdd control uses, range: 0-127
-     *                  POLARITY:   gpio level polarity, default: 0
-     *                              0: positive, high -> high vdd, low -> low vdd
-     *                              1: negative, high -> low vdd, low -> high vdd
-     *                  DIE:        die number, range 0-1, default: 0 */
-    ret = of_property_read_variable_u32_array(pdev->dev.of_node, "vddctrl", buff, 1, 3);
-    if (ret > 0) {
-        vdd_config_gpio = buff[0] & 0x7f;
-        if (ret > 1)
-            vdd_config_polarity = buff[1] ? 1 : 0;
-        if (ret > 2)
-            vdd_config_die = buff[2] ? 1 : 0;
-        vdd_config_msg = vdd_config_gpio | (vdd_config_die << 7) |
-            (vdd_config_polarity << 24) | (1 << 30);
-        dev_info(dev, "vdd config gpio: die %d, port %d, polarity %s\n", vdd_config_die,
-                vdd_config_gpio, !vdd_config_polarity ? "positive" : "negative");
-    }
+	/* Get boot config message
+	 * data_h           31      can not be used
+	 *                  30      boot config exists 1: exist 0: not exist
+	 *                  29:28   reserved
+	 *                  27      lcd power polarity 0: positive 1: negative
+	 *                  26      npu power polarity 0: positive 1: negative
+	 *                  25      d2d power polarity 0: positive 1: negative
+	 *                  24      soc vdd polarity 0: positive 1: negative
+	 *                  23      npu power die number 0-1, ignored on single die chip
+	 *                  22:16   npu power gpio number 1-127, 0 for invalid
+	 *                  15      d2d power die number 0-1, ignored on single die chip
+	 *                  14:8    d2d power gpio number 1-127, 0 for invalid
+	 *                  7       soc vdd die number 0-1, ignored on single die chips
+	 *                  6:0     soc vdd gpio number 1-127, 0 for invalid
+	 * data_l           31      lcd power die number 0-1, ignored on single die chip
+	 *                  30:24   lcd power gpio number 1-127, 0 for invalid
+	 *                  23:0    BOOT_STATUS message: fixed 0x55ecca
+	 * of_property:     soc-vdd-ctrl = <GPIO [POLARITY [DIE]}>;
+	 *                  d2d-power-ctrl = <GPIO [POLARITY [DIE]]>;
+	 *                  npu-power-ctrl = <GPIO [POLARITY [DIE]]>;
+	 *                  lcd-power-ctrl = <GPIO [POLARITY [DIE]]>;
+	 *                  GPIO:       gpio port number which d2d power control uses,
+	 *                              range: 1-127, 0 for invalid
+	 *                  POLARITY:   gpio level polarity, default: 0
+	 *                              0: positive, high -> high/on, low -> low/off
+	 *                              1: negative, high -> low/off, low -> high/on
+	 *                  DIE:        die number, range 0-1, default: 0 */
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "soc-vdd-ctrl", buff, 1, 3);
+	if (ret > 0) {
+		config_gpio = buff[0] & 0x7f;
+		if (ret > 1)
+			config_polarity = buff[1] ? 1 : 0;
+		if (ret > 2)
+			config_die = buff[2] ? 1 : 0;
+		boot_config_msg = config_gpio | (config_die << 7) | (config_polarity << 24) |
+            (1 << 30);
+		dev_info(dev, "soc vdd config gpio: die %d, port %d, polarity %s\n",
+                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+	}
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "d2d-power-ctrl", buff, 1, 3);
+	if (ret > 0) {
+		config_gpio = buff[0] & 0x7f;
+		if (ret > 1)
+			config_polarity = buff[1] ? 1 : 0;
+		if (ret > 2)
+			config_die = buff[2] ? 1 : 0;
+		boot_config_msg |= (config_gpio << 8) | (config_die << 15) |
+            (config_polarity << 25) | (1 << 30);
+		dev_info(dev, "d2d power config gpio: die %d, port %d, polarity %s\n",
+                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+	}
+
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "npu-power-ctrl", buff, 1, 3);
+	if (ret > 0) {
+		config_gpio = buff[0] & 0x7f;
+		if (ret > 1)
+			config_polarity = buff[1] ? 1 : 0;
+		if (ret > 2)
+			config_die = buff[2] ? 1 : 0;
+		boot_config_msg |= (config_gpio << 16) | (config_die << 23) |
+			(config_polarity << 26) | (1 << 30);
+		dev_info(dev, "npu power config gpio: die %d, port %d, polarity %s\n",
+                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+	}
+
+	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "lcd-power-ctrl", buff, 1, 3);
+	if (ret > 0) {
+		config_gpio = buff[0] & 0x7f;
+		if (ret > 1)
+			config_polarity = buff[1] ? 1 : 0;
+		if (ret > 2)
+			config_die = buff[2] ? 1 : 0;
+		boot_config_msg_l = (config_gpio << 24) | (config_die << 31);
+		boot_config_msg |= (config_polarity << 27) | (1 << 30);
+		dev_info(dev, "lcd power config gpio: die %d, port %d, polarity %s\n",
+                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+	}
 
 	mutex_init(&lpcpu->lock);
 	init_waitqueue_head(&lpcpu->waitq);
@@ -429,7 +484,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		goto err_mmio;
 	}
 
-	ret = lpcpu_boot_status(lpcpu->mbox_channel, vdd_config_msg);
+	ret = lpcpu_boot_status(lpcpu->mbox_channel, boot_config_msg, boot_config_msg_l);
 	if (ret < 0) {
 		dev_err(dev, "Send message to lpcpu via mailbox failed!\n");
 		goto err_mmio;
@@ -480,12 +535,12 @@ static const struct of_device_id eswin_lpcpu_match[] = {
 };
 
 static struct platform_driver eswin_lpcpu_driver = {
-    .driver = {
+	.driver = {
 	.name = "win2030-lpcpu",
 	.of_match_table = eswin_lpcpu_match,
-    },
-    .probe = eswin_lpcpu_probe,
-    .remove = eswin_lpcpu_remove,
+	},
+	.probe = eswin_lpcpu_probe,
+	.remove = eswin_lpcpu_remove,
 };
 
 static int __init lpcpu_modules_init(void)

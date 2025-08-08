@@ -68,7 +68,6 @@ typedef enum esVB_UID_E {
 typedef enum {
     SYS_CACHE_MODE_NOCACHE = 0,
     SYS_CACHE_MODE_CACHED = 1,
-    SYS_CACHE_MODE_LLC = 2,
     SYS_CACHE_MODE_BUTT,
 } SYS_CACHE_MODE_E;
 
