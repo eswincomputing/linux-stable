@@ -3479,7 +3479,7 @@ gc_df_exit(gckGALDEVICE Device)
 }
 #endif
 
-int gckGALDEVICE_GetDevFreqInfo(struct device *dev, struct devfreq_dev_status *stat)
+int gckGALDEVICE_GetHardwareLoad(struct device *dev, struct devfreq_dev_status *stat)
 {
     gctINT32 i = 0;
     gckHARDWARE hardware = NULL;
@@ -3511,12 +3511,11 @@ int gckGALDEVICE_GetDevFreqInfo(struct device *dev, struct devfreq_dev_status *s
             // IPA use, not user hardware->load to prevent clock change too frequncy;
             stat->busy_time = 1024; // hardware->load
             stat->total_time = 1024; // 100
-            stat->current_frequency = hardware->threadMcClk;
             return 0;
         }
     }
 
-    dev_err(dev, "hae get dev freq info failed!\n");
+    dev_err(dev, "hae hardware load no device found!\n");
 
     return -1;
 }

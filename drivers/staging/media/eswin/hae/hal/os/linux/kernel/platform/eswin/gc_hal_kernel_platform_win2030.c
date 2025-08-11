@@ -246,7 +246,9 @@ static void show_clk_status(int dieIndex)
 }
 
 #if defined(CONFIG_PM_DEVFREQ)
-static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
+static unsigned long g_dev_cur_freq = 0xffffffff;
+static int g2d_devfreq_get_init_freq(struct device *dev)
+{
     int i, j;
 
     for (i = 0; i < gpd.num_domains; i++) {
@@ -256,18 +258,33 @@ static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
 
         for (j = 0; j < nc_of_clks; j++) {
             if (!strcmp("g2d_clk", clk_names[j])) {
-                *freq = clk_get_rate(gpd.clks[i][j]);
+                g_dev_cur_freq = clk_get_rate(gpd.clks[i][j]);
                 return 0;
             }
         }
     }
 
+    dev_err(dev, "not find g2d clk!\n");
     return -1;
+}
+
+static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
+    int ret = -1;
+
+    if (g_dev_cur_freq == 0xffffffff) {
+        ret = g2d_devfreq_get_init_freq(dev);
+        if (ret != 0)  {
+            return -1;
+        }
+    }
+
+    *freq = g_dev_cur_freq;
+
+    return 0;
 }
 
 static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags) {
     int i, j;
-    static unsigned long pre_rate = 0;
     unsigned long round_rate = 0;
     int ret = -1;
     struct clk *clk_handle;
@@ -284,7 +301,6 @@ static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 
             clk_handle = gpd.clks[i][j];
 
-            pre_rate = clk_get_rate(clk_handle);
             round_rate = clk_round_rate(clk_handle, *freq);
             if (round_rate <= 0) {
                 dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
@@ -294,11 +310,10 @@ static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
     }
 
     if (round_rate != *freq) {
-        dev_info(dev, "sys set freq: %lu round: %lu not the same.\n", *freq, round_rate);
         *freq = round_rate;
     }
 
-    if (pre_rate == round_rate) {
+    if (g_dev_cur_freq == round_rate) {
         return 0;
     }
 
@@ -308,9 +323,25 @@ static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
         return -1;
     }
 
-    dev_info(dev, "sys set rate from %luHz to %luHz\n", pre_rate, round_rate);
+    dev_info(dev, "sys set rate from %luHz to %luHz\n", g_dev_cur_freq, round_rate);
 
+    g_dev_cur_freq = round_rate;
     return 0;
+}
+
+static int g2d_get_dev_freq_status(struct device *dev, struct devfreq_dev_status *stat)
+{
+    int ret = -1;
+
+    ret = gckGALDEVICE_GetHardwareLoad(dev, stat);
+    if (ret != 0) {
+        dev_err(dev, "hae get hardware load failed!\n");
+        return -1;
+    }
+
+    stat->current_frequency = g_dev_cur_freq;
+
+    return ret;
 }
 
 static void eswin_exit(struct device *dev)
@@ -330,7 +361,7 @@ static struct devfreq_dev_profile g2d_devfreq_profile = {
     .polling_ms = 1000, /* Poll every 1000ms to monitor load */
     .target = g2d_devfreq_target,
     .get_cur_freq = g2d_devfreq_get_cur_freq,
-    .get_dev_status = gckGALDEVICE_GetDevFreqInfo,
+    .get_dev_status = g2d_get_dev_freq_status,
     .exit = eswin_exit,
     .is_cooling_device = true,
 };
