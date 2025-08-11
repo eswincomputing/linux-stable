@@ -312,6 +312,7 @@
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <37125000>;
+			clock-names = "inck";
 			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 
 			port {
