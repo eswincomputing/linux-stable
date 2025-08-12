@@ -583,19 +583,9 @@
 	status = "okay";
 };
 
-&d0_uart3 {
-	/* unused */
-	status = "disabled";
-};
-
 &d0_uart4 {
 	/* unused */
 	status = "disabled";
-};
-
-&ssi0 {
-	/* pin header */
-	status = "okay";
 };
 
 &ssi1 {
@@ -715,11 +705,6 @@
 	};
 };
 
-&d0_i2c2 {
-	/* pin header */
-	status = "okay";
-};
-
 &d0_i2c3 {
 	/* mipi csi0/csi1 & mipi dsi fpc? */
 	status = "okay";
@@ -753,11 +738,6 @@
 &d0_i2c9 {
 	/* unused */
 	status = "disabled";
-};
-
-&d0_aon_i2c0 {
-	/* pin header */
-	status = "okay";
 };
 
 &d0_aon_i2c1 {
@@ -838,10 +818,55 @@
 
 &pinctrl {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio18_default &pinctrl_gpio19_default &pinctrl_gpio20_default &pinctrl_gpio21_default
+			&pinctrl_gpio39_default &pinctrl_gpio40_default &pinctrl_gpio70_default &pinctrl_gpio73_default
+			&pinctrl_gpio74_default &pinctrl_gpio75_default &pinctrl_gpio76_default &pinctrl_gpio79_default
+			&pinctrl_gpio80_default &pinctrl_gpio81_default &pinctrl_gpio82_default &pinctrl_gpio85_default
+			&pinctrl_gpio87_default >;
+
+    /* pin header default function for GPIO
+       SPI1 (CS0,SCLK,MOSI,MISO,D2,D3,CS1): GPIO 35,36,37,38,39,40,41
+       I2C2 (SCL,SDA): GPIO 48,49
+	   I2C10 (SCL,SDA): GPIO 102,103
+       UART3(TX,RX): GPIO 92,93
+	   I2S0 (BCLK, WCLK, SDI, SDO) : GPIO 18, 19, 20, 21
+
+    */
 };
+/******** pin headers *********
+     pin : function
+       3 : I2C1 SCL
+       5 : I2C1 SDA
+       7 : GPIO82
+       8 : UART3 TX
+      10 : UART3 RX
+      11 : GPIO76
+      12 : GPIO18
+      13 : GPIO85
+      15 : GPIO81
+      16 : GPIO79
+      18 : GPIO39
+      19 : SPI1 D0
+      21 : SPI1 D1
+      22 : GPIO40
+      23 : SPI1 CLK
+      24 : SPI1 CS0
+      26 : SPI1 CS1
+      27 : I2C4 SDA
+      28 : I2C4 SCL
+      29 : GPIO80
+      31 : GPIO70
+      32 : GPIO73 (x)
+      33 : GPIO74
+      35 : GPIO19
+      36 : GPIO87 (x)
+      37 : GPIO75
+      38 : GPIO20
+      40 : GPIO21
+******************************/
 
 /* GPIO Function Description
-
 	gpio0   : pcie prstn(I)
 	gpio5   : led back light power on/off(O)
 	gpio6   : system key(I)
@@ -876,4 +901,54 @@
 	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
+};
+
+/* pin header */
+&d0_uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart3_default>;
+	status = "okay";
+};
+
+&ssi0 {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dual_spi1_default>;
+	num-cs = <1>;
+	spi-flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <4800000>;
+		rx-sample-delay-ns = <10>;
+	};
+};
+
+&d0_i2c2 {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2_default>;
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "board_tmp";
+		#thermal-sensor-cells = <1>;
+	};
+};
+
+&d0_aon_i2c0 {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c10_default>;
+	sys_power:ina226@40 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "sys_power";
+		reg = <0x40>;
+		shunt-resistor = <1000>;
+	};
 };
