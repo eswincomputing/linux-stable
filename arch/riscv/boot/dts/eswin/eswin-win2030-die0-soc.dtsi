@@ -31,7 +31,7 @@
 #include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/pwm/pwm.h>
 / {
-    compatible = "sifive,hifive-unmatched-a00", "sifive,fu740-c000","sifive,fu740";
+    compatible = "eswin,eic7x";
 	thermal-zones {
 		thermal0 {
 			polling-delay-passive = <500>; /*ms*/
