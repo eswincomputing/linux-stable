@@ -40,7 +40,7 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EIC7700 FCCSP EVB A1";
-	compatible = "eswin,eic7700";
+	compatible = "eswin,eic7x";
 
 	aliases {
 		serial0 = &d0_uart0;
