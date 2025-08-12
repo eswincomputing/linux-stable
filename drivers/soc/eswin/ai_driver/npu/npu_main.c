@@ -957,6 +957,7 @@ int __maybe_unused npu_suspend(struct device *dev)
 	struct win_engine *engine = (struct win_engine *)nvdla_dev->win_engine;
 	int is_enable = 0;
 	int ret = 0;
+	nvdla_dev->is_suspend = true;
 
 	dev_dbg(dev, "%s\n", __func__);
 	ret = npu_hardware_reset(NULL);
@@ -965,7 +966,6 @@ int __maybe_unused npu_suspend(struct device *dev)
 		return ret;
 	}
 	memset(engine->host_node, 0, sizeof(host_node_t));
-
 	engine->tiktok = 0;
 
 	npu_uninit_mbox(nvdla_dev);
@@ -999,8 +999,12 @@ int __maybe_unused npu_resume(struct device *dev)
 	int is_enable = 0;
 
 	struct nvdla_device *ndev = dev_get_drvdata(dev);
-
 	dev_dbg(dev, "%s\n", __func__);
+	if(ndev->is_suspend == false) {
+		dla_error("%s, NPU was not suspended at last time.\n", __func__);
+		return -EACCES;
+	}
+
 	if ((NULL != ndev->npu_regulator) && (!IS_ERR(ndev->npu_regulator)))
 	{
 		is_enable = regulator_is_enabled(ndev->npu_regulator);
@@ -1063,6 +1067,8 @@ int __maybe_unused npu_resume(struct device *dev)
 		npu_tbu_power(dev, false);
 	}
 
+	ndev->is_suspend = false;
+	npu_frame_schedule((struct win_engine *)ndev->win_engine);
 	return 0;
 
 err_ipc:
