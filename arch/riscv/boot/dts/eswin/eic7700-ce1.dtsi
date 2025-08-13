@@ -822,10 +822,9 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio18_default &pinctrl_gpio19_default &pinctrl_gpio20_default &pinctrl_gpio21_default
-			&pinctrl_gpio39_default &pinctrl_gpio40_default &pinctrl_gpio70_default &pinctrl_gpio73_default
+			&pinctrl_gpio39_default &pinctrl_gpio40_default &pinctrl_gpio41_default &pinctrl_gpio70_default
 			&pinctrl_gpio74_default &pinctrl_gpio75_default &pinctrl_gpio76_default &pinctrl_gpio79_default
-			&pinctrl_gpio80_default &pinctrl_gpio81_default &pinctrl_gpio82_default &pinctrl_gpio85_default
-			&pinctrl_gpio87_default >;
+			&pinctrl_gpio80_default &pinctrl_gpio81_default &pinctrl_gpio82_default &pinctrl_gpio85_default>;
 
     /* pin header default function for GPIO
        SPI1 (CS0,SCLK,MOSI,MISO,D2,D3,CS1): GPIO 35,36,37,38,39,40,41
@@ -854,7 +853,7 @@
       22 : GPIO40
       23 : SPI1 CLK
       24 : SPI1 CS0
-      26 : SPI1 CS1
+      26 : SPI1 CS1(GPIO41)
       27 : I2C4 SDA
       28 : I2C4 SCL
       29 : GPIO80
