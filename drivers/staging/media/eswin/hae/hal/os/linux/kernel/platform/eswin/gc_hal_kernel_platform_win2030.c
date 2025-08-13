@@ -115,7 +115,9 @@
 #endif
 #include <linux/devfreq.h>
 #include <linux/pm_opp.h>
+
 #define G2D_HILOAD_CLK 1040000000
+#define G2D_INIT_DEV_FREQ 0xffffffff
 
 /* Disable MSI for internal FPGA build except PPC */
 #if gcdFPGA_BUILD
@@ -246,7 +248,8 @@ static void show_clk_status(int dieIndex)
 }
 
 #if defined(CONFIG_PM_DEVFREQ)
-static unsigned long g_dev_cur_freq = 0xffffffff;
+static unsigned long g_dev_cur_freq[gcdDEVICE_COUNT] = {G2D_INIT_DEV_FREQ, G2D_INIT_DEV_FREQ};
+
 static int g2d_devfreq_get_init_freq(struct device *dev)
 {
     int i, j;
@@ -258,7 +261,7 @@ static int g2d_devfreq_get_init_freq(struct device *dev)
 
         for (j = 0; j < nc_of_clks; j++) {
             if (!strcmp("g2d_clk", clk_names[j])) {
-                g_dev_cur_freq = clk_get_rate(gpd.clks[i][j]);
+                g_dev_cur_freq[i] = clk_get_rate(gpd.clks[i][j]);
                 return 0;
             }
         }
@@ -270,17 +273,23 @@ static int g2d_devfreq_get_init_freq(struct device *dev)
 
 static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
     int ret = -1;
+    int i;
 
-    if (g_dev_cur_freq == 0xffffffff) {
-        ret = g2d_devfreq_get_init_freq(dev);
-        if (ret != 0)  {
-            return -1;
+    for (i = 0; i < gpd.num_domains; i++) {
+        if (gpd.dev[i] == dev) {
+            continue;
         }
+        if (g_dev_cur_freq[i] == G2D_INIT_DEV_FREQ) {
+            ret = g2d_devfreq_get_init_freq(dev);
+            if (ret != 0)  {
+                return -1;
+            }
+        }
+        *freq = g_dev_cur_freq[i];
+        return 0;
     }
 
-    *freq = g_dev_cur_freq;
-
-    return 0;
+    return -1;
 }
 
 static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags) {
@@ -307,31 +316,33 @@ static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
                 return -1;
             }
         }
+
+        if (round_rate != *freq) {
+            *freq = round_rate;
+        }
+
+        if (g_dev_cur_freq[i] == round_rate) {
+            return 0;
+        }
+
+        ret = clk_set_rate(clk_handle, round_rate);
+        if (ret) {
+            dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
+            return -1;
+        }
+
+        dev_info(dev, "sys set rate from %luHz to %luHz\n", g_dev_cur_freq[i], round_rate);
+
+        g_dev_cur_freq[i] = round_rate;
     }
 
-    if (round_rate != *freq) {
-        *freq = round_rate;
-    }
-
-    if (g_dev_cur_freq == round_rate) {
-        return 0;
-    }
-
-    ret = clk_set_rate(clk_handle, round_rate);
-    if (ret) {
-        dev_err(dev, "failed to set %s clk: %d\n", clk_names[j], ret);
-        return -1;
-    }
-
-    dev_info(dev, "sys set rate from %luHz to %luHz\n", g_dev_cur_freq, round_rate);
-
-    g_dev_cur_freq = round_rate;
     return 0;
 }
 
 static int g2d_get_dev_freq_status(struct device *dev, struct devfreq_dev_status *stat)
 {
     int ret = -1;
+    int i;
 
     ret = gckGALDEVICE_GetHardwareLoad(dev, stat);
     if (ret != 0) {
@@ -339,7 +350,13 @@ static int g2d_get_dev_freq_status(struct device *dev, struct devfreq_dev_status
         return -1;
     }
 
-    stat->current_frequency = g_dev_cur_freq;
+    for (i = 0; i < gpd.num_domains; i++) {
+        if (gpd.dev[i] != dev) {
+            continue;
+        }
+
+        stat->current_frequency = g_dev_cur_freq[i];
+    }
 
     return ret;
 }
@@ -936,7 +953,7 @@ static struct _gcsPLATFORM default_platform = {
 gceSTATUS
 _AdjustParam(gcsPLATFORM *Platform, gcsMODULE_PARAMETERS *Args)
 {
-    int ret;
+    int ret = -1;
 #if gcdSUPPORT_DEVICE_TREE_SOURCE
     ret = gpu_parse_dt(Platform->device, Args);
     if(gcmIS_SUCCESS(ret)){
