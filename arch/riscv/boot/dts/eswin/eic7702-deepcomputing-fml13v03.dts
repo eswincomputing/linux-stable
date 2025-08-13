@@ -119,7 +119,7 @@
 			no-map;
 		};
 
-		g2d_8GB_boundary_reserved_4k { // 32M for npu0 runtime
+		lpcpu_reserved: g2d_8GB_boundary_reserved_4k { // 32M reserved for lpcpu
 			no-map;
 			reg = <0x1 0xfe000000 0x0 0x2000000>;
 		};
@@ -145,7 +145,7 @@
 			reg = <0x20 0xfffff000 0x0 0x1000>;
 		};
 
-		d1_g2d_8GB_boundary_reserved_4k { // 32M for npu1 runtime
+		d1_lpcpu_reserved: d1_g2d_8GB_boundary_reserved_4k { // 32M reserved for lpcpu
 			no-map;
 			reg = <0x21 0xfe000000 0x0 0x2000000>;
 		};
@@ -486,9 +486,10 @@
 
 &d0_lpcpu {
 	status = "okay";
+	memory-region = <&lpcpu_reserved>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio0_default>;
-	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>, <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
+	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
 	soc-vdd-ctrl = <21 0 0>;
 	d2d-power-ctrl = <18 0 0>;
 	npu-power-ctrl = <19 0 0>;
@@ -496,7 +497,11 @@
 };
 
 &d1_lpcpu {
-	status = "disabled";
+	status = "okay";
+	memory-region = <&d1_lpcpu_reserved>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die1_gpio7_on_default>;
+	irq-gpios = <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
 };
 
 &pinctrl_die0_gpio25_default {

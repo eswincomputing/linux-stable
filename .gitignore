@@ -169,3 +169,6 @@ sphinx_*/
 
 # Rust analyzer configuration
 /rust-project.json
+
+# Don't exclude firmware files
+!/vendor/eswin/firmware/*

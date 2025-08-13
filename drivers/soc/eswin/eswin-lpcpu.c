@@ -57,6 +57,16 @@ struct lowpower_info {
 
 #define FW_LOAD_UNKNOW 0
 #define FW_LOAD_SUCC   0xacce55
+#define CFG_RECV_SUCC  0x366676
+
+#define LPCPU_BOOT_ADDR         0x51828314
+#define LPCPU_CONFIG_ADDR       0x5880dc00
+#define LPCPU_CONFIG_MAGIC      0x4c435055
+#define LPCPU_CONFIG_VERSION    1
+#define LPCPU_NPU_FW_MAX_SIZE   (64*1024)
+
+#define LPCPU_NPU_FW_DIE0   "eic7702_lpcpu_npu_fw_die0.bin"
+#define LPCPU_NPU_FW_DIE1   "eic7702_lpcpu_npu_fw_die1.bin"
 
 struct lpcpu_dev {
 	struct miscdevice mdev;
@@ -76,27 +86,34 @@ struct lpcpu_dev {
 	void __iomem *mmio;
 	size_t fw_size;
 	struct gpio_desc *irq_gpio;
+	u64 npu_fw_addr;
 };
 
-static struct lpcpu_dev *lpcpu;
+static struct lpcpu_dev *primary_lpcpu;
 static u32 load_event = FW_LOAD_UNKNOW;
 
-struct mbox_msg{
+struct mbox_msg {
 	u32 data_l;
 	u32 data_h;
+};
+
+struct lpcpu_config {
+	u32 magic;
+	u32 version;
+	u64 npu_fw_addr;
+	// other config herer
 };
 
 static void eswin_lpcpu_rx_callback(struct mbox_client *client, void *msg)
 {
 	struct mbox_msg *umsg = msg;
-	struct device *dev = lpcpu->mdev.parent;
+	struct device *dev = client->dev;
+	struct lpcpu_dev *lpcpu = platform_get_drvdata(container_of(dev, struct platform_device, dev));
 	dev_dbg(dev, "lpcpu rx callback : %llx\n",*(u64 *)msg);
-	printk("data_l= %x, data_h = %x\n",umsg->data_l,umsg->data_h);
-	if (load_event != FW_LOAD_SUCC) {
-		load_event = *(u32 *)msg;
-		wake_up(&lpcpu->waitq);
-		printk("eswin_lpcpu_rx_callback returned \n");
-	}
+	dev_dbg(dev, "data_l= %x, data_h = %x\n",umsg->data_l,umsg->data_h);
+	load_event = *(u32 *)msg;
+	wake_up(&lpcpu->waitq);
+	dev_dbg(dev, "eswin_lpcpu_rx_callback returned \n");
 
 	return;
 }
@@ -138,19 +155,18 @@ static struct mbox_chan *eswin_lpcpu_request_channel(struct platform_device *pde
 
 static int eswin_lpcpu_open(struct inode *inode, struct file *filp)
 {
-	int ret = 0;
-	struct device *dev = NULL;
-
-	dev = lpcpu->mdev.parent;
+	struct lpcpu_dev *lpcpu = (struct lpcpu_dev *)filp->private_data;
+	struct device *dev = lpcpu->mdev.parent;
 	dev_info(dev, "%s\n", __func__);
-
-	return ret;
+	return 0;
 }
 
 static ssize_t eswin_lpcpu_read(struct file *filp, char __user *userbuf,
 					  size_t count, loff_t *ppos)
 {
-	printk("lpcpu read\n");
+	struct lpcpu_dev *lpcpu = (struct lpcpu_dev *)filp->private_data;
+	struct device *dev = lpcpu->mdev.parent;
+	dev_info(dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -158,7 +174,9 @@ static ssize_t eswin_lpcpu_write(struct file *filp,
 					   const char __user *userbuf, size_t count,
 					   loff_t *ppos)
 {
-	printk("lpcpu write\n");
+	struct lpcpu_dev *lpcpu = (struct lpcpu_dev *)filp->private_data;
+	struct device *dev = lpcpu->mdev.parent;
+	dev_info(dev, "%s\n", __func__);
 	u8 msg[8];
 	msg[0] = 0xca;
 	msg[1] = 0xec;
@@ -176,6 +194,7 @@ static ssize_t eswin_lpcpu_write(struct file *filp,
 static __poll_t eswin_lpcpu_poll(struct file *filp,
 					  struct poll_table_struct *wait)
 {
+	struct lpcpu_dev *lpcpu = (struct lpcpu_dev *)filp->private_data;
 	poll_wait(filp, &lpcpu->waitq, wait);
 
 	// if (eswin_ipc_service_ready(session))
@@ -186,8 +205,9 @@ static __poll_t eswin_lpcpu_poll(struct file *filp,
 static int eswin_lpcpu_release(struct inode *inode, struct file *filp)
 {
 
-	pr_info("%s called!\n", __func__);
-
+	struct lpcpu_dev *lpcpu = (struct lpcpu_dev *)filp->private_data;
+	struct device *dev = lpcpu->mdev.parent;
+	dev_info(dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -195,6 +215,7 @@ static long eswin_lpcpu_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
 	struct lowpower_info lowpower;
+	struct lpcpu_dev *lpcpu = (struct lpcpu_dev *)filp->private_data;
 	struct device *dev = lpcpu->mdev.parent;
 	u8 msg[8];
 	// void *cpu_vaddr = NULL;
@@ -244,6 +265,7 @@ int eswin_lpcpu_service_ctl(int fid)
 {
 	u8 msg[8];
 	int ret = 0;
+	struct lpcpu_dev *lpcpu = primary_lpcpu;
 
 	if(NULL == lpcpu)
 	{
@@ -307,7 +329,91 @@ static int lpcpu_boot_status(struct mbox_chan *mbox_channel, u32 boot_config_msg
 		printk("Failed to send message via mailbox\r\n");
 		return ret;
 	}
-	mbox_client_txdone(lpcpu->mbox_channel, 0);
+	mbox_client_txdone(mbox_channel, 0);
+
+	return 0;
+}
+
+static int lpcpu_config_send(struct mbox_chan *mbox_channel, u32 boot_config_msg,
+		u32 boot_config_msg_l)
+{
+	int ret = 0;
+	u8 msg[8];
+	msg[0] = 0x63;
+	msg[1] = 0x66;
+	msg[2] = 0x67;
+	// boot config msg
+	msg[3] = (boot_config_msg_l >> 24) & 0xff;
+	msg[4] = boot_config_msg & 0xff;
+	msg[5] = (boot_config_msg >> 8) & 0xff;
+	msg[6] = (boot_config_msg >> 16) & 0xff;
+	msg[7] = (boot_config_msg >> 24) & 0xff;
+
+	ret = mbox_send_message(mbox_channel, msg);
+	if (ret < 0){
+		ret = -EAGAIN;
+		printk("Failed to send message via mailbox\r\n");
+		return ret;
+	}
+	mbox_client_txdone(mbox_channel, 0);
+
+	return 0;
+}
+
+static u64 lpcpu_npu_fw_prepare(struct platform_device *pdev, struct resource *rsc)
+{
+	void __iomem *mmio;
+	u64 fw_addr;
+	const struct firmware *fw_p;
+	struct lpcpu_dev *lpcpu = platform_get_drvdata(pdev);
+
+	// npu firmware prepare
+	if (resource_size(rsc) < LPCPU_NPU_FW_MAX_SIZE) {
+		dev_err(&pdev->dev, "Reserved memory region to small for npu-fw!\n");
+		return 0;
+	}
+
+	fw_addr = rsc->start + resource_size(rsc) - LPCPU_NPU_FW_MAX_SIZE;
+	mmio = ioremap(fw_addr, LPCPU_NPU_FW_MAX_SIZE);
+	if (!mmio) {
+		dev_err(&pdev->dev, "Lpcpu npu-fw memory map error!\n");
+		return 0;
+	}
+	if (!request_firmware_into_buf(&fw_p,
+			lpcpu->numa_id ? LPCPU_NPU_FW_DIE1 : LPCPU_NPU_FW_DIE0,
+			&pdev->dev, mmio, LPCPU_NPU_FW_MAX_SIZE)) {
+		dev_info(&pdev->dev, "Lpcpu npu fw for die%d loaded!\n", lpcpu->numa_id);
+	} else {
+		dev_err(&pdev->dev, "Lpcpu npu-fw load error!\n");
+		iounmap(mmio);
+		return 0;
+	}
+	iounmap(mmio);
+
+	return fw_addr;
+}
+
+static int lpcpu_config_prepare(struct platform_device *pdev)
+{
+	void __iomem *mmio;
+	struct lpcpu_config cfg = {0};
+	struct lpcpu_dev *lpcpu = platform_get_drvdata(pdev);
+
+	cfg.magic = LPCPU_CONFIG_MAGIC;
+	cfg.version = LPCPU_CONFIG_VERSION;
+	cfg.npu_fw_addr = lpcpu->npu_fw_addr;
+
+	// TODO: other configs
+
+	// copy lpcpu config
+	mmio = ioremap(LPCPU_CONFIG_ADDR + lpcpu->numa_id * 0x20000000,
+			sizeof(struct lpcpu_config));
+	if (!mmio) {
+		dev_err(&pdev->dev, "Lpcpu config memory map error!\n");
+		return -ENOMEM;
+	}
+	memcpy(mmio, &cfg, sizeof(struct lpcpu_config));
+	iounmap(mmio);
 
 	return 0;
 }
@@ -322,8 +428,10 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 	long timeout;
 	u32 config_gpio = 0, config_die = 0, config_polarity = 0, buff[3];
 	u32 boot_config_msg = 0, boot_config_msg_l = 0;
+	struct device_node *np;
+	struct resource rsc = {0};
 
-	lpcpu = devm_kzalloc(dev, sizeof(*lpcpu), GFP_KERNEL);
+	struct lpcpu_dev *lpcpu = devm_kzalloc(dev, sizeof(*lpcpu), GFP_KERNEL);
 	if (!lpcpu)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, lpcpu);
@@ -335,16 +443,21 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		enable_irq_wake(gpiod_to_irq(lpcpu->irq_gpio));
 	}
 
-	lpcpu->mdev.minor = MISC_DYNAMIC_MINOR;
-	lpcpu->mdev.name = "lpcpu";
-	lpcpu->mdev.fops = &eswin_lpcpu_ops;
-	lpcpu->mdev.parent = dev;
-
 	if(of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id)) {
 		numa_id = 0;
 	}
 	dev_dbg(&pdev->dev, "numa_id=%d\n", numa_id);
 	lpcpu->numa_id = numa_id;
+
+	lpcpu->mdev.minor = MISC_DYNAMIC_MINOR;
+	if (numa_id) {
+		lpcpu->mdev.name = "lpcpu1";
+	} else {
+		lpcpu->mdev.name = "lpcpu0";
+		primary_lpcpu = lpcpu;
+	}
+	lpcpu->mdev.fops = &eswin_lpcpu_ops;
+	lpcpu->mdev.parent = dev;
 
 	ret = misc_register(&lpcpu->mdev);
 	if (ret) {
@@ -397,9 +510,9 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		if (ret > 2)
 			config_die = buff[2] ? 1 : 0;
 		boot_config_msg = config_gpio | (config_die << 7) | (config_polarity << 24) |
-            (1 << 30);
+			(1 << 30);
 		dev_info(dev, "soc vdd config gpio: die %d, port %d, polarity %s\n",
-                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+				config_die, config_gpio, !config_polarity ? "positive" : "negative");
 	}
 	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "d2d-power-ctrl", buff, 1, 3);
 	if (ret > 0) {
@@ -409,9 +522,9 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		if (ret > 2)
 			config_die = buff[2] ? 1 : 0;
 		boot_config_msg |= (config_gpio << 8) | (config_die << 15) |
-            (config_polarity << 25) | (1 << 30);
+			(config_polarity << 25) | (1 << 30);
 		dev_info(dev, "d2d power config gpio: die %d, port %d, polarity %s\n",
-                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+				config_die, config_gpio, !config_polarity ? "positive" : "negative");
 	}
 
 	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "npu-power-ctrl", buff, 1, 3);
@@ -424,7 +537,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		boot_config_msg |= (config_gpio << 16) | (config_die << 23) |
 			(config_polarity << 26) | (1 << 30);
 		dev_info(dev, "npu power config gpio: die %d, port %d, polarity %s\n",
-                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+				config_die, config_gpio, !config_polarity ? "positive" : "negative");
 	}
 
 	ret = of_property_read_variable_u32_array(pdev->dev.of_node, "lcd-power-ctrl", buff, 1, 3);
@@ -437,7 +550,20 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		boot_config_msg_l = (config_gpio << 24) | (config_die << 31);
 		boot_config_msg |= (config_polarity << 27) | (1 << 30);
 		dev_info(dev, "lcd power config gpio: die %d, port %d, polarity %s\n",
-                config_die, config_gpio, !config_polarity ? "positive" : "negative");
+				config_die, config_gpio, !config_polarity ? "positive" : "negative");
+	}
+
+	np = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
+	if (!IS_ERR(np)) {
+		ret = of_address_to_resource(np, 0, &rsc);
+		if (!ret) {
+			dev_info(dev, "Reserved memory region: 0x%llx, size: 0x%llx \n",
+					rsc.start, resource_size(&rsc));
+			lpcpu->npu_fw_addr = lpcpu_npu_fw_prepare(pdev, &rsc);
+			if (!lpcpu->npu_fw_addr) {
+				dev_err(dev, "npu firmware prepare error!\n");
+			}
+		}
 	}
 
 	mutex_init(&lpcpu->lock);
@@ -472,7 +598,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		dev_err_probe(dev, PTR_ERR(lpcpu->dbg_rst), "unable to get dbg reset\n");
 		goto err_clkrst;
 	}
-	#define LPCPU_BOOT_ADDR 0x51828314
+
 	if (!lpcpu->numa_id)
 		lpcpu->mmio = ioremap(LPCPU_BOOT_ADDR, 4);
 	else
@@ -486,9 +612,10 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 
 	ret = lpcpu_boot_status(lpcpu->mbox_channel, boot_config_msg, boot_config_msg_l);
 	if (ret < 0) {
-		dev_err(dev, "Send message to lpcpu via mailbox failed!\n");
+		dev_err(dev, "Send boot message to lpcpu via mailbox failed!\n");
 		goto err_mmio;
 	}
+
 	timeout = wait_event_timeout(lpcpu->waitq,
 			load_event == FW_LOAD_SUCC,usecs_to_jiffies(100000));
 
@@ -498,6 +625,26 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		goto err_mmio;
 	}
 
+	ret = lpcpu_config_prepare(pdev);
+	if (ret < 0) {
+		dev_warn(dev, "Prepare lpcpu config failed!\n");
+		goto finish_probe;
+	}
+
+	ret = lpcpu_config_send(lpcpu->mbox_channel, 0x0, 0x0);
+	if (ret < 0) {
+		dev_warn(dev, "Send config message to lpcpu via mailbox failed!\n");
+		goto finish_probe;
+	}
+
+	timeout = wait_event_timeout(lpcpu->waitq,
+			load_event == CFG_RECV_SUCC,usecs_to_jiffies(100000));
+
+	if (!timeout) {
+		dev_warn(dev, "Send config to lpcpu not ack!\n");
+	}
+
+finish_probe:
 	dev_info(dev, "eswin lpcpu initialized\n");
 
 	return 0;
