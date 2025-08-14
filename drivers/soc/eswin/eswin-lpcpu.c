@@ -330,10 +330,10 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 
 	lpcpu->irq_gpio = devm_gpiod_get(dev, "irq", GPIOD_IN);
 	if (IS_ERR(lpcpu->irq_gpio)) {
-		dev_err(dev, "Failed to get IRQ GPIO\n");
-		return PTR_ERR(lpcpu->irq_gpio);
+		dev_warn(dev, "Failed to get IRQ GPIO, gpio wakeup will not be supported!\n");
+	} else {
+		enable_irq_wake(gpiod_to_irq(lpcpu->irq_gpio));
 	}
-	enable_irq_wake(gpiod_to_irq(lpcpu->irq_gpio));
 
 	lpcpu->mdev.minor = MISC_DYNAMIC_MINOR;
 	lpcpu->mdev.name = "lpcpu";
