@@ -33,6 +33,7 @@
 
 &sdhci_emmc {
 	/* emmc YXSCG6PE-AK */
+	negedge-data-out;
 };
 
 &d0_i2c5 {

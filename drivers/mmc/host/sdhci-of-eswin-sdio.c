@@ -37,7 +37,6 @@
 #include "sdhci-eswin.h"
 
 #define ESWIN_SDHCI_SD_CQE_BASE_ADDR 0x180
-#define TUNING_RANGE_THRESHOLD   40
 
 static inline void *sdhci_sdio_priv(struct eswin_sdhci_data *sdio)
 {

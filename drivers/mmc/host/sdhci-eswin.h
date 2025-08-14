@@ -26,6 +26,8 @@
 #include <linux/clk-provider.h>
 #include "sdhci-pltfm.h"
 
+#define TUNING_RANGE_THRESHOLD   40
+
 #define MSHC_CARD_CLK_STABLE BIT(28)
 #define MSHC_INT_BCLK_STABLE BIT(16)
 #define MSHC_INT_ACLK_STABLE BIT(8)
@@ -136,13 +138,14 @@
 #define SW_TUNE_ENABLE BIT(4)
 
 #define VENDOR_AT_SATA_R 0x544
-#define MAX_PHASE_CODE 0xff
+#define MAX_PHASE_CODE 0x7f
 
 #define DLL_ENABEL BIT(0)
 #define DLL_LOCK_STS BIT(0)
 #define DLL_ERROR_STS BIT(1)
 #define PHY_DELAY_CODE_MASK 0x7f
 #define PHY_DELAY_CODE_MAX 0x7f
+#define PHY_TUNING_THRESHOLD   20
 
 #define MAX_CORE_CLK_DIV 0xfff
 
@@ -186,6 +189,7 @@ struct eswin_sdhci_phy_data {
 	unsigned int enable_data_pullup;
 	unsigned int enable_cmd_pullup;
 	unsigned int delay_code;
+	unsigned int negedge_data_out;
 };
 
 /**
