@@ -1199,7 +1199,7 @@
 	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 &d1_pwm0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &pvt0 {
