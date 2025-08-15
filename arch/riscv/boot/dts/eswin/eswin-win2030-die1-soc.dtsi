@@ -726,7 +726,7 @@
 
 		d1_fan_control: fan_control@70b50000 {
 			compatible = "eswin-fan-control";
-			reg = <0x0 0x50b50000 0x0 0x10000>,
+			reg = <0x0 0x70b50000 0x0 0x10000>,
 					<0x0 0x71810668 0x0 0x10>,
 					<0x0 0x51810668 0x0 0x10>;
 			clocks = <&d1_clock EIC7700_CLK_LSP_FAN_PCLK>;
@@ -736,9 +736,11 @@
 			interrupt-parent = <&plic1>;
 			interrupt-names = "fanirq";
 			interrupts = <354>;
-			pulses-per-revolution = <1>;
+			pulses-per-revolution = <2>;
 			pwm-minimum-period = <1000>;
 			pwms = <&d1_pwm0 0 100000 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_die1_fan_tach_default &pinctrl_die1_pwm0_default>;
 			status = "disabled";
 			label = "d1_fan_control";
 			numa-node-id = <1>;
@@ -1240,15 +1242,13 @@
 
 		d1_pwm0: pwm@0x70818000 {
 			compatible = "eswin,pwm-eswin";
+			#pwm-cells = <3>;
 			reg = <0x0 0x70818000 0x0 0x4000>;
-			clock-names = "pwm","pclk";
+			clock-names = "pclk";
 			clocks = <&d1_clock EIC7700_CLK_LSP_TIMER_PCLK>;
 			clock-frequency = <200000000>;
 			resets = <&d1_reset TIMER_RST_CTRL SW_TIMER_RST_N>;
-			reset-names = "pwmrst";
-			#pwm-cells = <3>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&d1_pinctrl_pwm0_default &d1_pinctrl_pwm1_default &d1_pinctrl_pwm2_default>;
+			reset-names = "rst";
 			status = "disabled";
 			numa-node-id = <1>;
 		};

@@ -1227,7 +1227,7 @@
 	status = "okay";
 };
 &d1_pwm0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &pvt0 {

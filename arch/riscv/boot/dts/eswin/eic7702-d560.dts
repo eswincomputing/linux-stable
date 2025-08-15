@@ -178,6 +178,27 @@
 	status = "okay";
 };
 
+&d1_fan_control {
+	pinctrl-0 = <&pinctrl_die1_fan_tach_default &pinctrl_die1_pwm0_default
+				&pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
+	status = "okay";
+	fan-0 {
+		label = "d1_fan";
+		pwms = <&d1_pwm0 0 100000 0>;
+		status = "okay";
+	};
+	fan-1 {
+		label = "chassis_fan1";
+		pwms = <&d1_pwm0 1 100000 0>;
+		status = "okay";
+	};
+	fan-2 {
+		label = "chassis_fan2";
+		pwms = <&d1_pwm0 2 100000 0>;
+		status = "okay";
+	};
+};
+
 &d0_i2c1 {
 	/* pin header */
 	status = "okay";
