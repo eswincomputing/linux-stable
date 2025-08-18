@@ -1140,7 +1140,7 @@ void dump_data_to_file(struct work_struct *work)
 	printk("%s, %d, wsize=%d, header size=%d, pos=%lld.\n", __func__,
 	       __LINE__, wsize, buf_size, pos);
 
-	mbx_irq_frame_done(executor->engine, tiktok, 0);
+	mbx_irq_frame_done(executor->engine, tiktok, 0, 0);
 
 	kfree(buffer);
 

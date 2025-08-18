@@ -74,7 +74,7 @@ struct npu_op_done_info {
 };
 
 extern void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
-				       u16 op_index);
+				       u16 op_index, u32 hw_error);
 
 static struct npu_op_done_info op_done_info[NUM_OP_TYPE];
 
@@ -347,7 +347,7 @@ static long npu_ioctl_send_frame_done(void *arg)
 		}
 	}
 
-	mbx_irq_frame_done(g_executor[tiktok]->engine, tiktok, stat);
+	mbx_irq_frame_done(g_executor[tiktok]->engine, tiktok, stat, 0);
 
 	return 0;
 }
@@ -423,7 +423,7 @@ static long npu_ioctl_event_sink_done(struct nvdla_device *nvdla_dev, void *arg)
 	dla_detail("get event sink tiktok:%d, op_index:%d\n", tiktok, op_index);
 
 	handle_event_sink_from_e31(npu_get_win_engine(nvdla_dev), tiktok,
-				   op_index);
+				   op_index, 0);
 
 	return 0;
 }

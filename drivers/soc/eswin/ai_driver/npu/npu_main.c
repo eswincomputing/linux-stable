@@ -324,15 +324,14 @@ irqreturn_t npu_mbox_irq(int irq, void *dev_id)
 		switch (payload.type) {
 		case FRAME_DONE:
 			stat = payload.param >> 1 & 0x1;
-			mbx_irq_frame_done(nvdla_dev->win_engine, tiktok, stat);
+			mbx_irq_frame_done(nvdla_dev->win_engine, tiktok, stat, payload.lparam);
 			break;
 		case NOTIFY_OP_DONE:
-			mbx_irq_op_done(nvdla_dev->win_engine, tiktok,
-					op_index);
+			mbx_irq_op_done(nvdla_dev->win_engine, tiktok, op_index);
 			break;
 		case NOTIFY_EVENT_SINK_DONE:
-			mbx_irq_event_sink_done(nvdla_dev->win_engine, tiktok,
-						op_index);
+			stat = payload.param >> 1 & 0xff;
+			mbx_irq_event_sink_done(nvdla_dev->win_engine, tiktok, op_index, stat);
 			break;
 		default:
 			dla_error("invalid payload.type= %hhu\n", payload.type);

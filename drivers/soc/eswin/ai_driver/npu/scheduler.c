@@ -41,7 +41,7 @@ module_param(frame_timeout, int, 0644);
 MODULE_PARM_DESC(frame_timeout, "frame timeout in ms, default 1000s");
 
 extern void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
-				       u16 op_index);
+				       u16 op_index, u32 hw_error);
 
 static inline void pick_next_frame(struct win_engine *engine,
 				   struct host_frame_desc **f)
@@ -223,12 +223,12 @@ bool send_new_frame(struct win_engine *engine, struct win_executor *executor,
 	return true;
 }
 
-void mbx_irq_event_sink_done(struct win_engine *priv, u32 tiktok, u16 op_index)
+void mbx_irq_event_sink_done(struct win_engine *priv, u32 tiktok, u16 op_index, u32 hw_error)
 {
 	struct win_engine *engine = priv;
 	dla_debug("receive event sink op done: tiktok %u op_index %u.\n",
 		  tiktok, op_index);
-	handle_event_sink_from_e31(engine, tiktok, op_index);
+	handle_event_sink_from_e31(engine, tiktok, op_index, hw_error);
 }
 
 void mbx_irq_op_done(struct win_engine *priv, u32 tiktok, u16 op_index)
@@ -268,7 +268,7 @@ void mbx_irq_op_done(struct win_engine *priv, u32 tiktok, u16 op_index)
 	}
 }
 
-void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
+void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat, u16 hw_error)
 {
 	struct win_engine *engine = priv;
 	struct win_executor *executor;
@@ -294,6 +294,7 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	executor = f->executor;
 	model = f->model;
 	engine = executor->engine;
+	f->hw_error = hw_error;
 	if (unlikely(stat && engine->perf_switch)) {
 		refresh_op_statistic(executor, engine, tiktok);
 	}

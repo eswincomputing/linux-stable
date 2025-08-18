@@ -29,6 +29,7 @@
 #include <nvdla_linux.h>
 #include "eswin-khandle.h"
 #include <linux/timer.h>
+#include <linux/semaphore.h>
 #include "hetero_ioctl.h"
 #include "dla_engine.h"
 #include "dla_log.h"
@@ -73,6 +74,7 @@ typedef struct _event_desc {
 	u16 consumer_idx;
 	u16 len;
 	s16 event_sinks[MAX_EVENT_SINK_SAVE_NUM];
+	s16 hw_error[MAX_EVENT_SINK_SAVE_NUM];
 } event_desc_t;
 
 struct user_context {
@@ -222,7 +224,11 @@ struct host_frame_desc {
 	npu_io_tensor_t io_tensor;
 	//for e31
 	u32 tiktok;
+	u16 hw_error;
 	bool dump_dtim;
+	bool sync_flag;
+	s32 sync_event_id;
+	struct completion synctask_comp;
 	struct list_head complete_entry;
 
 	struct win_executor *executor;
@@ -432,7 +438,7 @@ int read_input_address(struct win_executor *executor,
 int io_tensor_to_io_addr(struct win_executor *executor,
 			 struct host_frame_desc *f);
 int create_new_frame(struct win_executor *executor, struct host_frame_desc **f,
-		     void *model);
+		     void *model, bool sync_flag);
 void destroy_frame(struct host_frame_desc *f);
 void executor_clearup(void *arg_executor);
 
@@ -449,10 +455,9 @@ int set_pause_op_done(struct win_executor *executor,
 		      kmd_dump_info_t *dump_info);
 int reset_pause_op_done(struct win_executor *executor);
 
-void mbx_irq_frame_done(struct win_engine *engine, u32 tiktok, u32 stat);
+void mbx_irq_frame_done(struct win_engine *engine, u32 tiktok, u32 stat, u16 hw_error);
 void mbx_irq_op_done(struct win_engine *engine, u32 tiktok, u16 op_index);
-void mbx_irq_event_sink_done(struct win_engine *engine, u32 tiktok,
-			     u16 op_index);
+void mbx_irq_event_sink_done(struct win_engine *engine, u32 tiktok, u16 op_index, u32 hw_error);
 int send_frame_to_npu(struct host_frame_desc *f, int tiktok);
 /**************** frame_scheduler.c ****************/
 int edma_tensor_unfold(struct win_executor *executor, int op_idx,

@@ -370,6 +370,9 @@ static void npu_task_complete_work(struct work_struct *work)
 		if (f->dump_dtim) {
 			dump_dtim_to_file(engine, f->tiktok);
 		}
+		if(f->hw_error) {
+			dla_error("execute frame encounter hw error:0x%x\n", f->hw_error);
+		}
 		kernel_handle_decref(&f->handle);
 	}
 }

@@ -303,13 +303,15 @@ int get_event_idx(struct win_executor *executor, int op_index)
 	return executor->task->op_desc[op_index].event_op.index;
 }
 
-static int save_event_to_cache(struct user_context *uctx, int16_t event_idx)
+static int save_event_to_cache(struct user_context *uctx, int16_t event_idx, uint16_t hw_error)
 {
 	if (uctx->event_desc.len == MAX_EVENT_SINK_SAVE_NUM) {
 		dla_error("err:no memory for new event.\n");
 		return -1;
 	}
 
+	uctx->event_desc.hw_error[(uctx->event_desc.produce_idx) %
+		MAX_EVENT_SINK_SAVE_NUM] = hw_error;
 	uctx->event_desc.event_sinks[(uctx->event_desc.produce_idx++) %
 				     MAX_EVENT_SINK_SAVE_NUM] = event_idx;
 	uctx->event_desc.len++;
@@ -336,7 +338,7 @@ static int get_event_from_cache(struct user_context *uctx)
 }
 
 void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
-				u16 op_index)
+				u16 op_index, u32 hw_error)
 {
 	struct host_frame_desc *f;
 	struct user_model *model;
@@ -363,17 +365,22 @@ void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
 	}
 	event_idx = get_event_idx(executor, op_index);
 	if (event_idx < 0) {
+		dla_error("invalid event idx:%d\n", event_idx);
 		return;
 	}
 	if (!executor) {
 		dla_error("%s, %d, executor is null.\n", __func__, __LINE__);
 		return;
 	}
-	dla_detail("op_index:%d event_idx:%d.\n", op_index, event_idx);
-
+	dla_detail("op_index:%d event_idx:%d, exec_status:%x.\n", op_index, event_idx, hw_error);
+	if(f->sync_flag) {
+		f->sync_event_id = event_idx;
+		complete(&f->synctask_comp);
+		return;
+	}
 	spin_lock_irqsave(&model->uctx->event_desc.spinlock, flags);
 
-	if (save_event_to_cache(model->uctx, event_idx)) {
+	if (save_event_to_cache(model->uctx, event_idx, hw_error)) {
 		dla_error("err:save event failed.\n");
 		spin_unlock_irqrestore(&model->uctx->event_desc.spinlock,
 				       flags);
@@ -390,11 +397,13 @@ static int get_event_sink_val(struct user_context *uctx,
 {
 	unsigned long flags;
 	union event_union event;
+	union event_union event_ret;
 	int i;
 
 	event.event_data = -1ULL;
 	spin_lock_irqsave(&uctx->event_desc.spinlock, flags);
 	for (i = 0; i < sizeof(union event_union) / sizeof(u16); i++) {
+		event_ret.event_sinks[i] = uctx->event_desc.hw_error[(uctx->event_desc.consumer_idx) % MAX_EVENT_SINK_SAVE_NUM];
 		event.event_sinks[i] = get_event_from_cache(uctx);
 		if (event.event_sinks[i] < 0) {
 			break;
@@ -407,14 +416,13 @@ static int get_event_sink_val(struct user_context *uctx,
 		return -EFAULT;
 	}
 
-	dla_detail("get event sink:0x%llx\n", event.event_data);
+	dla_detail("get event sink:0x%llx, state:%llx\n", event.event_data, event_ret.event_data);
 
-	if (copy_to_user((void __user *)(win_arg->data), &event.event_data,
-			 sizeof(u64))) {
+	if (copy_to_user((void __user *)(win_arg->data), &event.event_data, sizeof(u64))
+		|| copy_to_user((void __user *)(win_arg->pret), &event_ret.event_data, sizeof(u64))) {
 		dla_error("err:bad user data address.\n");
 		return -EFAULT;
 	}
-
 	return 0;
 }
 
@@ -530,6 +538,7 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 	struct win_executor *executor;
 	int ret;
 	bool result;
+	bool sync_flag = (win_arg->hetero_cmd == SYNC_EXECUTE_TASK);
 
 	model = npu_get_model_by_id(uctx, idx);
 	if (model == NULL) {
@@ -539,7 +548,7 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 		return ret;
 	}
 
-	ret = create_new_frame(model->executor, &f, model);
+	ret = create_new_frame(model->executor, &f, model, sync_flag);
 	if (unlikely(ret != win_arg->tensor_size)) {
 		dla_error(
 			"%s %d model %d io_tensor_size %d != win_arg->tensor_size %d\n",
@@ -581,6 +590,18 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 		goto clean_out;
 	}
 	dla_debug("%s, %d, done.\n", __func__, __LINE__);
+	if(sync_flag) {
+		ret = wait_for_completion_interruptible(&f->synctask_comp);
+		if (ret) {
+			ret = -EINTR;
+			goto clean_out;
+		}
+		if (copy_to_user((void __user *)(win_arg->data), &f->sync_event_id, sizeof(u64)) &&
+			copy_to_user((void __user *)(win_arg->pret), &f->hw_error, sizeof(u64))) {
+			dla_error("err:bad user data address.\n");
+			return -EFAULT;
+		}
+	}
 	return 0;
 
 clean_out:
