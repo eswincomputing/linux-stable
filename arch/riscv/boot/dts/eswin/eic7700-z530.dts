@@ -19,7 +19,6 @@
  */
 
 #include "eic7700-som260-a1.dtsi"
-#include "eic7700-z530-camera-lt6911uxe.dtsi"
 
 / {
 	#address-cells = <2>;
