@@ -529,7 +529,6 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 	struct win_executor *executor;
 	int ret;
 	bool result;
-	int new_state;
 
 	model = npu_get_model_by_id(uctx, idx);
 	if (model == NULL) {

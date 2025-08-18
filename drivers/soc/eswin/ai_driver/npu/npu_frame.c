@@ -344,10 +344,8 @@ void npu_drop_all_frame(struct nvdla_device *ndev, bool dump)
 static void npu_process_timeout(struct win_engine *engine, u32 tiktok)
 {
 	struct host_frame_desc *f;
-	struct user_model *model;
 	unsigned long flags;
 	struct win_executor *executor;
-	unsigned long last_state;
 
 	spin_lock_irqsave(&engine->executor_lock, flags);
 	engine->engine_is_alive = false;

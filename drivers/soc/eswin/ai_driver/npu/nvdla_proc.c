@@ -229,8 +229,8 @@ static int npu_stat_show(struct seq_file *m, void *p)
 
 		seq_printf(m, "npu%d %llu %llu %llu %llu\n",i, start_stat_time,
 		           (total_hwexec_time * 1000) /24 + gap_adjust,
-		           (total_hwexec_time * 1000) /24),
-		           atomic64_read(&ndev->total_frame_done);
+		           (total_hwexec_time * 1000) /24,
+		           atomic64_read(&ndev->total_frame_done));
 
 		npu_pm_put(ndev);
 	}

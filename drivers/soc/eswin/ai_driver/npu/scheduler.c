@@ -62,7 +62,7 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 			    npu_io_tensor_t *io_tensor, host_node_t *host_node)
 {
 	int ret;
-	struct nvdla_device *ndev = (struct nvdla_device *)engine->nvdla_dev;
+
 	emission_node_t *pemission_node =
 		(emission_node_t *)host_node->emission_base_addr;
 	program_node_t *program_node =
@@ -271,7 +271,6 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	struct host_frame_desc *f;
 	struct user_model *model;
 	int ret = 1;
-	unsigned long last_state;
 	unsigned long flags;
 	struct nvdla_device *ndev = (struct nvdla_device *)engine->nvdla_dev;
 

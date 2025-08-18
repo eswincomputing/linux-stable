@@ -526,6 +526,12 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 	mutex_lock(&engine->reset_mutex);
 	if (ptr != NULL) {
 		if (is_reset == 1) {
+			ret = npu_pm_get(nvdla_dev);
+			if (ret < 0) {
+				dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
+					__LINE__, ret);
+				return ret;
+			}
 			engine->engine_is_alive = false;
 			npu_drop_all_frame(nvdla_dev, false);
 			memset(engine->host_node, 0, sizeof(host_node_t));
@@ -604,6 +610,7 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 				goto exit;
 			}
 			engine->engine_is_alive = true;
+			npu_pm_put(nvdla_dev);
 		} else {
 			dla_error("err:input err.\n");
 		}
@@ -612,6 +619,7 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 exit:
 	npu_clk_reset_print(nvdla_dev->pdev, nvdla_dev->numa_id);
 	mutex_unlock(&engine->reset_mutex);
+	npu_pm_put(nvdla_dev);
 	return count;
 }
 
@@ -619,11 +627,21 @@ static ssize_t npu_drop_frame(struct device *d, struct device_attribute *attr,
 			      const char *buf, size_t count)
 {
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(d);
+	int ret;
 
 	if (!nvdla_dev) {
 		return -ENODEV;
 	}
+
+	ret = npu_pm_get(nvdla_dev);
+	if (ret < 0) {
+		dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
+			__LINE__, ret);
+		return ret;
+	}
 	npu_drop_all_frame(nvdla_dev, true);
+	npu_pm_put(nvdla_dev);
+
 	return count;
 }
 
@@ -632,7 +650,7 @@ static ssize_t npu_dump_dtim(struct device *d, struct device_attribute *attr,
 {
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(d);
 	struct win_engine *engine;
-	int i;
+	int ret, i;
 
 	if (!nvdla_dev) {
 		return -ENODEV;
@@ -640,6 +658,13 @@ static ssize_t npu_dump_dtim(struct device *d, struct device_attribute *attr,
 	engine = npu_get_win_engine(nvdla_dev);
 	if (engine == NULL) {
 		return -ENODEV;
+	}
+
+	ret = npu_pm_get(nvdla_dev);
+	if (ret < 0) {
+		dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
+			__LINE__, ret);
+		return ret;
 	}
 
 	if (engine->master_mem) {
@@ -657,6 +682,8 @@ static ssize_t npu_dump_dtim(struct device *d, struct device_attribute *attr,
 		}
 	}
 	dump_dtim_to_file(engine, 3);
+	npu_pm_put(nvdla_dev);
+
 	return count;
 }
 
