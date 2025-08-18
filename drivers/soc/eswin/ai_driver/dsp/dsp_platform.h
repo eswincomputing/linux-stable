@@ -36,7 +36,7 @@ void es_dsp_halt(struct es_dsp_hw *);
 void es_dsp_release(struct es_dsp_hw *);
 int es_dsp_sync(struct es_dsp *dsp);
 int es_dsp_load_op(struct es_dsp_hw *, void *op_ptr);
-
+int es_dsp_get_rate(struct es_dsp_hw *hw);
 int es_dsp_platform_init(void);
 int es_dsp_platform_uninit(void);
 int es_dsp_hw_init(struct es_dsp *dsp);
