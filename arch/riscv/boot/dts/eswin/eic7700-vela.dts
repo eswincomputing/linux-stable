@@ -19,6 +19,7 @@
  */
 
 #include "eic7700-som260-a1.dtsi"
+#include "eic7700-vela-camera-imx415.dtsi"
 
 / {
 	#address-cells = <2>;
