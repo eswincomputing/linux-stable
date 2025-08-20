@@ -490,10 +490,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio0_default>;
 	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
-	soc-vdd-ctrl = <21 0 0>;
-	d2d-power-ctrl = <18 0 0>;
-	npu-power-ctrl = <19 0 0>;
-	lcd-power-ctrl = <27 0 0>;
+	control-gpio-names = "socvdd", "d2dpwr", "npupwr", "lcdpwr", "pcieen", "lt6711",
+			"pasd", "campwr", "cpuvdd";
+	control-gpio-ports = <21 GPIO_ACTIVE_HIGH>, <18 GPIO_ACTIVE_HIGH>,
+			<19 GPIO_ACTIVE_HIGH>, <27 GPIO_ACTIVE_HIGH>,
+			<54 GPIO_ACTIVE_HIGH>, <55 GPIO_ACTIVE_HIGH>,
+			<111 GPIO_ACTIVE_LOW>, <92 GPIO_ACTIVE_HIGH>,
+			<94 GPIO_ACTIVE_HIGH>;
 };
 
 &d1_lpcpu {

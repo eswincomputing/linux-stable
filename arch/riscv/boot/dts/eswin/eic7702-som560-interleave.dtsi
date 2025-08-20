@@ -450,7 +450,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio0_default>;
 	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
-	soc-vdd-ctrl = <21 0 0>;
+	control-gpio-names = "socvdd";
+	control-gpio-ports = <21 GPIO_ACTIVE_HIGH>;
 };
 
 &d1_lpcpu {

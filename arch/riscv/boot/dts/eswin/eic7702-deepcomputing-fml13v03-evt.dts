@@ -457,7 +457,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio0_default>;
 	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
-	vddctrl = <104 0 1>;
 };
 
 &d1_lpcpu {
@@ -466,6 +465,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_gpio7_on_default>;
 	irq-gpios = <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
+	control-gpio-names = "socvdd";
+	control-gpio-ports = <104 GPIO_ACTIVE_HIGH>;
 };
 
 &pinctrl_die0_gpio27_default {
