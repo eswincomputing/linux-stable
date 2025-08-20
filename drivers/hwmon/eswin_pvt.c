@@ -255,7 +255,6 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 			 long *val)
 {
 	struct pvt_cache *cache = &pvt->cache[type];
-	unsigned long timeout;
 	u32 data;
 	int ret;
 	const struct pvt_sensor_info *pvt_info = pvt->sensor_info;
@@ -280,17 +279,7 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 
 	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, PVT_ENA_EN);
 
-	/*
-	 * Wait with timeout since in case if the sensor is suddenly powered
-	 * down the request won't be completed and the caller will hang up on
-	 * this procedure until the power is back up again. Multiply the
-	 * timeout by the factor of two to prevent a false timeout.
-	 */
-	timeout = 2 * usecs_to_jiffies(ktime_to_us(pvt->timeout));
-	if(type==PVT_TEMP){
-		timeout = 20 * usecs_to_jiffies(ktime_to_us(pvt->timeout));
-	}
-	ret = wait_for_completion_timeout(&cache->conversion, timeout);
+	ret = wait_for_completion_interruptible(&cache->conversion);
 
 	eswin_pvt_update(pvt->regs + PVT_ENA, PVT_ENA_EN, 0);
 	eswin_pvt_update(pvt->regs + PVT_INT, PVT_INT_CLR, PVT_INT_CLR);
@@ -299,8 +288,8 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 
 	mutex_unlock(&pvt->iface_mtx);
 
-	if (!ret)
-		return -ETIMEDOUT;
+	if (ret && (ret != -ERESTARTSYS))
+		return ret;
 
 	if (type == PVT_TEMP)
 		*val = eswin_pvt_calc_poly(&poly_N_to_temp, data);
