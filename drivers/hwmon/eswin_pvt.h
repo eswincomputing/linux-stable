@@ -110,9 +110,7 @@
 #define PVT_TRIM_STEP		(PVT_TRIM_TEMP / PVT_TRIM_MAX)
 #define PVT_TRIM_DEF		0
 #define PVT_TOUT_MIN		(NSEC_PER_SEC / 3000)
-# define PVT_TOUT_DEF		0
-#define LPCPU_PVT_TEMP_REG_OFFSET	0x0
-#define LPCPU_PVT_VOLT_REG_OFFSET	0x4
+#define PVT_TOUT_DEF		0
 
 /*
  * enum pvt_sensor_type - ESWIN PVT sensor types (correspond to each PVT
