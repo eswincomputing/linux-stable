@@ -386,9 +386,7 @@ static int es_dc_resume(struct device *dev, struct drm_device *drm_dev)
 	struct es_dc *dc = dev_get_drvdata(dev);
 	int ret = 0;
 	int die_id;
-#ifdef CONFIG_ESWIN_MMU
 	struct es_drm_private *priv = drm_dev->dev_private;
-#endif
 
 	dev_dbg(dev, "%s\n", __func__);
 	es_dc_clk_configs(dev, true);
@@ -398,12 +396,10 @@ static int es_dc_resume(struct device *dev, struct drm_device *drm_dev)
 		return ret;
 	}
 
-#ifdef CONFIG_ESWIN_MMU
 	ret = dc_hw_mmu_init(&dc->hw, priv->mmu);
 	if (ret < 0) {
 		dev_err(dev, "Failed to dc_hw_mmu_init\n");
 	}
-#endif
 
 	ret = es_drm_iommu_attach_device(drm_dev, dev);
 	if (ret < 0) {
@@ -482,12 +478,12 @@ static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
 	else
 		dc_hw_set_out(&dc->hw, OUT_DP);
 
-#ifdef CONFIG_ESWIN_MMU
+
 	if (crtc_state->mmu_prefetch == ES_MMU_PREFETCH_ENABLE)
 		dc_hw_enable_mmu_prefetch(&dc->hw, true);
 	else
 		dc_hw_enable_mmu_prefetch(&dc->hw, false);
-#endif
+
 
 	dc_hw_setup_display(&dc->hw, &display);
 	cursor.enable = false;
@@ -1022,9 +1018,7 @@ static void es_dc_commit(struct device *dev)
 {
 	struct es_dc *dc = dev_get_drvdata(dev);
 
-#ifdef CONFIG_ESWIN_MMU
 	dc_mmu_flush(&dc->hw);
-#endif
 
 	if (!dc->first_frame) {
 		if (dc_hw_flip_in_progress(&dc->hw))
@@ -1070,10 +1064,7 @@ static const struct es_dc_funcs dc_funcs = {
 static int dc_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm_dev = data;
-	struct platform_device *pdev = to_platform_device(dev);
-#ifdef CONFIG_ESWIN_MMU
 	struct es_drm_private *priv = drm_dev->dev_private;
-#endif
 	struct es_dc *dc = dev_get_drvdata(dev);
 	struct device_node *port;
 	struct es_crtc *crtc;
@@ -1093,18 +1084,6 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 		dev_err(dev, "Failed to initialize DC hardware.\n");
 		return ret;
 	}
-
-	if (!dc->irq) {
-		dc->irq = platform_get_irq(pdev, 0);
-		ret = devm_request_irq(dev, dc->irq, dc_isr, 0, dev_name(dev),
-				       dc);
-		if (ret < 0) {
-			dev_err(dev, "Failed to install irq:%u.\n", dc->irq);
-			return ret;
-		}
-	}
-
-#ifdef CONFIG_ESWIN_MMU
 	if (priv->mmu_constructed == false) {
 		ret = dc_mmu_construct(priv->dma_dev, &priv->mmu);
 		if (ret) {
@@ -1119,7 +1098,6 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 		dev_err(dev, "failed to init DC MMU\n");
 		goto err_clean_dc;
 	}
-#endif
 
 	ret = es_drm_iommu_attach_device(drm_dev, dev);
 	if (ret < 0) {
@@ -1223,7 +1201,7 @@ static int dc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct es_dc *dc;
-	int irq, ret, die_id;
+	int ret, die_id;
 
 	dc = devm_kzalloc(dev, sizeof(*dc), GFP_KERNEL);
 	if (!dc)
@@ -1233,15 +1211,20 @@ static int dc_probe(struct platform_device *pdev)
 	if (IS_ERR(dc->hw.hi_base))
 		return PTR_ERR(dc->hw.hi_base);
 
-#ifdef CONFIG_ESWIN_MMU
 	dc->hw.mmu_base = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(dc->hw.mmu_base))
 		return PTR_ERR(dc->hw.mmu_base);
-#endif
 
 	dc->hw.reg_base = devm_platform_ioremap_resource(pdev, 2);
 	if (IS_ERR(dc->hw.reg_base))
 		return PTR_ERR(dc->hw.reg_base);
+	
+	dc->irq = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(dev, dc->irq, dc_isr, 0, dev_name(dev), dc);
+	if (ret < 0) {
+		dev_err(dev, "Failed to install irq:%u.\n", dc->irq);
+		return ret;
+	}
 
 	dc->vo_mux = devm_clk_get(dev, "vo_mux");
 	if (IS_ERR(dc->vo_mux)) {
