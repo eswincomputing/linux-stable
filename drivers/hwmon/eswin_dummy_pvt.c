@@ -229,24 +229,20 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 
 	offset = pvt->regmap_offset;
 
-	switch (type) {
-		case PVT_TEMP:
-			offset += LPCPU_PVT_TEMP_REG_OFFSET;
-			break;
-		case PVT_VOLT:
-			offset += LPCPU_PVT_VOLT_REG_OFFSET;
-			break;
-		default:
-			return -EINVAL;
-	}
+	if ((type != PVT_TEMP) && (type != PVT_VOLT))
+		return -EINVAL;
 
 	regmap_read(pvt->regmap, offset, &data);
 
+	/****** dummy register **********
+	[16:0] stores the temperature value
+	[31:16] stores the voltage value
+	********************************/
 	if (type == PVT_TEMP)
-		*val = eswin_pvt_calc_poly(&poly_N_to_temp, data);
+		*val = eswin_pvt_calc_poly(&poly_N_to_temp, (data & 0xffff));
 
 	else if (type == PVT_VOLT)
-		*val = eswin_pvt_calc_poly(&poly_N_to_volt, data);
+		*val = eswin_pvt_calc_poly(&poly_N_to_volt, (data >> 16));
 	else
 		*val = data;
 
