@@ -201,7 +201,7 @@ struct pvt_cache {
 struct pvt_hwmon {
 	struct device *dev;
 	struct device *hwmon;
-
+	struct list_head entry;
 	void __iomem *regs;
 	int irq;
 
@@ -241,6 +241,6 @@ struct pvt_poly {
 	long total_divider;
 	struct pvt_poly_term terms[];
 };
-
+int eswin_get_cpu_7702_temp(const char *name, int numa_id, long *val);
 #endif /* __HWMON_ESWIN_PVT_H__ */
 
