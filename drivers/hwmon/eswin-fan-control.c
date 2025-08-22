@@ -36,15 +36,7 @@
 #include <linux/delay.h>
 
 
-#define FAN_PWM_CHAN_CNT		3
-#define FAN_PWM_DUTY			0x0
-#define FAN_PWM_PERIOD			0x1
-#define FAN_PWM_FREE			0x2
-#define DDR_TRAINING_TEMP		0x3
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-#define PMIX_LOWEST_TEMP		0x4
-#define D2D_RECOVERY			0x5
-#endif
+#define FAN_PWM_CHAN_CNT			(3)
 
 #define FAN_RPM_MAX_VALUE			(100000)
 #define FAN_RPM_MAX_READ_CNT		(100)
@@ -53,30 +45,16 @@
 #define FAN_RPM_TOLERANCE_RATIO 	(5)
 
 /* register map */
-#define REG_FAN_INT				0x0
-#define REG_FAN_RPM				0x4
-/* test register map */
-#define SYS_CON_TESTREG0		(0x0) //0x51810668 and 0x71810668
-#define SYS_CON_TESTREG1		(0x4) //0x5181066C and 0x7181066C
-#define SYS_CON_TESTREG2		(0x8) //0x51810670 and 0x71810670
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-#define D2D_RECOVERY_MASK		BIT(31) //d2d recovery bit
-#define PMIX_LOWEST_TEMP_MASK	GENMASK(20, 0) //pmix lowest temperature
-#endif
-#define SYS_CON_TESTREG3		(0xC) //0x51810674 and 0x71810674
-
+#define REG_FAN_INT					(0x0)
+#define REG_FAN_RPM					(0x4)
 
 /* wait for 50 times pwm period to trigger read interrupt */
-#define TIMEOUT(period)			nsecs_to_jiffies(50 * (period))
+#define TIMEOUT(period)				nsecs_to_jiffies(50 * (period))
 
 struct eswin_fan_control_data {
 	struct reset_control *fan_rst;
 	struct clk *clk;
 	void __iomem *base;
-	void __iomem *cur_die_test_reg_base;
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-	void __iomem *other_die_test_reg_base;
-#endif
 	struct device *hdev;
 	unsigned long clk_rate;
 	wait_queue_head_t wq;
@@ -112,65 +90,6 @@ static inline u32 fan_ioread(
 {
 	return ioread32(ctl->base + reg);
 }
-
-static ssize_t eswin_ddr_training_temp_show(
-	struct device *dev, struct device_attribute *da, char *buf)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	int temp = 0;
-
-	if (DDR_TRAINING_TEMP == attr->index) {
-		temp = ioread32(ctl->cur_die_test_reg_base + SYS_CON_TESTREG3);
-	} else {
-		dev_err(dev, "%s():line%d get error attr index 0x%x\n",
-			__func__, __LINE__, attr->index);
-	}
-
-	return sprintf(buf, "%d\n", temp);
-}
-
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-static ssize_t eswin_pmix_lowest_temp_show(
-	struct device *dev, struct device_attribute *da, char *buf)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	int temp = 0;
-
-	if (PMIX_LOWEST_TEMP == attr->index) {
-		temp = ioread32(ctl->cur_die_test_reg_base + SYS_CON_TESTREG2) & PMIX_LOWEST_TEMP_MASK;
-	} else {
-		dev_err(dev, "%s():line%d get error attr index 0x%x\n",
-			__func__, __LINE__, attr->index);
-	}
-
-	return sprintf(buf, "%d\n", temp);
-}
-
-static ssize_t eswin_d2d_recovery_show(
-	struct device *dev, struct device_attribute *da, char *buf)
-{
-	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
-	struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
-	int recovery = 0;
-	int cur_die_val = 0;
-	int other_die_val = 0;
-
-	if (D2D_RECOVERY == attr->index) {
-		cur_die_val = ioread32(ctl->cur_die_test_reg_base + SYS_CON_TESTREG2) & D2D_RECOVERY_MASK;
-		other_die_val = ioread32(ctl->other_die_test_reg_base + SYS_CON_TESTREG2) & D2D_RECOVERY_MASK;
-		if (cur_die_val || other_die_val) {
-			recovery = 1;
-		}
-	} else {
-		dev_err(dev, "%s():line%d get error attr index 0x%x\n",
-			__func__, __LINE__, attr->index);
-	}
-
-	return sprintf(buf, "%d\n", recovery);
-}
-#endif
 
 static long eswin_fan_control_get_pwm_duty(
 	const struct eswin_fan_control_data *ctl, int channel)
@@ -503,22 +422,6 @@ static const struct hwmon_ops eswin_fan_control_hwmon_ops = {
 	.read_string = eswin_fan_control_read_labels,
 };
 
-static SENSOR_DEVICE_ATTR_RO(ddr_training_temp, eswin_ddr_training_temp, DDR_TRAINING_TEMP);
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-static SENSOR_DEVICE_ATTR_RO(pmix_lowest_temp, eswin_pmix_lowest_temp, PMIX_LOWEST_TEMP);
-static SENSOR_DEVICE_ATTR_RO(d2d_recovery, eswin_d2d_recovery, D2D_RECOVERY);
-#endif
-
-static struct attribute *eswin_fan_control_attrs[] = {
-	&sensor_dev_attr_ddr_training_temp.dev_attr.attr,
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-	&sensor_dev_attr_pmix_lowest_temp.dev_attr.attr,
-	&sensor_dev_attr_d2d_recovery.dev_attr.attr,
-#endif
-	NULL,
-};
-ATTRIBUTE_GROUPS(eswin_fan_control);
-
 static const struct of_device_id eswin_fan_control_of_match[] = {
 	{ .compatible = "eswin-fan-control"},
 	{}
@@ -641,7 +544,6 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	const char *name = "eswin_fan_control";
 	struct pwm_state state;
 	struct pwm_args pwm_args;
-	struct resource *res = NULL;
 	struct fwnode_handle *fwnode = NULL;
 	int ret = -1;
 	int idx = 0;
@@ -668,35 +570,6 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 			__func__, __LINE__);
 		return PTR_ERR(ctl->base);
 	}
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res) {
-		dev_err(&pdev->dev, "%s():line%d platform_get_resource error\n",
-			__func__, __LINE__);
-		return -ENODEV;
-	}
-	ctl->cur_die_test_reg_base = devm_ioremap(
-		&pdev->dev, res->start, res->end - res->start + 1);
-	if (IS_ERR_OR_NULL(ctl->cur_die_test_reg_base)) {
-		dev_err(&pdev->dev, "%s():line%d ioremap cur die test reg error\n",
-			__func__, __LINE__);
-		return PTR_ERR(ctl->cur_die_test_reg_base);
-	}
-#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	if (!res) {
-		dev_err(&pdev->dev, "%s():line%d platform_get_resource error\n",
-			__func__, __LINE__);
-		return -ENODEV;
-	}
-	ctl->other_die_test_reg_base = devm_ioremap(
-		&pdev->dev, res->start, res->end - res->start + 1);
-	if (IS_ERR_OR_NULL(ctl->other_die_test_reg_base)) {
-		dev_err(&pdev->dev, "%s():line%d ioremap other die test reg error\n",
-			__func__, __LINE__);
-		return PTR_ERR(ctl->other_die_test_reg_base);
-	}
-#endif
 
 	ctl->clk = devm_clk_get(&pdev->dev, "pclk");
 	if (IS_ERR(ctl->clk)) {
@@ -834,15 +707,14 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 		goto err_pwm_disable;
 	}
 	ctl->hdev = devm_hwmon_device_register_with_info(
-		&pdev->dev, name, ctl, ctl->chip_info, eswin_fan_control_groups);
+		&pdev->dev, name, ctl, ctl->chip_info, NULL);
 	ret = PTR_ERR_OR_ZERO(ctl->hdev);
 	if (ret) {
 		dev_err(&pdev->dev, "%s():line%d register hwmon device error\n",
 			__func__, __LINE__);
 		goto err_pwm_disable;
 	}
-	dev_info(&pdev->dev, "%s():line%d init success\n",
-		__func__, __LINE__);
+	dev_info(&pdev->dev, "%s():line%d init success\n", __func__, __LINE__);
 
 	return 0;
 
@@ -854,8 +726,7 @@ err_pwm_disable:
 	}
 err_clk_disable:
 	clk_disable_unprepare(ctl->clk);
-	dev_info(&pdev->dev, "%s():line%d init error\n",
-		__func__, __LINE__);
+	dev_info(&pdev->dev, "%s():line%d init error\n", __func__, __LINE__);
 
 	return ret;
 }
