@@ -394,7 +394,7 @@ static int eswin_fan_control_set_pwm_duty(const long val, struct eswin_fan_contr
 	mutex_lock(&ctl->fan_lock);
 	pwm_get_state(ctl->pwm, &state);
 	pwm_set_relative_duty_cycle(&state, val, 100);
-	pwm_apply_state(ctl->pwm, &state);
+	pwm_apply_might_sleep(ctl->pwm, &state);
 	mutex_unlock(&ctl->fan_lock);
 
 	return 0;
@@ -710,7 +710,7 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 	}
 	dev_err(&pdev->dev, "state.period: %lld state.duty_cycle: %lld\n",
 			state.period,state.duty_cycle);
-	ret = pwm_apply_state(ctl->pwm, &state);
+	ret = pwm_apply_might_sleep(ctl->pwm, &state);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to apply initial PWM state: %d\n",
 			ret);

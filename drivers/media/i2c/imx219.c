@@ -182,8 +182,8 @@ static int imx219_again_table[IMX219_AGAIN_TABLE] =
 	180, 185, 189, 193, 197, 201, 206, 210,
 	214, 219, 223, 228, 232, 236, 241, 245,
 	250, 254, 259, 264, 268, 273, 277, 282,
-	287, 292, 296, 301, 306, 311, 316, 321, 
-	325, 330, 335, 340, 345, 350, 356, 361, 
+	287, 292, 296, 301, 306, 311, 316, 321,
+	325, 330, 335, 340, 345, 350, 356, 361,
 	366, 371, 376, 382, 387, 392, 397, 403,
 	408, 414, 419, 425, 430, 436, 441, 447,
 	453, 459, 464, 470, 476, 482, 488, 494,
@@ -193,15 +193,15 @@ static int imx219_again_table[IMX219_AGAIN_TABLE] =
 	658, 665, 673, 680, 688, 695, 703, 710,
 	718, 726, 734, 742, 750, 758, 766, 774,
 	782, 791, 799, 808, 816, 825, 834, 843,
-	852, 861, 870, 880, 889, 898, 908, 918, 
+	852, 861, 870, 880, 889, 898, 908, 918,
 	928, 937, 947, 958, 968, 978, 989, 1000,
 	1010, 1021, 1032, 1043, 1055, 1066, 1078, 1090,
 	1102, 1114, 1126, 1139, 1151, 1164, 1177, 1191,
 	1204, 1218, 1232, 1246, 1260, 1275, 1290, 1305,
-	1320, 1336, 1352, 1368, 1384, 1401, 1419, 1436, 
-	1454, 1472, 1491, 1510, 1530, 1550, 1570, 1591, 
-	1612, 1634, 1657, 1680, 1704, 1728, 1754, 1779, 
-	1806, 1834, 1862, 1892, 1922, 1954, 1987, 2021, 
+	1320, 1336, 1352, 1368, 1384, 1401, 1419, 1436,
+	1454, 1472, 1491, 1510, 1530, 1550, 1570, 1591,
+	1612, 1634, 1657, 1680, 1704, 1728, 1754, 1779,
+	1806, 1834, 1862, 1892, 1922, 1954, 1987, 2021,
 	2056
 };
 
@@ -897,7 +897,7 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 
 		format = v4l2_subdev_get_pad_format(sd, sd_state, 0);
 		crop = v4l2_subdev_get_pad_crop(sd, sd_state, 0);
-		
+
 		*format = fmt->format;
 		*crop = mode->crop;
 
@@ -1630,6 +1630,9 @@ static int imx219_probe(struct i2c_client *client)
 		dev_err(dev, "subdev init error: %d\n", ret);
 		goto error_media_entity;
 	}
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
 
 	ret = v4l2_async_register_subdev_sensor(&imx219->sd);
 	if (ret < 0) {
@@ -1637,9 +1640,6 @@ static int imx219_probe(struct i2c_client *client)
 		goto error_subdev_cleanup;
 	}
 
-	/* Enable runtime PM and turn off the device */
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
 	pm_runtime_idle(dev);
 
 	return 0;
@@ -1649,6 +1649,8 @@ error_subdev_cleanup:
 
 error_media_entity:
 	media_entity_cleanup(&imx219->sd.entity);
+	pm_runtime_disable(dev);
+	pm_runtime_set_suspended(dev);
 
 error_handler_free:
 	imx219_free_controls(imx219);
@@ -1670,9 +1672,10 @@ static void imx219_remove(struct i2c_client *client)
 	imx219_free_controls(imx219);
 
 	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev))
+	if (!pm_runtime_status_suspended(&client->dev)) {
 		imx219_power_off(&client->dev);
-	pm_runtime_set_suspended(&client->dev);
+		pm_runtime_set_suspended(&client->dev);
+	}
 }
 
 static const struct of_device_id imx219_dt_ids[] = {
