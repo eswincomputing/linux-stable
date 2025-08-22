@@ -469,7 +469,7 @@ static struct platform_driver eswin_pcie_driver = {
 		   .name = "eswin-pcie",
 		   .of_match_table = eswin_pcie_of_match,
 		   .suppress_bind_attrs = true,
-		   .pm = &eswin_pcie_pm_ops,
+		   .pm = pm_sleep_ptr(&eswin_pcie_pm_ops),
 	},
 	.probe = eswin_pcie_probe,
 	.remove = __exit_p(eswin_pcie_remove),
