@@ -78,9 +78,8 @@ struct eswin_pcie {
 static void eswin_pcie_shutdown(struct platform_device *pdev)
 {
 	struct eswin_pcie *pcie = platform_get_drvdata(pdev);
-
-	/* Bring down link, so bootloader gets clean state in case of reboot */
-	reset_control_assert(pcie->perst);
+	/* perst signal should not assert */
+	reset_control_deassert(pcie->perst);
 }
 
 static int eswin_pcie_start_link(struct dw_pcie *pci)
