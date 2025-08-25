@@ -212,9 +212,9 @@ static xtmld_ptr align_ptr(xtmld_ptr ptr, uint32_t t_align, uint32_t t_paddr)
 	// To align an address to the boundary, the starting address needs some
 	// adjustment before it can be aligned to the desired boundary.
 	uint32_t align_adj = align - offset - 1;
-	xtmld_ptr ret = ((((uint32_t)ptr + align_adj) & ~(align - 1)) + offset);
+	xtmld_ptr ret = (xtmld_ptr)((((uint32_t)ptr + align_adj) & ~(align - 1)) + offset);
 #ifndef __XTENSA__
-	xtmld_ptr ret_hi = (uint64_t)ptr & ADDR64_HI;
+	xtmld_ptr ret_hi = (xtmld_ptr)((uint64_t)ptr & ADDR64_HI);
 	ret = (xtmld_ptr)((uint64_t)ret_hi | (uint64_t)ret);
 #endif
 	return ret;

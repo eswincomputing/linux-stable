@@ -55,6 +55,7 @@
 #include <linux/dmapool.h>
 #include <linux/debugfs.h>
 #include <uapi/asm-generic/siginfo.h>
+#include <linux/eswin-win2030-sid-cfg.h>
 #include <linux/mailbox/eswin-mailbox.h>
 #include <linux/dma-mapping.h>
 #include <linux/devfreq.h>
