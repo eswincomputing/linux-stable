@@ -104,7 +104,19 @@
 };
 
 &ssi0 {
-	/* lora */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dual_spi1_default>;
+	num-cs = <1>;
+	spi-flash@0 {
+		compatible = "winbond,w25q128",
+					"jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <4800000>;
+		rx-sample-delay-ns = <10>;
+	};
 };
 
 &ssi1 {
@@ -115,7 +127,6 @@
 &d0_graphcard1 {
 	status = "disabled";
 	label = "Analog Audio-0";
-	dais = <&d0_i2s1_port>;
 };
 
 &d0_graphcard2 {
@@ -175,12 +186,6 @@
 
 &d0_i2s1 {
 	status = "disabled";
-	d0_i2s1_port: port {
-		d0_i2s1_endpoint: endpoint {
-			remote-endpoint = <&d0_codec0_endpoint>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d0_i2s2 {
@@ -188,19 +193,13 @@
 };
 
 &d0_i2c0 {
-	/* codec es8388 */
-	status = "disabled";
-	d0_es8388_0: es8388-0@10 {
-		compatible = "eswin,es8388";
-		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		eswin-plat = <3>;
-		port {
-			d0_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s1_endpoint>;
-			};
-		};
+	/* pin header */
+	status = "okay";
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "board_tmp";
+		#thermal-sensor-cells = <1>;
 	};
 };
 
@@ -216,6 +215,58 @@
 		reg = <0x51>;
 	};
 };
+
+&d0_aon_i2c0 {
+	sys_power:ina226@40 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "sys_power";
+		reg = <0x40>;
+		shunt-resistor = <1000>;
+	};
+};
+
+&pinctrl {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio1_default &pinctrl_gpio2_default &pinctrl_gpio3_default &pinctrl_gpio4_default
+			&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default &pinctrl_gpio10_default
+			&pinctrl_gpio22_default &pinctrl_gpio30_default &pinctrl_gpio31_default &pinctrl_gpio32_default
+			&pinctrl_gpio33_default &pinctrl_gpio39_default &pinctrl_gpio40_default &pinctrl_gpio41_default
+			&pinctrl_gpio73_default &pinctrl_gpio74_default &pinctrl_gpio75_default>;
+};
+
+/******** pin headers *********
+     pin : function
+       3 : I2C0 SDA(GPIO45)
+       5 : I2C0 SCL(GPIO44)
+       7 : GPIO22(I2S_MCLK)
+       8 : UART3 TX(GPIO92)
+      10 : UART3 RX(GPIO93)
+      11 : GPIO9
+      12 : GPIO30(I2S1_BCLK)
+      13 : GPIO1
+      15 : GPIO8
+      16 : GPIO10
+      18 : GPIO4
+      19 : SPI1 D0(GPIO37/UART4 TX)
+      21 : SPI1 D1(GPIO38/UART4 RX)
+      22 : GPIO3
+      23 : SPI1 CLK(GPIO36)
+      24 : SPI1 CS0(GPIO35)
+      26 : GPIO41(SPI1 CS1)
+      27 : I2C10 SDA(GPIO103)
+      28 : I2C10 SCL(GPIO102)
+      29 : GPIO7
+      31 : GPIO73
+      32 : GPIO39(SPI1 D2)
+      33 : GPIO74
+      35 : GPIO31(I2S1_WCLK)
+      36 : GPIO40(SPI1 D3)
+      37 : GPIO2
+      38 : GPIO32(I2S1_SDI)
+      40 : GPIO33(I2S1_SDO)
+*********************************/
 
 /* GPIO Function Description
 	gpio0   : touch int(I)
