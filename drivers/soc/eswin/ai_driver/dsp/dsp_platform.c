@@ -101,6 +101,8 @@
 #define DIE_BASE_INTERVAL 0x20000000
 #define DSP_CORE_INTERVAL 0x40000
 
+extern bool __clk_is_enabled(struct clk *clk);
+
 enum dsp_irq_mode {
 	DSP_IRQ_NONE,
 	DSP_IRQ_LEVEL,

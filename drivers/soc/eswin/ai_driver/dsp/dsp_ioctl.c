@@ -509,8 +509,8 @@ static struct dsp_user_req_async *dsp_set_task_info(struct dsp_file *dsp_file,
 	user_req->dma_entry = dma_entry;
 	user_req->dma_buf_count = buffer_count;
 	user_req->dsp_file = dsp_file;
-	user_req->callback = task->task.callback;
-	user_req->cbarg = task->task.cbArg;
+	user_req->callback = (u64)task->task.callback;
+	user_req->cbarg = (u64)task->task.cbArg;
 	INIT_LIST_HEAD(&user_req->async_ll);
 
 	dsp_debug("%s, user_req=0x%px.\n", __func__, user_req);
@@ -1169,7 +1169,7 @@ static long dsp_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		retval = dsp_ioctl_load_op(flip, (dsp_ioctl_load_s *)arg);
 		break;
 	case DSP_IOCTL_UNLOAD_OP:
-		retval = dsp_ioctl_unload_op(flip, arg);
+		retval = dsp_ioctl_unload_op(flip, (void *)arg);
 		break;
 	case DSP_IOCTL_SUBMIT_TSK_ASYNC:
 		retval = dsp_ioctl_submit_tsk_async(
@@ -1262,7 +1262,7 @@ static int dsp_open(struct inode *inode, struct file *flip)
 	if (ret != 0) {
 		dsp_err("%s, init kernel handle error.\n", __func__);
 		kfree(dsp_file);
-		es_dsp_pm_put_sync(dsp->dev);
+		es_dsp_pm_put_sync(dsp);
 		return ret;
 	}
 	INIT_LIST_HEAD(&dsp_file->async_ll_complete);
