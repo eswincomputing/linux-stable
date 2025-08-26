@@ -261,18 +261,8 @@
 	};
 };
 
-&thermal_zones {
-	thermal0 {
-		cooling-maps {
-			/delete-node/ map0;
-		};
-	};
-	d1_thermal0 {
-		cooling-maps {
-			/delete-node/ map0;
-		};
-	};
-};
+/delete-node/ &d0_map_cpu;
+/delete-node/ &d1_map_cpu;
 
 &d0_cpu_opp_table {
 	/delete-node/ opp-1200000000;
