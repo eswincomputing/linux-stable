@@ -62,7 +62,7 @@
 #define SATA_REF_USE_PAD              BIT(20)
 #define SATA_P0_AMPLITUDE_GEN1        0x42
 #define SATA_P0_AMPLITUDE_GEN2        (0x46 << 8)
-#define SATA_P0_AMPLITUDE_GEN3        (0x73 << 16)
+#define SATA_P0_AMPLITUDE_GEN3        (0x7a << 16)
 #define SATA_P0_PHY_TX_PREEMPH_GEN1   0x05
 #define SATA_P0_PHY_TX_PREEMPH_GEN2   (0x05 << 8)
 #define SATA_P0_PHY_TX_PREEMPH_GEN3   (0x08 << 16)
