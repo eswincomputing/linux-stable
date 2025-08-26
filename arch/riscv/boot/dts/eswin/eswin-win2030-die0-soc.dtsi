@@ -119,7 +119,7 @@
 		};
 
 		d0_uart1: serial@0x50910000 {
-			compatible = "snps,dw-apb-uart";
+			compatible = "eswin,dw-apb-uart";
 			reg = <0x0 0x50910000 0x0 0x10000>;
 			clock-frequency = <LSPCLK_FREQ>;
 			interrupt-parent = <&plic0>;
