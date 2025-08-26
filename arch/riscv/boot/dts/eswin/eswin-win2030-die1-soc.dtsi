@@ -32,33 +32,33 @@
 #include <dt-bindings/pwm/pwm.h>
 / {
 	thermal-zones {
-		d1_thermal0 {
+		d1_thermal: d1_thermal0 {
 			polling-delay-passive = <500>; /*ms*/
 			polling-delay = <1000>; /*ms*/
 			sustainable-power = <30000>; /*mW*/
 			thermal-sensors = <&d1_pvt0>;
 
 			trips {
-				d1_threshold: trip-point0 {
+				d1_trip_threshold: trip-point0 {
 					temperature = <65000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
-				d1_target: trip-point1 {
+				d1_trip_target: trip-point1 {
 					temperature = <75000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
-				d1_crit: trip-point2 {
-					temperature     = <105000>;
-					hysteresis      = <0>;
-					type            = "critical";
+				d1_trip_crit: trip-point2 {
+					temperature = <105000>;
+					hysteresis = <0>;
+					type = "critical";
 				};
 			};
 
 			cooling-maps {
-				map0 {
-					trip = <&d1_target>;
+				d1_map_cpu: map0 {
+					trip = <&d1_trip_target>;
 					contribution = <1024>;
 					cooling-device =
 						<&cpu_4 0 10>,
@@ -66,30 +66,36 @@
 						<&cpu_6 0 10>,
 						<&cpu_7 0 10>;
 				};
-				map1 {
-					trip = <&d1_target>;
-					contribution = <1024>;
+				d1_map_npu: map1 {
+					trip = <&d1_trip_target>;
+					contribution = <4096>;
 					cooling-device = <&d1_npu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
-				/*
-				map2 {
-					trip = <&d1_target>;
+				d1_map_dsp: map2 {
+					trip = <&d1_trip_target>;
+					contribution = <2048>;
+					cooling-device = <&d1_dsp0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+									<&d1_dsp1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+									<&d1_dsp2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+									<&d1_dsp3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				d1_map_gpu: map3 {
+					trip = <&d1_trip_target>;
 					contribution = <1024>;
 					cooling-device = <&d1_gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
-				*/
-				map4 {
-					trip = <&d1_target>;
+				d1_map_venc: map4 {
+					trip = <&d1_trip_target>;
 					contribution = <1024>;
 					cooling-device = <&venc1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
-				map5 {
-					trip = <&d1_target>;
+				d1_map_vdec: map5 {
+					trip = <&d1_trip_target>;
 					contribution = <1024>;
 					cooling-device = <&vdec1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
-				map6 {
-					trip = <&d1_target>;
+				d1_map_hae: map6 {
+					trip = <&d1_trip_target>;
 					contribution = <1024>;
 					cooling-device = <&d1_gc820 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
