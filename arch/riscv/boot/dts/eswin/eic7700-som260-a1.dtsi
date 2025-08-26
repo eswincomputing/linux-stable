@@ -349,36 +349,20 @@
 	dais = <&d0_i2s0_port>;
 };
 
-&isp_0 {
+&vi_subsys {
 	status = "okay";
 };
 
+&isp_0 {
+	status = "disabled";
+};
+
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dewarp {
 	status = "okay";
-};
-
-&mipi_dphy_rx {
-	status = "okay";
-};
-
-&csi_dma0 {
-	status = "okay";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "okay";
-};
-
-&csi2_1 {
-	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -486,8 +470,6 @@
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;
-	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -600,7 +582,7 @@
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD", "NPU Voltage", "NPU CURRENT", "NPU Temperature";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
@@ -621,7 +603,7 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_pwm0_default>;
 	pinctrl-1 = <&pinctrl_gpio68_default>;
-	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
+	fan-pwm-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 };
 
 &pvt0 {
@@ -649,22 +631,6 @@
 };
 
 &die0_rtc {
-	status = "okay";
-};
-
-&timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "okay";
-};
-
-&timer2 {
-	status = "okay";
-};
-
-&timer3 {
 	status = "okay";
 };
 

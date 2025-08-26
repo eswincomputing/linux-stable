@@ -15,7 +15,13 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7700-sbc-a1-mipi.dtb\
 							eic7700-osm.dtb \
 							eic7702-d560.dtb \
+							eic7702-d560-mipi.dtb \
+							eic7702-d560-d0mipi-d1hdmi.dtb \
+							eic7702-d560-d0hdmi-d1mipi.dtb \
 							eic7702-d560a.dtb \
+							eic7702-d560a-mipi.dtb \
+							eic7702-d560a-d0mipi-d1hdmi.dtb \
+							eic7702-d560a-d0hdmi-d1mipi.dtb \
 							eic7702-d560-interleave.dtb \
 							vpu7702-pcie.dtb \
 							vpu7702-evb.dtb \
@@ -25,7 +31,9 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7700-ce1-mipi.dtb \
 							u2-evb.dtb \
 							m2-evb.dtb \
-							d560-ep-evb.dtb \
+							ebc7702-p01-d560.dtb \
+							ebc7702-p01-pcie.dtb \
 							eic7700-vela.dtb \
 							eic7700-vela-mipi.dtb
+subdir-y += overlays
 obj-$(CONFIG_BUILTIN_DTB) += $(addsuffix .o, $(dtb-y))
