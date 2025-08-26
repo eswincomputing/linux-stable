@@ -19,23 +19,13 @@
  */
 
 #include "eic7700-som260-a1.dtsi"
+#include "eic7700-vela-camera-imx415.dtsi"
 
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
-	model = "ESWIN EIC7700 Z530";
+	model = "ESWIN EIC7700 VELA";
 
-	gpio-keys {
-		compatible = "gpio-keys";
-
-		ap_backup {
-			label = "ap-backup";
-			linux,code = <KEY_OK>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio26_default>;
-			gpios = <&porta 26 GPIO_ACTIVE_LOW>;
-		};
-	};
 	reg_vcc1v8: vcc1v8 {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc1v8";
@@ -45,14 +35,20 @@
 };
 
 &d0_gmac0 {
-	dly-param-1000m = <0x10101010 0x1D003410 0x0>;
-	dly-param-100m = <0x10101010 0x64104610 0x10101010>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio80_default>;
+	rst-gpios = <&portc 16 GPIO_ACTIVE_LOW>;
+	dly-param-1000m = <0x23232323 0xa0209023 0x20202020>;
+	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
 };
 
 &d0_gmac1 {
-	dly-param-1000m = <0x10101010 0x14102810 0x10101010>;
-	dly-param-100m = <0x10101010 0x3C102810 0x10101010>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio81_default>;
+	rst-gpios = <&portc 17 GPIO_ACTIVE_LOW>;
+	dly-param-1000m = <0x00000000 0xe002e000 0x04040404>;
+	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
 };
 
@@ -117,7 +113,7 @@
 };
 
 &d0_graphcard1 {
-	status = "okay";
+	status = "disabled";
 	label = "Analog Audio-0";
 	dais = <&d0_i2s1_port>;
 };
@@ -128,6 +124,7 @@
 
 &video_output {
 	status = "okay";
+    power-supply = <&reg_display>;
 };
 
 &dc {
@@ -135,50 +132,104 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dc_out_dpi: endpoint@0 {
+		dc_out_dsi: endpoint@0 {
 			reg = <0>;
-			remote-endpoint = <&vd_input>;
+			remote-endpoint = <&dsi_input>;
 		};
-		dc_out_hdmi: endpoint@1 {
+		dc_out_dpi: endpoint@1 {
 			reg = <1>;
-			remote-endpoint = <&hdmi_in_dc>;
+			remote-endpoint = <&vd_input>;
 		};
 	};
 };
 
 &dw_hdmi {
-	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint>;
-			};
-		};
-	};
+	status = "disabled";
 };
 
 &d0_i2s0 {
 	status = "okay";
 	d0_i2s0_port: port {
 		d0_i2s0_endpoint: endpoint {
-			remote-endpoint = <&hdmi_in_i2s>;
 			dai-format = "i2s";
 		};
 	};
 };
 
-&d0_i2s1 {
+&dsi_controller {
 	status = "okay";
+	dependencies = <&reg_display>;
+	dependencies = <&rasp_panel>;
+	dependencies = <&toshiba_bridge>;
+
+	dsi-led-gpio = <&porta 5 GPIO_ACTIVE_HIGH>;
+	dsi-power-gpio = <&porta 27 GPIO_ACTIVE_HIGH>;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&bridge_in>;
+			};
+		};
+	};
+
+	toshiba_bridge: bridge@0 {
+		reg = <0>;
+		compatible = "toshiba,tc358762";
+		status = "okay";
+		vddc-supply = <&reg_display>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				bridge_in: endpoint {
+					remote-endpoint = <&mipi_dsi_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				bridge_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+
+};
+
+
+&rasp_panel {
+    status = "okay";
+    backlight = <&reg_display>;
+    power-supply = <&reg_display>;
+
+    port {
+        panel_in: endpoint {
+        remote-endpoint = <&bridge_out>;
+        };
+    };
+};
+
+
+&d0_i2s1 {
+	status = "disabled";
 	d0_i2s1_port: port {
 		d0_i2s1_endpoint: endpoint {
 			remote-endpoint = <&d0_codec0_endpoint>;
@@ -193,6 +244,7 @@
 
 &d0_i2c0 {
 	/* codec es8388 */
+	status = "disabled";
 	d0_es8388_0: es8388-0@10 {
 		compatible = "eswin,es8388";
 		reg = <0x10>;
@@ -209,20 +261,22 @@
 
 &d0_i2c1 {
 	/* rtc rs4c411 & mipi dsi */
-
+	/* touch screen*/
+	status = "okay";
+	reg_display: regulator@45 {
+		status = "okay";
+		compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &d0_i2c2 {
-	/* touch screen*/
-	gt911:touchscreen@14 {
-		compatible = "goodix,gt911";
-		reg = <0x14>;
-		interrupt-parent = <&porta>;
-		interrupts = <0 IRQ_TYPE_EDGE_RISING>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio0_default &pinctrl_gpio92_default>;
-		irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&portc 28 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+	pcf_rtc:rtc@51 {
+		compatible = "nxp,pcf85063a";
+		reg = <0x51>;
 	};
 };
 
