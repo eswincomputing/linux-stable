@@ -102,9 +102,7 @@
 };
 
 &d0_usbdrd3_1 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio14_default>;
+	pinctrl-0 = <&pinctrl_die0_usb1_pwren_default>, <&pinctrl_die0_gpio14_default>;
 	hub-rst-gpios = <&porta 14 GPIO_ACTIVE_HIGH>;
 };
 

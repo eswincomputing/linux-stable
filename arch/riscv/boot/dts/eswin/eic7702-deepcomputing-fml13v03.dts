@@ -994,13 +994,10 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_usb0_pwren_default>;
 };
+
 &d1_usbdrd3_0 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die1_usb0_pwren_default>;
 };
 
 &d0_usbdrd_dwc3_0 {
@@ -1017,14 +1014,10 @@
 
 &d0_usbdrd3_1 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_usb1_pwren_default>;
 };
 
 &d1_usbdrd3_1 {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die1_usb1_pwren_default>;
 };
 
 &d0_usbdrd_dwc3_1 {

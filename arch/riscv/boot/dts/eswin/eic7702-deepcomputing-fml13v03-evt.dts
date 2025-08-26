@@ -930,6 +930,7 @@
 &d0_usbdrd3_0 {
 	status = "okay";
 };
+
 &d1_usbdrd3_0 {
 	status = "okay";
 };
