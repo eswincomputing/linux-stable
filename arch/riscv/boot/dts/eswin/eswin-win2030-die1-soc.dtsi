@@ -767,7 +767,7 @@
 			pwm-minimum-period = <1000>;
 			pwms = <&d1_pwm0 0 100000 0>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_die1_fan_tach_default &pinctrl_die1_pwm0_default>;
+			pinctrl-0 = <&pinctrl_die1_fan_tach_default>;
 			status = "disabled";
 			label = "d1_fan_control";
 			numa-node-id = <1>;

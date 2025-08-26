@@ -1237,6 +1237,10 @@
 };
 &d1_pwm0 {
 	status = "okay";
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_die1_pwm0_default &pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
+	pinctrl-1 = <&pinctrl_die1_gpio68_default &pinctrl_die1_gpio40_default &pinctrl_die1_gpio41_default>;
+	fan-gpios = <&d1_portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &pvt0 {

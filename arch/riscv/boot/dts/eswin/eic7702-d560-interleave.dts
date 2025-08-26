@@ -179,8 +179,6 @@
 };
 
 &d1_fan_control {
-	pinctrl-0 = <&pinctrl_die1_fan_tach_default &pinctrl_die1_pwm0_default
-				&pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
 	status = "okay";
 	fan-0 {
 		label = "d1_fan";
