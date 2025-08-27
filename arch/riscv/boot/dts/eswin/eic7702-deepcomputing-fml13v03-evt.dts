@@ -1097,7 +1097,7 @@
 	cs-gpios = <&portc 24 GPIO_ACTIVE_LOW>;
 	num-cs = <1>;
 
-	fwos_ec: spi@0 {
+	fwos_ec: ec@0 {
 		compatible = "google,cros-ec-spi";
 		reg = <0>;
 		status = "okay";
