@@ -656,7 +656,8 @@
 
 		d1_ipc_scpu:ipc@1 {
 			compatible = "eswin,win2030-ipc", "simple-bus";
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0x80000000>;
 			iommus = <&smmu1 WIN2030_SID_SCPU>, <&smmu1 WIN2030_SID_CRYPT>;
 			tbus = <WIN2030_TBUID_SCPU>;
