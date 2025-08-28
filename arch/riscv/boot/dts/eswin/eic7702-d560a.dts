@@ -68,7 +68,7 @@
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
 		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
-		label = "npu_vdd";
+		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
 				regulator-name="NPU_SVCC_D1";
