@@ -220,7 +220,6 @@
 			#size-cells = <0>;
 
 			mipidphy0_in_ucam0: endpoint@0 {
-				reg = <0>;
 				remote-endpoint = <&imx415_out0>;
 			};
 		};
@@ -231,7 +230,6 @@
 			#size-cells = <0>;
 
 			csidphy0_out: endpoint@1 {
-				reg = <1>;
 				remote-endpoint = <&mipi0_csi2_input>;
 			};
 		};
@@ -256,7 +254,6 @@
 			#size-cells = <0>;
 
 			mipidphy2_in_ucam0: endpoint@0 {
-				reg = <0>;
 				remote-endpoint = <&imx415_out1>;
 				data-lanes = <1 2 3 4>;
 			};
@@ -268,7 +265,6 @@
 			#size-cells = <0>;
 
 			csidphy2_out: endpoint@1 {
-				reg = <1>;
 				remote-endpoint = <&mipi_csi2_2_input>;
 			};
 		};
@@ -279,53 +275,54 @@
 	/* mipi csi0/csi1 */
 	status = "okay";
 	imx415_0: imx415@37 {
-			compatible = "sony,imx415";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x37>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <37125000>;
-			clock-names = "inck";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio72_default>;
-			reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+		compatible = "sony,imx415";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x37>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "inck";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio72_default>;
+		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
 
-			port {
-				imx415_out0: endpoint {
-					remote-endpoint = <&mipidphy0_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <891000000>;
-				};
+		port {
+			imx415_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
 			};
 		};
+	};
 };
 
 &d0_i2c2 {
 	/* mipi csi2/csi3 */
 	status = "okay";
 	imx415_1: imx415@37 {
-			compatible = "sony,imx219";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x37>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <37125000>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_gpio78_default>;
-			reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
+		compatible = "sony,imx415";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x37>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "inck";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio78_default>;
+		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
 
-			port {
-				imx415_out1: endpoint {
-					remote-endpoint = <&mipidphy2_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <891000000>;
-				};
+		port {
+			imx415_out1: endpoint {
+				remote-endpoint = <&mipidphy2_in_ucam0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <360000000>;
 			};
 		};
+	};
 };
 
 &isp_0 {
