@@ -33,22 +33,26 @@
 
 &sdhci_emmc {
 	/* emmc YXSCG6PE-AK */
+	negedge-data-out;
+};
+
+&d0_i2c5 {
+	/delete-node/ tmp102@48;
 };
 
 &d0_aon_i2c1 {
 	/* temp sensor(gx112) & pmic(ES5340) */
-	/delete-node/ tmp102@48;
 	/delete-node/ tps549d22@10;
 
 	es5340@f {
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage", "D0 NPU CURRENT", "D0 NPU Temperature";
 		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC_D0";
+				regulator-name="D0_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -67,11 +71,11 @@
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage", "D1 NPU CURRENT", "D1 NPU Temperature";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC_D1";
+				regulator-name="D1_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -79,5 +83,12 @@
 				regulator-ov-protection-microvolt=<1100000>;
 			};
 		};
+	};
+};
+
+&npu_opp_table {
+	opp@1500000000 {
+		opp-hz = /bits/ 64 <1500000000>;
+		opp-microvolt = <1080000>;
 	};
 };
