@@ -507,7 +507,6 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 	int is_reset = 0;
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(d);
 	struct win_engine *engine = npu_get_win_engine(nvdla_dev);
-
 	int ret, i;
 
 	if (count == 0 || count > 128) {
@@ -516,110 +515,92 @@ static ssize_t store_reset_hand(struct device *d, struct device_attribute *attr,
 	}
 
 	memcpy(buf_in, buf, count);
-
 	ptr = strstr(buf_in, "reset");
 	if (ptr != NULL) {
 		is_reset = 1;
 	}
 
 	ptr = strstr(buf_in, "npu");
-	mutex_lock(&engine->reset_mutex);
-	if (ptr != NULL) {
-		if (is_reset == 1) {
-			ret = npu_pm_get(nvdla_dev);
-			if (ret < 0) {
-				dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
-					__LINE__, ret);
-				return ret;
-			}
-			engine->engine_is_alive = false;
-			npu_drop_all_frame(nvdla_dev, false);
-			memset(engine->host_node, 0, sizeof(host_node_t));
-			memset(nvdla_dev->emission_base, 0,
-			       E31_EMISSION_DTIM_SIZE);
-			memset(nvdla_dev->program_base, 0,
-			       E31_PROGRAM_DTIM_SIZE);
-
-			engine->tiktok = 0;
-
-			edma_free(nvdla_dev);
-
-			ret = npu_hardware_reset(nvdla_dev);
-			if (ret) {
-				dla_error("hardware reset err, ret=%d.\n", ret);
-				goto exit;
-			}
-
-			npu_tbu_power(&nvdla_dev->pdev->dev, true);
-
-			clk_prepare_enable(nvdla_dev->mbox_pclk);
-			clk_prepare_enable(nvdla_dev->mbox_pclk_device);
-			reset_control_reset(nvdla_dev->mbox_rst_device);
-			reset_control_reset(nvdla_dev->mbox_rst);
-			writel(0x1,
-			       nvdla_dev->mbox_rx_base + MBOX_NPU_INT_OFFSET);
-			writel(ESWIN_MAILBOX_NPU_LOCK_BIT,
-			       nvdla_dev->mbox_rx_base + MBOX_NPU_WR_LOCK);
-			npu_restart_init(nvdla_dev);
-
-			host_ipc_initialize(
-				(u64)((struct win_engine
-					       *)(nvdla_dev->win_engine))
-					->host_node,
-				(u32)((struct win_engine
-					       *)(nvdla_dev->win_engine))
-					->host_node_iova,
-				(u64)nvdla_dev->emission_base,
-				(u64)nvdla_dev->program_base);
-
-			reset_uart_mutex(nvdla_dev);
-			for (i = 0; i < NUM_NPU_CORES; i++) {
-				/* initialize the node id for all e31 */
-				io_write((u8 *)nvdla_dev->e31_mmio_base +
-						 NPU_CPU_OFFSET +
-						 NPU_CPU_SIZE * i +
-						 NPU_DTIM_OFFSET +
-						 ADDR_OFFSET(cpu_node_t,
-							     node_id),
-					 i);
-				activate_system(nvdla_dev->e31_mmio_base, i);
-				if (i == 0) {
-					msleep(3);
-				}
-			}
-
-			ret = check_system_activated(nvdla_dev->e31_mmio_base);
-			if (ret == false) {
-				ret = check_system_activated(
-					nvdla_dev->e31_mmio_base);
-			}
-			if (nvdla_dev->e31_fw_virt_base) {
-				iommu_unmap_rsv_iova(
-					d, nvdla_dev->e31_fw_virt_base,
-					nvdla_dev->e31_nim_iova,
-					nvdla_dev->e31_fw_size);
-			}
-			if (ret == false) {
-				dla_error("e31 not bootup, error.\n");
-				goto exit;
-			}
-
-			ret = edma_init(nvdla_dev);
-			if (ret) {
-				dla_error("edma_init fail\n");
-				goto exit;
-			}
-			engine->engine_is_alive = true;
-			npu_pm_put(nvdla_dev);
-		} else {
-			dla_error("err:input err.\n");
+	if (ptr != NULL && is_reset == 1) {
+		mutex_lock(&engine->reset_mutex);
+		ret = npu_pm_get(nvdla_dev);
+		if (ret < 0) {
+			dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
+				__LINE__, ret);
+			mutex_unlock(&engine->reset_mutex);
+			return count;
 		}
+		engine->engine_is_alive = false;
+		npu_drop_all_frame(nvdla_dev, false);
+		memset(engine->host_node, 0, sizeof(host_node_t));
+		memset(nvdla_dev->emission_base, 0,	E31_EMISSION_DTIM_SIZE);
+		memset(nvdla_dev->program_base, 0, E31_PROGRAM_DTIM_SIZE);
+
+		engine->tiktok = 0;
+		edma_free(nvdla_dev);
+
+		ret = npu_hardware_reset(nvdla_dev);
+		if (ret) {
+			dla_error("hardware reset err, ret=%d.\n", ret);
+			goto exit;
+		}
+
+		npu_tbu_power(&nvdla_dev->pdev->dev, true);
+
+		clk_prepare_enable(nvdla_dev->mbox_pclk);
+		clk_prepare_enable(nvdla_dev->mbox_pclk_device);
+		reset_control_reset(nvdla_dev->mbox_rst_device);
+		reset_control_reset(nvdla_dev->mbox_rst);
+		writel(0x1, nvdla_dev->mbox_rx_base + MBOX_NPU_INT_OFFSET);
+		writel(ESWIN_MAILBOX_NPU_LOCK_BIT, nvdla_dev->mbox_rx_base + MBOX_NPU_WR_LOCK);
+		npu_restart_init(nvdla_dev);
+
+		host_ipc_initialize(
+			(u64)((struct win_engine *)(nvdla_dev->win_engine))->host_node,
+			(u32)((struct win_engine *)(nvdla_dev->win_engine))->host_node_iova,
+			(u64)nvdla_dev->emission_base, (u64)nvdla_dev->program_base);
+
+		reset_uart_mutex(nvdla_dev);
+		for (i = 0; i < NUM_NPU_CORES; i++) {
+			/* initialize the node id for all e31 */
+			io_write((u8 *)nvdla_dev->e31_mmio_base +
+					 NPU_CPU_OFFSET + NPU_CPU_SIZE * i + NPU_DTIM_OFFSET +
+					 ADDR_OFFSET(cpu_node_t, node_id), i);
+			activate_system(nvdla_dev->e31_mmio_base, i);
+			if (i == 0) {
+				msleep(3);
+			}
+		}
+
+		ret = check_system_activated(nvdla_dev->e31_mmio_base);
+		if (ret == false) {
+			ret = check_system_activated(nvdla_dev->e31_mmio_base);
+		}
+		if (nvdla_dev->e31_fw_virt_base) {
+			iommu_unmap_rsv_iova(d, nvdla_dev->e31_fw_virt_base,
+								 nvdla_dev->e31_nim_iova,
+								 nvdla_dev->e31_fw_size);
+		}
+		if (ret == false) {
+			dla_error("e31 not bootup, error.\n");
+			goto exit;
+		}
+
+		ret = edma_init(nvdla_dev);
+		if (ret) {
+			dla_error("edma_init fail\n");
+			goto exit;
+		}
+		engine->engine_is_alive = true;
+	} else {
+		dla_error("err:input err.\n");
+		return count;
 	}
 
 exit:
 	npu_clk_reset_print(nvdla_dev->pdev, nvdla_dev->numa_id);
-	mutex_unlock(&engine->reset_mutex);
 	npu_pm_put(nvdla_dev);
+	mutex_unlock(&engine->reset_mutex);
 	return count;
 }
 

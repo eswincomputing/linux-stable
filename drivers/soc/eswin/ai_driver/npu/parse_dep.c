@@ -98,6 +98,10 @@ static int config_sequence_setup(struct win_executor *executor, int op_num,
 						    &task->surface_desc[op_idx],
 						    executor->tensor_set[pcer],
 						    j);
+		if (ret < 0) {
+			dla_error("%s, %d, tensor unfold error.\n", __func__, __LINE__);
+			return ret;
+		}
 		if (pcer_interface->rdma_check != NULL) {
 			rdma = pcer_interface->rdma_check(
 				NULL, &task->op_desc[op_idx],
@@ -107,6 +111,10 @@ static int config_sequence_setup(struct win_executor *executor, int op_num,
 		ret = pcer_interface->prepare_prog_data(
 			executor, rdma, j, op_idx, &task->op_desc[op_idx],
 			&task->surface_desc[op_idx]);
+		if (ret < 0) {
+			dla_error("%s, %d, prepare prog data error.\n", __func__, __LINE__);
+			return ret;
+		}
 		op_type_pos[pcer]++;
 	}
 
