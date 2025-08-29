@@ -27,6 +27,8 @@ static const char *const mux_u_cpu_aclk_2mux1_gfree_p[] = {
 	"fixed_factor_u_cpu_div2", "mux_u_cpu_root_3mux1_gfree"
 };
 
+static u32 mux_u_cpu_root_2mux1_gfree_p_table[] = { 0x000000, 0x000001 };
+
 static const char *const dsp_aclk_root_2mux1_gfree_mux_p[] = {
 	"fixed_rate_clk_spll2_fout1", "fixed_rate_clk_spll0_fout1"
 };
@@ -178,7 +180,7 @@ static struct eswin_fixed_rate_clock eic7700_fixed_rate_clks[] = {
 		"fixed_rate_clk_spll0_fout2",
 		NULL,
 		0,
-		800000000,
+		1600000000,
 	},
 	{
 		EIC7700_SPLL0_FOUT3,
@@ -446,6 +448,7 @@ static struct eswin_mux_clock eic7700_mux_clks[] = {
 		20,
 		1,
 		0,
+		mux_u_cpu_root_2mux1_gfree_p_table,
 	},
 
 	{

@@ -308,11 +308,15 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 val;
 	int ret;
 	struct clk *clk_cpu_mux = NULL;
+	struct clk *clk_cpu_aclk_mux = NULL;
+	struct clk *clk_cpu_aclk_div2 = NULL;
 	struct clk *clk_cpu_lp_pll = NULL;
 	struct clk *clk_cpu_pll = NULL;
 	int try_count = 0;
 	bool lock_flag = false;
 	char clk_cpu_mux_name[50] = { 0 };
+	char clk_cpu_aclk_mux_name[50] = { 0 };
+	char clk_cpu_aclk_div2_name[50] = { 0 };
 	char clk_cpu_lp_pll_name[50] = { 0 };
 	char clk_cpu_pll_name[50] = { 0 };
 	enum voltage_level cpu_target_voltage = VOLTAGE_0_8V;
@@ -330,12 +334,20 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		if (clk->numa_id < 0) {
 			sprintf(clk_cpu_mux_name, "%s",
 				"mux_u_cpu_root_3mux1_gfree");
+			sprintf(clk_cpu_aclk_mux_name, "%s",
+				"mux_u_cpu_aclk_2mux1_gfree");
+			sprintf(clk_cpu_aclk_div2_name, "%s",
+				"fixed_factor_u_cpu_div2");
 			sprintf(clk_cpu_lp_pll_name, "%s",
 				"clk_clk_u84_core_lp");
 			sprintf(clk_cpu_pll_name, "%s", "clk_pll_cpu");
 		} else {
 			sprintf(clk_cpu_mux_name, "d%d_%s", clk->numa_id,
 				"mux_u_cpu_root_3mux1_gfree");
+			sprintf(clk_cpu_aclk_mux_name, "d%d_%s", clk->numa_id,
+				"mux_u_cpu_aclk_2mux1_gfree");
+			sprintf(clk_cpu_aclk_div2_name, "d%d_%s", clk->numa_id,
+				"fixed_factor_u_cpu_div2");
 			sprintf(clk_cpu_lp_pll_name, "d%d_%s", clk->numa_id,
 				"clk_clk_u84_core_lp");
 			sprintf(clk_cpu_pll_name, "d%d_%s", clk->numa_id,
@@ -346,6 +358,18 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		if (!clk_cpu_mux) {
 			pr_err("%s %d, failed to get %s\n", __func__, __LINE__,
 			       clk_cpu_mux_name);
+			return -EINVAL;
+		}
+		clk_cpu_aclk_mux = __clk_lookup(clk_cpu_aclk_mux_name);
+		if (!clk_cpu_aclk_mux) {
+			pr_err("%s %d, failed to get %s\n", __func__, __LINE__,
+			       clk_cpu_aclk_mux_name);
+			return -EINVAL;
+		}
+		clk_cpu_aclk_div2 = __clk_lookup(clk_cpu_aclk_div2_name);
+		if (!clk_cpu_aclk_div2) {
+			pr_err("%s %d, failed to get %s\n", __func__, __LINE__,
+			       clk_cpu_aclk_div2_name);
 			return -EINVAL;
 		}
 		clk_cpu_lp_pll = __clk_lookup(clk_cpu_lp_pll_name);
@@ -376,6 +400,16 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			clk_disable_unprepare(clk_cpu_lp_pll);
 			return -EPERM;
 		}
+
+		ret = clk_set_parent(clk_cpu_aclk_mux, clk_cpu_mux);
+		if (ret) {
+			pr_err("%s %d, failed to switch %s to %s, ret %d\n",
+					__func__, __LINE__, clk_cpu_aclk_mux_name,
+					clk_cpu_mux_name, ret);
+			clk_disable_unprepare(clk_cpu_lp_pll);
+			goto switch_back;
+		}
+
 		mutex_lock(&lock);
 		if (clk->numa_id >= 0) {
 			g_cpu_info.cpu_freqhz[clk->numa_id] = rate;
@@ -475,6 +509,22 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 
 switch_back:
 	if (clk->id == EIC7700_PLL_CPU) {
+		/* If the frequency exceeds 1GHz,
+		* frequency division processing is required.
+		* If it fails, switch back cannot be performed.
+		* otherwise, it will cause an overclocking error.
+		*/
+		if (rate >= CLK_FREQ_1000M){
+			ret = clk_set_parent(clk_cpu_aclk_mux, clk_cpu_aclk_div2);
+			if (ret) {
+				pr_err("%s %d, failed to switch %s to %s, ret %d\n",
+						__func__, __LINE__, clk_cpu_aclk_mux_name,
+						clk_cpu_aclk_div2_name, ret);
+				clk_disable_unprepare(clk_cpu_lp_pll);
+				return -EPERM;
+			}
+		}
+
 		ret = clk_set_parent(clk_cpu_mux, clk_cpu_pll);
 		if (ret) {
 			pr_err("%s %d, failed to switch %s to %s, ret %d\n",

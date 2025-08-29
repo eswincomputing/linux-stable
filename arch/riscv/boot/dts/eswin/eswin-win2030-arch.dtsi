@@ -19,7 +19,7 @@
  */
 
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
-#include "eic770x-opptable.dtsi"
+#include "eic7700-opptable.dtsi"
 
 #define UART0_INT	100
 #define UART1_INT	101
