@@ -62,10 +62,10 @@
 					trip = <&d0_trip_target>;
 					contribution = <1024>;
 					cooling-device =
-						<&cpu_0 0 10>,
-						<&cpu_1 0 10>,
-						<&cpu_2 0 10>,
-						<&cpu_3 0 10>;
+						<&cpu_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&cpu_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 				d0_map_npu: map1 {
 					trip = <&d0_trip_target>;

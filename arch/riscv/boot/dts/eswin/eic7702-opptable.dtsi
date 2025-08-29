@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree Include file for pin control of Eswin EIC770x family SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/clock/eswin,eic7700-clock.h>
+#include "eic7700-opptable.dtsi"
+
+&d0_cpu_opp_table {
+	/delete-node/ opp-400000000;
+	/delete-node/ opp-500000000;
+	/delete-node/ opp-600000000;
+	/delete-node/ opp-1000000000;
+	/delete-node/ opp-1100000000;
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
+/ {
+	d1_cpu_opp_table: opp-table-d1@cpu {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-700000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_700M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-800000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_800M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-900000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_900M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1400000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1400M>;
+			opp-microvolt = <800000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1500000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
+			opp-microvolt = <900000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1600000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
+			opp-microvolt = <900000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1700000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
+			opp-microvolt = <900000>;
+			clock-latency-ns = <70000>;
+		};
+		opp-1800000000 {
+			opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
+			opp-microvolt = <900000>;
+			clock-latency-ns = <70000>;
+		};
+	};
+};

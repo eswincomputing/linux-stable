@@ -20,7 +20,7 @@
 
 #define CHIPLET_AND_DIE (0x2)
 #include "eswin-win2030-arch.dtsi"
-#include "eic770x-opptable.dtsi"
+#include "eic7702-opptable.dtsi"
 
 
 &L64 {

@@ -187,16 +187,6 @@
 	};
 };
 
-&d0_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
-};
-
-&d1_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
-};
-
 &D1CACHE {
 	status = "okay";
 	d1_zero_device: zero-device@3a000000 {
@@ -204,16 +194,6 @@
 		/*reg = <0x0 0x3a000000 0x0 0x400000>;*/
 		memory-region = <&nid_1_zero_device_simu>;
 	};
-};
-
-&d0_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
-};
-
-&d1_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
 };
 
 &d0_clock {

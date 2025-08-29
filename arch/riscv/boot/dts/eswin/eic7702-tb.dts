@@ -196,16 +196,6 @@
 	};
 };
 
-&d0_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
-};
-
-&d1_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
-};
-
 &d0_clock {
 	status = "okay";
 	pinctrl-names = "default";
