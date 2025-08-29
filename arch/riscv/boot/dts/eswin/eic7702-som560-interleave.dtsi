@@ -507,7 +507,7 @@
 	status = "okay";
 };
 &d1_gpu {
-	status = "okay";
+	status = "disabled";
 };
 
 &gc820 {
@@ -719,59 +719,35 @@
 	status = "disabled";
 };
 
-&isp_0 {
-	status = "okay";
-};
-&d1_isp_0 {
+&vi_subsys {
 	status = "okay";
 };
 
-&isp_1 {
+&d1_vi_subsys {
 	status = "okay";
 };
+
+&isp_0 {
+	status = "disabled";
+};
+
+&d1_isp_0 {
+	status = "disabled";
+};
+
+&isp_1 {
+	status = "disabled";
+};
+
 &d1_isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dewarp {
 	status = "okay";
 };
+
 &d1_dewarp {
-	status = "okay";
-};
-
-&mipi_dphy_rx {
-	status = "okay";
-};
-&d1_mipi_dphy_rx {
-	status = "okay";
-};
-
-&csi_dma0 {
-	status = "okay";
-};
-&d1_csi_dma0 {
-	status = "okay";
-};
-
-&csi_dma1 {
-	status = "okay";
-};
-&d1_csi_dma1 {
-	status = "okay";
-};
-
-&csi2_0 {
-	status = "okay";
-};
-&d1_csi2_0 {
-	status = "okay";
-};
-
-&csi2_1 {
-	status = "okay";
-};
-&d1_csi2_1 {
 	status = "okay";
 };
 
@@ -815,6 +791,7 @@
 	rst-gpios = <&porta 29 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x96206420 0x20202020>;
 	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -827,6 +804,7 @@
 	rst-gpios = <&d1_porta 29 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x8C205A20 0x20202020>;
 	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -839,6 +817,7 @@
 	rst-gpios = <&portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x46205020 0x20202020>;
 	dly-param-100m = <0x20202020 0x50205020 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -992,8 +971,6 @@
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;
-	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -1009,8 +986,6 @@
 	/* spi flash */
 	status = "disabled";
 	num-cs = <1>;
-	cs-gpios = <&d1_portd 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&d1_portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -1185,11 +1160,11 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage";
 		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC";
+				regulator-name="D0_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -1207,11 +1182,11 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC2";
+				regulator-name="D1_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -1228,14 +1203,17 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_die0_pwm0_default>;
 	pinctrl-1 = <&pinctrl_die0_gpio68_default>;
-	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
+	fan-pwm-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
+	fan-vcc-gpios = <&porta 18 GPIO_ACTIVE_LOW>;
 };
 &d1_pwm0 {
 	status = "okay";
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_die1_pwm0_default &pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
 	pinctrl-1 = <&pinctrl_die1_gpio68_default &pinctrl_die1_gpio40_default &pinctrl_die1_gpio41_default>;
-	fan-gpios = <&d1_portc 4 GPIO_ACTIVE_HIGH>;
+	fan-pwm-gpios = <&d1_portc 4 GPIO_ACTIVE_LOW
+					&d1_portb 8 GPIO_ACTIVE_LOW
+					&d1_portb 9 GPIO_ACTIVE_LOW>;
 };
 
 &pvt0 {
@@ -1288,34 +1266,6 @@
 	status = "okay";
 };
 &d1_rtc {
-	status = "okay";
-};
-
-&timer0 {
-	status = "okay";
-};
-&d1_timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "okay";
-};
-&d1_timer1 {
-	status = "okay";
-};
-
-&timer2 {
-	status = "okay";
-};
-&d1_timer2 {
-	status = "okay";
-};
-
-&timer3 {
-	status = "okay";
-};
-&d1_timer3 {
 	status = "okay";
 };
 

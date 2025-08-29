@@ -187,11 +187,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio94_default>;
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &d1_clock {
 	status = "okay";
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &D1CACHE {
@@ -474,7 +476,7 @@
 	status = "okay";
 };
 &d1_gpu {
-	status = "okay";
+	status = "disabled";
 };
 
 &gc820 {
@@ -496,46 +498,6 @@
 };
 &venc1 {
 	status = "okay";
-};
-
-&video_output {
-	status = "okay";
-};
-
-&d1_video_output {
-	status = "okay";
-};
-
-&dc {
-	status = "okay";
-	dc_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		dc_out_dpi1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&vd_input>;
-		};
-		dc_out_hdmi: endpoint@2 {
-			reg = <2>;
-			remote-endpoint = <&hdmi_in_dc>;
-		};
-	};
-};
-
-&d1_dc {
-	status = "okay";
-	d1_dc_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		d1_dc_out_dpi1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&d1_vd_input>;
-		};
-		d1_dc_out_hdmi: endpoint@2 {
-			reg = <2>;
-			remote-endpoint = <&d1_hdmi_in_dc>;
-		};
-	};
 };
 
 &dc_test {
@@ -563,75 +525,12 @@
 	};
 };
 
-&dw_hdmi {
-	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint>;
-			};
-		};
-	};
-};
-&d1_dw_hdmi {
-	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			d1_hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&d1_dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			d1_hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d1_i2s0_endpoint>;
-			};
-		};
-	};
-};
-
 &dw_hdmi_hdcp2 {
 	status = "okay";
 };
+
 &d1_dw_hdmi_hdcp2 {
 	status = "disabled";
-};
-
-
-&d0_i2s0 {
-	status = "okay";
-	numa-node-id = <0>;
-	d0_i2s0_port: port {
-		d0_i2s0_endpoint: endpoint {
-			remote-endpoint = <&hdmi_in_i2s>;
-			dai-format = "i2s";
-		};
-	};
-};
-
-&d1_i2s0 {
-	status = "okay";
-	numa-node-id = <1>;
-	d1_i2s0_port: port {
-		d1_i2s0_endpoint: endpoint {
-			remote-endpoint = <&d1_hdmi_in_i2s>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d0_i2s1 {
@@ -684,9 +583,18 @@
 	status = "disabled";
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
+&d1_vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "disabled";
 };
+
 &d1_isp_0 {
 	status = "disabled";
 };
@@ -694,50 +602,17 @@
 &isp_1 {
 	status = "disabled";
 };
+
 &d1_isp_1 {
 	status = "disabled";
 };
 
 &dewarp {
-	status = "disabled";
+	status = "okay";
 };
+
 &d1_dewarp {
-	status = "disabled";
-};
-
-&mipi_dphy_rx {
-	status = "disabled";
-};
-&d1_mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "disabled";
-};
-&d1_csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-&d1_csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "disabled";
-};
-&d1_csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
-	status = "disabled";
-};
-&d1_csi2_1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &sdhci_emmc {
@@ -780,6 +655,7 @@
 	rst-gpios = <&porta 29 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x96206420 0x20202020>;
 	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -792,6 +668,7 @@
 	rst-gpios = <&d1_porta 29 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x8C205A20 0x20202020>;
 	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -804,6 +681,7 @@
 	rst-gpios = <&portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x46205020 0x20202020>;
 	dly-param-100m = <0x20202020 0x50205020 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -816,6 +694,7 @@
 	rst-gpios = <&d1_portb 2 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x46205A20 0x20202020>;
 	dly-param-100m = <0x20202020 0x50205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -957,8 +836,6 @@
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;
-	cs-gpios = <&portd 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -972,10 +849,8 @@
 
 &d1_bootspi {
 	/* spi flash */
-	status = "disabled";
+	status = "okay";
 	num-cs = <1>;
-	cs-gpios = <&d1_portd 0 GPIO_ACTIVE_LOW>;
-	wp-gpios = <&d1_portd 4 GPIO_ACTIVE_LOW>;
 	spi-flash@0 {
 		compatible = "winbond,w25q128jw",
 					"jedec,spi-nor";
@@ -1142,7 +1017,7 @@
 	tmp102@48 {
 		compatible = "ti,tmp102";
 		reg = <0x48>;
-		label = "d0_board_tmp";
+		label = "board_tmp";
 		#thermal-sensor-cells = <1>;
 	};
 
@@ -1150,11 +1025,11 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage";
 		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC";
+				regulator-name="D0_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -1172,11 +1047,11 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC2";
+				regulator-name="D1_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -1193,14 +1068,17 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_die0_pwm0_default>;
 	pinctrl-1 = <&pinctrl_die0_gpio68_default>;
-	fan-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
+	fan-pwm-gpios = <&portc 4 GPIO_ACTIVE_LOW>;
+	fan-vcc-gpios = <&porta 18 GPIO_ACTIVE_LOW>;
 };
 &d1_pwm0 {
 	status = "okay";
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_die1_pwm0_default &pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
 	pinctrl-1 = <&pinctrl_die1_gpio68_default &pinctrl_die1_gpio40_default &pinctrl_die1_gpio41_default>;
-	fan-gpios = <&d1_portc 4 GPIO_ACTIVE_HIGH>;
+	fan-pwm-gpios = <&d1_portc 4 GPIO_ACTIVE_LOW
+					&d1_portb 8 GPIO_ACTIVE_LOW
+					&d1_portb 9 GPIO_ACTIVE_LOW>;
 };
 
 
@@ -1257,34 +1135,6 @@
 	status = "okay";
 };
 
-&timer0 {
-	status = "okay";
-};
-&d1_timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "disabled";
-};
-&d1_timer1 {
-	status = "disabled";
-};
-
-&timer2 {
-	status = "okay";
-};
-&d1_timer2 {
-	status = "okay";
-};
-
-&timer3 {
-	status = "okay";
-};
-&d1_timer3 {
-	status = "okay";
-};
-
 &pinctrl {
 	status = "okay";
 };
@@ -1317,3 +1167,15 @@
 &d1_d2d {
 	status = "disabled";
 };
+
+&SOC {
+	rasp_panel: rasp_panel {
+		compatible = "raspberrypi,7inch-dsi";
+		status = "disabled";
+	};
+	d1_rasp_panel: rasp_panel {
+		compatible = "raspberrypi,7inch-dsi";
+		status = "disabled";
+	};
+};
+
