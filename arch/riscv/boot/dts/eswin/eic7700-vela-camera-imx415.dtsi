@@ -304,7 +304,7 @@
 &d0_i2c1 {
 	/* mipi csi0/csi1 */
 	status = "okay";
-	imx415_0: imx415_0@10 {
+	imx415_0: imx415_0@37 {
 			compatible = "sony,imx415";
 			status = "okay";
 			address-cells = <1>;
