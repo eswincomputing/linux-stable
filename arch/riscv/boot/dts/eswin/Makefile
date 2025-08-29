@@ -30,6 +30,7 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							u2-evb.dtb \
 							m2-evb.dtb \
 							ebc7702-p01-d560.dtb \
+							ebc7702-p01-pcie.dtb \
 							eic7700-vela.dtb \
 							eic7700-vela-mipi.dtb
 subdir-y += overlays
