@@ -2,6 +2,7 @@
 	eswin,isp_dvp0_hor = <3864>;
 	eswin,isp_dvp0_ver = <2192>;
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
+        status = "disabled";
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
@@ -176,7 +177,7 @@
 	status = "okay";
 };
 
-&dvp2axi_mipi_lvds {
+&dvp2axi_mipi_lvds0 {
 	status = "okay";
 	dvp2axi_id = <0>;
 	port@0 {
@@ -200,8 +201,7 @@
 		};
 	};
 };
-
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";

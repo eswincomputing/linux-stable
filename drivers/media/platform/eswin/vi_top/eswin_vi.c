@@ -37,7 +37,7 @@
 #include <media/eswin/eswin_vi.h>
 #include <media/eswin/common-def.h>
 
-#include "vitop.h"
+#include "vi_cmn_register.h"
 #include <linux/eswin-win2030-sid-cfg.h>
 
 #define DRIVER_NAME "eswin-vi"
@@ -66,8 +66,6 @@ static int major_number;
 	} \
 } while(0);
 
-
-
 static int viscu_cfg(struct eswin_vi_device *es_vi_dev)
 {
 	struct regmap *regmap = es_vi_dev->syscrg_regmap;
@@ -78,124 +76,139 @@ static int viscu_cfg(struct eswin_vi_device *es_vi_dev)
 	return 0;
 }
 
-static void vi_top_register_write(struct eswin_vi_device *es_vi_dev, u32 reg, u32 val)
+static void vi_top_register_write(struct eswin_vi_device *es_vi_dev, u32 reg,
+				  u32 val)
 {
-    writel(val, es_vi_dev->base + reg);
+	writel(val, es_vi_dev->base + reg);
 }
 static u32 vi_top_register_read(struct eswin_vi_device *es_vi_dev, u32 reg)
 {
-    return readl(es_vi_dev->base + reg);
+	return readl(es_vi_dev->base + reg);
 }
 
-UNUSED_FUNC static void syscrg_register_write(struct eswin_vi_device *es_vi_dev, u32 reg, u32 val)
+UNUSED_FUNC static void syscrg_register_write(struct eswin_vi_device *es_vi_dev,
+					      u32 reg, u32 val)
 {
-    u32 reg_value;
-    pr_debug("%s reg:0x%x, val:0x%x", __func__, reg, val);
-    regmap_write(es_vi_dev->syscrg_regmap, reg, val);
-    regmap_read(es_vi_dev->syscrg_regmap, reg, &reg_value);
-    pr_debug("read reg:0x%x, val:0x%x", reg, reg_value);
+	u32 reg_value;
+	regmap_write(es_vi_dev->syscrg_regmap, reg, val);
+	regmap_read(es_vi_dev->syscrg_regmap, reg, &reg_value);
 }
-UNUSED_FUNC static u32 syscrg_register_read(struct eswin_vi_device *es_vi_dev, u32 reg)
+UNUSED_FUNC static u32 syscrg_register_read(struct eswin_vi_device *es_vi_dev,
+					    u32 reg)
 {
-    u32 reg_value;
-    regmap_read(es_vi_dev->syscrg_regmap, reg, &reg_value);
-    pr_debug("%s reg:0x%x, val:0x%x", __func__, reg, reg_value);
-    return reg_value;
+	u32 reg_value;
+	regmap_read(es_vi_dev->syscrg_regmap, reg, &reg_value);
+	return reg_value;
 }
 
 static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 {
 	u32 val = 0;
+	u32 phy_val = 0;
 	unsigned int reg_value;
 
-    pr_debug("ISP Top Setting ...\n");
-    
-    vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, es_vi_dev->phy_mode);
+	phy_val = es_vi_dev->phy_mode;
+	/* Enable IMX327 WDR MODE */
+	if (es_vi_dev->wdr_en_2) {
+		phy_val |= VI_TOP_IMX327_WDR_EN_2_BIT;
+	}
 
-    vi_top_register_write(es_vi_dev, VI_TOP_CONTROLLER_SELECT, 0);
-	
-	val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
-    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP3_SEL_OFFSET);
-    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP0_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP1_SEL_OFFSET);
-    val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP2_SEL_OFFSET) | (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
+	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, phy_val);
+	vi_top_register_write(es_vi_dev, VI_TOP_CONTROLLER_SELECT, 0);
 
-    vi_top_register_write(es_vi_dev, VI_TOP_ISP_DVP_SEL, val);
-    vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE, (es_vi_dev->isp_dvp0_ver << 16) | es_vi_dev->isp_dvp0_hor);
-    vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE, (es_vi_dev->isp_dvp0_ver << 16) | es_vi_dev->isp_dvp0_hor);
-    vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE, (es_vi_dev->isp_dvp0_ver << 16) | es_vi_dev->isp_dvp0_hor);
-    vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE, (es_vi_dev->isp_dvp0_ver << 16) | es_vi_dev->isp_dvp0_hor);
-    vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP_BLANK, (0xff << 8) | 0xff);
-    vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0, (4 << 9));
-    vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1, (4 << 9));
-    vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0, (4 << 9));
-    vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1, (4 << 9));
+	val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET) |
+	      (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
+	val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) |
+	       (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP3_SEL_OFFSET);
+	val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP0_SEL_OFFSET) |
+	       (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP1_SEL_OFFSET);
+	val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP2_SEL_OFFSET) |
+	       (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
 
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP_DVP_SEL, val);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE,
+			      (es_vi_dev->isp_dvp0_ver << 16) |
+				      es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE,
+			      (es_vi_dev->isp_dvp0_ver << 16) |
+				      es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE,
+			      (es_vi_dev->isp_dvp0_ver << 16) |
+				      es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE,
+			      (es_vi_dev->isp_dvp0_ver << 16) |
+				      es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP_BLANK,
+			      (0xff << 8) | 0xff);
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1, (4 << 9));
 
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_PHY_CONNECT_MODE);
-    pr_debug("t2 VI_TOP_PHY_CONNECT_MODE[0x51030000] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP_DVP_SEL);
-    pr_debug("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE);
-    pr_debug("ISP0_DVP0 size[0x5103000c] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE);
-    pr_debug("ISP0_DVP1 size[0x51030010] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE);
-    pr_debug("ISP1_DVP0 size[0x51030014] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE);
-    pr_debug("ISP1_DVP1 size[0x51030018] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP_BLANK);
-    pr_debug("ISP_MUL2ISP_BLANK[0x5103001c] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0);
-    pr_debug("ISP0_DVP0 multi[0x51030020] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1);
-    pr_debug("ISP0_DVP1 multi[0x51030024] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0);
-    pr_debug("ISP1_DVP0 multi[0x51030028] = %x\n", reg_value);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1);
-    pr_debug("ISP1_DVP1 multi[0x5103002c] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_PHY_CONNECT_MODE);
+	pr_debug("t2 VI_TOP_PHY_CONNECT_MODE[0x51030000] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP_DVP_SEL);
+	pr_debug("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE);
+	pr_debug("ISP0_DVP0 size[0x5103000c] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE);
+	pr_debug("ISP0_DVP1 size[0x51030010] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE);
+	pr_debug("ISP1_DVP0 size[0x51030014] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE);
+	pr_debug("ISP1_DVP1 size[0x51030018] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP_BLANK);
+	pr_debug("ISP_MUL2ISP_BLANK[0x5103001c] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0);
+	pr_debug("ISP0_DVP0 multi[0x51030020] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1);
+	pr_debug("ISP0_DVP1 multi[0x51030024] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0);
+	pr_debug("ISP1_DVP0 multi[0x51030028] = %x\n", reg_value);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1);
+	pr_debug("ISP1_DVP1 multi[0x5103002c] = %x\n", reg_value);
 
 	return 0;
 }
 
-
 static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 {
-    struct eswin_vi_device *regmap = es_vi_dev;
-    unsigned int reg_value;
+	struct eswin_vi_device *regmap = es_vi_dev;
+	unsigned int reg_value;
 
-    syscrg_register_write(regmap, 0x470, 0x7);///vi_rst_ctl
-    syscrg_register_write(regmap, 0x474, 0x1);///dvp_rst_ctl
-    syscrg_register_write(regmap, 0x478, 0x1);///isp0_rst_ctl
-    syscrg_register_write(regmap, 0x47c, 0x1);///isp1_rst_ctl
-    syscrg_register_write(regmap, 0x480, 0x1);///shutter_rst_ctl
-    udelay(1000);
+	// syscrg_register_write(regmap, 0x200, 0xffffffff);///lsp_clk_en0 enable(sys_crg)
+	// syscrg_register_write(regmap, 0x424, 0x3ff);///i2c_rst_ctl(sys_crg)
+	// udelay(1000);
 
-    syscrg_register_write(regmap, 0x184, 0x80000020);///vi_dwclk_ctl
-    syscrg_register_write(regmap, 0x188, 0xc0000020);///vi_aclk_ctl
-    syscrg_register_write(regmap, 0x18c, 0x80000020);///vi_dig_isp_clk_ctl
-    syscrg_register_write(regmap, 0x190, 0x80000020);///vi_dvp_clk_ctl
+	syscrg_register_write(regmap, 0x470, 0x7); ///vi_rst_ctl
+	syscrg_register_write(regmap, 0x474, 0x1); ///dvp_rst_ctl
+	syscrg_register_write(regmap, 0x478, 0x1); ///isp0_rst_ctl
+	syscrg_register_write(regmap, 0x47c, 0x1); ///isp1_rst_ctl
+	syscrg_register_write(regmap, 0x480, 0x1); ///shutter_rst_ctl
+	udelay(1000);
 
-	syscrg_register_write(regmap, 0x194, 0x80000180);///vi_shutter0
-	syscrg_register_write(regmap, 0x198, 0x80000180);///vi_shutter1
-    syscrg_register_write(regmap, 0x19c, 0x80000100);///vi_shutter2
-    syscrg_register_write(regmap, 0x1a0, 0x80000100);///vi_shutter3
-    syscrg_register_write(regmap, 0x1a4, 0x80000100);///vi_shutter4
-    syscrg_register_write(regmap, 0x1a8, 0x80000100);///vi_shutter5
-    syscrg_register_write(regmap, 0x1ac, 0x3);///vi_phy_clk_ctl
+	syscrg_register_write(regmap, 0x184, 0x80000020); ///vi_dwclk_ctl
+	syscrg_register_write(regmap, 0x188, 0xc0000020); ///vi_aclk_ctl
+	syscrg_register_write(regmap, 0x18c, 0x80000020); ///vi_dig_isp_clk_ctl
+	syscrg_register_write(regmap, 0x190, 0x80000020); ///vi_dvp_clk_ctl
 
-    // Enable Clocks from TOP CSR
-    vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, 0xffffffff);
-    reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
-    pr_debug("ISP_TOP_CLOCK_EN[0x51030040] = %x\n", reg_value);
+	syscrg_register_write(regmap, 0x194, 0x80000180); ///vi_shutter0
+	syscrg_register_write(regmap, 0x198, 0x80000180); ///vi_shutter1
+	syscrg_register_write(regmap, 0x19c, 0x80000100); ///vi_shutter2
+	syscrg_register_write(regmap, 0x1a0, 0x80000100); ///vi_shutter3
+	syscrg_register_write(regmap, 0x1a4, 0x80000100); ///vi_shutter4
+	syscrg_register_write(regmap, 0x1a8, 0x80000100); ///vi_shutter5
+	syscrg_register_write(regmap, 0x1ac, 0x3); ///vi_phy_clk_ctl
 
-    udelay(1000);
+	// Enable Clocks from TOP CSR
+	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, 0xffffffff);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
+	udelay(1000);
 
-    viscu_cfg(es_vi_dev);///isp_rst(sys_crg)
-    vitop_intf_cfg(es_vi_dev);///(vi_top_cfg)
-    return 0;
+	viscu_cfg(es_vi_dev); ///isp_rst(sys_crg)
+	vitop_intf_cfg(es_vi_dev); ///(vi_top_cfg)
+	return 0;
 }
-
-
 
 UNUSED_FUNC static int eswin_vi_sys_reset_init(struct platform_device *pdev,
 				struct eswin_vi_clk_rst *vi_crg)
@@ -323,106 +336,134 @@ UNUSED_FUNC static int eswin_vi_sys_reset_release(struct eswin_vi_clk_rst *vi_cr
 
 static int eswin_open(struct inode *inode, struct file *file)
 {
-    pr_debug(DRIVER_NAME ": Device opened\n");
-    struct eswin_vi_device *es_vi_dev = container_of(inode->i_cdev, struct eswin_vi_device, es_vi_cdev);
-    file->private_data = es_vi_dev;
-    return 0;
+	struct eswin_vi_device *es_vi_dev =
+		container_of(inode->i_cdev, struct eswin_vi_device, es_vi_cdev);
+	file->private_data = es_vi_dev;
+	return 0;
 }
 
 static int eswin_release(struct inode *inode, struct file *file)
 {
-    pr_debug(DRIVER_NAME ": Device closed\n");
-    return 0;
+	return 0;
 }
 
-static ssize_t eswin_read(struct file *file, char __user *buffer, size_t len, loff_t *offset)
+static ssize_t eswin_read(struct file *file, char __user *buffer, size_t len,
+			  loff_t *offset)
 {
-    pr_debug(DRIVER_NAME ": Read operation not implemented\n");
-    return 0;
+	return 0;
 }
 
-static ssize_t eswin_write(struct file *file, const char __user *buffer, size_t len, loff_t *offset)
+static ssize_t eswin_write(struct file *file, const char __user *buffer,
+			   size_t len, loff_t *offset)
 {
-    pr_debug(DRIVER_NAME ": Write operation not implemented\n");
-    return len;
+	return len;
 }
 
-static int eswin_vi_reset(struct eswin_vi_device *es_vi_dev, struct soc_control_context* soc_ctrl)
+static int eswin_vi_reset(struct eswin_vi_device *es_vi_dev,
+			  struct soc_control_context *soc_ctrl)
 {
-    //TODO template for reset
-    eic770x_vi_init(es_vi_dev);
-    return 0;
+	//TODO template for reset
+	eic770x_vi_init(es_vi_dev);
+	return 0;
 }
 
 long eswin_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    int retval, ret;
-    struct eswin_vi_device *es_vi_dev = file->private_data;
-    struct soc_control_context soc_ctrl;
-    struct isp_control_HxV isp_control_h_v;
+	int retval, ret;
+	struct eswin_vi_device *es_vi_dev = file->private_data;
+	struct soc_control_context soc_ctrl;
+	struct isp_control_HxV isp_control_h_v;
 
-    switch (cmd) {
-        case VI_IOCTL_RESET:
-            pr_debug(DRIVER_NAME ": VI_IOCTL_RESET\n");
-            retval = copy_from_user(&soc_ctrl, (int __user *)arg, sizeof(soc_ctrl));
-		    CHECK_COPY_RETVAL(retval);
-            ret = eswin_vi_reset(es_vi_dev, &soc_ctrl);
-            break;
-        case VI_IOCTL_ISP_H_V:
-            pr_debug(DRIVER_NAME ": VI_IOCTL_ISP_H_V\n");
-            retval = copy_from_user(&isp_control_h_v, (int __user *)arg, sizeof(isp_control_h_v));
-            es_vi_dev->isp_dvp0_hor = isp_control_h_v.horizontal;
-            es_vi_dev->isp_dvp0_ver = isp_control_h_v.vertical;
-            break;
-        default:
-            pr_err(DRIVER_NAME ": Invalid IOCTL command\n");
-            return -EINVAL;
-    }
+	switch (cmd) {
+	case VI_IOCTL_RESET:
+		dev_dbg(es_vi_dev->dev, "VI_IOCTL_RESET\n");
+		retval = copy_from_user(&soc_ctrl, (int __user *)arg,
+					sizeof(soc_ctrl));
+		CHECK_COPY_RETVAL(retval);
+		ret = eswin_vi_reset(es_vi_dev, &soc_ctrl);
+		break;
+	case VI_IOCTL_ISP_H_V:
+		dev_dbg(es_vi_dev->dev, "VI_IOCTL_ISP_H_V\n");
+		retval = copy_from_user(&isp_control_h_v, (int __user *)arg,
+					sizeof(isp_control_h_v));
+		CHECK_COPY_RETVAL(retval);
+		es_vi_dev->isp_dvp0_hor = isp_control_h_v.horizontal;
+		es_vi_dev->isp_dvp0_ver = isp_control_h_v.vertical;
+		break;
+	default:
+		dev_err(es_vi_dev->dev,  "Invalid IOCTL command\n");
+		return -EINVAL;
+	}
 
-    pr_debug(DRIVER_NAME ": IOCTL Out\n");
+	return ret;
+}
 
-    return ret;
+static int eswin_vi_of_notifier(struct notifier_block *nb,
+	unsigned long action, void *data)
+{
+	struct eswin_vi_device *es_vi_dev = container_of(nb, struct eswin_vi_device, of_notifier);
+	struct of_overlay_notify_data *notify_data = data;
+	int ret = 0;
+	if (!es_vi_dev || !notify_data || !notify_data->target)
+		return NOTIFY_DONE;
+
+	if(es_vi_dev->dev->of_node != notify_data->target)
+		return NOTIFY_DONE;
+
+	if (action == OF_OVERLAY_POST_APPLY) {
+		msleep(200);
+		ret = of_property_read_u32(es_vi_dev->dev->of_node, "phy_mode",
+			&es_vi_dev->phy_mode);
+		if (ret) {
+			dev_warn(es_vi_dev->dev,
+				"Failed to read phy_mode property! Use Default 5!\n");
+			es_vi_dev->phy_mode = 5;
+		}
+		dev_dbg(es_vi_dev->dev, "phy_mode=%d\n", es_vi_dev->phy_mode);
+		vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE,
+			es_vi_dev->phy_mode);
+	}
+	return NOTIFY_DONE;
 }
 
 
 static const struct media_device_ops es_mdev_ops = {
-    .link_notify = v4l2_pipeline_link_notify,
+	.link_notify = v4l2_pipeline_link_notify,
 };
 
 static const struct file_operations eswin_fops = {
-    .owner = THIS_MODULE,
-    .open = eswin_open,
-    .release = eswin_release,
-    .read = eswin_read,
-    .write = eswin_write,
-    .unlocked_ioctl = eswin_ioctl,
+	.owner = THIS_MODULE,
+	.open = eswin_open,
+	.release = eswin_release,
+	.read = eswin_read,
+	.write = eswin_write,
+	.unlocked_ioctl = eswin_ioctl,
 };
 
 static int eswin_vi_probe(struct platform_device *pdev)
 {
-    int ret;
-    struct device *dev = &pdev->dev;
-    struct eswin_vi_device *es_vi_dev;
-    struct media_device *media_dev;
-    struct device_node *np = pdev->dev.of_node;
-    struct resource* res;
-    int numa_id =0;
-    char class_name[32];
-    __maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
+	int ret;
+	struct device *dev = &pdev->dev;
+	struct eswin_vi_device *es_vi_dev;
+	struct media_device *media_dev;
+	struct device_node *np = pdev->dev.of_node;
+	struct resource *res;
+	int numa_id = 0;
+	char class_name[32];
+	__maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
 
-    es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
+	es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
 
-#if 1
-    //TODO: next step is to get the vi clk and rst from the device tree
-    //and remove clk and rst in dewarp driver
-    vi_clk_rst = &es_vi_dev->clk_rst;
+	//TODO: next step is to get the vi clk and rst from the device tree
+	//and remove clk and rst in dewarp driver
+	vi_clk_rst = &es_vi_dev->clk_rst;
 	ret = eswin_vi_sys_reset_init(pdev, &es_vi_dev->clk_rst);
 	if (ret) {
 		pr_err("%s: DW reset init failed\n", __func__);
 		return ret;
 	}
 
-	ret = eswin_vi_sys_clk_init(pdev,&es_vi_dev->clk_rst);
+	ret = eswin_vi_sys_clk_init(pdev, &es_vi_dev->clk_rst);
 	if (ret) {
 		pr_err("%s: DW clk init failed\n", __func__);
 		return ret;
@@ -434,7 +475,7 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-    es_vi_dev->clk_rst.dev = &pdev->dev;
+	es_vi_dev->clk_rst.dev = &pdev->dev;
 
 	ret = eswin_vi_sys_clk_prepare(&es_vi_dev->clk_rst);
 	if (ret) {
@@ -447,68 +488,72 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		pr_err("%s: DW reset release failed\n", __func__);
 		return ret;
 	}
-#endif
-    es_vi_dev->media_dev = devm_kzalloc(dev, sizeof(*media_dev), GFP_KERNEL);
 
-    media_dev = es_vi_dev->media_dev;
-    if (!es_vi_dev) {
-        pr_err(DRIVER_NAME ": Failed to allocate device\n");
-        return -ENOMEM;
-    }
-    es_vi_dev->dev = dev;
-    dev_set_drvdata(dev, es_vi_dev);
+	es_vi_dev->media_dev =
+		devm_kzalloc(dev, sizeof(*media_dev), GFP_KERNEL);
 
-    ret = alloc_chrdev_region(&major_number, 0, 1, "eswin_vi");
-    if (ret < 0) {
-        pr_err("Failed to allocate major number\n");
-        return ret;
-    }
+	media_dev = es_vi_dev->media_dev;
+	if (!es_vi_dev) {
+		pr_err(DRIVER_NAME ": Failed to allocate device\n");
+		return -ENOMEM;
+	}
+	es_vi_dev->dev = dev;
+	dev_set_drvdata(dev, es_vi_dev);
 
-    // Initialize cdev
-    cdev_init(&es_vi_dev->es_vi_cdev, &eswin_fops);
-    ret = cdev_add(&es_vi_dev->es_vi_cdev, major_number, 1);
-    if (ret < 0) {
-        pr_err(DRIVER_NAME ": Failed to add cdev\n");
-        return ret;
-    }
+	ret = alloc_chrdev_region(&major_number, 0, 1, "eswin_vi");
+	if (ret < 0) {
+		pr_err("Failed to allocate major number\n");
+		return ret;
+	}
 
-    ret = of_property_read_u32(np, "numa-node-id", &numa_id);
-    if (ret) {
-        pr_warn(DRIVER_NAME ": Failed to read numa-node-id property! Use Default 0!\n");
-        numa_id = 0;
-    }
+	cdev_init(&es_vi_dev->es_vi_cdev, &eswin_fops);
+	ret = cdev_add(&es_vi_dev->es_vi_cdev, major_number, 1);
+	if (ret < 0) {
+		pr_err(DRIVER_NAME ": Failed to add cdev\n");
+		return ret;
+	}
 
-    snprintf(class_name, sizeof(class_name), "eswin_vi_class%d", numa_id);
-    es_vi_dev->es_vi_class = class_create(class_name);
-    if (IS_ERR(es_vi_dev->es_vi_class)) {
-        cdev_del(&es_vi_dev->es_vi_cdev);
-        unregister_chrdev_region(major_number, 1);
-        return PTR_ERR(es_vi_dev->es_vi_class);
-    }
+	ret = of_property_read_u32(np, "numa-node-id", &numa_id);
+	if (ret) {
+		pr_warn(DRIVER_NAME
+			": Failed to read numa-node-id property! Use Default 0!\n");
+		numa_id = 0;
+	}
+	es_vi_dev->numa_id = numa_id;
 
-    // 创建设备节点
-    device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL, "es_vi%d", numa_id);
-    media_device_init(media_dev);
-    media_dev->dev = &pdev->dev;
-    media_dev->ops = &es_mdev_ops;
-    strscpy(media_dev->model, "verisilicon_media", sizeof(media_dev->model));
+	snprintf(class_name, sizeof(class_name), "eswin_vi_class%d", numa_id);
+	es_vi_dev->es_vi_class = class_create(class_name);
+	if (IS_ERR(es_vi_dev->es_vi_class)) {
+		cdev_del(&es_vi_dev->es_vi_cdev);
+		unregister_chrdev_region(major_number, 1);
+		return PTR_ERR(es_vi_dev->es_vi_class);
+	}
 
-    ret = media_device_register(media_dev);
-    if (ret < 0) {
-        media_device_cleanup(media_dev);
-        kfree(media_dev);
-        cdev_del(&es_vi_dev->es_vi_cdev);
-        device_destroy(es_vi_dev->es_vi_class, MKDEV(major_number, 0));
-        class_destroy(es_vi_dev->es_vi_class);
-        unregister_chrdev(major_number, DEVICE_NAME);
-        pr_err(DRIVER_NAME ": Failed to register media device\n");
-        return ret;
-    }
-    of_platform_populate(np, NULL, NULL, &pdev->dev);
+	// 创建设备节点
+	device_create(es_vi_dev->es_vi_class, NULL, major_number, NULL,
+		      "es_vi%d", numa_id);
+	media_device_init(media_dev);
+	media_dev->dev = &pdev->dev;
+	media_dev->ops = &es_mdev_ops;
+	strscpy(media_dev->model, "verisilicon_media",
+		sizeof(media_dev->model));
 
-    //TODO add parser es_vi_top dts
+	ret = media_device_register(media_dev);
+	if (ret < 0) {
+		media_device_cleanup(media_dev);
+		kfree(media_dev);
+		cdev_del(&es_vi_dev->es_vi_cdev);
+		device_destroy(es_vi_dev->es_vi_class, MKDEV(major_number, 0));
+		class_destroy(es_vi_dev->es_vi_class);
+		unregister_chrdev(major_number, DEVICE_NAME);
+		pr_err(DRIVER_NAME ": Failed to register media device\n");
+		return ret;
+	}
+	of_platform_populate(np, NULL, NULL, &pdev->dev);
 
-    res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	//TODO add parser es_vi_top dts
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	es_vi_dev->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(es_vi_dev->base)) {
 		resource_size_t offset = res->start;
@@ -521,59 +566,58 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		}
 	}
 
-    ret = of_property_read_u32(np, "eswin,isp_dvp0_hor", &es_vi_dev->isp_dvp0_hor);
-    if (ret) {
-        pr_warn(DRIVER_NAME ": Failed to read isp_dvp0_hor property! Use Default 3280!\n");
-        es_vi_dev->isp_dvp0_hor = 3280;
-    }
-    ret = of_property_read_u32(np, "eswin,isp_dvp0_ver", &es_vi_dev->isp_dvp0_ver);
-    if (ret) {
-        pr_warn(DRIVER_NAME ": Failed to read isp_dvp0_ver property! Use Default 2464!\n");
-        es_vi_dev->isp_dvp0_ver = 2464;
-    }
+	ret = of_property_read_u32(np, "eswin,isp_dvp0_hor",
+				   &es_vi_dev->isp_dvp0_hor);
+	if (ret)
+		es_vi_dev->isp_dvp0_hor = 3280;
 
-    dev_dbg(dev, "isp_dvp0_hor: %d\n", es_vi_dev->isp_dvp0_hor);
-    dev_dbg(dev,  "isp_dvp0_ver: %d\n", es_vi_dev->isp_dvp0_ver);
+	ret = of_property_read_u32(np, "eswin,isp_dvp0_ver",
+				   &es_vi_dev->isp_dvp0_ver);
+	if (ret)
+		es_vi_dev->isp_dvp0_ver = 2464;
 
-    ret = of_property_read_u32(np, "phy_mode", &es_vi_dev->phy_mode);
-    if (ret) {
-        pr_warn(DRIVER_NAME ": Failed to read phy_mode property! Use Default 5!\n");
-        es_vi_dev->phy_mode = 5;
-    }
+	ret = of_property_read_u32(np, "phy_mode", &es_vi_dev->phy_mode);
+	if (ret) {
+		dev_warn(&pdev->dev, "Failed to read phy_mode property! Use Default 5!\n");
+		es_vi_dev->phy_mode = 5;
+	}
 
-    es_vi_dev->syscrg_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscrg_csr");
-    if (IS_ERR(es_vi_dev->syscrg_regmap)) {
-        dev_err(dev, "No syscrg_csr phandle specified\n");
-        return PTR_ERR(es_vi_dev->syscrg_regmap);
-    }
+	/* imx327 wdr enabled or not */
+	es_vi_dev->wdr_en_2 = of_property_read_bool(np, "imx327,wdr-en-2");
+
+	es_vi_dev->syscrg_regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscrg_csr");
+	if (IS_ERR(es_vi_dev->syscrg_regmap)) {
+		dev_err(dev, "No syscrg_csr phandle specified\n");
+		return PTR_ERR(es_vi_dev->syscrg_regmap);
+	}
 
 
-    eic770x_vi_init(es_vi_dev);
+	eic770x_vi_init(es_vi_dev);
 
-    return 0;
+	es_vi_dev->of_notifier.notifier_call = eswin_vi_of_notifier;
+	of_overlay_notifier_register(&es_vi_dev->of_notifier);
+
+	return 0;
 }
 
 static int eswin_remove(struct platform_device *pdev)
 {
-    struct eswin_vi_device *es_vi_dev = platform_get_drvdata(pdev);
-    media_device_unregister(es_vi_dev->media_dev);
-    media_device_cleanup(es_vi_dev->media_dev);
-    kfree(es_vi_dev->media_dev);
-    cdev_del(&es_vi_dev->es_vi_cdev);
-    device_destroy(es_vi_dev->es_vi_class, MKDEV(major_number, 0));
-    class_destroy(es_vi_dev->es_vi_class);
-    unregister_chrdev(major_number, DEVICE_NAME);
-    of_platform_depopulate(&pdev->dev);
-    pr_debug(DRIVER_NAME ": Removed\n");
-    return 0;
+	struct eswin_vi_device *es_vi_dev = platform_get_drvdata(pdev);
+	media_device_unregister(es_vi_dev->media_dev);
+	media_device_cleanup(es_vi_dev->media_dev);
+	kfree(es_vi_dev->media_dev);
+	cdev_del(&es_vi_dev->es_vi_cdev);
+	device_destroy(es_vi_dev->es_vi_class, MKDEV(major_number, 0));
+	class_destroy(es_vi_dev->es_vi_class);
+	unregister_chrdev(major_number, DEVICE_NAME);
+	of_platform_depopulate(&pdev->dev);
+	pr_debug(DRIVER_NAME ": Removed\n");
+	return 0;
 }
 
 static const struct of_device_id eswin_id_table[] = {
-    {
-        .compatible = "esw,vi_subsys",
-        .data = 0
-    },
-    { }
+	{ .compatible = "esw,vi_subsys", .data = 0 },
+	{}
 };
 
 static struct platform_driver eswin_vi_driver = {
@@ -598,7 +642,6 @@ static void __exit es_vi_drv_exit(void)
 
 module_init(es_vi_drv_init);
 module_exit(es_vi_drv_exit);
-
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("yufangxian@eswincomputing.com");
