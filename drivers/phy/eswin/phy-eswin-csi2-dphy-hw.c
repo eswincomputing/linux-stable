@@ -842,7 +842,7 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 	} else {
 		ret = of_property_read_u32_array(dev->of_node, "lanes-dp-dn", dphy_hw->lanes_dp_dn, dphy_hw->num_lanes);
 		if (ret) {
-			dev_err(dev, "Failed to read lanes array\n");
+			dev_err(dev, "Failed to read lanes dn-dp array\n");
 			return ret;
 		}
 	}
