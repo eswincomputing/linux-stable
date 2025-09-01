@@ -20,97 +20,27 @@
 #include "phy-eswin-csi2-dphy-common.h"
 
 /* eic770x */
-#include "../../media/platform/eswin/vi_top/vitop.h"
+#define D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS      0x51000000
+#define D0_VI_COMBO_PHY0_REGISTER_BASE_ADDRESS     (D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0xc0000)
+#define D0_VI_COMBO_PHY1_REGISTER_BASE_ADDRESS     (D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0xe0000)
+#define D0_VI_COMBO_PHY2_REGISTER_BASE_ADDRESS     (D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x100000)
+#define D0_VI_COMBO_PHY3_REGISTER_BASE_ADDRESS     (D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x120000)
+#define D0_VI_COMBO_PHY4_REGISTER_BASE_ADDRESS     (D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x140000)
+#define D0_VI_COMBO_PHY5_REGISTER_BASE_ADDRESS     (D0_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x160000)
 
-/* GRF REG OFFSET */
-#define GRF_VI_CON0 (0x0340)
-#define GRF_VI_CON1 (0x0344)
-
-/*GRF REG BIT DEFINE */
-#define GRF_CSI2PHY_LANE_SEL_SPLIT (0x1)
-#define GRF_CSI2PHY_SEL_SPLIT_0_1 (0x0)
-#define GRF_CSI2PHY_SEL_SPLIT_2_3 BIT(0)
-
-/* PHY REG OFFSET */
-#define CSI2_DPHY_CTRL_INVALID_OFFSET (0xffff)
-#define CSI2_DPHY_CTRL_PWRCTL CSI2_DPHY_CTRL_INVALID_OFFSET
-#define CSI2_DPHY_CTRL_LANE_ENABLE (0x00)
-#define CSI2_DPHY_CLK1_LANE_EN (0x2C)
-#define CSI2_DPHY_DUAL_CAL_EN (0x80)
-#define CSI2_DPHY_CLK_INV (0X84)
-
-#define CSI2_DPHY_CLK_CONTINUE_MODE (0x128)
-#define CSI2_DPHY_CLK_WR_THS_SETTLE (0x160)
-#define CSI2_DPHY_CLK_CALIB_EN (0x168)
-#define CSI2_DPHY_LANE0_WR_THS_SETTLE (0x1e0)
-#define CSI2_DPHY_LANE0_CALIB_EN (0x1e8)
-#define CSI2_DPHY_LANE1_WR_THS_SETTLE (0x260)
-#define CSI2_DPHY_LANE1_CALIB_EN (0x268)
-#define CSI2_DPHY_LANE2_WR_THS_SETTLE (0x2e0)
-#define CSI2_DPHY_LANE2_CALIB_EN (0x2e8)
-#define CSI2_DPHY_LANE3_WR_THS_SETTLE (0x360)
-#define CSI2_DPHY_LANE3_CALIB_EN (0x368)
-#define CSI2_DPHY_CLK1_CONTINUE_MODE (0x3a8)
-#define CSI2_DPHY_CLK1_WR_THS_SETTLE (0x3e0)
-#define CSI2_DPHY_CLK1_CALIB_EN (0x3e8)
-
-#define CSI2_DPHY_PATH0_MODE_SEL (0x44C)
-#define CSI2_DPHY_PATH0_LVDS_MODE_SEL (0x480)
-#define CSI2_DPHY_PATH1_MODE_SEL (0x84C)
-#define CSI2_DPHY_PATH1_LVDS_MODE_SEL (0x880)
-
-/* PHY REG BIT DEFINE */
-#define CSI2_DPHY_LANE_MODE_FULL (0x4)
-#define CSI2_DPHY_LANE_MODE_SPLIT (0x2)
-#define CSI2_DPHY_LANE_SPLIT_TOP (0x1)
-#define CSI2_DPHY_LANE_SPLIT_BOT (0x2)
-#define CSI2_DPHY_LANE_SPLIT_LANE0_1 (0x3 << 2)
-#define CSI2_DPHY_LANE_SPLIT_LANE2_3 (0x3 << 4)
-#define CSI2_DPHY_LANE_DUAL_MODE_EN BIT(6)
-#define CSI2_DPHY_LANE_PARA_ARR_NUM (0x2)
-
-#define CSI2_DPHY_CTRL_DATALANE_ENABLE_OFFSET_BIT 2
-#define CSI2_DPHY_CTRL_DATALANE_SPLIT_LANE2_3_OFFSET_BIT 4
-#define CSI2_DPHY_CTRL_CLKLANE_ENABLE_OFFSET_BIT 6
-
-enum csi2_dphy_index {
-	DPHY0 = 0x0,
-	DPHY1,
-	DPHY2,
-};
-
-enum csi2_dphy_lane {
-	CSI2_DPHY_LANE_CLOCK = 0,
-	CSI2_DPHY_LANE_CLOCK1,
-	CSI2_DPHY_LANE_DATA0,
-	CSI2_DPHY_LANE_DATA1,
-	CSI2_DPHY_LANE_DATA2,
-	CSI2_DPHY_LANE_DATA3
-};
-
-
-#define HIWORD_UPDATE(val, mask, shift) \
-	((val) << (shift) | (mask) << ((shift) + 16))
-
-#define GRF_REG(_offset, _width, _shift)                                     \
-	{                                                                    \
-		.offset = _offset, .mask = BIT(_width) - 1, .shift = _shift, \
-	}
-
-#define CSI2PHY_REG(_offset)       \
-	{                          \
-		.offset = _offset, \
-	}
-
-struct hsfreq_range {
-	u32 range_h;
-	u16 cfg_bit;
-};
+#define D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS      0x71000000
+#define D1_VI_COMBO_PHY0_REGISTER_BASE_ADDRESS     (D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0xc0000)
+#define D1_VI_COMBO_PHY1_REGISTER_BASE_ADDRESS     (D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0xe0000)
+#define D1_VI_COMBO_PHY2_REGISTER_BASE_ADDRESS     (D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x100000)
+#define D1_VI_COMBO_PHY3_REGISTER_BASE_ADDRESS     (D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x120000)
+#define D1_VI_COMBO_PHY4_REGISTER_BASE_ADDRESS     (D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x140000)
+#define D1_VI_COMBO_PHY5_REGISTER_BASE_ADDRESS     (D1_VI_SUBSYSTEM_REGISTER_BASE_ADDRESS + 0x160000)
 
 static inline void eic770x_write_csi2_dphy_reg(void __iomem *hw_base_addr, u32 offset,
 				       u32 value)
 {
-	writel(value, hw_base_addr + 4 * offset);
+		writel(value, hw_base_addr + 4 * offset);
+		pr_debug("%s : write reg:0x%x, val:0x%x\n", __func__, offset, value);
 }
 
 //	{445, {{0x1229, 0xa70}, {0x3080, 0xe1d}, {0x3280, 0xe1d},  {0x1029, 0xbf0}, {0x1229, 0xb70}, {0x1429, 0xbf0},}} 这应该是400Mpbs速率
@@ -366,150 +296,150 @@ static int eic770x_csi2_dphy_init(struct csi2_dphy_hw *dphy_hw, void __iomem * h
 
 static int eic770x_csi2_dphy_init_1_5_G_high(struct csi2_dphy_hw *dphy_hw, void __iomem * hw)
 {
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3040 - 0x510c0000)/4, 0x00000030);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c73c8 - 0x510c0000)/4, 0x00000444);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c73c8 - 0x510c0000)/4, 0x00001444);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c73c0 - 0x510c0000)/4, 0x00001bfd);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3044 - 0x510c0000)/4, 0x00000233);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3018 - 0x510c0000)/4, 0x00000027);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3098 - 0x510c0000)/4, 0x000001f4);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3808 - 0x510c0000)/4, 0x00000320);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c380c - 0x510c0000)/4, 0x0000001b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3814 - 0x510c0000)/4, 0x0000fec8);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3818 - 0x510c0000)/4, 0x0000646e);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3818 - 0x510c0000)/4, 0x0000646e);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3818 - 0x510c0000)/4, 0x0000646e);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3820 - 0x510c0000)/4, 0x00000105);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c38d8 - 0x510c0000)/4, 0x00000003);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3008 - 0x510c0000)/4, 0x00000005);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3900 - 0x510c0000)/4, 0x00000017);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3940 - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3804 - 0x510c0000)/4, 0x0000005f);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3814 - 0x510c0000)/4, 0x0000fe1d);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3818 - 0x510c0000)/4, 0x00000eee);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7080 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7084 - 0x510c0000)/4, 0x00000400);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7084 - 0x510c0000)/4, 0x00000400);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c708c - 0x510c0000)/4, 0x000041f6);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7080 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c708c - 0x510c0000)/4, 0x000043f6);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7098 - 0x510c0000)/4, 0x00002000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c709c - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7098 - 0x510c0000)/4, 0x00003000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c709c - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7098 - 0x510c0000)/4, 0x00007000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c709c - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7094 - 0x510c0000)/4, 0x00004000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7100 - 0x510c0000)/4, 0x000000f4);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7100 - 0x510c0000)/4, 0x000000f4);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c711c - 0x510c0000)/4, 0x00000014);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c711c - 0x510c0000)/4, 0x00000010);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c711c - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3020 - 0x510c0000)/4, 0x00000050);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c301c - 0x510c0000)/4, 0x00000028);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3880 - 0x510c0000)/4, 0x00000077);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c389c - 0x510c0000)/4, 0x00001132);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3884 - 0x510c0000)/4, 0x00001740);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3888 - 0x510c0000)/4, 0x00004b14);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3888 - 0x510c0000)/4, 0x00004b14);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3888 - 0x510c0000)/4, 0x00004b14);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3888 - 0x510c0000)/4, 0x00004b17);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3888 - 0x510c0000)/4, 0x00004b17);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3890 - 0x510c0000)/4, 0x0000000a);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c3898 - 0x510c0000)/4, 0x0000800a);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c389c - 0x510c0000)/4, 0x0000110b);
+	eic770x_write_csi2_dphy_reg(hw, 0xc10,       0x00000030);
+	eic770x_write_csi2_dphy_reg(hw, 0x1cf2,      0x00000444);
+	eic770x_write_csi2_dphy_reg(hw, 0x1cf2,      0x00001444);
+	eic770x_write_csi2_dphy_reg(hw, 0x1cf0,      0x00001bfd);
+	eic770x_write_csi2_dphy_reg(hw, 0xc11,       0x00000233);
+	eic770x_write_csi2_dphy_reg(hw, 0xc06,       0x00000027);
+	eic770x_write_csi2_dphy_reg(hw, 0xc26,       0x000001f4);
+	eic770x_write_csi2_dphy_reg(hw, 0xe02,       0x00000320);
+	eic770x_write_csi2_dphy_reg(hw, 0xe03,       0x0000001b);
+	eic770x_write_csi2_dphy_reg(hw, 0xe05,       0x0000fec8);
+	eic770x_write_csi2_dphy_reg(hw, 0xe06,       0x0000646e);
+	eic770x_write_csi2_dphy_reg(hw, 0xe06,       0x0000646e);
+	eic770x_write_csi2_dphy_reg(hw, 0xe06,       0x0000646e);
+	eic770x_write_csi2_dphy_reg(hw, 0xe08,       0x00000105);
+	eic770x_write_csi2_dphy_reg(hw, 0xe36,       0x00000003);
+	eic770x_write_csi2_dphy_reg(hw, 0xc02,       0x00000005);
+	eic770x_write_csi2_dphy_reg(hw, 0xe40,       0x00000017);
+	eic770x_write_csi2_dphy_reg(hw, 0xe50,       0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0xe01,       0x0000005f);
+	eic770x_write_csi2_dphy_reg(hw, 0xe05,       0x0000fe1d);
+	eic770x_write_csi2_dphy_reg(hw, 0xe06,       0x00000eee);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c20,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c21,      0x00000400);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c21,      0x00000400);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c23,      0x000041f6);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c20,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c23,      0x000043f6);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c26,      0x00002000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c27,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c26,      0x00003000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c27,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c26,      0x00007000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c27,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c25,      0x00004000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c40,      0x000000f4);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c40,      0x000000f4);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c47,      0x00000014);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c47,      0x00000010);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c47,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0xc08,       0x00000050);
+	eic770x_write_csi2_dphy_reg(hw, 0xc07,       0x00000028);
+	eic770x_write_csi2_dphy_reg(hw, 0xe20,       0x00000077);
+	eic770x_write_csi2_dphy_reg(hw, 0xe27,       0x00001132);
+	eic770x_write_csi2_dphy_reg(hw, 0xe21,       0x00001740);
+	eic770x_write_csi2_dphy_reg(hw, 0xe22,       0x00004b14);
+	eic770x_write_csi2_dphy_reg(hw, 0xe22,       0x00004b14);
+	eic770x_write_csi2_dphy_reg(hw, 0xe22,       0x00004b14);
+	eic770x_write_csi2_dphy_reg(hw, 0xe22,       0x00004b17);
+	eic770x_write_csi2_dphy_reg(hw, 0xe22,       0x00004b17);
+	eic770x_write_csi2_dphy_reg(hw, 0xe24,       0x0000000a);
+	eic770x_write_csi2_dphy_reg(hw, 0xe26,       0x0000800a);
+	eic770x_write_csi2_dphy_reg(hw, 0xe27,       0x0000110b);
 
-	eic770x_write_csi2_dphy_reg(hw, 0x388c/4      , dphy_hw->dphy_rate_tbl.reg_vals[0].val ) ;
-	eic770x_write_csi2_dphy_reg(hw, 0x3884/4      , dphy_hw->dphy_rate_tbl.reg_vals[1].val ) ;
-	eic770x_write_csi2_dphy_reg(hw, 0x3894/4      , dphy_hw->dphy_rate_tbl.reg_vals[2].val ) ;
-	eic770x_write_csi2_dphy_reg(hw, 0x3894/4      , dphy_hw->dphy_rate_tbl.reg_vals[3].val ) ;
+	eic770x_write_csi2_dphy_reg(hw, 0xe13,       dphy_hw->dphy_rate_tbl.reg_vals[0].val ) ;
+	eic770x_write_csi2_dphy_reg(hw, 0xe11,       dphy_hw->dphy_rate_tbl.reg_vals[1].val ) ;
+	eic770x_write_csi2_dphy_reg(hw, 0xe15,       dphy_hw->dphy_rate_tbl.reg_vals[2].val ) ;
+	eic770x_write_csi2_dphy_reg(hw, 0xe15,       dphy_hw->dphy_rate_tbl.reg_vals[3].val ) ;
 
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40a0 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48a0 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50a0 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc100 - 0x510c0000)/4, 0x0000473c);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc900 - 0x510c0000)/4, 0x0000473c);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c4088 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c4888 - 0x510c0000)/4, 0x00000001);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c5088 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7118 - 0x510c0000)/4, 0x00000009);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c7118 - 0x510c0000)/4, 0x00000009);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40b0 - 0x510c0000)/4, 0x00000800);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48b0 - 0x510c0000)/4, 0x00000800);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50b0 - 0x510c0000)/4, 0x00000800);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40b4 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48b4 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50b4 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40b0 - 0x510c0000)/4, 0x00000800);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48b0 - 0x510c0000)/4, 0x00000800);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50b0 - 0x510c0000)/4, 0x00000800);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40b4 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48b4 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50b4 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48a4 - 0x510c0000)/4, 0x00000ab0);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40a8 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48a8 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50a8 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40bc - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48bc - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50bc - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510ce200 - 0x510c0000)/4, 0x0000091c);
-	eic770x_write_csi2_dphy_reg(hw, (0x510ce21c - 0x510c0000)/4, 0x00003b06);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc200 - 0x510c0000)/4, 0x00000c1d);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca00 - 0x510c0000)/4, 0x00000c1d);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc004 - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc804 - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc004 - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc804 - 0x510c0000)/4, 0x00000004);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc208 - 0x510c0000)/4, 0x0000e69b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca08 - 0x510c0000)/4, 0x0000e69b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc100 - 0x510c0000)/4, 0x0000173c);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc900 - 0x510c0000)/4, 0x0000173c);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc108 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc908 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510ce100 - 0x510c0000)/4, 0x0000163c);
-	eic770x_write_csi2_dphy_reg(hw, (0x510ce108 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc208 - 0x510c0000)/4, 0x0000e69b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca08 - 0x510c0000)/4, 0x0000e69b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc204 - 0x510c0000)/4, 0x00004010);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca04 - 0x510c0000)/4, 0x00004010);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc208 - 0x510c0000)/4, 0x0000e69b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca08 - 0x510c0000)/4, 0x0000e69b);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc20c - 0x510c0000)/4, 0x00009209);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca0c - 0x510c0000)/4, 0x00009209);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc210 - 0x510c0000)/4, 0x00000096);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca10 - 0x510c0000)/4, 0x00000096);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc214 - 0x510c0000)/4, 0x00000100);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca14 - 0x510c0000)/4, 0x00000100);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc214 - 0x510c0000)/4, 0x00000100);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca14 - 0x510c0000)/4, 0x00000100);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc218 - 0x510c0000)/4, 0x00002d02);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca18 - 0x510c0000)/4, 0x00002d02);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc21c - 0x510c0000)/4, 0x00001b06);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca1c - 0x510c0000)/4, 0x00001b06);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc21c - 0x510c0000)/4, 0x00001b06);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cca1c - 0x510c0000)/4, 0x00001b06);
+	eic770x_write_csi2_dphy_reg(hw, 0x1028,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1228,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1428,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3040,      0x0000473c);
+	eic770x_write_csi2_dphy_reg(hw, 0x3240,      0x0000473c);
+	eic770x_write_csi2_dphy_reg(hw, 0x1022,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1222,      0x00000001);
+	eic770x_write_csi2_dphy_reg(hw, 0x1422,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c46,      0x00000009);
+	eic770x_write_csi2_dphy_reg(hw, 0x1c46,      0x00000009);
+	eic770x_write_csi2_dphy_reg(hw, 0x102c,      0x00000800);
+	eic770x_write_csi2_dphy_reg(hw, 0x122c,      0x00000800);
+	eic770x_write_csi2_dphy_reg(hw, 0x142c,      0x00000800);
+	eic770x_write_csi2_dphy_reg(hw, 0x102d,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x122d,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x142d,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x102c,      0x00000800);
+	eic770x_write_csi2_dphy_reg(hw, 0x122c,      0x00000800);
+	eic770x_write_csi2_dphy_reg(hw, 0x142c,      0x00000800);
+	eic770x_write_csi2_dphy_reg(hw, 0x102d,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x122d,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x142d,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1229,      0x00000ab0);
+	eic770x_write_csi2_dphy_reg(hw, 0x102a,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x122a,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x142a,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x102f,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x122f,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x142f,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x3880,      0x0000091c);
+	eic770x_write_csi2_dphy_reg(hw, 0x3887,      0x00003b06);
+	eic770x_write_csi2_dphy_reg(hw, 0x3080,      0x00000c1d);
+	eic770x_write_csi2_dphy_reg(hw, 0x3280,      0x00000c1d);
+	eic770x_write_csi2_dphy_reg(hw, 0x3001,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x3201,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x3001,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x3201,      0x00000004);
+	eic770x_write_csi2_dphy_reg(hw, 0x3082,      0x0000e69b);
+	eic770x_write_csi2_dphy_reg(hw, 0x3282,      0x0000e69b);
+	eic770x_write_csi2_dphy_reg(hw, 0x3040,      0x0000173c);
+	eic770x_write_csi2_dphy_reg(hw, 0x3240,      0x0000173c);
+	eic770x_write_csi2_dphy_reg(hw, 0x3042,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3242,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3840,      0x0000163c);
+	eic770x_write_csi2_dphy_reg(hw, 0x3842,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3082,      0x0000e69b);
+	eic770x_write_csi2_dphy_reg(hw, 0x3282,      0x0000e69b);
+	eic770x_write_csi2_dphy_reg(hw, 0x3081,      0x00004010);
+	eic770x_write_csi2_dphy_reg(hw, 0x3281,      0x00004010);
+	eic770x_write_csi2_dphy_reg(hw, 0x3082,      0x0000e69b);
+	eic770x_write_csi2_dphy_reg(hw, 0x3282,      0x0000e69b);
+	eic770x_write_csi2_dphy_reg(hw, 0x3083,      0x00009209);
+	eic770x_write_csi2_dphy_reg(hw, 0x3283,      0x00009209);
+	eic770x_write_csi2_dphy_reg(hw, 0x3084,      0x00000096);
+	eic770x_write_csi2_dphy_reg(hw, 0x3284,      0x00000096);
+	eic770x_write_csi2_dphy_reg(hw, 0x3085,      0x00000100);
+	eic770x_write_csi2_dphy_reg(hw, 0x3285,      0x00000100);
+	eic770x_write_csi2_dphy_reg(hw, 0x3085,      0x00000100);
+	eic770x_write_csi2_dphy_reg(hw, 0x3285,      0x00000100);
+	eic770x_write_csi2_dphy_reg(hw, 0x3086,      0x00002d02);
+	eic770x_write_csi2_dphy_reg(hw, 0x3286,      0x00002d02);
+	eic770x_write_csi2_dphy_reg(hw, 0x3087,      0x00001b06);
+	eic770x_write_csi2_dphy_reg(hw, 0x3287,      0x00001b06);
+	eic770x_write_csi2_dphy_reg(hw, 0x3087,      0x00001b06);
+	eic770x_write_csi2_dphy_reg(hw, 0x3287,      0x00001b06);
 
-	eic770x_write_csi2_dphy_reg(hw, 0xc20c/4, dphy_hw->dphy_rate_tbl.reg_vals[4].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
-	eic770x_write_csi2_dphy_reg(hw, 0xca0c/4, dphy_hw->dphy_rate_tbl.reg_vals[5].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
-	eic770x_write_csi2_dphy_reg(hw, 0xc224/4, dphy_hw->dphy_rate_tbl.reg_vals[6].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
-	eic770x_write_csi2_dphy_reg(hw, 0xca24/4, dphy_hw->dphy_rate_tbl.reg_vals[7].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
-	eic770x_write_csi2_dphy_reg(hw, 0xc218/4, dphy_hw->dphy_rate_tbl.reg_vals[8].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
-	eic770x_write_csi2_dphy_reg(hw, 0xca18/4, dphy_hw->dphy_rate_tbl.reg_vals[9].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3083, dphy_hw->dphy_rate_tbl.reg_vals[4].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3283, dphy_hw->dphy_rate_tbl.reg_vals[5].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3089, dphy_hw->dphy_rate_tbl.reg_vals[6].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3289, dphy_hw->dphy_rate_tbl.reg_vals[7].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3086, dphy_hw->dphy_rate_tbl.reg_vals[8].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
+	eic770x_write_csi2_dphy_reg(hw, 0x3286, dphy_hw->dphy_rate_tbl.reg_vals[9].val ) ;//CORE_DIG_DLANE_0_RW_HS_RX_0
 
 	for (unsigned int i = 0; i < sizeof(deskew_fine_mem_values)/sizeof(deskew_fine_mem_values[0]); i++) {
-		eic770x_write_csi2_dphy_reg(hw, (0x510c7fc0 - 0x510c0000)/4, deskew_fine_mem_values[i]);
+		eic770x_write_csi2_dphy_reg(hw, 0x740, deskew_fine_mem_values[i]);
 	}
 
-	eic770x_write_csi2_dphy_reg(hw, (0x510ce000 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510ce000 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc000 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc800 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc000 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510cc800 - 0x510c0000)/4, 0x00000000);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c40a4 - 0x510c0000)/4, 0x00000af0);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c48a4 - 0x510c0000)/4, 0x00000ab0);
-	eic770x_write_csi2_dphy_reg(hw, (0x510c50a4 - 0x510c0000)/4, 0x00000af0);
+	eic770x_write_csi2_dphy_reg(hw, 0x3800,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3800,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3000,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3200,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3000,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x3200,      0x00000000);
+	eic770x_write_csi2_dphy_reg(hw, 0x1029,      0x00000af0);
+	eic770x_write_csi2_dphy_reg(hw, 0x1229,      0x00000ab0);
+	eic770x_write_csi2_dphy_reg(hw, 0x1429,      0x00000af0);
 
 	if(dphy_hw->phy_cfg_base_addr == hw) {
 		if(dphy_hw->lanes_dp_dn[0] == 0x3 && dphy_hw->lanes_dp_dn[1] == 0x3) {
@@ -554,16 +484,19 @@ static void eic770x_csi2_dphy_init_4lane(u32 phy_addr, void __iomem  *hw)
 	eic770x_write_csi2_dphy_reg(hw, 0x122a, 0x4);
 	eic770x_write_csi2_dphy_reg(hw, 0x142a, 0x4);
 	eic770x_write_csi2_dphy_reg(hw, 0x102f, 0x1c);
-	if (phy_addr == VI_COMBO_PHY0_REGISTER_BASE_ADDRESS ||
-	    phy_addr == VI_COMBO_PHY2_REGISTER_BASE_ADDRESS ||
-	    phy_addr == VI_COMBO_PHY4_REGISTER_BASE_ADDRESS) { //phy0/2/4 only
+	if (phy_addr == D0_VI_COMBO_PHY0_REGISTER_BASE_ADDRESS ||
+	    phy_addr == D0_VI_COMBO_PHY2_REGISTER_BASE_ADDRESS ||
+	    phy_addr == D0_VI_COMBO_PHY4_REGISTER_BASE_ADDRESS ||
+		phy_addr == D1_VI_COMBO_PHY0_REGISTER_BASE_ADDRESS ||
+		phy_addr == D1_VI_COMBO_PHY2_REGISTER_BASE_ADDRESS ||
+		phy_addr == D1_VI_COMBO_PHY4_REGISTER_BASE_ADDRESS) { //phy0/2/4 only
 		eic770x_write_csi2_dphy_reg(hw, 0x122f, 0x1c);
 	}
 	eic770x_write_csi2_dphy_reg(hw, 0x142f, 0x1c);
 	eic770x_write_csi2_dphy_reg(hw, 0x1c40, 0xf6);
 }
 
-int eic770x_csi0_cfg(struct csi2_dphy_hw *dphy_hw )
+int eic770x_csi_cfg(struct csi2_dphy_hw *dphy_hw )
 {
 	writel(1, dphy_hw->csi_base_addr + 0x40);  //phy shutdownz
 	writel(1, dphy_hw->csi_base_addr + 0x44); //phy reset
@@ -615,9 +548,6 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 
 	mutex_lock(&hw->mutex);
 
-	dev_dbg(hw->dev, "stream on\n");
-	dev_dbg(hw->dev, "mipi sensor data rate %lld Mpbs \n",  dphy->data_rate_mbps);
-
 	eic770x_csi2_dphy_match_best_rate(dphy);
 	writel(0x2c3f5, hw->phy_cfg_base_addr + 0x0);
 
@@ -637,19 +567,20 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 			eic770x_csi2_dphy_init_1_5_G_high(hw, hw->combine_dphy_base_addr)	;
 		eic770x_csi2_dphy_init_4lane(hw->combine_dphy_phy_addr, hw->combine_dphy_base_addr);
 	}
-	udelay(2000);
-	ret = eic770x_csi0_cfg(hw);
+	// udelay(20);
+	ret = eic770x_csi_cfg(hw);
 	if (ret) {
-		dev_err(hw->dev, "Failed to configure csi0 phy\n");
+		dev_err(hw->dev, "Failed to configure csi phy\n");
 		mutex_unlock(&hw->mutex);
 		return ret;
 	}
 	int count = 20;
 	while (count-- && phy_ready != 0x3) {
-		phy_ready = readl(hw->phy_cfg_base_addr + 0x4); 
-        dev_dbg(hw->dev, "0x%x: csi phy status 0x%x\n", hw->phy_cfg_addr, phy_ready);
-        udelay(200000);
-    }
+		phy_ready = readl(hw->phy_cfg_base_addr + 0x4);
+		dev_dbg(hw->dev, "0x%x: csi phy status 0x%x\n",
+			 hw->phy_cfg_addr, phy_ready);
+		udelay(10000);
+	}
 
 	if(hw->num_lanes == CSI2_DPHY_4LANES) {
 		count = 20;
@@ -657,8 +588,14 @@ static int csi2_dphy_hw_stream_on(struct csi2_dphy *dphy,
 		while (count-- && phy_ready != 0x3) {
 			phy_ready = readl(hw->combine_dphy_base_addr +0x18000 + 0x4); 
 			dev_dbg(hw->dev, "0x%x: csi phy status 0x%x\n", hw->combine_dphy_phy_addr+0x18000, phy_ready);
-			udelay(200000);
+			udelay(10000);
 		}
+	}
+
+	if(phy_ready != 0x3) {
+		dev_err(hw->dev, "csi2 dphy not ready, phy status 0x%x\n", phy_ready);
+		mutex_unlock(&hw->mutex);
+		return -EIO;
 	}
 
 	writel(0x2c075, hw->phy_cfg_base_addr + 0x0);
@@ -682,16 +619,13 @@ static int csi2_dphy_hw_stream_off(struct csi2_dphy *dphy,
 {
 	struct csi2_dphy_hw *hw = dphy->dphy_hw;
 
-	if (atomic_dec_return(&hw->stream_cnt))
-		return 0;
-
-	mutex_lock(&hw->mutex);
-	//dphy off and reset by csi2
-	writel(0, hw->csi_base_addr + 0x44); //phy reset
-	writel(0, hw->csi_base_addr + 0x40); //phy shutdownz
-
-	mutex_unlock(&hw->mutex);
-
+	if (atomic_dec_return(&hw->stream_cnt) < 0)
+	{
+		atomic_set(&hw->stream_cnt, 0);
+		dev_warn(hw->dev, "stream off called more than stream on\n");
+		return -EINVAL;
+	}
+	dev_dbg(hw->dev, "stream off\n");
 	return 0;
 }
 
@@ -708,8 +642,6 @@ static int csi2_dphy_hw_quick_stream_on(struct csi2_dphy *dphy,
 	if (!sensor)
 		return -ENODEV;
 
-	//TODO
-	
 	return 0;
 }
 
@@ -727,6 +659,49 @@ static int csi2_dphy_hw_quick_stream_off(struct csi2_dphy *dphy,
 
 	//TODO
 	return 0;
+}
+
+static int eswin_csi2_dphy_hw_of_notifier(struct notifier_block *nb,
+	unsigned long action, void *data)
+{
+	struct csi2_dphy_hw *dphy_hw = container_of(nb, struct csi2_dphy_hw, of_notifier);
+	struct of_overlay_notify_data *notify_data = data;
+	int ret = 0;
+	if (!dphy_hw || !notify_data || !notify_data->target)
+		return NOTIFY_DONE;
+
+	if (notify_data->target != dphy_hw->dev->of_node)
+		return NOTIFY_DONE;
+
+	if (action == OF_OVERLAY_POST_APPLY) {
+		msleep(200);
+
+		dphy_hw->num_lanes = of_property_count_elems_of_size(dphy_hw->dev->of_node, "lanes", sizeof(u32));
+		dev_dbg(dphy_hw->dev, "dphy num lanes %d\n", dphy_hw->num_lanes);
+		if(dphy_hw->num_lanes < 0) {
+			dev_warn(dphy_hw->dev, "Failed to get lanes count, use default 2 lanes\n");
+			dphy_hw->num_lanes = 2;
+		} else {
+			ret = of_property_read_u32_array(dphy_hw->dev->of_node, "lanes", dphy_hw->lanes_array, dphy_hw->num_lanes);
+			if (ret) {
+				dev_err(dphy_hw->dev, "Failed to read lanes array\n");
+				return NOTIFY_DONE;
+			}
+		}
+
+		ret = of_property_count_elems_of_size(dphy_hw->dev->of_node, "lanes-dp-dn", sizeof(u32));
+		if(ret < 0) {
+			dev_warn(dphy_hw->dev, "Failed to get lanes-dp-dn property, use default positive on dp, negative on dn to hs and lp mode\n");
+			memset(dphy_hw->lanes_dp_dn, 0, 4 * dphy_hw->num_lanes);
+		} else {
+			ret = of_property_read_u32_array(dphy_hw->dev->of_node, "lanes-dp-dn", dphy_hw->lanes_dp_dn, dphy_hw->num_lanes);
+			if (ret) {
+				dev_err(dphy_hw->dev, "Failed to read dp-dn array\n");
+				return NOTIFY_DONE;
+			}
+		}
+	}
+	return NOTIFY_DONE;
 }
 
 //TODO update cphy hsfreq_ranges
@@ -777,8 +752,6 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 	dphy_hw->dphy_dev_num = 0;
 	dphy_hw->drv_data = drv_data;
 	dphy_hw->lane_mode = LANE_MODE_UNDEF;
-	// dphy_hw->grf_regs = drv_data->grf_regs;
-	// dphy_hw->csi2dphy_regs = drv_data->csi2dphy_regs;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dphy_hw->hw_base_addr = devm_ioremap_resource(dev, res);
@@ -837,18 +810,14 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 
 	ret = of_property_count_elems_of_size(dev->of_node, "lanes-dp-dn", sizeof(u32));
 	if(ret < 0) {
-		dev_warn(dev, "Failed to get lanes-dp-dn property, use default positive on dp/ negative on dn to hs and lp mode\n");
+		dev_warn(dev, "Failed to get lanes-dp-dn property, use default positive on dp, negative on dn to hs and lp mode\n");
 		memset(dphy_hw->lanes_dp_dn, 0, 4 * dphy_hw->num_lanes);
 	} else {
 		ret = of_property_read_u32_array(dev->of_node, "lanes-dp-dn", dphy_hw->lanes_dp_dn, dphy_hw->num_lanes);
 		if (ret) {
-			dev_err(dev, "Failed to read lanes dn-dp array\n");
+			dev_err(dev, "Failed to read lanes array\n");
 			return ret;
 		}
-	}
-
-	for (int i = 0; i < dphy_hw->num_lanes; i++) {
-		dev_dbg(dev, "lane%d dn-dp: %d ", i, dphy_hw->lanes_dp_dn[i]);
 	}
 
 	if(dphy_hw->num_lanes == CSI2_DPHY_4LANES) {
@@ -864,12 +833,14 @@ static int eswin_csi2_dphy_hw_probe(struct platform_device *pdev)
 			dev_err(dphy_hw->dev, "Failed to map Combine PHY address\n");
 			return PTR_ERR(dphy_hw->combine_dphy_base_addr);
 		}
-		dev_dbg(dev, "combine_phy = 0x%x\n", dphy_hw->combine_dphy_phy_addr);
 	}
 
 	atomic_set(&dphy_hw->stream_cnt, 0);
 	mutex_init(&dphy_hw->mutex);
 	platform_set_drvdata(pdev, dphy_hw);
+
+	dphy_hw->of_notifier.notifier_call = eswin_csi2_dphy_hw_of_notifier;
+	of_overlay_notifier_register(&dphy_hw->of_notifier);
 
 	dev_info(dev, "csi2 dphy hw probe successfully!\n");
 	return 0;
@@ -906,7 +877,6 @@ static void eswin_csi2_dphy_hw_exit(void)
 
 late_initcall(eswin_csi2_dphy_hw_init);
 module_exit(eswin_csi2_dphy_hw_exit);
-// module_platform_driver(eswin_csi2_dphy_hw_driver);
 
 MODULE_AUTHOR("luyulin@eswincomputing.com");
 MODULE_DESCRIPTION("Eswin dphy platform driver");

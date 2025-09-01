@@ -126,11 +126,13 @@
 				status = "disabled";
 				compatible = "sony,imx219";
 				reg = <0x10>;
-
 				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clock-rates = <24000000>;
 				clock-names = "xvclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio72_default>;
+				reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
 
 				port {
 					imx219_out0: endpoint {
@@ -151,12 +153,13 @@
 				status = "disabled";
 				compatible = "sony,imx219";
 				reg = <0x10>;
-
 				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clock-rates = <24000000>;
 				clock-names = "xvclk";
-
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio75_default>;
+				reset-gpio = <&portc 11 GPIO_ACTIVE_HIGH>;
 
 				port {
 					imx219_out1: endpoint {
@@ -177,11 +180,13 @@
 				status = "disabled";
 				compatible = "sony,imx219";
 				reg = <0x10>;
-
 				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clock-rates = <24000000>;
 				clock-names = "xvclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio78_default>;
+				reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
 
 				port {
 					imx219_out2: endpoint {
@@ -192,7 +197,7 @@
 				};
 			};
 		};
-		
+
 		i2c@3 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -202,11 +207,13 @@
 				status = "disabled";
 				compatible = "sony,imx219";
 				reg = <0x10>;
-
 				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 				assigned-clock-rates = <24000000>;
 				clock-names = "xvclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio81_default>;
+				reset-gpio = <&portc 17 GPIO_ACTIVE_HIGH>;
 
 				port {
 					imx219_out3: endpoint {
@@ -217,14 +224,13 @@
 				};
 			};
 		};
-
 	};
 };
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;
-	status = "disabled";
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
+	status = "okay";
 };
 
 &csi2_dphy0 {
@@ -260,8 +266,8 @@
 
 &csi2_dphy_hw1 {
 	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;
-	status = "disabled";
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
+	status = "okay";
 };
 &csi2_dphy1 {
 	status = "disabled";
@@ -296,8 +302,8 @@
 
 &csi2_dphy_hw2 {
 	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;
-	status = "disabled";
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
+	status = "okay";
 };
 &csi2_dphy2 {
 	status = "disabled";
@@ -332,8 +338,8 @@
 
 &csi2_dphy_hw3 {
 	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;
-	status = "disabled";
+	lanes-dp-dn = <0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
+	status = "okay";
 };
 &csi2_dphy3 {
 	status = "disabled";
@@ -406,7 +412,6 @@
 	};
 };
 
-
 &mipi_csi2_1 {
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
@@ -437,7 +442,6 @@
 	};
 };
 
-
 &mipi_csi2_2 {
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
@@ -465,8 +469,6 @@
 				remote-endpoint = <&axi2dvp_mipi2_in2>;
 			};
 		};
-
-		
 	};
 };
 
@@ -501,13 +503,12 @@
 	};
 };
 
-
 &dvp2axi {
 	status = "disabled";
 };
 
-&dvp2axi_mipi_lvds {
-	status = "disabled";
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
 	dvp2axi_id = <0>;
 	port@0 {
 		axi2dvp_mipi2_in0: endpoint@0 {
@@ -554,5 +555,5 @@
 };
 
 &isp_1 {
-	status = "disabled";
+	status = "okay";
 };
