@@ -347,9 +347,11 @@
 
 &d0_i2s1 {
 	status = "okay";
+	/* pinctrl-names = "default"; */
+	/* pinctrl-0 = <&pinctrl_i2s1_default>; */
 	d0_i2s1_port: port {
 		d0_i2s1_endpoint: endpoint {
-			/* remote-endpoint = <&d0_codec0_endpoint>; */
+			remote-endpoint = <&d0_codec0_endpoint>;
 			dai-format = "i2s";
 		};
 	};
@@ -360,9 +362,13 @@
 };
 
 &d0_graphcard1 {
-	status = "disabled";
+	status = "okay";
 	label = "Analog Audio-0";
 	dais = <&d0_i2s1_port>;
+};
+
+&d0_graphcard2 {
+	status = "disabled";
 };
 
 &vi_subsys {
@@ -642,6 +648,18 @@
 &d0_i2c5 {
 	/* pin header */
 	status = "okay";
+	d0_es8388_0: es8388-0@10 {
+		compatible = "eswin,es8388";
+		reg = <0x10>;
+		#sound-dai-cells = <0>;
+		port {
+			d0_codec0_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
+
 	tmp102@48 {
 		compatible = "ti,tmp102";
 		reg = <0x48>;
@@ -798,4 +816,3 @@
 	     status = "disabled";
        };
 };
-
