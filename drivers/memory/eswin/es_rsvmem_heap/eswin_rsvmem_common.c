@@ -52,8 +52,8 @@ static struct class *eswin_heap_class;
 static DEFINE_XARRAY_ALLOC(eswin_heap_minors);
 
 static int eswin_heap_buffer_alloc(struct eswin_heap *heap, size_t len,
-				 unsigned int fd_flags,
-				 unsigned int heap_flags)
+				   unsigned int fd_flags,
+				   unsigned int heap_flags)
 {
 	struct dma_buf *dmabuf;
 	int fd;
@@ -111,8 +111,8 @@ static long eswin_heap_ioctl_allocate(struct file *file, void *data)
 		return -EINVAL;
 
 	fd = eswin_heap_buffer_alloc(heap, heap_allocation->len,
-				   heap_allocation->fd_flags,
-				   heap_allocation->heap_flags);
+				     heap_allocation->fd_flags,
+				     heap_allocation->heap_flags);
 	if (fd < 0)
 		return fd;
 
@@ -126,7 +126,7 @@ static unsigned int eswin_heap_ioctl_cmds[] = {
 };
 
 static long eswin_heap_ioctl(struct file *file, unsigned int ucmd,
-			   unsigned long arg)
+			     unsigned long arg)
 {
 	char stack_kdata[128];
 	char *kdata = stack_kdata;
@@ -186,11 +186,11 @@ err:
 }
 
 static const struct file_operations eswin_heap_fops = {
-	.owner          = THIS_MODULE,
-	.open		= eswin_heap_open,
+	.owner = THIS_MODULE,
+	.open = eswin_heap_open,
 	.unlocked_ioctl = eswin_heap_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl	= eswin_heap_ioctl,
+	.compat_ioctl = eswin_heap_ioctl,
 #endif
 };
 
@@ -275,10 +275,7 @@ struct eswin_heap *eswin_heap_add(const struct eswin_heap_export_info *exp_info)
 		goto err1;
 	}
 
-	dev_ret = device_create(eswin_heap_class,
-				NULL,
-				heap->heap_devt,
-				NULL,
+	dev_ret = device_create(eswin_heap_class, NULL, heap->heap_devt, NULL,
 				heap->name);
 	if (IS_ERR(dev_ret)) {
 		pr_err("eswin_heap: Unable to create device\n");
@@ -315,8 +312,7 @@ int eswin_heap_delete(struct eswin_heap *heap)
 	mutex_lock(&heap_list_lock);
 	list_for_each_entry_safe(h, tmp, &heap_list, list) {
 		if (!strcmp(h->name, heap->name)) {
-			pr_info("eswin_heap: deleted heap %s\n",
-			       heap->name);
+			pr_info("eswin_heap: deleted heap %s\n", heap->name);
 			device_destroy(eswin_heap_class, h->heap_devt);
 			cdev_del(&h->heap_cdev);
 			xa_erase(&eswin_heap_minors, MINOR(h->heap_devt));
@@ -332,7 +328,6 @@ int eswin_heap_delete(struct eswin_heap *heap)
 	}
 
 	return ret;
-
 }
 
 int eswin_heap_delete_by_name(const char *name)
@@ -349,8 +344,7 @@ int eswin_heap_delete_by_name(const char *name)
 	mutex_lock(&heap_list_lock);
 	list_for_each_entry_safe(h, tmp, &heap_list, list) {
 		if (!strcmp(h->name, name)) {
-			pr_info("eswin_heap: deleted heap %s\n",
-			       name);
+			pr_info("eswin_heap: deleted heap %s\n", name);
 			device_destroy(eswin_heap_class, h->heap_devt);
 			cdev_del(&h->heap_cdev);
 			xa_erase(&eswin_heap_minors, MINOR(h->heap_devt));
@@ -368,45 +362,43 @@ int eswin_heap_delete_by_name(const char *name)
 	return ret;
 }
 
-int eswin_heap_kalloc(char *name, size_t len, unsigned int fd_flags, unsigned int heap_flags)
+int eswin_heap_kalloc(char *name, size_t len, unsigned int fd_flags,
+		      unsigned int heap_flags)
 {
 	struct eswin_heap *heap = NULL;
-#if 0
-	struct eswin_heap *h = NULL;
-	/* check the name is unique */
-	mutex_lock(&heap_list_lock);
-	list_for_each_entry(h, &heap_list, list) {
-		if (!strcmp(h->name, name)) {
-			heap = h;
-			break;
-		}
-	}
-	mutex_unlock(&heap_list_lock);
-#else
 	char *dev_path = NULL;
 	struct file *file;
 	int ret;
 
 	dev_path = kasprintf(GFP_KERNEL, "/dev/dma_heap/%s", name);
+	if (!dev_path)
+		return -ENOMEM;
+
 	file = filp_open(dev_path, O_RDWR, 0);
 	if (IS_ERR(file)) {
 		ret = PTR_ERR(file);
-		pr_err("failed to open file %s: (%d)\n",
-			dev_path, ret);
-		return ret;
-	}
-	heap = file->private_data;
-#endif
-	if (!heap) {
-		printk("ERROR: Can't find this heap %s\n", name);
-		return -ENODEV;
+		pr_err("failed to open file %s: (%d)\n", dev_path, ret);
+		goto out_free;
 	}
 
-	return eswin_heap_buffer_alloc(heap, len, fd_flags, heap_flags);
+	heap = file->private_data;
+	if (!heap) {
+		printk("ERROR: Can't find this heap %s\n", name);
+		ret = -ENODEV;
+		goto out_close;
+	}
+
+	ret = eswin_heap_buffer_alloc(heap, len, fd_flags, heap_flags);
+
+out_close:
+	filp_close(file, NULL);
+out_free:
+	kfree(dev_path);
+	return ret;
 }
 EXPORT_SYMBOL(eswin_heap_kalloc);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,6,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 static char *eswin_heap_devnode(const struct device *dev, umode_t *mode)
 #else
 static char *eswin_heap_devnode(struct device *dev, umode_t *mode)
@@ -424,14 +416,15 @@ int eswin_heap_init(void)
 {
 	int ret;
 
-	ret = alloc_chrdev_region(&eswin_heap_devt, 0, NUM_HEAP_MINORS, DEVNAME);
+	ret = alloc_chrdev_region(&eswin_heap_devt, 0, NUM_HEAP_MINORS,
+				  DEVNAME);
 	if (ret)
 		return ret;
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,6,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 	eswin_heap_class = class_create(DEVNAME);
-	#else
+#else
 	eswin_heap_class = class_create(THIS_MODULE, DEVNAME);
-	#endif
+#endif
 	if (IS_ERR(eswin_heap_class)) {
 		unregister_chrdev_region(eswin_heap_devt, NUM_HEAP_MINORS);
 		return PTR_ERR(eswin_heap_class);
