@@ -1677,11 +1677,7 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	up(&vcmd_reserve_cmdbuf_sem[module_type]);
 	/** release for the pm*/
 	if (atomic_dec_return(&(fp_priv->core_tasks[dev->core_id])) >= 0) {
-		int ret = vdec_pm_runtime_put(dev->core_id);
-
-		if (ret < 0) {
-			LOG_WARN("pm_runtime_put_autosuspend return %d\n", ret);
-		}
+		vdec_pm_runtime_put(dev->core_id);
 	}
 
 	return 0;
