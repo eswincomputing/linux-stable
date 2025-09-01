@@ -127,12 +127,10 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
-				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl_gpio72_default>;
-				mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-				xvs-gpios = <&portc 6 GPIO_ACTIVE_HIGH>;
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
 
 				port {
 					imx219_out0: endpoint {
@@ -154,8 +152,11 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
+
 
 				port {
 					imx219_out1: endpoint {
@@ -177,8 +178,10 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
 
 				port {
 					imx219_out2: endpoint {
@@ -200,8 +203,10 @@
 				compatible = "sony,imx219";
 				reg = <0x10>;
 
-				//clocks = <&clk_cam_24m>;
-				//clock-names = "xvclk";
+				clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
 
 				port {
 					imx219_out3: endpoint {
@@ -216,9 +221,9 @@
 	};
 };
 
-
 &csi2_dphy_hw {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
 	status = "disabled";
 };
 
@@ -255,6 +260,7 @@
 
 &csi2_dphy_hw1 {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
 	status = "disabled";
 };
 &csi2_dphy1 {
@@ -290,6 +296,7 @@
 
 &csi2_dphy_hw2 {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
 	status = "disabled";
 };
 &csi2_dphy2 {
@@ -325,6 +332,7 @@
 
 &csi2_dphy_hw3 {
 	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
 	status = "disabled";
 };
 &csi2_dphy3 {
