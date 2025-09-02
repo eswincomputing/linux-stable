@@ -151,11 +151,8 @@ static npu_dep_info_t *npu_get_dep_info(struct win_executor *executor, u8 pcer,
 		get_npu_info(edma, EDMA, k);
 		break;
 	case IDX_CONV:
-		npu_info = (npu_dep_info_t
-				    *)((char *)executor
-					       ->prog_data_buf_bobj[IDX_CONV] +
-				       MAX_CONV_PROG_DATA_SIZE * k +
-				       sizeof(rdma_dev_com_inf_t));
+		npu_info = (npu_dep_info_t *)((char *)executor->prog_data_buf_bobj[IDX_CONV] +
+				       MAX_CONV_PROG_DATA_SIZE * k + sizeof(rdma_dev_com_inf_t));
 		break;
 	case IDX_SDP:
 		get_npu_info(sdp, SDP, k);
@@ -218,14 +215,11 @@ static void dependency_consumer2producer(struct win_executor *executor,
 
 	for (i = 0; i < op_num; i++) {
 		pcer = processor_dla_convert[task->common_desc[i].op_type];
-		dla_detail("i:%d op_type:%d\n", i,
-			   task->common_desc[i].op_type);
+		dla_detail("i:%d op_type:%d\n", i, task->common_desc[i].op_type);
 		k = pcer_cnt[pcer];
 		npu_info = npu_get_dep_info(executor, pcer, k);
 		if (npu_info == NULL) {
-			dla_error(
-				"get processor %d, op_idx=%d, npu_info is null.\n",
-				pcer, k);
+			dla_error("get processor %d, op_idx=%d, npu_info is null.\n", pcer, k);
 			continue;
 		}
 		if (pcer != IDX_CONV)
@@ -242,29 +236,24 @@ static void dependency_consumer2producer(struct win_executor *executor,
 			           dependency_count[i], npu_info->peer_type);
 		}
 
-		for (j = IDX_SDP; j <= IDX_PDP; j++) {
-			consumer = task->common_desc[i].fused_parent.index;
-			event = task->common_desc[i].fused_parent.event;
-			if (consumer != invalid_op_index &&
-			    event == DLA_EVENT_OP_ENABLED) {
-				npu_set_enable_consumer(npu_info, consumer);
-			}
+		consumer = task->common_desc[i].fused_parent.index;
+		event = task->common_desc[i].fused_parent.event;
+		if (consumer != invalid_op_index &&	event == DLA_EVENT_OP_ENABLED) {
+			npu_set_enable_consumer(npu_info, consumer);
 		}
+
 		pos = 0;
 		for (j = IDX_START; j < NUM_OP_TYPE; j++) {
 			op_type = processor_idx_convert[j];
-			consumer =
-				task->common_desc[i].consumers[op_type].index;
+			consumer = task->common_desc[i].consumers[op_type].index;
 			event = task->common_desc[i].consumers[op_type].event;
 			if (consumer == 0xffff) {
 				continue;
 			}
 
 			if (event == DLA_EVENT_OP_PROGRAMMED) {
-				dla_detail(
-					"i:%d j:%d consumer:%d dependency_count:%d\n",
-					i, j, consumer,
-					dependency_count[consumer]);
+				dla_detail("i:%d j:%d consumer:%d dependency_count:%d\n", i, j, consumer,
+						   dependency_count[consumer]);
 				dependency_count[consumer]--;
 			}
 			if (pcer == IDX_CONV) {
@@ -273,14 +262,11 @@ static void dependency_consumer2producer(struct win_executor *executor,
 
 			if (event == DLA_EVENT_OP_COMPLETED) {
 				if (unlikely(pos >= MAX_KMD_DEPCNT)) {
-					dla_error(
-						"op index:%d dependency cnt over max\n",
-						i);
+					dla_error("op index:%d dependency cnt over max\n", i);
 					BUG_ON(false);
 					return;
 				}
-				npu_set_completion_consumer(npu_info, op_type,
-							    consumer, pos);
+				npu_set_completion_consumer(npu_info, op_type, consumer, pos);
 				pos++;
 			}
 
@@ -290,8 +276,7 @@ static void dependency_consumer2producer(struct win_executor *executor,
 			 */
 		}
 		dependency_count[i]++;
-		dla_debug("i:%d dependency_count:%d\n", i,
-			   dependency_count[i]);
+		dla_debug("i:%d dependency_count:%d\n", i, dependency_count[i]);
 		npu_info->depcnt = dependency_count[i];
 		pcer_cnt[pcer]++;
 	}
@@ -305,17 +290,14 @@ int generate_small_program(struct win_executor *executor)
 	op_num = executor->network->num_operations;
 	executor->total_op_num = op_num;
 
-	executor->cfg_seq[IDX_START] =
-		kzalloc(op_num * sizeof(u16), GFP_KERNEL);
+	executor->cfg_seq[IDX_START] = vzalloc(op_num * sizeof(u16));
 	if (executor->cfg_seq[IDX_START] == NULL) {
-		ret = -ENOMEM;
-		return ret;
+		return -ENOMEM;
 	}
 	dla_debug("%s, %d, op_num=%d.\n", __func__, __LINE__, op_num);
 	ret = config_sequence_setup(executor, op_num, executor->cfg_seq);
 	if (ret < 0) {
-		dla_error("%s %d config_sequence_setup fail\n", __func__,
-			  __LINE__);
+		dla_error("%s %d config_sequence_setup fail\n", __func__, __LINE__);
 		goto err_free1;
 	}
 	dependency_consumer2producer(executor, executor->task, op_num);
@@ -323,7 +305,7 @@ int generate_small_program(struct win_executor *executor)
 	return 0;
 err_free1:
 	memset(executor->cfg_seq[IDX_START], -1, op_num * sizeof(u16));
-	kfree(executor->cfg_seq[IDX_START]);
+	vfree(executor->cfg_seq[IDX_START]);
 	executor->cfg_seq[IDX_START] = NULL;
 	return ret;
 }
@@ -375,9 +357,7 @@ int generate_event_map(struct win_executor *executor)
 		case IDX_EVENT_SINK:
 			event_idx = executor->task->op_desc[i].event_op.index;
 			if (event_idx >= executor->total_event_sink_num) {
-				dla_error(
-					"Event Sink, event_idx(%d) is wrong in model.\n",
-					event_idx);
+				dla_error("Event Sink, event_idx(%d) is wrong in model.\n", event_idx);
 				ret = -EINVAL;
 				goto err_free;
 			}
@@ -386,9 +366,7 @@ int generate_event_map(struct win_executor *executor)
 		case IDX_EVENT_SOURCE:
 			event_idx = executor->task->op_desc[i].event_op.index;
 			if (event_idx >= executor->total_event_source_num) {
-				dla_error(
-					"Event Source, event_idx(%d) is wrong in model.\n",
-					event_idx);
+				dla_error("Event Source, event_idx(%d) is wrong in model.\n", event_idx);
 				ret = -EINVAL;
 				goto err_free;
 			}
@@ -427,9 +405,7 @@ int set_pause_op_done(struct win_executor *executor, kmd_dump_info_t *dump_info)
 		k = pcer_cnt[pcer];
 		npu_info = npu_get_dep_info(executor, pcer, k);
 		if (npu_info == NULL) {
-			dla_error(
-				"get processor %d, op_idx=%d, npu_info is null.\n",
-				pcer, k);
+			dla_error("get processor %d, op_idx=%d, npu_info is null.\n", pcer, k);
 			continue;
 		}
 
@@ -445,8 +421,7 @@ int set_pause_op_done(struct win_executor *executor, kmd_dump_info_t *dump_info)
 			if (op_index == task->common_desc[i].index) {
 				npu_info->notify_op_done = 1;
 				npu_info->pause_op_done = 1;
-				dla_debug("%s, %d, dump op_index:%d\n",
-					  __func__, __LINE__, op_index);
+				dla_debug("%s, %d, dump op_index:%d\n", __func__, __LINE__, op_index);
 				break;
 			}
 		}
@@ -476,9 +451,7 @@ int reset_pause_op_done(struct win_executor *executor)
 		k = pcer_cnt[pcer];
 		npu_info = npu_get_dep_info(executor, pcer, k);
 		if (npu_info == NULL) {
-			dla_error(
-				"get processor %d, op_idx=%d, npu_info is null.\n",
-				pcer, k);
+			dla_error("get processor %d, op_idx=%d, npu_info is null.\n", pcer, k);
 			continue;
 		}
 

@@ -106,8 +106,7 @@ static long dsp_ioctl_load_op(struct file *flip, dsp_ioctl_load_s __user *arg)
 		goto err;
 	}
 
-	if (copy_from_user(op_name, (void *)dsp_load.op_name,
-			   OPERATOR_NAME_MAXLEN)) {
+	if (copy_from_user(op_name, (void *)dsp_load.op_name, OPERATOR_NAME_MAXLEN)) {
 		ret = -EFAULT;
 		goto err;
 	}
@@ -118,8 +117,7 @@ static long dsp_ioctl_load_op(struct file *flip, dsp_ioctl_load_s __user *arg)
 			ret = -ENOMEM;
 			goto err;
 		}
-		if (copy_from_user(op_dir, (void *)dsp_load.op_lib_dir,
-				   OPERATOR_DIR_MAXLEN)) {
+		if (copy_from_user(op_dir, (void *)dsp_load.op_lib_dir, OPERATOR_DIR_MAXLEN)) {
 			ret = -EFAULT;
 			goto err;
 		}
@@ -171,8 +169,7 @@ static u32 dsp_get_dma_addr(struct es_dsp *dsp, int fd,
 		return 0;
 	}
 
-	dma_addr = dev_mem_attach(dmabuf, dsp->dev, DMA_BIDIRECTIONAL,
-				  &map_buf->attach);
+	dma_addr = dev_mem_attach(dmabuf, dsp->dev, DMA_BIDIRECTIONAL, &map_buf->attach);
 	if (!dma_addr) {
 		dsp_err("dev mem attach fd=%d failed.\n", fd);
 		map_buf->attach = NULL;
@@ -223,11 +220,9 @@ int dsp_unmap_dmabuf(struct dsp_file *dsp_file, struct dsp_dma_buf **buf,
 			kfree(buf[i]);
 			buf[i] = NULL;
 		} else {
-			entry = container_of(buf[i], struct dsp_dma_buf_ex,
-					     buf);
-			dsp_debug("%s, %d, fd=%d, handl cnt=%d.\n", __func__,
-				  __LINE__, buf[i]->fd,
-				  kref_read(&entry->handle.refcount));
+			entry = container_of(buf[i], struct dsp_dma_buf_ex, buf);
+			dsp_debug("%s, %d, fd=%d, handl cnt=%d.\n", __func__, __LINE__, buf[i]->fd,
+					  kref_read(&entry->handle.refcount));
 			kernel_handle_decref(&entry->handle);
 		}
 	}
@@ -246,13 +241,10 @@ struct dsp_dma_buf *dsp_get_dma_buf_ex(struct dsp_file *dsp_file, int memfd)
 	mutex_lock(&dsp_file->xrray_lock);
 	entry = xa_load(&dsp_file->buf_xrray, memfd);
 	if (entry) {
-		dsp_debug("%s, %d. entry->fd=%d.\n", __func__, __LINE__,
-			  entry->buf.fd);
-		handle = find_kernel_handle(&dsp_file->h, entry->handle.fd,
-					    DSP_DMABUF_HANDLE_MAGIC);
-		dsp_debug("%s, %d, handle_fd=0x%x, refcount=%d.\n", __func__,
-			  __LINE__, entry->handle.fd,
-			  kref_read(&handle->refcount));
+		dsp_debug("%s, %d. entry->fd=%d.\n", __func__, __LINE__, entry->buf.fd);
+		handle = find_kernel_handle(&dsp_file->h, entry->handle.fd, DSP_DMABUF_HANDLE_MAGIC);
+		dsp_debug("%s, %d, handle_fd=0x%x, refcount=%d.\n", __func__, __LINE__, entry->handle.fd,
+				  kref_read(&handle->refcount));
 	}
 	mutex_unlock(&dsp_file->xrray_lock);
 
@@ -260,16 +252,14 @@ struct dsp_dma_buf *dsp_get_dma_buf_ex(struct dsp_file *dsp_file, int memfd)
 		dsp_debug("%s, %d, slow path.\n", __func__, __LINE__);
 		dma_entry = kzalloc(sizeof(struct dsp_dma_buf), GFP_KERNEL);
 		if (!dma_entry) {
-			dsp_err("%s, %d. alloc dsp device buf struct err.\n",
-				__func__, __LINE__);
+			dsp_err("%s, %d. alloc dsp device buf struct err.\n", __func__, __LINE__);
 			goto err;
 		}
 		addr = dsp_get_dma_addr(dsp_file->dsp, memfd, dma_entry);
 		dma_entry->fd = -1;
 	} else {
-		dsp_debug("%s, %d, fast path, dma fd=%d, iova=0x%x.\n",
-			  __func__, __LINE__, entry->buf.fd,
-			  entry->buf.dma_addr);
+		dsp_debug("%s, %d, fast path, dma fd=%d, iova=0x%x.\n", __func__, __LINE__, entry->buf.fd,
+				  entry->buf.dma_addr);
 		dma_entry = &entry->buf;
 		addr = dma_entry->dma_addr;
 	}
@@ -300,16 +290,14 @@ static int dsp_ioctl_set_flat(struct dsp_file *dsp_file, dsp_ioctl_task_s *req,
 		dsp_debug("%s, i=%d, new fd=%d, offset=0x%x.\n", __func__, i,
 			  (int)req->task.dspBuffers[i].memFd,
 			  req->task.dspBuffers[i].offset);
-		entry = dsp_get_dma_buf_ex(dsp_file,
-					   req->task.dspBuffers[i].memFd);
+		entry = dsp_get_dma_buf_ex(dsp_file, req->task.dspBuffers[i].memFd);
 		if (entry == NULL) {
 			dsp_err("getdmabuf failed curr idx:%d, cfgcnt:%d, incnt:%d\n",i,
 			req->task.bufferCntCfg, req->task.bufferCntInput);
 			goto err;
 		}
 		dma_entry[i] = entry;
-		flat->buffers[i].addr =
-			entry->dma_addr + req->task.dspBuffers[i].offset;
+		flat->buffers[i].addr = entry->dma_addr + req->task.dspBuffers[i].offset;
 		flat->buffers[i].size = req->task.dspBuffers[i].size;
 		dsp_debug("%s, i=%d, addr=0x%x, len=0x%x\n", __func__, i,
 			  flat->buffers[i].addr, flat->buffers[i].size);
@@ -325,8 +313,7 @@ static struct dsp_user *dsp_find_user_by_fd(struct dsp_file *dsp_file, int fd)
 	struct khandle *user_handle;
 	struct dsp_user *user;
 
-	user_handle =
-		find_kernel_handle(&dsp_file->h, fd, DSP_USER_HANDLE_MAGIC);
+	user_handle = find_kernel_handle(&dsp_file->h, fd, DSP_USER_HANDLE_MAGIC);
 	if (!user_handle) {
 		dsp_err("cannot find dsp operator for %d.\n", fd);
 		return NULL;
@@ -347,11 +334,9 @@ static int dsp_set_task_req(struct es_dsp *dsp, dsp_request_t *dsp_req,
 
 	buffer_count = task->task.bufferCntCfg + task->task.bufferCntInput +
 		       task->task.bufferCntOutput;
-	dma_len = sizeof(struct es_dsp_flat1_desc) +
-		  buffer_count * sizeof(es_dsp_buffer);
+	dma_len = sizeof(struct es_dsp_flat1_desc) + buffer_count * sizeof(es_dsp_buffer);
 
-	flat = (struct es_dsp_flat1_desc *)dsp_alloc_flat_mem(dsp, dma_len,
-							      &dma_addr);
+	flat = (struct es_dsp_flat1_desc *)dsp_alloc_flat_mem(dsp, dma_len, &dma_addr);
 	if (!flat) {
 		dsp_err("cannot dma alloc mem for desc.\n");
 		ret = -ENOMEM;
@@ -365,8 +350,7 @@ static int dsp_set_task_req(struct es_dsp *dsp, dsp_request_t *dsp_req,
 	dsp_req->flat_virt = (void *)flat;
 	dsp_req->prio = task->task.priority;
 	if (dsp_req->prio >= DSP_MAX_PRIO) {
-		dsp_err("%s, %d, dsp request prio = %d is err.\n", __func__,
-			__LINE__, dsp_req->prio);
+		dsp_err("%s, %d, dsp request prio = %d is err.\n", __func__, __LINE__, dsp_req->prio);
 		dsp_free_flat_mem(dsp, dma_len, (void *)flat, dma_addr);
 		return -EINVAL;
 	}
@@ -375,8 +359,7 @@ static int dsp_set_task_req(struct es_dsp *dsp, dsp_request_t *dsp_req,
 	flat->num_buffer = buffer_count;
 
 	flat->input_index = task->task.bufferCntCfg;
-	flat->output_index =
-		task->task.bufferCntCfg + task->task.bufferCntInput;
+	flat->output_index = task->task.bufferCntCfg + task->task.bufferCntInput;
 	return 0;
 }
 
@@ -400,10 +383,8 @@ static void dsp_user_async_req_complete(struct device *dev, dsp_request_t *req)
 	}
 	user = user_req->user;
 	dsp_file = user_req->dsp_file;
-	dsp_unmap_dmabuf(dsp_file, user_req->dma_entry,
-			 user_req->dma_buf_count);
-	dsp_free_flat_mem(dsp, req->flat_size, req->flat_virt,
-			  req->dsp_flat1_iova);
+	dsp_unmap_dmabuf(dsp_file, user_req->dma_entry, user_req->dma_buf_count);
+	dsp_free_flat_mem(dsp, req->flat_size, req->flat_virt, req->dsp_flat1_iova);
 	dsp_debug("%s, %d.\n", __func__, __LINE__);
 	kernel_handle_decref(&user_req->handle);
 	kernel_handle_decref(&user->h);
@@ -413,8 +394,7 @@ static void dsp_user_async_req_complete(struct device *dev, dsp_request_t *req)
 
 static void dsp_async_task_release(struct khandle *handle)
 {
-	struct dsp_user_req_async *user_req =
-		container_of(handle, struct dsp_user_req_async, handle);
+	struct dsp_user_req_async *user_req = container_of(handle, struct dsp_user_req_async, handle);
 	struct dsp_user *user;
 	struct es_dsp *dsp;
 
@@ -444,8 +424,7 @@ static void dsp_hw_complete_task(struct device *dev, dsp_request_t *req)
 
 	spin_lock_irqsave(&dsp_file->async_ll_lock, flags);
 	if (dsp_file->h.fd != INVALID_HANDLE_VALUE && async_task->need_notify) {
-		list_add_tail(&async_task->async_ll,
-			      &dsp_file->async_ll_complete);
+		list_add_tail(&async_task->async_ll, &dsp_file->async_ll_complete);
 		spin_unlock_irqrestore(&dsp_file->async_ll_lock, flags);
 
 		wake_up_interruptible(&dsp_file->async_ll_wq);
@@ -486,8 +465,7 @@ static struct dsp_user_req_async *dsp_set_task_info(struct dsp_file *dsp_file,
 		       task->task.bufferCntOutput;
 
 	user_req = kzalloc(sizeof(struct dsp_user_req_async) +
-				   sizeof(struct dsp_dma_buf *) * buffer_count,
-			   GFP_KERNEL);
+					   sizeof(struct dsp_dma_buf *) * buffer_count, GFP_KERNEL);
 	if (!user_req) {
 		kernel_handle_decref(&user->h);
 		dsp_err("kmalloc dsp request struct error.\n");
@@ -543,8 +521,7 @@ err_req:
 	return NULL;
 }
 
-static void dsp_free_task(struct dsp_file *dsp_file,
-			  struct dsp_user_req_async *user_req)
+static void dsp_free_task(struct dsp_file *dsp_file, struct dsp_user_req_async *user_req)
 {
 	struct dsp_dma_buf **dma_entry = user_req->dma_entry;
 	struct es_dsp *dsp = dsp_file->dsp;
@@ -555,16 +532,14 @@ static void dsp_free_task(struct dsp_file *dsp_file,
 	if (dma_entry) {
 		dsp_unmap_dmabuf(dsp_file, dma_entry, buffer_count);
 	}
-	dsp_free_flat_mem(dsp, dsp_req->flat_size, dsp_req->flat_virt,
-			  dsp_req->dsp_flat1_iova);
+	dsp_free_flat_mem(dsp, dsp_req->flat_size, dsp_req->flat_virt, dsp_req->dsp_flat1_iova);
 
 	kernel_handle_release_family(&user_req->handle);
 	kernel_handle_decref(&user_req->handle);
 	kernel_handle_decref(&user->h);
 }
 
-static long dsp_ioctl_submit_tsk_async(struct file *flip,
-				       dsp_ioctl_task_s __user *arg)
+static long dsp_ioctl_submit_tsk_async(struct file *flip, dsp_ioctl_task_s __user *arg)
 {
 	struct dsp_file *dsp_file = flip->private_data;
 	struct es_dsp *dsp = dsp_file->dsp;
@@ -583,16 +558,6 @@ static long dsp_ioctl_submit_tsk_async(struct file *flip,
 
 	// using reserved for op_idx
 	dsp->op_idx = task->task.reserved;
-	if ((dsp_perf_enable || dsp->perf_enable) &&
-	    dsp->op_idx < MAX_DSP_TASKS) {
-		dsp->op_perf[dsp->op_idx].OpStartCycle =
-			0;  //get_perf_timer_cnt();
-		dsp->op_perf[dsp->op_idx].Die = dsp->numa_id;
-		dsp->op_perf[dsp->op_idx].CoreId = dsp->process_id;
-		dsp->op_perf[dsp->op_idx].OpIndex = dsp->op_idx;
-		dsp->op_perf[dsp->op_idx].OpType =
-			dsp->process_id + 7;  // IDX_DSP0
-	}
 
 	if (!try_module_get(THIS_MODULE)) {
 		dsp_err("%s, %d, cannot get module.\n", __func__, __LINE__);
@@ -625,9 +590,7 @@ err_task:
 	return ret;
 }
 
-static long
-dsp_ioctl_process_complete_task(struct file *flip,
-				dsp_ioctl_async_process_s __user *arg)
+static long dsp_ioctl_process_complete_task(struct file *flip, dsp_ioctl_async_process_s __user *arg)
 {
 	struct dsp_file *dsp_file = flip->private_data;
 	struct es_dsp *dsp = dsp_file->dsp;
@@ -638,8 +601,7 @@ dsp_ioctl_process_complete_task(struct file *flip,
 	struct dsp_user_req_async *async_task = NULL;
 	unsigned long flags;
 
-	if (copy_from_user(&query_task, arg,
-			   sizeof(dsp_ioctl_async_process_s))) {
+	if (copy_from_user(&query_task, arg, sizeof(dsp_ioctl_async_process_s))) {
 		ret = -EINVAL;
 		return ret;
 	}
@@ -648,8 +610,7 @@ dsp_ioctl_process_complete_task(struct file *flip,
 		return -EINVAL;
 	}
 	query_task.return_num = 0;
-	task = kzalloc(query_task.task_num * sizeof(dsp_task_status_s),
-		       GFP_KERNEL);
+	task = kzalloc(query_task.task_num * sizeof(dsp_task_status_s), GFP_KERNEL);
 	if (!task) {
 		dsp_err("alloc memory for dsp_task_status error.\n");
 		return -ENOMEM;
@@ -659,14 +620,12 @@ dsp_ioctl_process_complete_task(struct file *flip,
 	if (list_empty_careful(&dsp_file->async_ll_complete)) {
 		spin_unlock_irqrestore(&dsp_file->async_ll_lock, flags);
 		if (query_task.timeout < 0) {
-			ret = wait_event_interruptible(
-				dsp_file->async_ll_wq,
-				!list_empty(&dsp_file->async_ll_complete));
+			ret = wait_event_interruptible(dsp_file->async_ll_wq,
+								!list_empty(&dsp_file->async_ll_complete));
 		} else {
-			ret = wait_event_interruptible_timeout(
-				dsp_file->async_ll_wq,
-				!list_empty(&dsp_file->async_ll_complete),
-				msecs_to_jiffies(query_task.timeout));
+			ret = wait_event_interruptible_timeout(dsp_file->async_ll_wq,
+								!list_empty(&dsp_file->async_ll_complete),
+								msecs_to_jiffies(query_task.timeout));
 		}
 	} else {
 		spin_unlock_irqrestore(&dsp_file->async_ll_lock, flags);
@@ -701,8 +660,7 @@ dsp_ioctl_process_complete_task(struct file *flip,
 	ret = 0;
 	if (query_task.return_num != 0) {
 		if (copy_to_user((void __user *)(query_task.task), task,
-				 sizeof(dsp_task_status_s) *
-					 query_task.return_num)) {
+										 sizeof(dsp_task_status_s) * query_task.return_num)) {
 			ret = -EINVAL;
 			dsp_err("copy to user task status err.\n");
 		}
@@ -724,8 +682,7 @@ static long dsp_query_task(struct file *flip, dsp_ioctl_query_s *query_task)
 	struct khandle *task_handle = NULL;
 
 	query_task->finish = -ENODATA;
-	task_handle = find_kernel_handle(&dsp_file->h, query_task->task_handle,
-					 DSP_REQ_HANDLE_MAGIC);
+	task_handle = find_kernel_handle(&dsp_file->h, query_task->task_handle, DSP_REQ_HANDLE_MAGIC);
 	if (task_handle == NULL) {
 		return -ENODATA;
 	}
@@ -736,9 +693,8 @@ again:
 	if (list_empty_careful(&dsp_file->async_ll_complete)) {
 		spin_unlock_irqrestore(&dsp_file->async_ll_lock, flags);
 		if (query_task->block != 0) {
-			ret = wait_event_interruptible(
-				dsp_file->async_ll_wq,
-				!list_empty(&dsp_file->async_ll_complete));
+			ret = wait_event_interruptible(dsp_file->async_ll_wq,
+								!list_empty(&dsp_file->async_ll_complete));
 		} else {
 			kernel_handle_decref(task_handle);
 			return 0;
@@ -799,8 +755,7 @@ static void dsp_release_user_completed_task(struct dsp_file *dsp_file)
 	unsigned long flags;
 	struct list_head *tmp_list;
 	spin_lock_irqsave(&dsp_file->async_ll_lock, flags);
-	list_for_each_entry_safe(async_task, tmp, &dsp_file->async_ll_complete,
-				 async_ll) {
+	list_for_each_entry_safe(async_task, tmp, &dsp_file->async_ll_complete, async_ll) {
 		spin_unlock_irqrestore(&dsp_file->async_ll_lock, flags);
 		list_del_init(&async_task->async_ll);
 		kernel_handle_decref(&async_task->handle);
@@ -822,8 +777,7 @@ static long dsp_ioctl_unload_op(struct file *flip, void *arg)
 	dsp_debug("", __func__, __LINE__);
 	user = dsp_find_user_by_fd(dsp_file, fd);
 	if (user == NULL) {
-		dsp_debug("%s, %d, cannot find user fd=%d.\n", __func__,
-			  __LINE__, fd);
+		dsp_debug("%s, %d, cannot find user fd=%d.\n", __func__, __LINE__, fd);
 		return -EINVAL;
 	}
 	kernel_handle_release_family(&user->h);
@@ -840,8 +794,7 @@ static void dsp_dma_buf_release(struct khandle *h)
 	struct es_dsp *dsp = dsp_file->dsp;
 
 	dsp_put_dma_addr(dsp, &entry->buf);
-	dsp_debug("%s, %d, fd=0x%x, iova=0x%x.\n", __func__, __LINE__,
-		  entry->buf.fd, entry->buf.dma_addr);
+	dsp_debug("%s, %d, fd=0x%x, iova=0x%x.\n", __func__, __LINE__, entry->buf.fd, entry->buf.dma_addr);
 	kfree(entry);
 }
 
@@ -865,8 +818,7 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 		khandle = find_kernel_handle(&dsp_file->h, entry->handle.fd,
 					     DSP_DMABUF_HANDLE_MAGIC);
 		BUG_ON(khandle == NULL);
-		dsp_debug("%s, %d, find %d entry, handle fd=%d.\n", __func__,
-			  __LINE__, entry->buf.fd, entry->handle.fd);
+		dsp_debug("%s, %d, find %d entry, handle fd=%d.\n", __func__, __LINE__, entry->buf.fd, entry->handle.fd);
 		entry->count++;
 		kernel_handle_decref(khandle);
 		mutex_unlock(&dsp_file->xrray_lock);
@@ -875,8 +827,7 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 
 	entry = kzalloc(sizeof(struct dsp_dma_buf_ex), GFP_KERNEL);
 	if (!entry) {
-		dsp_err("%s, %d, alloc memory for device dma buf err.\n",
-			__func__, __LINE__);
+		dsp_err("%s, %d, alloc memory for device dma buf err.\n", __func__, __LINE__);
 		mutex_unlock(&dsp_file->xrray_lock);
 		return -ENOMEM;
 	}
@@ -884,15 +835,13 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 	ret = init_kernel_handle(&entry->handle, dsp_dma_buf_release,
 				 DSP_DMABUF_HANDLE_MAGIC, &dsp_file->h);
 	if (ret) {
-		dsp_err("%s, %d, init kernel handle err.\n", __func__,
-			__LINE__);
+		dsp_err("%s, %d, init kernel handle err.\n", __func__, __LINE__);
 		kfree(entry);
 		mutex_unlock(&dsp_file->xrray_lock);
 		return ret;
 	}
 
-	dsp_debug("%s, %d, handle_fd=%d.\n", __func__, __LINE__,
-		  entry->handle.fd);
+	dsp_debug("%s, %d, handle_fd=%d.\n", __func__, __LINE__, entry->handle.fd);
 	addr = dsp_get_dma_addr(dsp, (int)buf.desc.memFd, &entry->buf);
 	if (addr == 0) {
 		dsp_err("%s, %d, addr err.\n", __func__, __LINE__);
@@ -934,8 +883,7 @@ static long dsp_ioctl_unprepare_dma(struct file *flip, u32 *arg)
 	mutex_lock(&dsp_file->xrray_lock);
 	entry = xa_load(&dsp_file->buf_xrray, fd);
 	if (!entry) {
-		dsp_err("%s,%d, cannot find %d dmabuf entry.\n", __func__,
-			__LINE__, fd);
+		dsp_err("%s,%d, cannot find %d dmabuf entry.\n", __func__, __LINE__, fd);
 		mutex_unlock(&dsp_file->xrray_lock);
 		return -EINVAL;
 	}
@@ -945,10 +893,8 @@ static long dsp_ioctl_unprepare_dma(struct file *flip, u32 *arg)
 		mutex_unlock(&dsp_file->xrray_lock);
 		return 0;
 	}
-	dsp_debug("%s, %d, entry->fd=%d.\n\n", __func__, __LINE__,
-		  entry->buf.fd);
-	khandle = find_kernel_handle(&dsp_file->h, entry->handle.fd,
-				     DSP_DMABUF_HANDLE_MAGIC);
+	dsp_debug("%s, %d, entry->fd=%d.\n\n", __func__, __LINE__, entry->buf.fd);
+	khandle = find_kernel_handle(&dsp_file->h, entry->handle.fd, DSP_DMABUF_HANDLE_MAGIC);
 
 	BUG_ON(!khandle);
 	xa_erase(&dsp_file->buf_xrray, entry->buf.fd);
@@ -975,11 +921,7 @@ static long dsp_ioctl_get_perf_data(struct file *flip, dsp_kmd_perf_t *data)
 {
 	int ret = 0;
 
-	struct dsp_file *dsp_file = flip->private_data;
-	struct es_dsp *dsp = dsp_file->dsp;
-
-	if (copy_to_user(data, dsp->op_perf,
-			 sizeof(dsp_kmd_perf_t) * MAX_DSP_TASKS)) {
+	if (copy_to_user(data, 0, sizeof(dsp_kmd_perf_t) * MAX_DSP_TASKS)) {
 		dsp_err("copy perf data to user err.\n");
 		ret = -EINVAL;
 	}
@@ -995,31 +937,10 @@ static long dsp_ioctl_get_fw_perf_data(struct file *flip, dsp_fw_perf_t *data)
 {
 	int ret = 0;
 
-	struct dsp_file *dsp_file = flip->private_data;
-	struct es_dsp *dsp = dsp_file->dsp;
-	es_dsp_perf_info perf_info;
-
-	get_dsp_perf_info(&perf_info, 0, 0);
-
-	dsp->op_fw_perf[0].Die = 0;
-	dsp->op_fw_perf[0].CoreId = perf_info.core_id;
-	dsp->op_fw_perf[0].OpIndex = perf_info.op_index;
-	dsp->op_fw_perf[0].OpType = perf_info.op_type;
-	// dsp->op_fw_perf[0].OpName = "";
-	dsp->op_fw_perf[0].OpStartCycle = perf_info.flat1_start_time;
-	dsp->op_fw_perf[0].OpPrepareStartCycle = perf_info.prepare_start_time;
-	dsp->op_fw_perf[0].OpPrepareEndCycle = perf_info.prepare_end_time;
-	dsp->op_fw_perf[0].OpEvalStartCycle = perf_info.eval_start_time;
-	dsp->op_fw_perf[0].OpEvalEndCycle = perf_info.eval_end_time;
-	dsp->op_fw_perf[0].OpNotifyStartCycle = perf_info.notify_start_time;
-	dsp->op_fw_perf[0].OpEndCycle = perf_info.flat1_end_time;
-
-	if (copy_to_user(data, dsp->op_fw_perf,
-			 sizeof(dsp_fw_perf_t) * MAX_DSP_TASKS)) {
+	if (copy_to_user(data, 0, sizeof(dsp_fw_perf_t) * MAX_DSP_TASKS)) {
 		dsp_err("copy perf data to user err.\n");
 		ret = -EINVAL;
 	}
-	dsp_debug("get dsp%u hardware perf data done.\n", perf_info.op_index);
 
 	return ret;
 }
@@ -1032,9 +953,9 @@ static long dsp_ioctl_get_cur_op_perf_data(struct file *flip, dsp_fw_perf_t *dat
 	struct es_dsp *dsp = dsp_file->dsp;
 	es_dsp_perf_info perf_info;
 
-	get_dsp_perf_info(&perf_info, 0, 0);
+	get_dsp_perf_info(&perf_info, dsp->numa_id, dsp->process_id);
 
-	dsp->op_cur_perf.Die = 0;
+	dsp->op_cur_perf.Die = dsp->numa_id;
 	dsp->op_cur_perf.CoreId = perf_info.core_id;
 	dsp->op_cur_perf.OpIndex = perf_info.op_index;
 	dsp->op_cur_perf.OpType = perf_info.op_type;
@@ -1066,7 +987,6 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 	struct dsp_user_req_async **user_req;
 	int i, ret;
 	unsigned long flags;
-	int vm_vmalloc = 0;
 
 	if (copy_from_user(&req, arg, sizeof(dsp_ioctl_task_s))) {
 		dsp_err("%s, %d, copy_from_user err.\n", __func__, __LINE__);
@@ -1079,29 +999,19 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 		return ret;
 	}
 	if (req.task_num <= 0) {
-		dsp_err("%s, %d, task num below zero, err,\n", __func__,
-			__LINE__);
+		dsp_err("%s, %d, task num below zero, err,\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-	tasks = kzalloc(req.task_num * (sizeof(dsp_ioctl_task_s) +
-					sizeof(struct dsp_user_req_async *)),
-			GFP_KERNEL | __GFP_NOWARN);
-	if (tasks == NULL) {
-		tasks = vzalloc(req.task_num * (sizeof(dsp_ioctl_task_s) +
-					sizeof(struct dsp_user_req_async *)));
-		vm_vmalloc = 1;
 
-	}
-
+	tasks = vzalloc(req.task_num * (sizeof(dsp_ioctl_task_s) +
+				sizeof(struct dsp_user_req_async *)));
 	if (tasks == NULL) {
 		dsp_err("", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
-	if (copy_from_user(tasks, arg,
-			   req.task_num * sizeof(dsp_ioctl_task_s))) {
-		dsp_err("%s, %d, copy_from_user for multi tasks err.\n",
-			__func__, __LINE__);
+	if (copy_from_user(tasks, arg, req.task_num * sizeof(dsp_ioctl_task_s))) {
+		dsp_err("%s, %d, copy_from_user for multi tasks err.\n", __func__, __LINE__);
 		ret = -EINVAL;
 		goto err0;
 	}
@@ -1115,8 +1025,7 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 	for (i = 0; i < req.task_num; i++) {
 		user_req[i] = dsp_set_task_info(dsp_file, &tasks[i], false);
 		if (user_req[i] == NULL) {
-			dsp_err("%s, %d, and ,i = %d.\n", __func__, __LINE__,
-				i);
+			dsp_err("%s, %d, and ,i = %d.\n", __func__, __LINE__, i);
 			goto free_task;
 		}
 		tasks[i].task.taskHandle = user_req[i]->handle.fd;
@@ -1138,11 +1047,8 @@ static long dsp_ioctl_multi_tasks_submit(struct file *flip,
 		dsp_err("copy to user err.\n");
 		ret = -EINVAL;
 	}
-	if (vm_vmalloc) {
-		vfree(tasks);
-	} else {
-		kfree(tasks);
-	}
+	vfree(tasks);
+
 	return 0;
 
 free_task:
@@ -1153,11 +1059,8 @@ free_task:
 
 	module_put(THIS_MODULE);
 err0:
-	if (vm_vmalloc) {
-		vfree(tasks);
-	} else {
-		kfree(tasks);
-	}
+	vfree(tasks);
+
 	return ret;
 }
 static long dsp_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)

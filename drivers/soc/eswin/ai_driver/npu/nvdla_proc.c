@@ -453,10 +453,10 @@ static struct proc_ops proc_conf_fops = {
 };
 
 
-static void *tmp = NULL;
-
 int npu_create_procfs(void)
 {
+	void *tmp = NULL;
+
 	proc_esnpu = proc_mkdir("esnpu", NULL);
 	if (proc_esnpu == NULL) {
 		dla_error("create proc esnpu dir err.\n");
@@ -488,7 +488,7 @@ int npu_create_procfs(void)
 	init_waitqueue_head(&g_perf_wait_list[0]);
 	init_waitqueue_head(&g_perf_wait_list[1]);
 
-	tmp = kzalloc(sizeof(s16) * MAX_OP_NUM * 2, GFP_KERNEL);
+	tmp = vzalloc(sizeof(s16) * MAX_OP_NUM * 2);
 	if (!tmp) {
 		goto err_mem;
 	}
@@ -511,9 +511,10 @@ err_info:
 
 void npu_remove_procfs(void)
 {
-	if (tmp != NULL) {
-		kfree(tmp);
+	if (g_cfg_seq[0][IDX_START] != NULL) {
+		vfree(g_cfg_seq[0][IDX_START]);
 	}
+
 	remove_proc_entry("info", proc_esnpu);
 	remove_proc_entry("perf", proc_esnpu);
 	remove_proc_entry("conf", proc_esnpu);

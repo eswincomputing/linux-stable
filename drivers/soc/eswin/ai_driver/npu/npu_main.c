@@ -371,15 +371,7 @@ static int npu_set_freq_req(struct nvdla_device *nvdla_dev, struct npu_freq_para
 	llc_rate = clk_get_rate(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
 	npu_rate = clk_get_rate(nvdla_dev->mux_u_npu_core_3mux1_gfree);
 
-
-
-
-
 	ret = clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, tbl->llc_clk_parent);
-
-
-
-
 	if (ret) {
 		dev_err(&nvdla_dev->pdev->dev, "set npu llc clock parent err = %d.\n", ret);
 		return -EINVAL;
@@ -448,6 +440,9 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	for (int i = 0; i < NPU_TBL_MAX; i++) {
 		if (npu_freq_tbl[nvdla_dev->numa_id][i].npu_rate == target_rate) {
 			tbl = &npu_freq_tbl[nvdla_dev->numa_id][i];
+			if (tbl->volt != target_volt && target_volt > 0) {
+				tbl->volt = target_volt;
+			}
 			break;
 		}
 	}
