@@ -114,11 +114,11 @@ struct prio_array {
 
 struct es_dsp_stats {
 	char *last_op_name;
-	int total_ok_cnt;
-	int total_failed_cnt;
-	int total_int_cnt;
-	int send_to_dsp_cnt;
-	int task_timeout_cnt;
+	u32 total_ok_cnt;
+	u32 total_failed_cnt;
+	u32 total_int_cnt;
+	u32 send_to_dsp_cnt;
+	u32 task_timeout_cnt;
 	u64 last_task_time;
 };
 
@@ -207,7 +207,7 @@ struct es_dsp {
 
 #define DSP_PTS_IOVA 0xfffb1000
 #define DSP_PTS_IOVA_SIZE 0x8000
-
+#define TIMER3_BASE_ADDR 0x51858000
 #define DSP_DEVICE_U84_TO_MCU_MBX ESWIN_MAILBOX_DSP_TO_E31_REG_BASE
 #define U84_TO_MCU_IOVA_SIZE 0x1000
 

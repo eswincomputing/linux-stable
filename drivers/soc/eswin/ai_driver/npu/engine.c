@@ -164,6 +164,8 @@ int read_input_address(struct win_executor *executor,
 {
 	int32_t ret = ERR(INVALID_INPUT);
 
+	dla_debug("%s, %d, type=%d, index%d, offset:%d, size:%d.\n", __func__, __LINE__,
+			  data->type, data->address, data->offset, data->size);
 	/**
 	 * If memory type is HW then no address required
 	 */
@@ -367,6 +369,9 @@ static void npu_task_complete_work(struct work_struct *work)
 		list_del(&f->complete_entry);
 		if (f->dump_dtim) {
 			dump_dtim_to_file(engine, f->tiktok);
+		}
+		if(f->hw_error) {
+			dla_error("execute frame encounter hw error:0x%x\n", f->hw_error);
 		}
 		kernel_handle_decref(&f->handle);
 	}
@@ -820,7 +825,7 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 	struct win_executor *executor;
 	int ret, i;
 
-	executor = kzalloc(sizeof(struct win_executor), GFP_KERNEL);
+	executor = vzalloc(sizeof(struct win_executor));
 	if (executor == NULL) {
 		dla_error("%s %d no mem\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -895,7 +900,7 @@ err_free2:
 err_free1:
 	vfree(executor->dependency_count);
 err_free0:
-	kfree(executor);
+	vfree(executor);
 	*m_executor = NULL;
 	return ret;
 }
@@ -930,6 +935,6 @@ void executor_clearup(void *arg_executor)
 	dsp_resource_destroy(executor);
 	free_executor_tensor_data(executor);
 
-	kfree(executor);
+	vfree(executor);
 	dla_debug("%s, %d. done.\n", __func__, __LINE__);
 }

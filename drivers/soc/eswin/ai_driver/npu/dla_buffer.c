@@ -307,7 +307,10 @@ int dla_import_dmabuf_from_model(struct user_model *model)
 			   i, bobjs[i].fd, dma_buf,
 			   dma_buf->file->f_count.counter);
 		bobjs[i].dmabuf = dma_buf;
+
+		mutex_lock(&nvdla_dev->mapping_mutex);
 		ret = dla_attach_dmabuf(&bobjs[i], &nvdla_dev->pdev->dev);
+		mutex_unlock(&nvdla_dev->mapping_mutex);
 		if (ret < 0) {
 			dla_error("err:dla_attach_dmabuf failed!\n");
 			dma_buf_put(dma_buf);
