@@ -172,24 +172,12 @@ static void __dsp_send_task(struct es_dsp *dsp)
 	dsp->send_time = ktime_get_real_ns();
 	dsp->stats->send_to_dsp_cnt++;
 
-	if ((dsp_perf_enable || dsp->perf_enable) &&
-	    dsp->op_idx < MAX_DSP_TASKS) {
-		strcpy(dsp->op_perf[dsp->op_idx].OpName, opdesc->name);
-	}
-
 	if (req->allow_eval) {
 		dsp->task_timer.expires = jiffies + fw_timeout * HZ;
 		BUG_ON(timer_pending(&dsp->task_timer));
 		add_timer(&dsp->task_timer);
 	}
 
-	if ((dsp_perf_enable || dsp->perf_enable) &&
-	    dsp->op_idx < MAX_DSP_TASKS) {
-		dsp->op_perf[dsp->op_idx].OpSendTaskCycle =
-			0;  //get_perf_timer_cnt();
-		dsp_debug("op_idx=%u OpSendTaskCycle=%u\n", dsp->op_idx,
-			  dsp->op_perf[dsp->op_idx].OpSendTaskCycle);
-	}
 	es_dsp_send_irq(dsp->hw_arg, (void *)req);
 }
 
@@ -217,12 +205,6 @@ void dsp_complete_work(struct es_dsp *dsp, dsp_request_t *req)
 	}
 	if (req->cpl_handler != NULL) {
 		req->cpl_handler(dsp->dev, req);
-	}
-
-	if ((dsp_perf_enable || dsp->perf_enable) &&
-	    dsp->op_idx < MAX_DSP_TASKS) {
-		dsp->op_perf[dsp->op_idx].OpEndCycle =
-			0;  //get_perf_timer_cnt();
 	}
 }
 
@@ -403,7 +385,7 @@ err_load_firm:
 
 static struct dsp_op_desc *check_op_list(struct es_dsp *dsp, char *op_name)
 {
-	struct dsp_op_desc *op;
+	struct dsp_op_desc *op = NULL;
 
 	list_for_each_entry(op, &dsp->all_op_list, entry) {
 		if (strcmp(op->name, op_name) == 0) {
@@ -599,7 +581,7 @@ struct es_dsp *es_proc_get_dsp(int dieid, int dspid)
 static int check_device_node_status(u32 die_id, u32 dspid)
 {
 	int ret;
-	struct device_node *node;
+	struct device_node *node = NULL;
 	u32 numa_id, pro_id;
 
 	for_each_compatible_node(node, NULL, "eswin-dsp") {

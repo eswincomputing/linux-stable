@@ -282,8 +282,7 @@ int dla_import_dmabuf_from_model(struct user_model *model)
 	nvdla_dev = model->nvdla_dev;
 
 	dla_detail("num_address=%d\n", num_address);
-	bobjs = kzalloc(num_address * sizeof(struct dla_buffer_object),
-			GFP_KERNEL);
+	bobjs = vzalloc(num_address * sizeof(struct dla_buffer_object));
 	if (bobjs == NULL) {
 		dla_error("err:bobjs is NULL,no memory!\n");
 		return -ENOMEM;
@@ -331,7 +330,7 @@ fail:
 		}
 	}
 
-	kfree(bobjs);
+	vfree(bobjs);
 
 	return ret;
 }
@@ -358,7 +357,7 @@ int dla_detach_dmabuf_from_model(struct user_model *model)
 		}
 	}
 
-	kfree(bobjs);
+	vfree(bobjs);
 
 	return ret;
 }

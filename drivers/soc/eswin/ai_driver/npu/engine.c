@@ -74,8 +74,7 @@ int set_current(struct win_engine *engine, struct win_executor *executor,
 	struct win_engine *win_engine = engine;
 
 	if (unlikely(win_engine->cur[tiktok] != NULL || executor == NULL)) {
-		dla_error(
-			"BUG: trying to use busy engine or set engine NULL\n");
+		dla_error("BUG: trying to use busy engine or set engine NULL\n");
 		return -1;
 	}
 	win_engine->cur[tiktok] = executor;
@@ -214,16 +213,14 @@ int io_tensor_record(struct win_executor *executor, addrDesc_t *address,
 	switch (address->flag) {
 	case mem_flag_input:
 		if (address->bindId > executor->input_num) {
-			dla_error("%s %d invalid bind_id %d\n", __func__,
-				  __LINE__, address->bindId);
+			dla_error("%s %d invalid bind_id %d\n", __func__, __LINE__, address->bindId);
 			return -1;
 		}
 		*is_io_tensor = address->bindId;
 		return 1;
 	case mem_flag_output:
 		if (address->bindId > executor->output_num) {
-			dla_error("%s %d invalid bind_id %d\n", __func__,
-				  __LINE__, address->bindId);
+			dla_error("%s %d invalid bind_id %d\n", __func__, __LINE__, address->bindId);
 			return -1;
 		}
 		*is_io_tensor = address->bindId + executor->input_num;
@@ -332,16 +329,14 @@ static void frame_done_handler(struct work_struct *w)
 	while (true) {
 		f = engine->frame_done;
 		ret = __atomic_compare_exchange_n(&engine->frame_done, &f, NULL,
-						  true, __ATOMIC_RELAXED,
-						  __ATOMIC_RELAXED);
+						  true, __ATOMIC_RELAXED, __ATOMIC_RELAXED);
 		if (ret) {
 			break;
 		}
 	}
 
 	if (f == NULL) {
-		dla_error("error:%s %d frame_done is null!\n", __func__,
-			  __LINE__);
+		dla_error("error:%s %d frame_done is null!\n", __func__, __LINE__);
 		return;
 	}
 
@@ -368,8 +363,7 @@ static void npu_task_complete_work(struct work_struct *work)
 
 	while (!list_empty(&tmp_list)) {
 		struct host_frame_desc *f;
-		f = list_first_entry(&tmp_list, struct host_frame_desc,
-				     complete_entry);
+		f = list_first_entry(&tmp_list, struct host_frame_desc, complete_entry);
 		list_del(&f->complete_entry);
 		if (f->dump_dtim) {
 			dump_dtim_to_file(engine, f->tiktok);
@@ -412,13 +406,9 @@ static int npu_get_dsp_dev(struct win_engine *engine)
 
 #if (NPU_DEV_SIM == NPU_REAL_ENV)
 		if (!ret) {
-			ret = dsp_attach_sram_dmabuf(
-				engine->dsp_dev[i],
-				nvdla_dev->spram_bobj->dmabuf);
+			ret = dsp_attach_sram_dmabuf(engine->dsp_dev[i], nvdla_dev->spram_bobj->dmabuf);
 			if (ret) {
-				dla_error(
-					"%s, %d, attach dsp sram failed, ret=%d.\n",
-					__func__, __LINE__, ret);
+				dla_error("%s, %d, attach dsp sram failed, ret=%d.\n", __func__, __LINE__, ret);
 				goto err;
 			}
 		}
@@ -518,8 +508,7 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 		INIT_WORK(&engine->dump_file_work[i].work, dump_data_to_file);
 	}
 #elif (NPU_DEV_SIM == NPU_REAL_ENV)
-	engine->dump_op_work_queue =
-		alloc_ordered_workqueue("dump_op_to_file", 0);
+	engine->dump_op_work_queue = alloc_ordered_workqueue("dump_op_to_file", 0);
 	for (i = 0; i < NUM_OP_TYPE; i++) {
 		INIT_WORK(&engine->dump_op_work[i].work, dump_data_to_file);
 	}
@@ -551,8 +540,7 @@ int win_engine_init(struct nvdla_device *nvdla_dev, void **arg_engine)
 
 	ret = npu_get_dsp_dev(engine);
 	if (ret) {
-		dla_error("%s, %d, get dsp device err, ret=%d.\n", __func__,
-			  __LINE__, ret);
+		dla_error("%s, %d, get dsp device err, ret=%d.\n", __func__, __LINE__, ret);
 		devm_kfree(&nvdla_dev->pdev->dev, engine->is_event_source_done[0]);
 		devm_kfree(&nvdla_dev->pdev->dev, engine);
 		return -ENOMEM;
@@ -678,7 +666,7 @@ static void free_executor_tensor_data(struct win_executor *executor)
 			executor->prog_data_size[i] = 0;
 		}
 		if (executor->tensor_set[i] != NULL) {
-			kfree(executor->tensor_set[i]);
+			vfree(executor->tensor_set[i]);
 			executor->tensor_set[i] = NULL;
 		}
 	}
@@ -689,8 +677,7 @@ static void free_executor_tensor_data(struct win_executor *executor)
 		if (cnt[i] < 1) {                                            \
 			continue;                                            \
 		}                                                            \
-		executor->tensor_set[i] =                                    \
-			kzalloc(cnt[i] * sizeof(op##_tensor_t), GFP_KERNEL); \
+		executor->tensor_set[i] = vzalloc(cnt[i] * sizeof(op##_tensor_t)); \
 		size[i] = cnt[i] * sizeof(op##_dev_t);                       \
 		if (executor->tensor_set[i] == NULL) {                       \
 			size[i] = 0;                                         \
@@ -721,26 +708,21 @@ static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
 		ret = -EINVAL;
 		return ret;
 	}
-	executor->io_mem_handle_size =
-		(executor->input_num + executor->output_num) *
-		sizeof(addrDesc_t);
-	executor->frame_size =
-		sizeof(struct host_frame_desc) + executor->io_mem_handle_size +
-		(executor->input_num + executor->output_num) * sizeof(u64);
+	executor->io_mem_handle_size = (executor->input_num + executor->output_num) * sizeof(addrDesc_t);
+	executor->frame_size = sizeof(struct host_frame_desc) + executor->io_mem_handle_size +
+				(executor->input_num + executor->output_num) * sizeof(u64);
 	memset(cnt, 0, sizeof(cnt));
 	memset(size, 0, sizeof(size));
 
 	for (i = 0; i < op_num; i++) {
-		dla_detail("i=%d, op_type=%d.\n", i,
-			   task->common_desc[i].op_type);
+		dla_detail("i=%d, op_type=%d.\n", i, task->common_desc[i].op_type);
 		pcer = processor_dla_convert[task->common_desc[i].op_type];
 		//the same processor have how many op.
 		cnt[pcer]++;
 	}
 
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
-		dla_info("%s, %d, i=%d, cnt=%d.\n", __func__, __LINE__, i,
-			 cnt[i]);
+		dla_info("%s, %d, i=%d, cnt=%d.\n", __func__, __LINE__, i, cnt[i]);
 	}
 
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
@@ -789,15 +771,12 @@ static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
 		}
 		if (i == IDX_CONV) {
 			size[i] = cnt[i] * MAX_CONV_PROG_DATA_SIZE;
-			dla_debug("single MAX_CONV_PROG_SIZE=%u.\n",
-				  MAX_CONV_PROG_SIZE);
+			dla_debug("single MAX_CONV_PROG_SIZE=%u.\n", MAX_CONV_PROG_SIZE);
 		}
 
 		executor->prog_data_size[i] = size[i];
 		executor->prog_data_buf_bobj[i] = npu_alloc_dma_addr(
-			executor, size[i], &executor->dma_addr[i], i,
-			GFP_KERNEL);
-
+			executor, size[i], &executor->dma_addr[i], i, GFP_KERNEL);
 		if (executor->prog_data_buf_bobj[i] == NULL) {
 			dla_error("%s, %d, i=%d.\n", __func__, __LINE__, i);
 			ret = -ENOMEM;
@@ -818,8 +797,7 @@ static int extract_input_output_address(struct win_executor *executor)
 	int i, input_num = 0, output_num = 0;
 	addrDesc_t *address = executor->mem_handles->addrlist->addrDesc;
 
-	dla_debug("num_addresses=%d\n",
-		  executor->mem_handles->addrlist->numAddress);
+	dla_debug("num_addresses=%d\n", executor->mem_handles->addrlist->numAddress);
 	for (i = 0; i < executor->mem_handles->addrlist->numAddress; i++) {
 		if (address[i].flag == mem_flag_input) {
 			dla_debug("i=%d,input\n", i);
@@ -831,8 +809,7 @@ static int extract_input_output_address(struct win_executor *executor)
 		}
 	}
 
-	return pre_setup_op_tensor(executor, executor->task, input_num,
-				   output_num,
+	return pre_setup_op_tensor(executor, executor->task, input_num, output_num,
 				   executor->network->num_operations);
 }
 
@@ -849,19 +826,16 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 		return -ENOMEM;
 	}
 
-	dla_debug("executor=0x%px executor_size=%ld\n", executor,
-		  sizeof(struct win_executor));
+	dla_debug("executor=0x%px executor_size=%ld\n", executor, sizeof(struct win_executor));
 
-	executor->dependency_count =
-		kzalloc(network->num_operations, GFP_KERNEL);
+	executor->dependency_count = vzalloc(network->num_operations);
 	if (executor->dependency_count == NULL) {
 		dla_error("%s %d no mem\n", __func__, __LINE__);
 		ret = -ENOMEM;
 		goto err_free0;
 	}
 
-	executor->dump_info.op_idx_list =
-		kzalloc(MAX_OP_NUM * sizeof(u16), GFP_KERNEL);
+	executor->dump_info.op_idx_list = vzalloc(MAX_OP_NUM * sizeof(u16));
 	if (executor->dump_info.op_idx_list == NULL) {
 		dla_error("%s %d no mem\n", __func__, __LINE__);
 		ret = -ENOMEM;
@@ -870,10 +844,9 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 
 	executor->task = task;
 	for (i = 0; i < network->num_operations; i++) {
-		executor->dependency_count[i] =
-			task->common_desc[i].dependency_count;
+		executor->dependency_count[i] = task->common_desc[i].dependency_count;
 		dla_debug("%s,%d, i=%d, cnt=%d.\n", __func__, __LINE__, i,
-			  executor->dependency_count[i]);
+				  executor->dependency_count[i]);
 	}
 
 	executor->network = network;
@@ -918,9 +891,9 @@ err_free4:
 err_free3:
 	free_executor_tensor_data(executor);
 err_free2:
-	kfree(executor->dump_info.op_idx_list);
+	vfree(executor->dump_info.op_idx_list);
 err_free1:
-	kfree(executor->dependency_count);
+	vfree(executor->dependency_count);
 err_free0:
 	kfree(executor);
 	*m_executor = NULL;
@@ -933,15 +906,15 @@ void executor_clearup(void *arg_executor)
 	int i = 0;
 
 	if (executor->dependency_count != NULL) {
-		kfree(executor->dependency_count);
+		vfree(executor->dependency_count);
 		executor->dependency_count = NULL;
 	}
 	if (executor->dump_info.op_idx_list != NULL) {
-		kfree(executor->dump_info.op_idx_list);
+		vfree(executor->dump_info.op_idx_list);
 		executor->dump_info.op_idx_list = NULL;
 	}
 	if (executor->cfg_seq[IDX_START]) {
-		kfree(executor->cfg_seq[IDX_START]);
+		vfree(executor->cfg_seq[IDX_START]);
 		for (i = IDX_START; i < NUM_OP_TYPE; i++) {
 			executor->cfg_seq[i] = NULL;
 		}

@@ -110,7 +110,7 @@ struct dsp_pool *dsp_pool_create(struct device *dev, size_t size,
 void *dsp_pool_alloc(struct dsp_pool *pool, gfp_t mem_flags, dma_addr_t *handle)
 {
 	unsigned long flags;
-	struct dsp_pool_page *page;
+	struct dsp_pool_page *page = NULL;
 	void *retval;
 	size_t offset;
 
@@ -139,7 +139,7 @@ ready:
 static struct dsp_pool_page *dsp_pool_find_page(struct dsp_pool *pool,
 						dma_addr_t dma)
 {
-	struct dsp_pool_page *page;
+	struct dsp_pool_page *page =  NULL;
 	list_for_each_entry(page, &pool->page_list, page_list) {
 		if (dma < page->dma)
 			continue;
@@ -179,7 +179,7 @@ static void dsp_pool_free_page(struct dsp_pool *pool,
 
 void dsp_pool_destroy(struct dsp_pool *pool)
 {
-	struct dsp_pool_page *page, *tmp;
+	struct dsp_pool_page *page = NULL, *tmp = NULL;
 	if (!pool) {
 		return;
 	}
