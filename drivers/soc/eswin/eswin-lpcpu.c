@@ -450,9 +450,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, lpcpu);
 
 	lpcpu->irq_gpio = devm_gpiod_get(dev, "irq", GPIOD_IN);
-	if (IS_ERR(lpcpu->irq_gpio)) {
-		dev_warn(dev, "Failed to get IRQ GPIO, gpio wakeup will not be supported!\n");
-	} else {
+	if (!IS_ERR(lpcpu->irq_gpio)) {
 		enable_irq_wake(gpiod_to_irq(lpcpu->irq_gpio));
 	}
 

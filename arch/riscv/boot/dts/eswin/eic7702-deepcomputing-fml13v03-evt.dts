@@ -464,7 +464,6 @@
 	memory-region = <&d1_lpcpu_reserved>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_gpio7_on_default>;
-	irq-gpios = <&d1_porta 7 IRQ_TYPE_EDGE_BOTH>;
 	control-gpio-names = "socvdd";
 	control-gpio-ports = <104 GPIO_ACTIVE_HIGH>;
 };
