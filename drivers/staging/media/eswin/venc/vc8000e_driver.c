@@ -628,6 +628,7 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 		return -1;
 	}
 
+	LOG_INFO("venc_smmu_dynm_sid_init\n");
 	venc_csr_reg = ioremap(vccsr_addr[1], vccsr_addr[3]);
 	if (!venc_csr_reg) {
 		LOG_ERR("venc_csr_reg not initialized\n");
@@ -635,19 +636,25 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 	}
 
 	if (VCMD_TYPE_ENCODER == module_type) {
+		LOG_INFO("write VENC_MMU_AWSSID_OFF=%x, value=%x\n", VENC_MMU_AWSSID_OFF, WIN2030_SID_VENC);
 		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_AWSSID_OFF));
+		LOG_INFO("write VENC_MMU_ARSSID_OFF=%x, value=%x\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
 		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_ARSSID_OFF));
+		LOG_INFO("write VENC_MMU_ARSSID_OFF=%x, value=%x completed\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
 	} else {
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_AWSSID_OFF));
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_ARSSID_OFF));
 	}
 
 	regmap_read(regmap, dynm_csr_en_off, &reg_val);
+	LOG_INFO("after read dynm_csr_en_off, reg_val=%x\n", reg_val);
 	reg_val |= (1 << MCPU_SP0_DYMN_CSR_EN_BIT);
 	regmap_write(regmap, dynm_csr_en_off, reg_val);
+	LOG_INFO("after write dynm_csr_en_off, reg_val=%x\n", reg_val);
 
 	while(1) {
 		regmap_read(regmap, dynm_csr_gnt_off, &reg_val);
+		// LOG_INFO("after read dynm_csr_gnt_off, reg_val=%x\n", reg_val);
 		reg_val &= (1 << MCPU_SP0_DYMN_CSR_GNT_BIT);
 		if (reg_val)
 			break;
@@ -656,8 +663,10 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 	}
 
 	regmap_read(regmap, dynm_csr_en_off, &reg_val);
+	LOG_INFO("after read dynm_csr_en_off, reg_val=%x\n", reg_val);
 	reg_val &= (~(1U << MCPU_SP0_DYMN_CSR_EN_BIT));
 	regmap_write(regmap, dynm_csr_en_off, reg_val);
+	LOG_INFO("after write dynm_csr_en_off, reg_val=%x\n", reg_val);
 
 	return 0;
 }
@@ -670,9 +679,12 @@ static int enc_reset_core(struct device *dev, u16 module_type)
 	int ret = 0;
 
 	if (VCMD_TYPE_ENCODER == module_type) {
+		LOG_INFO("reset ve_cfg, mod_type = %u\n", module_type);
 		ret = reset_control_reset(vcrt->rstc_ve_cfg);
 		WARN_ON(0 != ret);
+		LOG_INFO("reset ve_axi, mod_type = %u\n", module_type);
 		ret = reset_control_reset(vcrt->rstc_ve_axi);
+		LOG_INFO("reset ve_axi completed, mod_type = %u\n", module_type);
 		WARN_ON(0 != ret);
 	} else if (VCMD_TYPE_JPEG_ENCODER == module_type) {
 		ret = reset_control_reset(vcrt->rstc_je_cfg);
@@ -704,8 +716,9 @@ static int enc_tbu_power(struct device *dev, u16 mod_type, bool powerUp)
 		}
 
 		if (!strcmp(core_name, core_name_tag)) {
-			LOG_DBG("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
+			LOG_INFO("ve tbu power on = %u, mod_type = %u\n", powerUp, mod_type);
 			win2030_tbu_power_by_dev_and_node(dev, chi, powerUp);
+			LOG_INFO("ve tbu power on = %u, mod_type = %u completed\n", powerUp, mod_type);
 		}
 	}
 
@@ -861,7 +874,9 @@ int enc_reset_system(u32 core_id) {
 		return -1;
 	}
 #ifdef SUPPORT_DMA_HEAP
+	LOG_INFO("venc_smmu_dynm_sid_init, mod_type = %u\n", mod_type);
 	venc_smmu_dynm_sid_init(pdev, mod_type);
+	LOG_INFO("venc_smmu_dynm_sid_init completed, mod_type = %u\n", mod_type);
 #endif
 
 	return 0;
