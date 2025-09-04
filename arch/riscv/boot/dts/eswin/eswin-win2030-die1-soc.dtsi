@@ -703,6 +703,17 @@
 			numa-node-id = <1>;
 		};
 
+		d1_watchdog:watchdog@1 {
+			compatible = "eswin,win2030-wdt";
+
+			max-timeout-sec = <60>;
+			mboxes = <&d1_mbox1 0>;
+			mbox-names = "u84_lpcpu";
+			numa-node-id = <1>;
+			status = "disabled";
+			dma-noncoherent;
+		};
+
 		d1_pvt0: pvt@0x70b00000 {
 			compatible = "eswin,eswin-pvt-cpu";
 			clocks = <&d1_clock EIC7700_CLK_PVT_CLK_0>;

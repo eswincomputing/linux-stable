@@ -1323,6 +1323,17 @@
 			dma-noncoherent;
 		};
 
+		d0_watchdog:watchdog@0 {
+			compatible = "eswin,win2030-wdt";
+
+			max-timeout-sec = <60>;
+			mboxes = <&d0_mbox1 0>;
+			mbox-names = "u84_lpcpu";
+			numa-node-id = <0>;
+			status = "okay";
+			dma-noncoherent;
+		};
+
 		pvt0: pvt@0x50b00000 {
 			compatible = "eswin,eswin-pvt-cpu";
 			clocks = <&d0_clock EIC7700_CLK_PVT_CLK_0>;
