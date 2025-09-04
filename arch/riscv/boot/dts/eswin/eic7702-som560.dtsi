@@ -37,6 +37,9 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 
+#include "eic7702-d560-die0-camera-imx219.dtsi"
+#include "eic7702-d560-die1-camera-imx219.dtsi"
+
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 
 / {
