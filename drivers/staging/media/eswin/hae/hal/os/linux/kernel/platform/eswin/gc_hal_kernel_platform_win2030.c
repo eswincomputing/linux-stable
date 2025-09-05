@@ -341,12 +341,10 @@ static int g2d_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 
 static int g2d_get_dev_freq_status(struct device *dev, struct devfreq_dev_status *stat)
 {
-    int ret = -1;
     int i;
 
-    ret = gckGALDEVICE_GetHardwareLoad(dev, stat);
-    if (ret != 0) {
-        dev_err(dev, "hae get hardware load failed!\n");
+    if (dev == NULL || stat == NULL) {
+        pr_err("%s param invalid!\n", __func__);
         return -1;
     }
 
@@ -356,9 +354,13 @@ static int g2d_get_dev_freq_status(struct device *dev, struct devfreq_dev_status
         }
 
         stat->current_frequency = g_dev_cur_freq[i];
+        stat->busy_time = 1024; // not support hardware load now.
+        stat->total_time = 1024; // 100
+        return 0;
     }
 
-    return ret;
+    dev_err(dev, "get hae dev freq failed!\n");
+    return -1;
 }
 
 static void eswin_exit(struct device *dev)
