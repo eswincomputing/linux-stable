@@ -161,8 +161,6 @@ gckGALDEVICE_Construct(gcsPLATFORM *Platform, const gcsMODULE_PARAMETERS *Args, 
 gceSTATUS
 gckGALDEVICE_Destroy(gckGALDEVICE Device);
 
-int gckGALDEVICE_GetHardwareLoad(struct device *dev, struct devfreq_dev_status *stat);
-
 static gcmkINLINE gckKERNEL
 _GetValidKernel(gckGALDEVICE Device)
 {

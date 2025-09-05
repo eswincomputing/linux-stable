@@ -3479,47 +3479,6 @@ gc_df_exit(gckGALDEVICE Device)
 }
 #endif
 
-int gckGALDEVICE_GetHardwareLoad(struct device *dev, struct devfreq_dev_status *stat)
-{
-    gctINT32 i = 0;
-    gckHARDWARE hardware = NULL;
-
-    if (!dev) {
-        return -1;
-    }
-
-    if (!stat) {
-        return -1;
-    }
-
-    for (i = 0; i < gcdDEVICE_COUNT; i++) {
-        if (galDevice->devices[i] == NULL) {
-            continue;
-        }
-
-        if (dev != galDevice->devices[i]->dev) {
-            continue;
-        }
-
-        //use core 0 usage default
-        if (galDevice->devices[i]->kernels[gcvCORE_2D] == NULL) {
-            continue;
-        }
-
-        hardware = galDevice->devices[i]->kernels[gcvCORE_2D]->hardware;
-        if (hardware) {
-            // IPA use, not user hardware->load to prevent clock change too frequncy;
-            stat->busy_time = 1024; // hardware->load
-            stat->total_time = 1024; // 100
-            return 0;
-        }
-    }
-
-    dev_err(dev, "hae hardware load no device found!\n");
-
-    return -1;
-}
-
 /*******************************************************************************
  *
  *  gckGALDEVICE_Start
