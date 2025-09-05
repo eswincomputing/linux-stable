@@ -139,7 +139,7 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj);
 struct heap_mem *common_dmabuf_heap_import_from_kernel(struct heap_root *root, char *name, size_t len, unsigned int fd_flags);
 
 /* split a dma buf, return new fd or error */
-int esw_common_dmabuf_split_export(int dbuf_fd, unsigned int offset, size_t len, int fd_flags, char *name);
+int esw_common_dmabuf_split_export(int dbuf_fd, __u64 offset, size_t len, int fd_flags, char *name);
 
 /* map a virtual address to visit the heap obj, return address Or NULL */
 struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd, dma_addr_t iova, size_t size);

@@ -10,6 +10,9 @@
  *
  */
 
+#undef pr_fmt
+#define pr_fmt(fmt) "eswin_rsvmem_heap: " fmt
+
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -20,13 +23,15 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-map-ops.h>
+#include <linux/xarray.h>
 #include <linux/eswin_rsvmem_common.h>
 #include "../eswin_memblock.h"
 #include "../es_buddy/es_buddy.h"
 #include "include/uapi/linux/eswin_rsvmem_common.h"
 
-static const unsigned int orders[] = {MAX_ORDER-1, 9, 0};
+static const unsigned int orders[] = { MAX_ORDER - 1, 9, 0 };
 #define NUM_ORDERS ARRAY_SIZE(orders)
+static DEFINE_XARRAY_FLAGS(xa_heap_names, XA_FLAGS_ALLOC);
 
 struct eswin_rsvmem_heap {
 	struct eswin_heap *heap;
@@ -38,11 +43,19 @@ struct eswin_rsvmem_heap_buffer {
 	struct list_head attachments;
 	struct mutex lock;
 	unsigned long len;
-	struct sg_table sg_table; // for buddy allocator
-	struct page **pages;
+
+	// for buddy allocator
+	struct sg_table sg_table;
+
+	union {
+		struct page **pages;
+		struct page *page;
+	};
 	int vmap_cnt;
 	void *vaddr;
-	unsigned long fd_flags; // for vmap to determin the cache or non-cached mapping
+
+	// for vmap to determin the cache or non-cached mapping
+	unsigned long fd_flags;
 };
 
 struct eswin_heap_attachment {
@@ -78,7 +91,7 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 }
 
 static int eswin_rsvmem_heap_attach(struct dma_buf *dmabuf,
-			   struct dma_buf_attachment *attachment)
+				    struct dma_buf_attachment *attachment)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 	struct eswin_heap_attachment *a;
@@ -109,7 +122,7 @@ static int eswin_rsvmem_heap_attach(struct dma_buf *dmabuf,
 }
 
 static void eswin_rsvmem_heap_detach(struct dma_buf *dmabuf,
-			    struct dma_buf_attachment *attachment)
+				     struct dma_buf_attachment *attachment)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 	struct eswin_heap_attachment *a = attachment->priv;
@@ -123,18 +136,19 @@ static void eswin_rsvmem_heap_detach(struct dma_buf *dmabuf,
 	kfree(a);
 }
 
-static struct sg_table *eswin_rsvmem_heap_map_dma_buf(struct dma_buf_attachment *attachment,
-					     enum dma_data_direction direction)
+static struct sg_table *
+eswin_rsvmem_heap_map_dma_buf(struct dma_buf_attachment *attachment,
+			      enum dma_data_direction direction)
 {
 	struct eswin_heap_attachment *a = attachment->priv;
-	struct sg_table *table =a->table;
+	struct sg_table *table = a->table;
 	int ret;
 	unsigned long attrs = DMA_ATTR_SKIP_CPU_SYNC;
 
 	/* Skipt cache sync, since it takes a lot of time when import to device.
-	*  It's the user's responsibility for guaranteeing the cache coherency by
-	   flusing cache explicitly before importing to device.
-	*/
+	 *  It's the user's responsibility for guaranteeing the cache coherency by
+	 *  flusing cache explicitly before importing to device.
+	 */
 	ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
 
 	if (ret)
@@ -143,9 +157,10 @@ static struct sg_table *eswin_rsvmem_heap_map_dma_buf(struct dma_buf_attachment 
 	return table;
 }
 
-static void eswin_rsvmem_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
-				   struct sg_table *table,
-				   enum dma_data_direction direction)
+static void
+eswin_rsvmem_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
+				struct sg_table *table,
+				enum dma_data_direction direction)
 {
 	struct eswin_heap_attachment *a = attachment->priv;
 	unsigned long attrs = DMA_ATTR_SKIP_CPU_SYNC;
@@ -153,15 +168,16 @@ static void eswin_rsvmem_heap_unmap_dma_buf(struct dma_buf_attachment *attachmen
 	a->mapped = false;
 
 	/* Skipt cache sync, since it takes a lot of time when unmap from device.
-	*  It's the user's responsibility for guaranteeing the cache coherency after
-	   the device has done processing the data.(For example, CPU do NOT read untill
-	   the device has done)
-	*/
+	 *  It's the user's responsibility for guaranteeing the cache coherency after
+	 *  the device has done processing the data.(For example, CPU do NOT read untill
+	 *  the device has done)
+	 */
 	dma_unmap_sgtable(attachment->dev, table, direction, attrs);
 }
 
-static int eswin_rsvmem_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
-					     enum dma_data_direction direction)
+static int
+eswin_rsvmem_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+				      enum dma_data_direction direction)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 	struct sg_table *table = &buffer->sg_table;
@@ -174,21 +190,22 @@ static int eswin_rsvmem_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	/* Since the cache sync was skipped when eswin_rsvmem_heap_map_dma_buf/eswin_rsvmem_heap_unmap_dma_buf,
-	   So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
-	   is no device attached to this dmabuf.
-	*/
-	#ifndef QEMU_DEBUG
+         * So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
+         * is no device attached to this dmabuf.
+	 */
+#ifndef QEMU_DEBUG
 	for_each_sg(table->sgl, sg, table->orig_nents, i)
 		arch_sync_dma_for_cpu(sg_phys(sg), sg->length, direction);
 
-	#endif
+#endif
 	mutex_unlock(&buffer->lock);
 
 	return 0;
 }
 
-static int eswin_rsvmem_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
-					   enum dma_data_direction direction)
+static int
+eswin_rsvmem_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+				    enum dma_data_direction direction)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 	struct sg_table *table = &buffer->sg_table;
@@ -201,42 +218,28 @@ static int eswin_rsvmem_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	/* Since the cache sync was skipped while eswin_rsvmem_heap_map_dma_buf/eswin_rsvmem_heap_unmap_dma_buf,
-	   So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
-	   is no device attached to this dmabuf.
-	*/
-	#ifndef QEMU_DEBUG
+         * So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
+         * is no device attached to this dmabuf.
+	 */
+#ifndef QEMU_DEBUG
 	for_each_sg(table->sgl, sg, table->orig_nents, i)
 		arch_sync_dma_for_device(sg_phys(sg), sg->length, direction);
-	#endif
+#endif
 	mutex_unlock(&buffer->lock);
 
 	return 0;
 }
 
-#if 0
-static int eswin_rsvmem_sync_cache_internal(struct dma_buf *dmabuf, enum dma_data_direction direction)
-{
-	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
-	struct sg_table *table = &buffer->sg_table;
-	struct scatterlist *sg;
-	int i;
-
-	for_each_sg(table->sgl, sg, table->orig_nents, i)
-		arch_sync_dma_for_device(sg_phys(sg), sg->length, direction);
-
-
-	return 0;
-}
-#endif
-
-static int eswin_rsvmem_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+static int eswin_rsvmem_heap_mmap(struct dma_buf *dmabuf,
+				  struct vm_area_struct *vma)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 	struct eswin_heap *heap = buffer->heap->heap;
 	struct sg_table *table = &buffer->sg_table;
 	unsigned long addr = vma->vm_start;
 	unsigned long pgoff = vma->vm_pgoff, mapsize = 0;
-	unsigned long size_remaining = vma->vm_end - vma->vm_start;//vma_pages(vma);
+	unsigned long size_remaining =
+		vma->vm_end - vma->vm_start; //vma_pages(vma);
 	struct scatterlist *sg;
 	struct page *page = NULL;
 	unsigned int nents = 0;
@@ -255,24 +258,26 @@ static int eswin_rsvmem_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct 
 		return -EINVAL;
 
 	/* vm_private_data will be used by eswin-ipc-scpu.c.
-	    ipc will import this dmabuf to get iova.
-	*/
+	 * ipc will import this dmabuf to get iova.
+	 */
 	vma->vm_private_data = dmabuf;
 
 	/* support mman flag MAP_SHARED_VALIDATE | VM_NORESERVE, used to map uncached memory to user space.
-	   Users should guarantee this buffer has been flushed to cache already.
+	 * Users should guarantee this buffer has been flushed to cache already.
 	 */
 	if (vma->vm_flags & VM_NORESERVE) {
 		vm_flags_clear(vma, VM_NORESERVE);
-		#ifndef QEMU_DEBUG
+#ifndef QEMU_DEBUG
 		vma->vm_page_prot = pgprot_dmacoherent(vma->vm_page_prot);
-		#endif
+#endif
 		/* skip sync cache, users should guarantee the cache is clean after done using it in
-		   cached mode(i.e, ES_SYS_Mmap(SYS_CACHE_MODE_CACHED))
-		*/
+		 *  cached mode(i.e, ES_SYS_Mmap(SYS_CACHE_MODE_CACHED))
+		 */
 	}
-	pr_debug("%s, size_remaining:0x%lx, pgoff:0x%lx, dmabuf->size:0x%lx, start_phys:0x%llx\n",
-		__func__, size_remaining, pgoff, dmabuf->size, sg_phys(table->sgl));
+	pr_debug(
+		"%s, size_remaining:0x%lx, pgoff:0x%lx, dmabuf->size:0x%lx, start_phys:0x%llx\n",
+		__func__, size_remaining, pgoff, dmabuf->size,
+		sg_phys(table->sgl));
 	for_each_sg(table->sgl, sg, table->orig_nents, i) {
 		pr_debug("sgl:%d, phys:0x%llx\n", i, sg_phys(sg));
 		if (pgoff >= (sg->length >> PAGE_SHIFT)) {
@@ -284,16 +289,21 @@ static int eswin_rsvmem_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct 
 		if (nents == 0) {
 			mapsize = sg->length - (pgoff << PAGE_SHIFT);
 			mapsize = min(size_remaining, mapsize);
-			ret = remap_pfn_range(vma, addr, page_to_pfn(page) + pgoff, mapsize,
-					vma->vm_page_prot);
-			pr_debug("nents:%d, sgl:%d, pgoff:0x%lx, mapsize:0x%lx, phys:0x%llx\n",
-				nents, i, pgoff, mapsize, pfn_to_phys(page_to_pfn(page) + pgoff));
-		}
-		else {
-			mapsize = min((unsigned int)size_remaining, (sg->length));
-			ret = remap_pfn_range(vma, addr, page_to_pfn(page), mapsize,
-					vma->vm_page_prot);
-			pr_debug("nents:%d, sgl:%d, mapsize:0x%lx, phys:0x%llx\n", nents, i, mapsize, page_to_phys(page));
+			ret = remap_pfn_range(vma, addr,
+					      page_to_pfn(page) + pgoff,
+					      mapsize, vma->vm_page_prot);
+			pr_debug(
+				"nents:%d, sgl:%d, pgoff:0x%lx, mapsize:0x%lx, phys:0x%llx\n",
+				nents, i, pgoff, mapsize,
+				pfn_to_phys(page_to_pfn(page) + pgoff));
+		} else {
+			mapsize =
+				min(size_remaining, sg->length);
+			ret = remap_pfn_range(vma, addr, page_to_pfn(page),
+					      mapsize, vma->vm_page_prot);
+			pr_debug(
+				"nents:%d, sgl:%d, mapsize:0x%lx, phys:0x%llx\n",
+				nents, i, mapsize, page_to_phys(page));
 		}
 		pgoff = 0;
 		nents++;
@@ -331,12 +341,12 @@ static void *eswin_rsvmem_heap_do_vmap(struct dma_buf *dmabuf)
 
 	/* The property of this dmabuf in kernel space is determined by heap alloc with fd_flag. */
 	if (buffer->fd_flags & O_DSYNC) {
-		#ifndef QEMU_DEBUG
+#ifndef QEMU_DEBUG
 		prot = pgprot_dmacoherent(PAGE_KERNEL);
-		#endif
-		pr_debug("%s syport uncached kernel dmabuf!, prot=0x%x\n", __func__, (unsigned int)pgprot_val(prot));
-	}
-	else {
+#endif
+		pr_debug("%s syport uncached kernel dmabuf!, prot=0x%x\n",
+			 __func__, (unsigned int)pgprot_val(prot));
+	} else {
 		pr_debug("%s memport cached kernel dmabuf!\n", __func__);
 	}
 
@@ -349,7 +359,8 @@ static void *eswin_rsvmem_heap_do_vmap(struct dma_buf *dmabuf)
 	return vaddr;
 }
 
-static int eswin_rsvmem_heap_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+static int eswin_rsvmem_heap_vmap(struct dma_buf *dmabuf,
+				  struct dma_buf_map *map)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 	void *vaddr;
@@ -376,7 +387,8 @@ out:
 	return ret;
 }
 
-static void eswin_rsvmem_heap_vunmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+static void eswin_rsvmem_heap_vunmap(struct dma_buf *dmabuf,
+				     struct dma_buf_map *map)
 {
 	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
 
@@ -405,8 +417,6 @@ static void eswin_rsvmem_heap_dma_buf_release(struct dma_buf *dmabuf)
 
 	for_each_sgtable_sg(table, sg, i) {
 		struct page *page = sg_page(sg);
-		// pr_debug("%s:%d,page_size(page)=0x%lx, phys_addr=0x%llx\n",
-			// __func__, __LINE__, page_size(page), page_to_phys(page));
 		es_free_pages(buffer->heap->memblock, page);
 	}
 	sg_free_table(table);
@@ -428,14 +438,14 @@ static const struct dma_buf_ops eswin_rsvmem_heap_buf_ops = {
 };
 
 static struct page *alloc_largest_available(struct mem_block *memblock,
-						unsigned long size,
-						unsigned int max_order)
+					    unsigned long size,
+					    unsigned int max_order)
 {
 	struct page *page;
 	int i;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
-		if (size <  (PAGE_SIZE << orders[i]))
+		if (size < (PAGE_SIZE << orders[i]))
 			continue;
 		if (max_order < orders[i])
 			continue;
@@ -449,9 +459,9 @@ static struct page *alloc_largest_available(struct mem_block *memblock,
 }
 
 static struct dma_buf *eswin_rsvmem_heap_allocate(struct eswin_heap *heap,
-					    unsigned long len,
-					    unsigned long fd_flags,
-					    unsigned long heap_flags)
+						  unsigned long len,
+						  unsigned long fd_flags,
+						  unsigned long heap_flags)
 {
 	struct eswin_rsvmem_heap *rsvmem_heap = eswin_heap_get_drvdata(heap);
 	struct eswin_rsvmem_heap_buffer *buffer;
@@ -495,7 +505,8 @@ static struct dma_buf *eswin_rsvmem_heap_allocate(struct eswin_heap *heap,
 			goto free_buffer;
 		}
 
-		page = alloc_largest_available(rsvmem_heap->memblock, size_remaining, max_order);
+		page = alloc_largest_available(rsvmem_heap->memblock,
+					       size_remaining, max_order);
 		if (!page)
 			goto free_buffer;
 
@@ -548,6 +559,167 @@ static const struct eswin_heap_ops eswin_rsvmem_heap_ops = {
 	.allocate = eswin_rsvmem_heap_allocate,
 };
 
+static inline u32 eswin_pci_phys_mem_get_id(const char *name)
+{
+	u32 idx;
+	if (sscanf(name, "pci_phys_mem_%u", &idx) != 1) {
+		pr_err_once("wrong pci_phys_mem name %s\n", name);
+		return U32_MAX;
+	}
+
+	return idx;
+}
+
+static void eswin_rsvmem_pci_phys_mem_release(struct dma_buf *dmabuf)
+{
+	struct eswin_rsvmem_heap_buffer *buffer = dmabuf->priv;
+	struct sg_table *table;
+	const char *name = eswin_heap_get_name(buffer->heap->heap);
+	u32 idx = eswin_pci_phys_mem_get_id(name);
+
+	xa_erase(&xa_heap_names, idx);
+	table = &buffer->sg_table;
+	if (buffer->vmap_cnt > 0) {
+		WARN(1, "%s: buffer still mapped in the kernel\n", __func__);
+		vunmap(buffer->vaddr);
+		buffer->vaddr = NULL;
+	}
+
+	sg_free_table(table);
+
+	kfree(buffer);
+}
+
+static const struct dma_buf_ops pci_phys_mem_ops = {
+	.attach = eswin_rsvmem_heap_attach,
+	.detach = eswin_rsvmem_heap_detach,
+	.map_dma_buf = eswin_rsvmem_heap_map_dma_buf,
+	.unmap_dma_buf = eswin_rsvmem_heap_unmap_dma_buf,
+	.begin_cpu_access = eswin_rsvmem_dma_buf_begin_cpu_access,
+	.end_cpu_access = eswin_rsvmem_dma_buf_end_cpu_access,
+	.mmap = eswin_rsvmem_heap_mmap,
+	.vmap = eswin_rsvmem_heap_vmap,
+	.vunmap = eswin_rsvmem_heap_vunmap,
+	.release = eswin_rsvmem_pci_phys_mem_release,
+};
+
+/* 2G per entry */
+#define PCI_PHYS_MEM_SG_ENTRY_SIZE 0x80000000ULL
+static int eswin_rsvmem_fill_huge_mem_sg(struct sg_table *sgt,
+					 const struct page *page_start,
+					 unsigned long nr_pages)
+{
+	const unsigned long pages_per_seg = PCI_PHYS_MEM_SG_ENTRY_SIZE >>
+					    PAGE_SHIFT;
+	unsigned long left = nr_pages;
+	unsigned long pfn = page_to_pfn(page_start);
+	struct scatterlist *sg;
+	int ret, seg, i;
+
+	seg = (nr_pages + pages_per_seg - 1) / pages_per_seg;
+	ret = sg_alloc_table(sgt, seg, GFP_KERNEL);
+	if (ret) {
+		pr_err("%s: sg_alloc_table failed: %d\n", __func__, ret);
+		return ret;
+	}
+
+	for_each_sg(sgt->sgl, sg, seg, i) {
+		unsigned long npages = min(left, pages_per_seg);
+		unsigned long seg_size_bytes = npages << PAGE_SHIFT;
+
+		sg_set_page(sg, pfn_to_page(pfn), seg_size_bytes, 0);
+		sg_dma_address(sg) = page_to_phys(pfn_to_page(pfn));
+		sg->length = seg_size_bytes;
+
+		pfn += npages;
+		left -= npages;
+	}
+
+	return 0;
+}
+
+static struct dma_buf *eswin_rsvmem_pci_phys_mem_alloc(struct eswin_heap *heap,
+						       unsigned long len,
+						       unsigned long fd_flags,
+						       unsigned long heap_flags)
+{
+	struct eswin_rsvmem_heap *rsvmem_heap = eswin_heap_get_drvdata(heap);
+	struct mem_block *memblock = rsvmem_heap->memblock;
+	struct eswin_rsvmem_heap_buffer *buffer;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+	struct dma_buf *dmabuf;
+	const char *heap_name;
+	size_t total_size;
+	u32 idx;
+	int ret;
+
+	total_size = memblock->page_num << PAGE_SHIFT;
+	if (len > total_size) {
+		pr_err("requested size 0x%lx exceeds total size 0x%zx\n", len,
+		       total_size);
+		return ERR_PTR(-EINVAL);
+	}
+
+	heap_name = eswin_heap_get_name(heap);
+	idx = eswin_pci_phys_mem_get_id(heap_name);
+	if (unlikely(idx == U32_MAX))
+		return ERR_PTR(-EINVAL);
+
+	if (xa_load(&xa_heap_names, idx))
+		return ERR_PTR(-EALREADY);
+
+	/* we don't care the entry content, directly save 1 as data. */
+	ret = xa_err(xa_store(&xa_heap_names, idx, (void *)1, GFP_KERNEL));
+	if (ret) {
+		pr_err("xarray store idx %d for heap %s failed, ret = %d!\n",
+		       idx, heap_name, ret);
+		return ERR_PTR(ret);
+	}
+
+	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
+	if (!buffer) {
+		ret = -ENOMEM;
+		goto xa_remove;
+	}
+
+	INIT_LIST_HEAD(&buffer->attachments);
+	mutex_init(&buffer->lock);
+	buffer->heap = rsvmem_heap;
+	buffer->len = len;
+	buffer->fd_flags = fd_flags;
+	buffer->page = memblock->kPageStart;
+
+	ret = eswin_rsvmem_fill_huge_mem_sg(&buffer->sg_table, buffer->page,
+					    len >> PAGE_SHIFT);
+	if (ret)
+		goto free_buffer;
+
+	exp_info.exp_name = heap_name;
+	exp_info.ops = &pci_phys_mem_ops;
+	exp_info.size = buffer->len;
+	exp_info.flags = O_RDWR | O_CLOEXEC;
+	exp_info.priv = buffer;
+	dmabuf = dma_buf_export(&exp_info);
+	if (IS_ERR(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		goto free_sg;
+	}
+
+	return dmabuf;
+
+free_sg:
+	sg_free_table(&buffer->sg_table);
+free_buffer:
+	kfree(buffer);
+xa_remove:
+	xa_erase(&xa_heap_names, idx);
+	return ERR_PTR(ret);
+}
+
+static const struct eswin_heap_ops eswin_rsvmem_pci_phys_mem_ops = {
+	.allocate = eswin_rsvmem_pci_phys_mem_alloc,
+};
+
 static int __add_eswin_rsvmem_heap(struct mem_block *memblock, void *data)
 {
 	struct eswin_rsvmem_heap *rsvmem_heap;
@@ -559,8 +731,12 @@ static int __add_eswin_rsvmem_heap(struct mem_block *memblock, void *data)
 	rsvmem_heap->memblock = memblock;
 
 	exp_info.name = eswin_rsvmem_get_name(memblock);
-	exp_info.ops = &eswin_rsvmem_heap_ops;
 	exp_info.priv = rsvmem_heap;
+
+	if (strstarts(exp_info.name, PCI_PHYS_MEM_PREFIX))
+		exp_info.ops = &eswin_rsvmem_pci_phys_mem_ops;
+	else
+		exp_info.ops = &eswin_rsvmem_heap_ops;
 
 	rsvmem_heap->heap = eswin_heap_add(&exp_info);
 	if (IS_ERR(rsvmem_heap->heap)) {
@@ -570,14 +746,16 @@ static int __add_eswin_rsvmem_heap(struct mem_block *memblock, void *data)
 		return ret;
 	}
 
-	pr_info("%s for %s successfully!\n", __func__, exp_info.name);
+	pr_info("add heap for reserve memory %s successfully!\n",
+		exp_info.name);
 
 	return 0;
 }
 
 static char *es_heap_name_prefix[] = {
 						"mmz_nid_",
-						"secure_memory"
+						"secure_memory",
+                                                PCI_PHYS_MEM_PREFIX,
 };
 #define NUM_ESWIN_RSVMEM_HEAPS ARRAY_SIZE(es_heap_name_prefix)
 

@@ -131,6 +131,15 @@ static int do_rsvmem_buddy_init(struct mem_block *memblock, void *data)
 {
 	int pages_size;
 
+        /*
+        * Reserve-memory regions whose name starts with "pci_phys_mem" are not
+        * managed by the buddy allocator. They are reserved for PCI physical
+        * memory usage and will be handled by eswin_rsvmem_for_each_block()
+        * instead, so we skip them here.
+        */
+	if (strstr(memblock->name, PCI_PHYS_MEM_PREFIX))
+		return 0;
+
 	pr_debug("eswin buddy init for %s\n", memblock->name);
 	/* alloc esPage_s for all the pages to manage the pages*/
 	pages_size = memblock->page_num * sizeof(struct esPage_s);
