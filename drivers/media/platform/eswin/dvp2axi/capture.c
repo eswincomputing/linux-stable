@@ -1421,17 +1421,6 @@ static int es_dvp2axi_csi_channel_init(struct es_dvp2axi_stream *stream,
 	return 0;
 }
 
-/*config reg for eic770x*/
-static int es_dvp2axi_csi_channel_set_v1(struct es_dvp2axi_stream *stream,
-				    struct csi_channel_info *channel,
-				    enum v4l2_mbus_type mbus_type,
-				    unsigned int mode, int index)
-{
-	if (mode == ES_DVP2AXI_STREAM_MODE_CAPTURE)
-		es_dvp2axi_assign_new_buffer_oneframe(stream , ES_DVP2AXI_YUV_ADDR_STATE_INIT);
-	return 0;
-}
-
 static int es_dvp2axi_csi_stream_start(struct es_dvp2axi_stream *stream,
 				  unsigned int mode)
 {
@@ -1440,7 +1429,6 @@ static int es_dvp2axi_csi_stream_start(struct es_dvp2axi_stream *stream,
 	enum v4l2_mbus_type mbus_type = active_sensor->mbus.type;
 	struct csi_channel_info *channel;
 	u32 ret = 0;
-	int i;
 
 	if (stream->state < ES_DVP2AXI_STATE_STREAMING) {
 		stream->frame_idx = 0;
@@ -1476,21 +1464,6 @@ static int es_dvp2axi_csi_stream_start(struct es_dvp2axi_stream *stream,
 				stream->dma_en |= ES_DVP2AXI_DMAEN_BY_ISP;
 		} else if (mode == ES_DVP2AXI_STREAM_MODE_ESKIT) {
 			stream->dma_en |= ES_DVP2AXI_DMAEN_BY_ESKIT;
-		}
-		if (channel->capture_info.mode ==
-			ESMODULE_MULTI_DEV_COMBINE_ONE) {
-			for (i = 0; i < channel->capture_info.multi_dev.dev_num; i++) {
-				dev->csi_host_idx =
-					channel->capture_info.multi_dev
-						.dev_idx[i];
-				es_dvp2axi_csi_channel_set_v1(stream,
-								channel,
-								mbus_type,
-								mode, i);
-			}
-		} else {
-			es_dvp2axi_csi_channel_set_v1(stream, channel,
-							mbus_type, mode, 0);
 		}
 	} else {
 		if (stream->dvp2axidev->chip_id >= CHIP_EIC770X_DVP2AXI) {
@@ -2048,16 +2021,20 @@ static void es_dvp2axi_stop_streaming(struct vb2_queue *queue)
 	uint32_t csr0;
 
 	mutex_lock(&stream->dvp2axidev->hw_dev->dev_multi_chn_lock);
-	dvp2axi_hw_irq_mask(stream->dvp2axidev->hw_dev, stream->id, 1);
-	csr0 = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
 	es_dvp2axi_do_stop_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
+
+	csr0 = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
 	csr0 &= ~(1 << stream_id); // disable stream channel
 	DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, csr0);
+
+	dvp2axi_hw_irq_mask(stream->dvp2axidev->hw_dev, stream->id, 1);
+
 	if((csr0 & 0x3f) == 0) {
 		dev_dbg(stream->dvp2axidev->hw_dev->dev, "all streams have been stopped, dvp2axi_hw_soft_reset \n");
 		dvp2axi_hw_irq_axi_mask(stream->dvp2axidev->hw_dev, 1);
-		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	}
+	dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
+
 	mutex_unlock(&stream->dvp2axidev->hw_dev->dev_multi_chn_lock);
 	stream->state = ES_DVP2AXI_STATE_READY;
 	dev_dbg(stream->dvp2axidev->hw_dev->dev, "stream[%d] lost frame %lld \n", stream->id, stream->dvp2axidev->irq_stats.not_active_buf_cnt[stream->id]++);
@@ -2679,23 +2656,25 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, (0x7 << (stream->id - 3)));
 	}
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR,(0x1 << (stream->id+2)));
+	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
+	dvp2axi_hw_irq_axi_mask(stream->dvp2axidev->hw_dev, 0);
+
+	es_dvp2axi_assign_new_buffer_oneframe(stream, ES_DVP2AXI_YUV_ADDR_STATE_INIT);
 
 	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
 	if((csr0 & 0x3f) == 0)
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	csr0 = csr0 | (1 << stream->id);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
-	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
-	dvp2axi_hw_irq_axi_mask(stream->dvp2axidev->hw_dev, 0);
+
 	ret = es_dvp2axi_do_start_stream(stream, ES_DVP2AXI_STREAM_MODE_CAPTURE);
 	if(ret < 0) {
 		csr0 = csr0 & ~(1 << stream->id);
 		dev_err(stream->dvp2axidev->dev, "es_dvp2axi_do_start_stream failed %d\n", ret);
-		goto unlock;
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
 	}
 	es_dvp2axi_dump_reg(dvp2axi_hw);
 	dev_dbg(stream->dvp2axidev->dev, "dvp2axi enabled=0x%x\n", csr0);
-unlock:
 	mutex_unlock(&dvp2axi_hw->dev_multi_chn_lock);
 	return ret;
 }
@@ -4303,9 +4282,8 @@ void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *dvp2axi_hw)
 		volatile uint32_t cycle = 0;
 		while (cycle++ < 100);
 		soft_rstn = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-		udelay(100);
+		udelay(1000);
 	} while ((soft_rstn & VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_DONE_MASK) != VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_DONE_MASK && count++ < 100);
-    	// release reset
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, soft_rstn | VI_DVP2AXI_CTRL0_AXI_SOFT_RSTN_MASK);
 }
 
