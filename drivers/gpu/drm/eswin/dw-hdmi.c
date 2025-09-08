@@ -4624,6 +4624,10 @@ EXPORT_SYMBOL_GPL(dw_hdmi_suspend);
 void dw_hdmi_resume(struct dw_hdmi *hdmi)
 {
 	dev_dbg(hdmi->dev, "%s", __func__);
+	if (!hdmi) {
+		dev_warn(hdmi->dev, "HDMI has not been initialized\n");
+		return;
+	}
 	if (!__clk_is_enabled(hdmi->cec_clk)) {
 		clk_enable(hdmi->cec_clk);
 	}
@@ -4640,6 +4644,10 @@ EXPORT_SYMBOL_GPL(dw_hdmi_resume);
 void dw_hdmi_resume_early(struct dw_hdmi *hdmi)
 {
 	dev_dbg(hdmi->dev, "%s", __func__);
+	if (!hdmi) {
+		dev_warn(hdmi->dev, "HDMI has not been initialized\n");
+		return;
+	}
 	clk_enable(hdmi->cec_clk);
 	clk_enable(hdmi->iahb_clk);
 	clk_enable(hdmi->isfr_clk);
