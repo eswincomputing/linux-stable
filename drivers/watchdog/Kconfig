@@ -872,6 +872,18 @@ config ARM_SMC_WATCHDOG
 	  To compile this driver as a module, choose M here: the
 	  module will be called arm_smc_wdt.
 
+config ESWIN_WATCHDOG
+	tristate "Eswin SoCs watchdog support"
+	depends on ESWIN_MBOX
+	select WATCHDOG_CORE
+	help
+	  ESWIN_WATCHDOG driver implementation for the eswin platform.
+	  Say Y here to include support for the watchdog timer in
+	  Eswin SoCs.
+	  To compile this driver as a module, choose M here: the
+	  module will be called eswin_watchdog.
+
+
 config LPC18XX_WATCHDOG
 	tristate "LPC18xx/43xx Watchdog"
 	depends on ARCH_LPC18XX || COMPILE_TEST

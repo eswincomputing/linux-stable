@@ -438,7 +438,7 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 	if (wakeup_source) {
 		mb->wakeup_source = true;
 		device_init_wakeup(&pdev->dev, 1);
-		mb->mbox.txdone_poll = false;
+		mb->mbox.txdone_poll = true;
 	} else {
 		mb->wakeup_source = false;
 		mb->mbox.txdone_poll = true;
