@@ -102,7 +102,10 @@ struct platform_device *venc_pdev = NULL;
 struct platform_device *venc_pdev_d1 = NULL;
 
 static u32 vcmd_supported = 1;
+static u32 power_management = 0;
+
 module_param(vcmd_supported, uint, 0);
+module_param(power_management, uint, 0);
 
 extern int hantroenc_normal_init(void);
 extern void hantroenc_normal_cleanup(void);
@@ -1266,16 +1269,31 @@ static int hantro_venc_remove(struct platform_device *pdev)
 }
 
 static int venc_runtime_suspend(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	LOG_DBG("runtime suspend\n");
 	return venc_dev_close(dev);
 }
 
 static int venc_runtime_resume(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	LOG_DBG("runtime resume\n");
 	return venc_dev_open(dev);
 }
 
 static int venc_suspend(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	LOG_DBG("generic suspend\n");
 	if (pm_runtime_status_suspended(dev)) {
 		LOG_DBG("generic suspend, venc is suspended already\n");
@@ -1286,6 +1304,11 @@ static int venc_suspend(struct device *dev) {
 }
 
 static int venc_resume(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	LOG_DBG("generic resume\n");
 	if (pm_runtime_status_suspended(dev)) {
 		LOG_DBG("generic resume, venc is resumed already\n");
