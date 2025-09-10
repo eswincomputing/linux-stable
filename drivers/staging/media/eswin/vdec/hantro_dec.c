@@ -298,6 +298,7 @@ static unsigned int reg_access_opt;
 unsigned int vcmd = 1;
 unsigned long alloc_size = 0xb0000000;
 unsigned long alloc_base = 16;
+unsigned long power_management = 0;
 
 unsigned long multicorebase[HXDEC_MAX_CORES] = {
 	HANTRO_REG_OFFSET0,
@@ -360,6 +361,7 @@ module_param(reg_access_opt, uint, 0);
 module_param(vcmd, uint, 0);
 module_param(alloc_base, ulong, 0);
 module_param(alloc_size, ulong, 0);
+module_param(power_management, ulong, 0);
 
 static int hantrodec_major; /* dynamic allocation */
 
@@ -4236,6 +4238,11 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 }
 
 static int eswin_vdec_runtime_suspend(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
 	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
@@ -4253,6 +4260,11 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 }
 
 static int eswin_vdec_runtime_resume(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	vdec_clk_rst_t *vcrt = NULL;
 	int ret = -1;
 	vdec_dev_prvdata *prvdata = dev_get_drvdata(dev);
@@ -4300,6 +4312,11 @@ int vdec_wait_device_idle(struct platform_device *pdev) {
 }
 
 static int eswin_vdec_suspend(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	int ret = 0;
 	struct platform_device *pdev = NULL;
 
@@ -4320,6 +4337,11 @@ static int eswin_vdec_suspend(struct device *dev) {
 }
 
 static int eswin_vdec_resume(struct device *dev) {
+	if (!power_management) {
+		/**pm disabled */
+		return 0;
+	}
+
 	int ret = 0;
 
 	if (!pm_runtime_status_suspended(dev)) {
