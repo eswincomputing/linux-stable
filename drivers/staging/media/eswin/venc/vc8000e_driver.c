@@ -1353,7 +1353,7 @@ static struct platform_driver eswin_venc_driver = {
     .driver = {
         .name   = "Eswinenc",
         .of_match_table = eswin_venc_match,
-		.pm = &venc_pm_ops,
+		.pm = pm_sleep_ptr(&venc_pm_ops),
     },
 };
 

@@ -4440,7 +4440,7 @@ static struct platform_driver eswin_vdec_driver = {
 	.driver = {
 		.name   = DEC_DEV_NAME,
 		.of_match_table = eswin_vdec_match,
-		.pm = &eswin_vdec_dev_pm_ops,
+		.pm = pm_sleep_ptr(&eswin_vdec_dev_pm_ops),
 	},
 };
 
