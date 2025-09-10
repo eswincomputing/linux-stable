@@ -48,7 +48,7 @@ struct nvdla_device {
 	dma_addr_t e31_nim_iova;
 	const char *e31_fw_name;
 	uint32_t e31_fw_size;
-	struct mutex task_mutex;
+	struct mutex mapping_mutex;
 	void *engine_context;
 	void *win_engine;
 	struct mbox_chan *mbx_chan;

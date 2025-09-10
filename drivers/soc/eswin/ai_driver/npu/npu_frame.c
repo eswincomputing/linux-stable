@@ -98,11 +98,71 @@ int io_tensor_to_io_addr(struct win_executor *executor,
 	int ret;
 	struct user_model *model = (struct user_model *)executor->model;
 	struct user_context *uctx = model->uctx;
-	struct nvdla_device *nvdla_dev =
-		(struct nvdla_device *)executor->driver_context;
+	struct nvdla_device *nvdla_dev = (struct nvdla_device *)executor->driver_context;
+	event_sink_dev_t *event_sink;
+	event_sink_dev_t *event_sink_data;
+	event_source_dev_t *event_source;
+	event_source_dev_t *event_source_data;
+	int8_t p2p_src;
+    int8_t p2p_dst;
 
 	f->input_num = executor->input_num;
 	f->output_num = executor->output_num;
+
+	if (((address[0].devBuf.reserve >> 32) & 0xffff) == 0xff11) {
+		event_sink = (event_sink_dev_t *)executor->prog_data_buf_bobj[IDX_EVENT_SINK];
+		event_sink_data = (event_sink_dev_t *)&event_sink[0];
+		p2p_src = (address[0].devBuf.reserve & 0xffff) >> 8;
+		p2p_dst = address[0].devBuf.reserve & 0xff;
+
+		mutex_lock(&nvdla_dev->mapping_mutex);
+		ret = dma_set_mask_and_coherent(&nvdla_dev->pdev->dev, DMA_BIT_MASK(32));
+		if (ret) {
+			dev_warn(&nvdla_dev->pdev->dev, "Unable to set coherent mask 32bit\n");
+			mutex_unlock(&nvdla_dev->mapping_mutex);
+			return ret;
+		}
+
+		dla_debug("sink event fd:%lld, p2p_src:%d, p2p_dst:%d\n", address[0].devBuf.memFd, p2p_src, p2p_dst);
+		fd = address[0].devBuf.memFd;
+		f->input_bobj[0] = dla_import_fd_to_device(fd, &nvdla_dev->pdev->dev);
+		if (IS_ERR(f->input_bobj[0])) {
+			dla_error("err:import input dmabuf error!\n");
+			mutex_unlock(&nvdla_dev->mapping_mutex);
+			return -ENOMEM;
+		}
+		f->input_bobj[0]->fd = -1;
+
+		dla_debug("sink event dma addr:0x%llx\n", f->input_bobj[0]->dma_addr);
+
+		event_sink_data->npu_info.peer_address = f->input_bobj[0]->dma_addr;
+		event_sink_data->npu_info.peer_link = p2p_src << 8 | p2p_dst;
+
+		ret = dma_set_mask_and_coherent(&nvdla_dev->pdev->dev, DMA_BIT_MASK(41));
+		mutex_unlock(&nvdla_dev->mapping_mutex);
+		if (ret) {
+			dev_warn(&nvdla_dev->pdev->dev, "Unable to set coherent mask 41bit\n");
+			return ret;
+		}
+
+		addr_list[address[0].bindId] = f->input_bobj[0]->dma_addr +	address[0].devBuf.offset;
+		dla_detail("addr_list[address[0].bind_id=%lld\n", addr_list[address[0].bindId]);
+
+		return 0;
+	}
+
+	if (((address[0].devBuf.reserve >> 32) & 0xffff) == 0xff22) {
+		event_source = (event_source_dev_t *)executor->prog_data_buf_bobj[IDX_EVENT_SOURCE];
+		event_source_data = (event_source_dev_t *)&event_source[0];
+		p2p_src = (address[0].devBuf.reserve & 0xffff) >> 8;
+		p2p_dst = address[0].devBuf.reserve & 0xff;
+
+		dla_info("source event p2p_src:%d, p2p_dst:%d, \n", p2p_src, p2p_dst);
+
+		event_source_data->npu_info.peer_link = p2p_src << 8 | p2p_dst;
+
+		return 0;
+	}
 
 	ret = npu_set_dsp_iobuf(executor, f);
 	if (ret < 0) {
@@ -137,12 +197,11 @@ int io_tensor_to_io_addr(struct win_executor *executor,
 			}
 			mutex_unlock(&uctx->dma_lock);
 			if (!entry || !handle) {
-				f->input_bobj[i] = dla_import_fd_to_device(
-					fd, &nvdla_dev->pdev->dev);
+				mutex_lock(&nvdla_dev->mapping_mutex);
+				f->input_bobj[i] = dla_import_fd_to_device(fd, &nvdla_dev->pdev->dev);
+				mutex_unlock(&nvdla_dev->mapping_mutex);
 				if (IS_ERR(f->input_bobj[i])) {
-					dla_error(
-						"err:import input dmabuf error!i=%d\n",
-						i);
+					dla_error("err:import input dmabuf error!i=%d\n", i);
 					goto map_err;
 				}
 				f->input_bobj[i]->fd = -1;
@@ -180,8 +239,9 @@ int io_tensor_to_io_addr(struct win_executor *executor,
 			}
 			mutex_unlock(&uctx->dma_lock);
 			if (!entry || !handle) {
-				f->output_bobj[i] = dla_import_fd_to_device(
-					fd, &nvdla_dev->pdev->dev);
+				mutex_lock(&nvdla_dev->mapping_mutex);
+				f->output_bobj[i] = dla_import_fd_to_device(fd, &nvdla_dev->pdev->dev);
+				mutex_unlock(&nvdla_dev->mapping_mutex);
 				if (!f->output_bobj[i]) {
 					dla_error(
 						"%s, %d, import output fd = %d err.r\n",

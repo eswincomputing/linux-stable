@@ -74,6 +74,7 @@
 #define DLA_OP_MERGE 0x12
 
 #define E31 2
+#define P2P 3
 /**
  * @name Memory types
  * @brief DLA engnine can read/write to/from 3 memory types
@@ -250,8 +251,9 @@ struct dla_common_op_desc {
 
 struct dla_event_op_desc {
     int16_t index;         // a unique event op index in loadable
-    int8_t submodel_type;  // 0-umd; 1-kmd
-    int8_t peer_type;     //0-no ; 1: e31 -> e31
+    int8_t submodel_type;  // 0-umd; 1-kmd; 2-e31; 3-p2p
+    int8_t p2p_src;
+    int8_t p2p_dst;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 #define EVENT_OP_TENSOR_NUM 8

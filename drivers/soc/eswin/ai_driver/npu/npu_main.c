@@ -610,7 +610,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, nvdla_dev);
 	nvdla_dev->pdev = pdev;
 	spin_lock_init(&nvdla_dev->nvdla_lock);
-	mutex_init(&nvdla_dev->task_mutex);
+	mutex_init(&nvdla_dev->mapping_mutex);
 	init_waitqueue_head(&nvdla_dev->event_wq);
 	mutex_init(&nvdla_dev->devfreq_lock);
 
