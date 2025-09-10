@@ -1,0 +1,254 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+&vi_subsys {
+	eswin,isp_dvp0_hor = <1920>;
+	eswin,isp_dvp0_ver = <1080>;
+	imx327,hdr-en-2;
+	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
+	vvcam_isp_0: vvcam_isp@0 {
+		compatible = "verisilicon,isp-v4l2";
+		id = <0>;
+		status = "okay";
+		dma-noncoherent;
+		depends-on = <&imx327_0>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				vvcam_isp_input_port: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&mipi_csi2_output1>;
+				};
+			};
+
+			port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+				vvcam_isp_port0_mp: endpoint {
+					remote-endpoint = <&vvcam_video0>;
+				};
+			};
+
+			port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				vvcam_isp_port0_sp1: endpoint {
+					remote-endpoint = <&vvcam_video1>;
+				};
+			};
+
+			port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				vvcam_isp_port0_sp2: endpoint {
+					remote-endpoint = <&vvcam_video2>;
+				};
+			};
+
+			port@4 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <4>;
+				vvcam_isp_port0_raw: endpoint {
+					remote-endpoint = <&vvcam_video3>;
+				};
+			};
+		};
+	};
+
+	vvcam_vb: vvcam-vb@0 {
+		compatible = "verisilicon,vb";
+		status = "okay";
+		depends-on = <&imx327_0>;
+		#size-cells = <2>;
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu0 WIN2030_SID_ISP0>;
+	};
+
+	vvcam_video_0: vvcam_video@0 {
+		compatible = "verisilicon,video";
+		id = <0>;
+		status = "okay";
+		#size-cells = <2>;
+		depends-on = <&imx327_0>;
+		dma-noncoherent;
+		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
+		iommus = <&smmu0 WIN2030_SID_ISP0>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+				vvcam_video0: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_mp>;
+				};
+			};
+
+			port@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+				vvcam_video1: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_sp1>;
+				};
+			};
+
+			port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+				vvcam_video2: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_sp2>;
+				};
+			};
+
+			port@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+				vvcam_video3: endpoint {
+					remote-endpoint = <&vvcam_isp_port0_raw>;
+				};
+			};
+		};
+	};
+};
+
+&d0_i2c3 {
+	/* mipi csi0/csi1 */
+	status = "okay";
+	imx327_0: imx327@36 {
+			compatible = "sony,imx327";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x36>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>; 
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <37125000>;
+			clock-frequency = <37125000>;
+			clock-names = "xclk";
+			port {
+				imx327_out0: endpoint {
+					remote-endpoint = <&mipidphy0_in_ucam0>;
+					data-lanes = <1 2>;
+					link-frequencies = /bits/ 64 <222750000>;
+				};
+			};
+		};
+};
+
+&csi2_dphy_hw {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_ucam0: endpoint {
+				remote-endpoint = <&imx327_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint {
+				remote-endpoint = <&mipi_csi2_input>;
+			};
+		};
+
+	};
+};
+
+&mipi_csi2_0 {
+	status = "okay";
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;	
+			reg = <0>;
+			mipi_csi2_input: endpoint {
+				remote-endpoint = <&csidphy0_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_csi2_output: endpoint {
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
+
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			mipi_csi2_output1: endpoint {
+				remote-endpoint = <&vvcam_isp_input_port>;
+			};
+		};
+	};
+};
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds {
+	status = "okay";
+	dvp2axi_id = <0>;
+	ports{
+		#address-cells = <1>;
+        #size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+        	#size-cells = <0>;
+			reg = <0>;
+			axi2dvp_mipi2_in0: endpoint {
+				remote-endpoint = <&mipi_csi2_output>;
+			};
+		};
+	};
+};
+
+&isp_0 {
+	status = "okay";
+};
+
+&isp_1 {
+	status = "okay";
+};
+
+
