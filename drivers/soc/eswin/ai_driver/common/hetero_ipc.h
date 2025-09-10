@@ -283,7 +283,8 @@ typedef enum {
     EVALUATE_DONE,
     PROGRAM_DIR_REQ,
     PROGRAM_DIR_DONE,
-    DSP_EVAL_DONE
+    DSP_EVAL_DONE,
+    P2P_RECEIVED_MSG
 } CHANNAL_EVENT_TYPE;
 
 #ifndef __KERNEL__
@@ -482,6 +483,46 @@ static void messagebox_send_dsp(u32 op_type, u64 payload)
     // send data
     reg_write(mbox_base + MBOX_NPU_WR_DATA0_OFFSET, (uint32_t)(payload & 0xFFFFFFFF));
     reg_write(mbox_base + MBOX_NPU_WR_DATA1_OFFSET, (uint32_t)(payload >> 32) | MBOX_WRITE_FIFO_BIT);
+
+    // enable interrupt
+    reg_write(mbox_base + MBOX_NPU_INT_OFFSET, mbox_int);
+
+    // clear lock bit
+    reg_write(mbox_base + MBOX_NPU_WR_LOCK, 0);
+}
+
+/**
+ *  @brief Send a mailbox message payload to another E31.
+ *
+ *  @param op_type:         Specify the e31 operator type.
+ *  @param payload:         Specify the message payload to send.
+ *  @param mbox_base:       Specify p2p addr the message payload send to.
+ */
+static void messagebox_send_p2p(msg_payload_t payload, u32 mbox_base)
+{
+    u32 mbox_int, mbox_lock, timeout, data;
+    mbox_int = BIT3;
+    mbox_lock = BIT9;
+    timeout = 0;
+
+    // check lock bit and fifo
+    while (1) {
+        reg_write(mbox_base + MBOX_NPU_WR_LOCK, mbox_lock);
+
+        if ((reg_read(mbox_base + MBOX_NPU_WR_LOCK) & mbox_lock) &&
+            (reg_read(mbox_base + MBOX_NPU_FIFO_OFFSET) & 0x1) == 0) {
+            break;
+        }
+
+        if (timeout++ > MBX_LOCK_BIT_TIMEOUT) {
+            return;
+        }
+    }
+
+    // send data
+    data = ((u32)payload.type | (u32)payload.param << 8 | (u32)payload.lparam << 16);
+    reg_write((size_t)(mbox_base + MBOX_NPU_WR_DATA0_OFFSET), data);
+    reg_write((size_t)(mbox_base + MBOX_NPU_WR_DATA1_OFFSET), MBOX_WRITE_FIFO_BIT);
 
     // enable interrupt
     reg_write(mbox_base + MBOX_NPU_INT_OFFSET, mbox_int);

@@ -73,6 +73,12 @@
 		numa-node-id = <0>;
 	};
 
+	memory@8000000000 {
+		device_type = "memory";
+		reg = <0x80 0x0 0x20 0x0>;
+		numa-node-id = <0>;
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -115,6 +121,12 @@
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
 			reg = <0x3 0x0 0x1 0x0>;
+			no-map;
+		};
+
+		pci_phys_mem_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x80 0x0 0x20 0x0>;
 			no-map;
 		};
 
@@ -180,10 +192,15 @@
 			#size-cells = <2>;
 			phys-base = <0x1 0x4415000>;
 			virt-base = <0x1 0x4415000>;
-			shm-size = <0xbbeb000>;
-			reg = <0x1 0x4415000 0 0xbbeb000>;
+			shm-size = <0xb7eb000>;
+			reg = <0x1 0x4415000 0 0xb7eb000>;
 		};
 
+		pci_phys_mem_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x1 0xFC00000 0 0x400000>;
+			no-map;
+		};
 	};
 
 	soc {

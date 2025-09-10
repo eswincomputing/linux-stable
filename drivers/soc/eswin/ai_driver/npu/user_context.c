@@ -106,8 +106,9 @@ static int npu_get_model_bobj(int shm_fd, struct user_model *model)
 	int ret;
 
 	dla_debug("shm_fd=%d\n", shm_fd);
-	model->model_bobj =
-		dla_import_fd_to_device(shm_fd, &nvdla_dev->pdev->dev);
+	mutex_lock(&nvdla_dev->mapping_mutex);
+	model->model_bobj = dla_import_fd_to_device(shm_fd, &nvdla_dev->pdev->dev);
+	mutex_unlock(&nvdla_dev->mapping_mutex);
 	if (IS_ERR(model->model_bobj)) {
 		dla_error("err:import shm fd failed!\n");
 		return -EFAULT;
