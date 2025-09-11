@@ -223,7 +223,7 @@ static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
 	plat_dat->has_gmac4 = 1;
 	plat_dat->dma_cfg->aal = 1;
     plat_dat->flags |= STMMAC_FLAG_TSO_EN;
-	plat_dat->pmt = 1;
+	plat_dat->pmt = 0;
 
 	return 0;
 }

@@ -554,6 +554,7 @@ static int yt8531_set_wol(struct phy_device *phydev,
 		}
 
 		/* Enable WOL feature */
+		printk("In %s: enable\r\n", __func__);
 		mask = YTPHY_WCR_PULSE_WIDTH_MASK | YTPHY_WCR_INTR_SEL;
 		val = YTPHY_WCR_ENABLE | YTPHY_WCR_INTR_SEL;
 		val |= YTPHY_WCR_TYPE_PULSE | YTPHY_WCR_PULSE_WIDTH_672MS;
@@ -569,6 +570,7 @@ static int yt8531_set_wol(struct phy_device *phydev,
 			return ret;
 	} else {
 		/* Disable WOL feature */
+		printk("In %s: disable\r\n", __func__);
 		mask = YTPHY_WCR_ENABLE | YTPHY_WCR_INTR_SEL;
 		ret = ytphy_modify_ext_with_lock(phydev, YTPHY_WOL_CONFIG_REG,
 						 mask, 0);
