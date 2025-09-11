@@ -254,8 +254,8 @@ static int eswin_fan_control_write_pwm(
 	struct eswin_fan_control_data *ctl = dev_get_drvdata(dev);
 	switch (attr) {
 	case hwmon_pwm_input:
-		if ((val < 10) || (val > 99)) {
-			dev_err(dev,"%s():line%d pwm range is 10 to 99, val=%ld\n",
+		if ((val < 0) || (val > 100)) {
+			dev_err(dev,"%s():line%d pwm range is 0 to 100, val=%ld\n",
 				__func__, __LINE__, val);
 			return -EINVAL;
 		} else {

@@ -44,12 +44,13 @@
 #define DWC_CLK_PERIOD_NS	10
 
 /* Timer Control Register */
-#define DWC_TIM_CTRL_EN		BIT(0)
-#define DWC_TIM_CTRL_MODE	BIT(1)
-#define DWC_TIM_CTRL_MODE_FREE	(0 << 1)
-#define DWC_TIM_CTRL_MODE_USER	(1 << 1)
-#define DWC_TIM_CTRL_INT_MASK	BIT(2)
-#define DWC_TIM_CTRL_PWM	BIT(3)
+#define DWC_TIM_CTRL_EN				BIT(0)
+#define DWC_TIM_CTRL_MODE			BIT(1)
+#define DWC_TIM_CTRL_MODE_FREE		(0 << 1)
+#define DWC_TIM_CTRL_MODE_USER		(1 << 1)
+#define DWC_TIM_CTRL_INT_MASK		BIT(2)
+#define DWC_TIM_CTRL_PWM			BIT(3)
+#define DWC_TIM_CTRL_0N100PWM_EN	BIT(4)
 
 struct dwc_pwm_ctx {
 	u32 cnt;
@@ -91,8 +92,7 @@ static void __dwc_pwm_set_enable(struct dwc_pwm *dwc, int pwm, int enabled)
 }
 
 static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
-				     struct pwm_device *pwm,
-				     const struct pwm_state *state)
+			struct pwm_device *pwm, const struct pwm_state *state)
 {
 	u64 tmp;
 	u32 ctrl;
@@ -101,31 +101,25 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 
 	/*
 	 * Calculate width of low and high period in terms of input clock
-	 * periods and check are the result within HW limits between 1 and
+	 * periods and check are the result within HW limits between 0 and
 	 * 2^32 periods.
 	 */
 	tmp = DIV_ROUND_CLOSEST_ULL(state->duty_cycle, DWC_CLK_PERIOD_NS);
-	if (tmp < 1 || tmp > (1ULL << 32))
+	if (tmp < 0 || tmp > (1ULL << 32))
 		return -ERANGE;
-	if (pwm->args.polarity== PWM_POLARITY_INVERSED)
-	{
-		high = tmp - 1;
-	}
-	else
-	{
-		low = tmp - 1;
+	if (pwm->args.polarity== PWM_POLARITY_INVERSED) {
+		high = tmp;
+	} else {
+		low = tmp;
 	}
 	tmp = DIV_ROUND_CLOSEST_ULL(state->period - state->duty_cycle,
-				    DWC_CLK_PERIOD_NS);
-	if (tmp < 1 || tmp > (1ULL << 32))
+		DWC_CLK_PERIOD_NS);
+	if (tmp < 0 || tmp > (1ULL << 32))
 		return -ERANGE;
-	if (pwm->args.polarity == PWM_POLARITY_INVERSED)
-	{
-		low = tmp - 1;
-	}
-	else
-	{
-		high = tmp - 1;
+	if (pwm->args.polarity == PWM_POLARITY_INVERSED) {
+		low = tmp;
+	} else {
+		high = tmp;
 	}
 	/*
 	 * Specification says timer usage flow is to disable timer, then
@@ -140,7 +134,7 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 	 * Write Load Count and Load Count 2 registers. Former defines the
 	 * width of low period and latter the width of high period in terms
 	 * multiple of input clock periods:
-	 * Width = ((Count + 1) * input clock period).
+	 * Width = (Count * input clock period).
 	 */
 	dwc_pwm_writel(dwc, low, DWC_TIM_LD_CNT(pwm->hwpwm));
 	dwc_pwm_writel(dwc, high, DWC_TIM_LD_CNT2(pwm->hwpwm));
@@ -150,8 +144,10 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 	 * when it counts down to 0.
 	 * Set PWM mode, it makes output to toggle and width of low and high
 	 * periods are set by Load Count registers.
+	 * Set 0% and 100% duty cycle mode, it makes output to support the
+	 * programming for 0% and 100% duty cycle pulse width modulation.
 	 */
-	ctrl = DWC_TIM_CTRL_MODE_USER | DWC_TIM_CTRL_PWM;
+	ctrl = DWC_TIM_CTRL_MODE_USER | DWC_TIM_CTRL_PWM | DWC_TIM_CTRL_0N100PWM_EN;
 	dwc_pwm_writel(dwc, ctrl, DWC_TIM_CTRL(pwm->hwpwm));
 
 	/*
@@ -163,7 +159,7 @@ static int __dwc_pwm_configure_timer(struct dwc_pwm *dwc,
 }
 
 static int dwc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
-			 const struct pwm_state *state)
+			const struct pwm_state *state)
 {
 	struct dwc_pwm *dwc = to_dwc_pwm(chip);
 
@@ -196,13 +192,14 @@ static int dwc_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 				DWC_TIM_CTRL(pwm->hwpwm)) & DWC_TIM_CTRL_EN);
 
 	duty = dwc_pwm_readl(dwc, DWC_TIM_LD_CNT(pwm->hwpwm));
-	duty += 1;
 	duty *= DWC_CLK_PERIOD_NS;
-	state->duty_cycle = duty;
-
 	period = dwc_pwm_readl(dwc, DWC_TIM_LD_CNT2(pwm->hwpwm));
-	period += 1;
 	period *= DWC_CLK_PERIOD_NS;
+	if (pwm->args.polarity == PWM_POLARITY_INVERSED) {
+		state->duty_cycle = period;
+	} else {
+		state->duty_cycle = duty;
+	}
 	period += duty;
 	state->period = period;
 
