@@ -188,7 +188,7 @@
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
-		clock-names = "inck";
+		clock-names = "xvclk";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio83_default>;
 		reset-gpio = <&portc 19 GPIO_ACTIVE_HIGH>;
@@ -204,7 +204,7 @@
 };
 
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
@@ -416,7 +416,7 @@
 	status = "okay";
 };
 
-&dvp2axi_mipi_lvds {
+&dvp2axi_mipi_lvds0 {
 	status = "okay";
 	dvp2axi_id = <0>;
 	ports{

@@ -4,7 +4,7 @@
 &vi_subsys {
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
-	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
+	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
 		id = <0>;
@@ -125,87 +125,87 @@
 &d0_i2c3 {
 	/* mipi csi0/csi1 */
 	status = "okay";
-	ov5647_0: ov5640_0@36 {
-		compatible = "ovti,ov5647";
-		status = "okay";
-		address-cells = <1>;
-		size-cells = <0>;
-		reg = <0x36>;
-		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clock-rates = <25000000>;
-		clock-names = "xclk";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio72_default>;
-		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+	imx219_0: imx219@10 {
+			compatible = "sony,imx219";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x10>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <24000000>;
+			clock-names = "xvclk";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio71_default>;
+			reset-gpio = <&portc 7 GPIO_ACTIVE_HIGH>;
 
-		port {
-			ov5647_out0: endpoint {
-				remote-endpoint = <&mipidphy0_in_ucam0>;
-				data-lanes = <1 2>;
-				link-frequencies = /bits/ 64 <218500000>;
+			port {
+				imx219_out0: endpoint {
+					remote-endpoint = <&mipidphy0_in_ucam0>;
+					data-lanes = <1 2 3 4>;
+					link-frequencies = /bits/ 64 <364000000>;
+				};
 			};
 		};
-	};
 };
 
 &d0_i2c4 {
 	/* mipi csi2/csi3 */
 	status = "okay";
-	ov5647_2: ov5647_2@36 {
-		compatible = "ovti,ov5647";
-		status = "okay";
-		address-cells = <1>;
-		size-cells = <0>;
-		reg = <0x36>;
-		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clock-rates = <25000000>;
-		clock-names = "xclk";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio78_default>;
-		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
+	imx219_2: imx219@10 {
+			compatible = "sony,imx219";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x10>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <24000000>;
+			clock-names = "xvclk";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio77_default>;
+			reset-gpio = <&portc 13 GPIO_ACTIVE_HIGH>;
 
-		port {
-			ov5647_out2: endpoint {
-				remote-endpoint = <&mipidphy2_in_ucam0>;
-				data-lanes = <1 2>;
-				link-frequencies = /bits/ 64 <218500000>;
+			port {
+				imx219_out2: endpoint {
+					remote-endpoint = <&mipidphy2_in_ucam0>;
+					data-lanes = <1 2 3 4>;
+					link-frequencies = /bits/ 64 <364000000>;
+				};
 			};
 		};
-	};
 };
 
 &d0_i2c5 {
 	/* mipi csi4/csi5 */
 	status = "okay";
-	ov5647_4: ov5647_4@36 {
-		compatible = "ovti,ov5647";
-		status = "okay";
-		address-cells = <1>;
-		size-cells = <0>;
-		reg = <0x36>;
-		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-		assigned-clock-rates = <25000000>;
-		clock-names = "xclk";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio84_default>;
-		reset-gpio = <&portc 20 GPIO_ACTIVE_HIGH>;
+	imx219_4: imx219@10 {
+			compatible = "sony,imx219";
+			status = "okay";
+			address-cells = <1>;
+			size-cells = <0>;
+			reg = <0x10>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			assigned-clock-rates = <24000000>;
+			clock-names = "xvclk";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio83_default>;
+			reset-gpio = <&portc 19 GPIO_ACTIVE_HIGH>;
 
-		port {
-			ov5647_out4: endpoint {
-				remote-endpoint = <&mipidphy4_in_ucam0>;
-				data-lanes = <1 2>;
-				link-frequencies = /bits/ 64 <109250000>;
+			port {
+				imx219_out4: endpoint {
+					remote-endpoint = <&mipidphy4_in_ucam0>;
+					data-lanes = <1 2 3 4>;
+					link-frequencies = /bits/ 64 <364000000>;
+				};
 			};
 		};
-	};
 };
 
 &csi2_dphy_hw0 {
-	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2 3 4>;
+	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 
@@ -221,7 +221,7 @@
 			#size-cells = <0>;
 
 			mipidphy0_in_ucam0: endpoint {
-				remote-endpoint = <&ov5647_out0>;
+				remote-endpoint = <&imx219_out0>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -234,13 +234,12 @@
 				remote-endpoint = <&mipi_csi2_input>;
 			};
 		};
-
 	};
 };
 
 &csi2_dphy_hw2 {
-	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2 3 4>;
+	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy2 {
@@ -256,7 +255,7 @@
 
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&ov5647_out2>;
+				remote-endpoint = <&imx219_out2>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -275,12 +274,12 @@
 };
 
 &csi2_dphy_hw4 {
-	lanes = <1 2>;
-	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
-	status = "okay";
+	lanes = <1 2 3 4>;
+	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "disabled";
 };
 &csi2_dphy4 {
-	status = "okay";
+	status = "disabled";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -292,8 +291,8 @@
 
 			mipidphy4_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&ov5647_out4>;
-				data-lanes = <1 2>;
+				remote-endpoint = <&imx219_out4>;
+				data-lanes = <1 2 3 4>;
 			};
 		};
 
@@ -312,7 +311,7 @@
 
 &mipi_csi2_0 {
 	status = "okay";
-	num_lanes = <2>;
+	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	ports {
 		#address-cells = <1>;
@@ -349,7 +348,7 @@
 };
 
 &mipi_csi2_2 {
-	num_lanes = <2>;
+	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
 	ports {
@@ -379,9 +378,9 @@
 };
 
 &mipi_csi2_4 {
-	num_lanes = <2>;
+	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	status = "okay";
+	status = "disabled";
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -448,12 +447,12 @@
 
 &dvp2axi_mipi_lvds3 {
 	dvp2axi_id = <3>;
-	status = "okay";
+	status = "disabled";
 };
 
 &dvp2axi_mipi_lvds4 {
 	dvp2axi_id = <4>;
-	status = "okay";
+	status = "disabled";
 	port@0 {
 		axi2dvp_mipi2_in4: endpoint@0 {
 			remote-endpoint = <&mipi_csi2_4_output0>;
@@ -463,7 +462,7 @@
 
 &dvp2axi_mipi_lvds5 {
 	dvp2axi_id = <5>;
-	status = "okay";
+	status = "disabled";
 };
 
 &isp_0 {

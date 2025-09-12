@@ -1039,28 +1039,6 @@
 &pinctrl {
 	status = "okay";
 
-	pinctrl_gpio12_default: gpio12-default{
-		mux {
-			groups = "gpio12_group";
-			function = "gpio12_func";
-		};
-		conf {
-			groups = "gpio12_group";
-			bias-pull-down = <1>;
-		};
-	};
-
-	pinctrl_gpio27_default: gpio27-default{
-		mux {
-			groups = "gpio27_group";
-			function = "gpio27_func";
-		};
-		conf {
-			groups = "gpio27_group";
-			bias-pull-down = <1>;
-		};
-	};
-
 	pinctrl_gpio58_default: gpio58-default {
 		mux {
 			groups = "gpio58_group";
@@ -1135,16 +1113,18 @@
 &gpio0 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio12_default
-	&pinctrl_gpio27_default
-	&pinctrl_gpio58_default
+	pinctrl-0 = <&pinctrl_gpio58_default
 	&pinctrl_gpio59_default
 	&pinctrl_gpio60_default
 	&pinctrl_gpio61_default>;
 };
 
 &dev_llc_d0{
-	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
+};
+
+&npu_opp_table {
+	/delete-node/ opp@1188000000;
+	/delete-node/ opp@1500000000;
 };

@@ -7,7 +7,6 @@
 		id = <0>;
 		status = "okay";
 		dma-noncoherent;
-
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -17,7 +16,7 @@
 				#size-cells = <0>;
 				reg = <0>;
 				vvcam_isp_input_port: endpoint@0 {
-					remote-endpoint = <&mipi2_csi2_output1>;
+					remote-endpoint = <&mipi_csi2_output1>;
 				};
 			};
 
@@ -54,8 +53,8 @@
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
 		status = "okay";
-		dma-noncoherent;
 		#size-cells = <2>;
+		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 	};
@@ -64,8 +63,8 @@
 		compatible = "verisilicon,video";
 		id = <0>;
 		status = "okay";
-		dma-noncoherent;
 		#size-cells = <2>;
+		dma-noncoherent;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 
@@ -104,35 +103,6 @@
 	};
 };
 
-&dvp2axi {
-	status = "okay";
-};
-
-&dvp2axi_mipi_lvds0 {
-	status = "okay";
-	port@0 {
-		axi2dvp_mipi2_in0: endpoint@0 {
-			remote-endpoint = <&mipi2_csi2_output0>;
-		};
-	};
-};
-
-&dvp2axi_mipi_lvds1 {
-	status = "okay";
-	dvp2axi_id = <1>;
-};
-
-&dvp2axi_mipi_lvds2 {
-	status = "okay";
-	dvp2axi_id = <2>;
-
-	port@0 {
-		axi2dvp_mipi2_in2: endpoint@0 {
-			remote-endpoint = <&mipi_csi2_2_output0>;
-		};
-	};
-};
-
 &mipi_csi2_0 {
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
@@ -146,7 +116,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipi2_csi2_input: endpoint@0 {
+			mipi0_csi2_input: endpoint@0 {
 				remote-endpoint = <&csidphy0_out>;
 			};
 		};
@@ -156,7 +126,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipi2_csi2_output0: endpoint@1 {
+			mipi_csi2_output0: endpoint@1 {
 				remote-endpoint = <&axi2dvp_mipi2_in0>;
 			};
 		};
@@ -165,7 +135,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipi2_csi2_output1: endpoint@2 {
+			mipi_csi2_output1: endpoint@2 {
 				remote-endpoint = <&vvcam_isp_input_port>;
 			};
 		};
@@ -202,6 +172,36 @@
 	};
 };
 
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
+	dvp2axi_id = <0>;
+	port@0 {
+		axi2dvp_mipi2_in0: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_output0>;
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds1 {
+	status = "disabled";
+	dvp2axi_id = <1>;
+};
+
+&dvp2axi_mipi_lvds2 {
+	status = "disabled";
+	dvp2axi_id = <2>;
+	port@0 {
+		axi2dvp_mipi2_in2: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_2_output0>;
+		};
+	};
+};
+
 &csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
@@ -219,10 +219,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipidphy0_in_ucam0: endpoint@1 {
-				reg = <1>;
-				remote-endpoint = <&imx219_out0>;
-				data-lanes = <1 2>;
+			mipidphy0_in_ucam0: endpoint@0 {
+				remote-endpoint = <&camera0_out0>;
 			};
 		};
 
@@ -231,9 +229,8 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			csidphy0_out: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&mipi2_csi2_input>;
+			csidphy0_out: endpoint@1 {
+				remote-endpoint = <&mipi0_csi2_input>;
 			};
 		};
 	};
@@ -257,9 +254,8 @@
 			#size-cells = <0>;
 
 			mipidphy2_in_ucam0: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&imx219_out2>;
-				data-lanes = <1 2>;
+				remote-endpoint = <&camera1_out0>;
+				data-lanes = <1 2 3 4>;
 			};
 		};
 
@@ -269,7 +265,6 @@
 			#size-cells = <0>;
 
 			csidphy2_out: endpoint@1 {
-				reg = <1>;
 				remote-endpoint = <&mipi_csi2_2_input>;
 			};
 		};
@@ -277,23 +272,24 @@
 };
 
 &d0_i2c3 {
+	/* mipi csi0/csi1 */
 	status = "okay";
-	/* i2c-sda-hold-time-ns = <1000>; */
-	/* clock-frequency = <0x186a0>; */
-	camera_imx219: camera-imx219@10 {
-		status = "okay";
+	camera0: camera0@10 {
 		compatible = "sony,imx219";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
 		reg = <0x10>;
-
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
-
-		reset_gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio72_default>;
+		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
 
 		port {
-			imx219_out0: endpoint {
+			camera0_out0: endpoint {
 				remote-endpoint = <&mipidphy0_in_ucam0>;
 				data-lanes = <1 2 3 4>;
 				link-frequencies = /bits/ 64 <364000000>;
@@ -302,24 +298,25 @@
 	};
 };
 
-&d0_i2c4 {
+&d0_i2c2 {
+	/* mipi csi2/csi3 */
 	status = "okay";
-	/* d0 csi2-3 */
-
-	camera_imx219_1: camera-imx219-1@10 {
-		status = "okay";
+	camera1: camera1@10 {
 		compatible = "sony,imx219";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
 		reg = <0x10>;
-
 		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
-
-		reset_gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio78_default>;
+		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
 
 		port {
-			imx219_out2: endpoint {
+			camera1_out0: endpoint {
 				remote-endpoint = <&mipidphy2_in_ucam0>;
 				data-lanes = <1 2 3 4>;
 				link-frequencies = /bits/ 64 <364000000>;
