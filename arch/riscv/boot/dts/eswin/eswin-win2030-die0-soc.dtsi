@@ -373,7 +373,7 @@
 			snps,priority = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
 			snps,data-width = <3>;
 			snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
-			snps,axi-max-burst-len = <32>;
+			snps,axi-max-burst-len = <64>;
 			snps,max-msize = <64>;
 			#size-cells = <2>;
 			#address-cells = <2>;
@@ -881,7 +881,6 @@
 		bootspi: spi@51800000 {
 			compatible = "eswin,bootspi";
 			reg = <0x0 0x51800000 0x0 0x8000>,
-				<0x0 0x51828000 0x0 0x8000>,
 				<0x0 0x5c000000 0x0 0x8000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -890,10 +889,13 @@
 			clock-names = "cfg_clk", "clk";
 			resets = <&d0_reset BOOTSPI_RST_CTRL SW_BOOTSPI_RSTN>;
 			reset-names = "rst";
-			spi-max-frequency = <4800000>;
+			dma-names = "rx", "tx";
+			dmas = <&d0_aon_dmac 12 40 0xff>, <&d0_aon_dmac 13 40 0xff>;
+			spi-max-frequency = <30000000>;
 			reg-io-width = <4>;
 			numa-node-id = <0>;
 			status = "disabled";
+			dma-noncoherent;
 		};
 		sdhci_emmc: mmc@50450000 {
 			compatible = "eswin,emmc-sdhci-5.1";

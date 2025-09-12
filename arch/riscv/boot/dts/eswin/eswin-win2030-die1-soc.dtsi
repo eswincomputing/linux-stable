@@ -343,7 +343,7 @@
 			snps,priority = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
 			snps,data-width = <3>;
 			snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
-			snps,axi-max-burst-len = <32>;
+			snps,axi-max-burst-len = <64>;
 			snps,max-msize = <64>;
 			#size-cells = <2>;
 			#address-cells = <2>;
@@ -764,15 +764,6 @@
 				interrupts = <105>;
 				interrupt-parent = <&plic1>;
 				status = "disabled";
-				eswin,i2c_dma = <&d1_aon_dmac>;
-				dma-names = "rx", "tx";
-				/*
-				* dmas : DMA specifiers
-				* &d1_aon_dmac : dma controller
-				* 24 : i2c0  aon dma handshake number
-				* 6 : i2c0 dma controller sel bit in sys_son dma_cfg reg(offset 0x370)
-				*/
-				dmas = <&d1_aon_dmac 10 24 6>, <&d1_aon_dmac 11 25 6>;
 				numa-node-id = <1>;
 		};
 		d1_i2c1: i2c@70960000 {
@@ -931,7 +922,7 @@
 				* 41 : i2c0 aon dma handshake number
 				* 0xff : no need to select to dma controller
 				*/
-				dmas = <&d1_aon_dmac 12 41 0xff>, <&d1_aon_dmac 13 42 0xff>;
+				dmas = <&d1_aon_dmac 10 41 0xff>, <&d1_aon_dmac 11 42 0xff>;
 				numa-node-id = <1>;
 		};
 		d1_aon_i2c1: i2c@71838000 {
@@ -1749,7 +1740,6 @@
 		d1_bootspi: spi@71800000 {
 			compatible = "eswin,bootspi";
 			reg = <0x0 0x71800000 0x0 0x8000>,
-				<0x0 0x71828000 0x0 0x8000>,
 				<0x0 0x7c000000 0x0 0x8000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1758,10 +1748,13 @@
 			clock-names = "cfg_clk", "clk";
 			resets = <&d1_reset BOOTSPI_RST_CTRL SW_BOOTSPI_RSTN>;
 			reset-names = "rst";
-			spi-max-frequency = <4800000>;
+			dma-names = "rx", "tx";
+			dmas = <&d1_aon_dmac 12 40 0xff>, <&d1_aon_dmac 13 40 0xff>;
+			spi-max-frequency = <30000000>;
 			reg-io-width = <4>;
-			status = "disabled";
 			numa-node-id = <1>;
+			status = "disabled";
+			dma-noncoherent;
 		};
 
 		d1_video_output: display-subsystem@1 {
