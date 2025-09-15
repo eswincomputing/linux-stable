@@ -681,17 +681,12 @@ static int csi2_dphy_hw_stream_off(struct csi2_dphy *dphy,
 				   struct v4l2_subdev *sd)
 {
 	struct csi2_dphy_hw *hw = dphy->dphy_hw;
-
-	if (atomic_dec_return(&hw->stream_cnt))
-		return 0;
-
-	mutex_lock(&hw->mutex);
-	//dphy off and reset by csi2
-	writel(0, hw->csi_base_addr + 0x44); //phy reset
-	writel(0, hw->csi_base_addr + 0x40); //phy shutdownz
-
-	mutex_unlock(&hw->mutex);
-
+	if(atomic_dec_return(&hw->stream_cnt) < 0) {
+		atomic_set(&hw->stream_cnt, 0);
+		dev_warn(hw->dev, "stream off called more than stream on\n");
+		return -EINVAL;
+	}
+	dev_dbg(hw->dev, "stream off\n");
 	return 0;
 }
 

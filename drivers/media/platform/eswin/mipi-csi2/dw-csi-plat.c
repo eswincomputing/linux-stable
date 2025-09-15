@@ -307,6 +307,8 @@ dw_mipi_csi_s_power(struct v4l2_subdev *sd, int on)
 #ifdef DWC_PHY_USING
 		phy_power_off(dev->phy);
 #endif
+		writel(0, dev->base_address + 0x44); //phy reset
+		writel(0, dev->base_address + 0x40); //phy shutdownz
 		dw_mipi_csi_mask_irq_power_off(dev);
 	}
 	return 0;
