@@ -541,12 +541,25 @@ static int eswin_fan_control_probe(struct platform_device *pdev)
 {
 	struct eswin_fan_control_data *ctl = NULL;
 	const struct of_device_id *id = NULL;
-	const char *name = "eswin_fan_control";
+	const char *name = NULL;
 	struct pwm_state state;
 	struct pwm_args pwm_args;
 	struct fwnode_handle *fwnode = NULL;
 	int ret = -1;
 	int idx = 0;
+	u32 numa_id = 0;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "numa-node-id", &numa_id);
+	if(ret) {
+		dev_warn(&pdev->dev, "%s():line%d could not get numa-node-id\n",
+			__func__, __LINE__);
+		numa_id = 0;
+	}
+	if (numa_id == 0) {
+		name = "eswin_fan_control";
+	} else {
+		name = "d1_eswin_fan_control";
+	}
 
 	id = of_match_node(eswin_fan_control_of_match, pdev->dev.of_node);
 	if (!id) {
