@@ -485,46 +485,6 @@
 	status = "okay";
 };
 
-&video_output {
-	status = "okay";
-};
-
-&d1_video_output {
-	status = "okay";
-};
-
-&dc {
-	status = "okay";
-	dc_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		dc_out_dpi1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&vd_input>;
-		};
-		dc_out_hdmi: endpoint@2 {
-			reg = <2>;
-			remote-endpoint = <&hdmi_in_dc>;
-		};
-	};
-};
-
-&d1_dc {
-	status = "okay";
-	d1_dc_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		d1_dc_out_dpi1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&d1_vd_input>;
-		};
-		d1_dc_out_hdmi: endpoint@2 {
-			reg = <2>;
-			remote-endpoint = <&d1_hdmi_in_dc>;
-		};
-	};
-};
-
 &dc_test {
 	status = "disabled";
 };
@@ -550,75 +510,12 @@
 	};
 };
 
-&dw_hdmi {
-	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint>;
-			};
-		};
-	};
-};
-&d1_dw_hdmi {
-	status = "okay";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			d1_hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&d1_dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			d1_hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d1_i2s0_endpoint>;
-			};
-		};
-	};
-};
-
 &dw_hdmi_hdcp2 {
 	status = "okay";
 };
+
 &d1_dw_hdmi_hdcp2 {
 	status = "disabled";
-};
-
-
-&d0_i2s0 {
-	status = "okay";
-	numa-node-id = <0>;
-	d0_i2s0_port: port {
-		d0_i2s0_endpoint: endpoint {
-			remote-endpoint = <&hdmi_in_i2s>;
-			dai-format = "i2s";
-		};
-	};
-};
-
-&d1_i2s0 {
-	status = "okay";
-	numa-node-id = <1>;
-	d1_i2s0_port: port {
-		d1_i2s0_endpoint: endpoint {
-			remote-endpoint = <&d1_hdmi_in_i2s>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d0_i2s1 {
@@ -1294,3 +1191,15 @@
 &d1_d2d {
 	status = "disabled";
 };
+
+&SOC {
+	rasp_panel: rasp_panel {
+		compatible = "raspberrypi,7inch-dsi";
+		status = "disabled";
+	};
+	d1_rasp_panel: rasp_panel {
+		compatible = "raspberrypi,7inch-dsi";
+		status = "disabled";
+	};
+};
+

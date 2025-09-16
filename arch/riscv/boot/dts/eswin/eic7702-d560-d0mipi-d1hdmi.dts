@@ -150,6 +150,7 @@
 
 &video_output {
 	status = "okay";
+	power-supply = <&reg_display>;
 };
 
 &d1_video_output {
@@ -161,6 +162,10 @@
 	dc_out: port {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		dc_out_dsi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&dsi_input>;
+		};
 		dc_out_dpi1: endpoint@1 {
 			reg = <1>;
 			remote-endpoint = <&vd_input>;
@@ -209,7 +214,6 @@
 	};
 };
 
-
 &d1_dw_hdmi {
 	status = "okay";
 	ports {
@@ -251,6 +255,68 @@
 			dai-format = "i2s";
 		};
 	};
+};
+
+&dsi_controller {
+	status = "okay";
+	dependencies = <&reg_display>;
+	dependencies = <&rasp_panel>;
+	dependencies = <&toshiba_bridge>;
+	dsi-power-gpio = <&portc 7 GPIO_ACTIVE_HIGH>;
+	dsi-led-gpio = <&portc 13 GPIO_ACTIVE_HIGH>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			dsi_input: endpoint {
+				remote-endpoint = <&dc_out_dsi>;
+			};
+		};
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&bridge_in>;
+			};
+		};
+	};
+	toshiba_bridge: bridge@0 {
+		reg = <0>;
+		compatible = "toshiba,tc358762";
+		status = "okay";
+		vddc-supply = <&reg_display>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				bridge_in: endpoint {
+					remote-endpoint = <&mipi_dsi_out>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				bridge_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+};
+
+&rasp_panel {
+    status = "okay";
+    backlight = <&reg_display>;
+    power-supply = <&reg_display>;
+    port {
+        panel_in: endpoint {
+        remote-endpoint = <&bridge_out>;
+        };
+    };
 };
 
 &d0_i2c0 {
@@ -331,6 +397,13 @@
 &d0_i2c2 {
 	/* d0 dsi*/
 	status = "ok";
+	reg_display: regulator@45 {
+		status = "okay";
+		compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
 };
 
 &d1_i2c2 {

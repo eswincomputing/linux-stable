@@ -15,7 +15,13 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7700-sbc-a1-mipi.dtb\
 							eic7700-osm.dtb \
 							eic7702-d560.dtb \
+							eic7702-d560-mipi.dtb \
+							eic7702-d560-d0mipi-d1hdmi.dtb \
+							eic7702-d560-d0hdmi-d1mipi.dtb \
 							eic7702-d560a.dtb \
+							eic7702-d560a-mipi.dtb \
+							eic7702-d560a-d0mipi-d1hdmi.dtb \
+							eic7702-d560a-d0hdmi-d1mipi.dtb \
 							eic7702-d560-interleave.dtb \
 							vpu7702-pcie.dtb \
 							vpu7702-evb.dtb	\
