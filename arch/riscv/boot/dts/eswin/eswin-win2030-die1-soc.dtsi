@@ -199,6 +199,7 @@
 				#clock-cells = <1>;
 				numa-node-id = <1>;
 				cpu-default-frequency = <CLK_FREQ_1400M>;
+				operating-points-v2 = <&d1_cpu_opp_table>;
 			};
 		};
 

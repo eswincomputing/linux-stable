@@ -133,12 +133,13 @@ struct eswin_pll_clock {
 };
 
 enum voltage_level {
-	VOLTAGE_0_9V = 900, // Represents 0.9V in millivolts
-	VOLTAGE_0_8V = 800 // Represents 0.8V in millivolts
+	VOLTAGE_0_9V = 900000, // Represents 0.9V in microvolt‌
+	VOLTAGE_0_8V = 800000 // Represents 0.8V in microvolt‌
 };
 
 struct eswin_clk_pll {
 	struct clk_hw hw;
+	struct device *dev;
 	u32 id;
 	int numa_id;
 	void __iomem *ctrl_reg0;

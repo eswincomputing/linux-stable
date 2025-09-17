@@ -12,6 +12,8 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/clk.h>
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "clk_eic7700.h"
 #include "clk.h"
@@ -3715,6 +3717,13 @@ static int eswin_cpu_clk_init(struct platform_device *pdev)
 	int ret = 0;
 	int numa_id;
 	char name[128] = { 0 };
+
+	/* Add OPP table from device tree */
+	ret = devm_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		dev_err(dev, "Failed to add OPP table\n");
+		return ret;
+	}
 
 	ret = of_property_read_u32(np, "cpu-default-frequency", &default_freq);
 	if (ret) {

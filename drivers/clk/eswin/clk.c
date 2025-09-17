@@ -29,6 +29,8 @@
 #include <linux/delay.h>
 #include <linux/util_macros.h>
 #include <linux/gpio/consumer.h>
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "clk.h"
 
@@ -321,6 +323,8 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	char clk_cpu_pll_name[50] = { 0 };
 	enum voltage_level cpu_target_voltage = VOLTAGE_0_8V;
 	unsigned long max_rate = rate;
+	struct dev_pm_opp *opp;
+	unsigned long target_volt;
 
 	ret = eswin_calc_pll(&frac_val, &postdiv1_val, &fbdiv_val, &refdiv_val,
 			     (u64)rate, clk);
@@ -422,22 +426,14 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		 * If the board cpu voltage does not support boosting to 0.9V,
 		 * then the frequency cannot exceed 1.6GHz.
 		 */
-		switch (max_rate) {
-		case CLK_FREQ_1800M:
-		case CLK_FREQ_1700M:
-		case CLK_FREQ_1600M:
-		case CLK_FREQ_1500M:
-			cpu_target_voltage = VOLTAGE_0_9V;
-			break;
-		default:
-			cpu_target_voltage = VOLTAGE_0_8V;
-			/*
-			 * For boards that do not support voltage switching,
-			 * the voltage is maintained at 0.8V.
-			 * Therefore, this is also considered successful.
-			 */
-			break;
+		opp = devfreq_recommended_opp(clk->dev, &max_rate, 1);
+		if (IS_ERR(opp)) {
+			return PTR_ERR(opp);
 		}
+
+		target_volt = dev_pm_opp_get_voltage(opp);
+		dev_pm_opp_put(opp);
+		cpu_target_voltage = target_volt > VOLTAGE_0_8V ? VOLTAGE_0_9V:VOLTAGE_0_8V;
 
 		if (clk->cpu_current_voltage !=	cpu_target_voltage) {
 			ret = eswin_clk_set_cpu_voltage(clk->cpu_voltage_gpio,
@@ -767,6 +763,7 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 		init.num_parents = parent_name ? 1 : 0;
 		init.ops = &eswin_clk_pll_ops;
 
+		p_clk->dev = dev;
 		p_clk->id = clks[i].id;
 		p_clk->numa_id = data->numa_id;
 		p_clk->ctrl_reg0 = base + clks[i].ctrl_reg0;
