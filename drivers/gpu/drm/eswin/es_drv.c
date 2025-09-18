@@ -334,6 +334,9 @@ static int es_drm_bind(struct device *dev)
 
 	drm_fbdev_generic_setup(drm_dev, 32);
 
+	/* Disable VT switch for suspend/resume */
+	pm_set_vt_switch(0);
+
 	ret = of_property_read_u32(dev->of_node, "numa-node-id", &id);
 	if (ret) {
 		DRM_DEV_ERROR(dev, "Failed to read index property, ret = %d\n",
