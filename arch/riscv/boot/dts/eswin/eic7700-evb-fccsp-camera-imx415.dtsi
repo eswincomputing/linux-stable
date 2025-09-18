@@ -431,6 +431,7 @@
 &dvp2axi_mipi_lvds0 {
 	status = "okay";
 	dvp2axi_id = <0>;
+	eswin,dvp2axi-hdr-mode = <0>;
 	ports{
 		#address-cells = <1>;
         #size-cells = <0>;
@@ -447,12 +448,14 @@
 
 &dvp2axi_mipi_lvds1 {
 	dvp2axi_id = <1>;
+	eswin,dvp2axi-hdr-mode = <0>;
 	status = "okay";
 };
 
 &dvp2axi_mipi_lvds2 {
 	status = "okay";
 	dvp2axi_id = <2>;
+	eswin,dvp2axi-hdr-mode = <0>;
 	port@0 {
 		axi2dvp_mipi2_in2: endpoint@0 {
 			remote-endpoint = <&mipi_csi2_2_output0>;
@@ -462,11 +465,13 @@
 
 &dvp2axi_mipi_lvds3 {
 	dvp2axi_id = <3>;
+	eswin,dvp2axi-hdr-mode = <0>;
 	status = "okay";
 };
 
 &dvp2axi_mipi_lvds4 {
 	dvp2axi_id = <4>;
+	eswin,dvp2axi-hdr-mode = <0>;
 	status = "okay";
 	port@0 {
 		axi2dvp_mipi2_in4: endpoint@0 {
@@ -477,6 +482,7 @@
 
 &dvp2axi_mipi_lvds5 {
 	dvp2axi_id = <5>;
+	eswin,dvp2axi-hdr-mode = <0>;
 	status = "okay";
 };
 
