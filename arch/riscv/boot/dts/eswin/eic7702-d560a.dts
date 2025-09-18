@@ -35,9 +35,12 @@
 	/* emmc YXSCG6PE-AK */
 };
 
+&d0_i2c5 {
+	/delete-node/ tmp102@48;
+};
+
 &d0_aon_i2c1 {
 	/* temp sensor(gx112) & pmic(ES5340) */
-	/delete-node/ tmp102@48;
 	/delete-node/ tps549d22@10;
 
 	es5340@f {
