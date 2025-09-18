@@ -488,3 +488,16 @@ release_chan0:
 
 	return ret;
 }
+
+void esw_pcm_dma_dai_unregister(struct i2s_dev *chip)
+{
+	snd_soc_unregister_component_by_driver(chip->dev, chip->pcm_component.driver);
+
+	if (chip->chan[1]) {
+		dma_release_channel(chip->chan[1]);
+	}
+
+	if (chip->chan[0]) {
+		dma_release_channel(chip->chan[0]);
+	}
+}

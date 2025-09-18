@@ -705,8 +705,8 @@ static int i2s_suspend(struct snd_soc_component *component)
 	struct clk *clk = i2s_drvdata->mclk;
 
 	dev_dbg(i2s_drvdata->dev, "%s\n", __func__);
-	if(!pm_runtime_suspended(i2s_drvdata->dev)) {
-		dev_dbg(i2s_drvdata->dev, "disable clk\n");
+	if(!pm_runtime_status_suspended(i2s_drvdata->dev)) {
+		dev_dbg(i2s_drvdata->dev, "%s disable clk\n", __func__);
 		clk_disable(clk);
 	}
 
@@ -721,14 +721,17 @@ static int i2s_resume(struct snd_soc_component *component)
 	int stream;
 
 	dev_dbg(i2s_drvdata->dev, "%s\n", __func__);
-	if(!pm_runtime_suspended(i2s_drvdata->dev)) {
-		dev_dbg(i2s_drvdata->dev, "enable clk\n");
-		clk_enable(clk);
-		for_each_component_dais(component, dai) {
-			for_each_pcm_streams(stream)
-				if (snd_soc_dai_stream_active(dai, stream))
-					i2s_config(i2s_drvdata, stream);
-		}
+
+	clk_enable(clk);
+	for_each_component_dais(component, dai) {
+		for_each_pcm_streams(stream)
+			if (snd_soc_dai_stream_active(dai, stream))
+				i2s_config(i2s_drvdata, stream);
+	}
+
+	if(pm_runtime_status_suspended(i2s_drvdata->dev)) {
+		dev_dbg(i2s_drvdata->dev, "%s disable clk\n", __func__);
+		clk_disable(clk);
 	}
 
 	return 0;
@@ -1137,13 +1140,14 @@ static int i2s_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	pm_runtime_enable(&pdev->dev);
-
 	audio_proc_module_init();
 
-#ifdef CONFIG_PM
-	clk_disable(i2s_drvdata->mclk);
-#endif
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
+
 	return 0;
 err_probe:
 	clk_disable_unprepare(i2s_drvdata->mclk);
@@ -1171,6 +1175,8 @@ static int i2s_remove(struct platform_device *pdev)
 		kfree(i2s_drvdata->conv_buf[1]);
 	}
 
+	esw_pcm_dma_dai_unregister(i2s_drvdata);
+
 	return 0;
 }
 
@@ -1193,7 +1199,7 @@ static struct platform_driver i2s_driver = {
 	.driver		= {
 		.name	= "es-i2s",
 		.of_match_table = of_match_ptr(i2s_of_match),
-		.pm = &i2s_pm_ops,
+		.pm = pm_ptr(&i2s_pm_ops),
 	},
 };
 
