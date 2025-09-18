@@ -34,7 +34,7 @@
 #include <linux/delay.h>
 #include <linux/util_macros.h>
 
-#define PAC193X_MAX_CHAN_CNT 4
+#define PAC193X_MAX_CHAN_CNT 3
 
 #define PAC193X_REGISTERS 0x27
 #define PAC193X_VPOWERN_ACC_LEN 6
@@ -534,19 +534,15 @@ static const struct hwmon_channel_info *pac1934_info[] = {
 					   HWMON_I_INPUT | HWMON_I_AVERAGE,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE | HWMON_I_LABEL,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE | HWMON_I_LABEL,
-					   HWMON_I_INPUT | HWMON_I_AVERAGE | HWMON_I_LABEL,
 					   HWMON_I_INPUT | HWMON_I_AVERAGE | HWMON_I_LABEL),
 	HWMON_CHANNEL_INFO(curr,
-					   HWMON_C_INPUT | HWMON_C_AVERAGE | HWMON_C_LABEL,
 					   HWMON_C_INPUT | HWMON_C_AVERAGE | HWMON_C_LABEL,
 					   HWMON_C_INPUT | HWMON_C_AVERAGE | HWMON_C_LABEL,
 					   HWMON_C_INPUT | HWMON_C_AVERAGE | HWMON_C_LABEL),
 	HWMON_CHANNEL_INFO(power, HWMON_P_INPUT | HWMON_P_LABEL,
 					   HWMON_P_INPUT | HWMON_P_LABEL,
-					   HWMON_P_INPUT | HWMON_P_LABEL,
 					   HWMON_P_INPUT | HWMON_P_LABEL),
 	HWMON_CHANNEL_INFO(energy, HWMON_E_INPUT | HWMON_E_LABEL,
-					   HWMON_E_INPUT | HWMON_E_LABEL,
 					   HWMON_E_INPUT | HWMON_E_LABEL,
 					   HWMON_E_INPUT | HWMON_E_LABEL),
 	NULL};
@@ -790,35 +786,35 @@ static void update_reg_data(struct work_struct *work)
 		if (0x1 == ((act_val >> num) & 0x1))
 		{
 			/* Vsource=32*Vbus/2^15 = Vbus/2^10=Vbus/1024  */
-			data->vbus_denominator[3 - num] = 1024;
+			data->vbus_denominator[PAC193X_MAX_CHAN_CNT - 1 - num] = 1024;
 			is_neg = true;
 		}
 		else
 		{
 			/* Vsource=32*Vbus/2^16 = Vbus/2^10=Vbus/1024  */
-			data->vbus_denominator[3 - num] = 2048;
+			data->vbus_denominator[PAC193X_MAX_CHAN_CNT - 1 - num] = 2048;
 		}
 
 		if (0x1 == ((act_val >> (num + 4)) & 0x1))
 		{
 			/* 2^15  */
-			data->vsense_denominator[3 - num] = 32768;
+			data->vsense_denominator[PAC193X_MAX_CHAN_CNT - 1 - num] = 32768;
 			is_neg = true;
 		}
 		else
 		{
 			/*2^16 */
-			data->vsense_denominator[3 - num] = 65536;
+			data->vsense_denominator[PAC193X_MAX_CHAN_CNT - 1 - num] = 65536;
 		}
 		if (true == is_neg)
 		{
 			/* 2^28  */
-			data->vpower_denominator[3 - num] = 134217728;
+			data->vpower_denominator[PAC193X_MAX_CHAN_CNT - 1 - num] = 134217728;
 		}
 		else
 		{
 			/* 2^29  */
-			data->vpower_denominator[3 - num] = 268435456;
+			data->vpower_denominator[PAC193X_MAX_CHAN_CNT - 1 - num] = 268435456;
 		}
 	}
 
@@ -860,7 +856,7 @@ static int pac193x_probe(struct i2c_client *client)
 	struct device *hwmon_dev;
 	int ret = 0;
 	int num = 0;
-	const char *output_names[4];
+	const char *output_names[3];
 	struct device_node *np;
 	enum PAC193X_CHAN_INDEX chan_index =
 		(enum PAC193X_CHAN_INDEX)of_device_get_match_data(&client->dev);
@@ -921,20 +917,18 @@ static int pac193x_probe(struct i2c_client *client)
 	}
 
 	dev_info(dev,
-			 "update_time:%d,energy_acc_count:%d,resistances:%d,%d,%d,%dmOhm\n",
+			 "update_time:%d,energy_acc_count:%d,resistances:%d, %d, %d mOhm\n",
 			 data->update_time_ms, data->energy_acc_count,
-			 data->shunt_resistors[0], data->shunt_resistors[1],
-			 data->shunt_resistors[2], data->shunt_resistors[3]);
+			 data->shunt_resistors[0], data->shunt_resistors[1], data->shunt_resistors[2]);
 
 	np = of_node_get(np);
 	if (!np)
 		return -EINVAL;
-	of_property_read_string_array(np, "eswin,chan_label", output_names, 4);
+	of_property_read_string_array(np, "eswin,chan_label", output_names, PAC193X_MAX_CHAN_CNT);
 
 	strcpy(data->pac193x_label[0], output_names[0]);
 	strcpy(data->pac193x_label[1], output_names[1]);
 	strcpy(data->pac193x_label[2], output_names[2]);
-	strcpy(data->pac193x_label[3], output_names[3]);
 
 	mutex_init(&data->config_lock);
 	data->client = client;
