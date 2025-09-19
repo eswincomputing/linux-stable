@@ -232,13 +232,33 @@
 };
 
 &d0_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
+	opp-700000000 {
+		opp-microvolt = <900000>;
+	};
+	opp-800000000 {
+		opp-microvolt = <900000>;
+	};
+	opp-900000000 {
+		opp-microvolt = <900000>;
+	};
+	opp-1400000000 {
+		opp-microvolt = <900000>;
+	};
 };
 
 &d1_cpu_opp_table {
-	/delete-node/ opp-1200000000;
-	/delete-node/ opp-1300000000;
+	opp-700000000 {
+		opp-microvolt = <900000>;
+	};
+	opp-800000000 {
+		opp-microvolt = <900000>;
+	};
+	opp-900000000 {
+		opp-microvolt = <900000>;
+	};
+	opp-1400000000 {
+		opp-microvolt = <900000>;
+	};
 };
 
 &d0_clock {
