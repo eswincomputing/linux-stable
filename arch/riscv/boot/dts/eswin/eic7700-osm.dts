@@ -499,6 +499,7 @@
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
 	eswin,phyaddr = <1>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x64207820 0x20202020>;
 	dly-param-100m = <0x20202020 0x6E206E20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -512,6 +513,7 @@
 	rst-gpios = <&porta 16 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;

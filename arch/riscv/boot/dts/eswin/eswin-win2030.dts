@@ -446,10 +446,12 @@
 
 &d0_gmac0 {
 	status = "disabled";
+	phy-mode = "rgmii-txid";
 };
 
 &d0_gmac1 {
 	status = "disabled";
+	phy-mode = "rgmii-txid";
 };
 
 

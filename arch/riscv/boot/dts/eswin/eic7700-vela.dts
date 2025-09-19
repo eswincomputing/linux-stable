@@ -38,6 +38,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio80_default>;
 	rst-gpios = <&portc 16 GPIO_ACTIVE_LOW>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x23232323 0xa0209023 0x20202020>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
@@ -47,6 +48,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio81_default>;
 	rst-gpios = <&portc 17 GPIO_ACTIVE_LOW>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x00000000 0xe002e000 0x04040404>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;

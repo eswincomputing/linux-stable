@@ -45,12 +45,14 @@
 };
 
 &d0_gmac0 {
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x10101010 0x1D003410 0x0>;
 	dly-param-100m = <0x10101010 0x64104610 0x10101010>;
 	dly-param-10m = <0 0 0>;
 };
 
 &d0_gmac1 {
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x10101010 0x14102810 0x10101010>;
 	dly-param-100m = <0x10101010 0x3C102810 0x10101010>;
 	dly-param-10m = <0 0 0>;
