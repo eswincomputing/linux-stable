@@ -1067,8 +1067,8 @@ int __maybe_unused npu_resume(struct device *dev)
 
 	if(pm_runtime_status_suspended(dev)) {
 		dev_dbg(dev, "npu is runtime suspended\n");
-		npu_disable_clock(ndev);
 		npu_tbu_power(dev, false);
+		npu_disable_clock(ndev);
 	}
 
 	ndev->is_suspend = false;

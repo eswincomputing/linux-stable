@@ -96,11 +96,6 @@ struct user_model {
 	void *engine;  //win_engine.
 	void *nvdla_dev;
 	struct dma_buf *dma_buf_address_list;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
-	struct iosys_map dma_buf_map_address_list;
-#else
-	struct dma_buf_map dma_buf_map_address_list;
-#endif
 	hetero_ipc_frame_t e31_frame_info;
 	/* frame counter: Only commit == done could release model */
 	s64 frame_commit_cnt;
@@ -238,8 +233,7 @@ struct host_frame_desc {
 	wait_queue_head_t frame_done;
 	struct host_frame_desc *next;
 	u8 *is_event_source_done;
-	struct dsp_dma_buf *dsp_io_dmabuf[DSP_MAX_CORE_NUM]
-					 [DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+	struct dsp_dma_buf *dsp_io_dmabuf[DSP_MAX_CORE_NUM][DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
 
 	struct dla_buffer_object *input_bobj[ES_TASK_MAX_FD_CNT];
 	struct dla_buffer_object *output_bobj[ES_TASK_MAX_FD_CNT];
@@ -276,10 +270,10 @@ typedef struct _conv_tensor_t {
 typedef struct _dsp_tensor_t {
 	u32 have_unfold;
 
-	u32 src_is_io_tensor[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-	u32 dst_is_io_tensor[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-	u64 src_base_addr[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-	u64 dst_base_addr[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+	u32 src_is_io_tensor[DSP_KERNEL_MAX_IN_TENSOR_NUM];
+	u32 dst_is_io_tensor[DSP_KERNEL_MAX_OUT_TENSOR_NUM];
+	u64 src_base_addr[DSP_KERNEL_MAX_IN_TENSOR_NUM];
+	u64 dst_base_addr[DSP_KERNEL_MAX_OUT_TENSOR_NUM];
 	u64 handle;
 	u32 flat1_size;
 	u32 flat1_addr_offset;
@@ -370,8 +364,7 @@ struct win_executor {
 	struct xarray dsp_ddr_xrray[DSP_MAX_CORE_NUM];
 	struct mutex xrray_lock[DSP_MAX_CORE_NUM];
 
-	struct io_mem_info dsp_io[DSP_MAX_CORE_NUM]
-				 [DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+	struct io_mem_info dsp_io[DSP_MAX_CORE_NUM][DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
 
 	int dsp_iobuf_cnt[DSP_MAX_CORE_NUM];
 	void *dsp_iobuf_virt[DSP_MAX_CORE_NUM];

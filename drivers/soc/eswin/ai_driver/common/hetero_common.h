@@ -245,8 +245,8 @@ typedef struct _op_current {
 } __attribute__((aligned(sizeof(u64)))) op_current_t;
 
 static const u8 invalid_tensor_idx = 0xFF;
-#define MAX_INPUTS 8
-#define MAX_OUTPUTS 8
+#define MAX_INPUTS 16
+#define MAX_OUTPUTS 16
 #define MAX_NUM_INPUT_OUTPUT (MAX_INPUTS + MAX_OUTPUTS)
 
 /**

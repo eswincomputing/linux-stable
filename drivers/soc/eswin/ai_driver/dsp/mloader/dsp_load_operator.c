@@ -41,6 +41,7 @@ static int get_file_size(const char *file_path)
 		return ks.size;
 	} else {
 		dsp_err("invalid file:%s\n", file_path);
+		return -EEXIST;
 	}
 	return 0;
 }

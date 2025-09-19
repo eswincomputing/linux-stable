@@ -164,6 +164,8 @@ int read_input_address(struct win_executor *executor,
 {
 	int32_t ret = ERR(INVALID_INPUT);
 
+	dla_debug("%s, %d, type=%d, index%d, offset:%d, size:%d.\n", __func__, __LINE__,
+			  data->type, data->address, data->offset, data->size);
 	/**
 	 * If memory type is HW then no address required
 	 */
