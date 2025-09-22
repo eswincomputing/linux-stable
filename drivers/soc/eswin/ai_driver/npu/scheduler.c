@@ -53,8 +53,6 @@ static inline void pick_next_frame(struct win_engine *engine,
 		dla_debug("%s %d no more frame\n", __func__, __LINE__);
 		return;
 	}
-	list_del(&((*f)->sched_node));
-	return;
 }
 
 static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
@@ -174,9 +172,14 @@ void npu_frame_schedule(struct win_engine *engine)
 				queue_work(system_highpri_wq,
 					   &engine->complete_work);
 			}
-
+			list_del(&f->sched_node);
 		} else {
 			engine->tiktok_frame[engine->tiktok] = f;
+			if (ndev->is_suspend == true) {
+				atomic_set(&engine->is_sending, 0);
+				engine->tiktok_frame[engine->tiktok] = NULL;
+				break;
+			}
 			f->tiktok = engine->tiktok;
 			f->is_event_source_done =
 				engine->is_event_source_done[engine->tiktok];
@@ -193,7 +196,7 @@ void npu_frame_schedule(struct win_engine *engine)
 			add_timer(&engine->timer[f->tiktok]);
 			send_frame_to_npu(f, f->tiktok);
 			preempt_enable();
-
+			list_del(&f->sched_node);
 			dla_debug("%s, %d, done.\n", __func__, __LINE__);
 		}
 		atomic_set(&engine->is_sending, 0);
@@ -302,6 +305,9 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat)
 	}
 	spin_lock_irqsave(&engine->executor_lock, flags);
 	engine->tiktok_frame[f->tiktok] = NULL;
+	if (engine->tiktok_frame[(f->tiktok + 1) % NUM_TIKTOK] == NULL) {
+		wake_up_interruptible(&ndev->event_wq);
+	}
 	unset_current(engine, executor, f->tiktok);
 	spin_unlock_irqrestore(&engine->executor_lock, flags);
 	npu_frame_done_process(f);

@@ -959,6 +959,9 @@ int __maybe_unused npu_suspend(struct device *dev)
 	int is_enable = 0;
 	int ret = 0;
 	nvdla_dev->is_suspend = true;
+	wait_event_interruptible_timeout(nvdla_dev->event_wq,
+		((engine->tiktok_frame[0] == NULL) && (engine->tiktok_frame[1] == NULL)),
+		msecs_to_jiffies(200));
 
 	dev_dbg(dev, "%s\n", __func__);
 	ret = npu_hardware_reset(NULL);
