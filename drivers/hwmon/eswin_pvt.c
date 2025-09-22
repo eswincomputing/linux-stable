@@ -84,7 +84,7 @@ static const struct pvt_sensor_info pvt_info_ddr[] = {
 	PVT_SENSOR_INFO(3, "DDR Core Standard-Vt", hwmon_in, SVT, STHRES),
 };
 #endif
-
+static LIST_HEAD(eswin_pvt_dev);
 /*
  * The original translation formulae of the temperature (in degrees of Celsius)
  * to PVT data and vice-versa are following:
@@ -301,6 +301,43 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 
 	return 0;
 }
+
+int eswin_get_ddr_temp(const char *name, int numa_id, long *val)
+{
+	struct pvt_hwmon *pvt = NULL;
+	int ret = -EINVAL;
+
+	list_for_each_entry(pvt, &eswin_pvt_dev, entry) {
+		if (pvt->sensor_info && strstr(pvt->sensor_info->label, name) && (pvt->nid == numa_id)) {
+			ret = eswin_pvt_read_data(pvt, PVT_TEMP, val);
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(eswin_get_ddr_temp);
+
+static int eswin_get_cpu_onedie_temp(const char *name, int numa_id, long *val)
+{
+	struct pvt_hwmon *pvt = NULL;
+	int ret = -EINVAL;
+
+	list_for_each_entry(pvt, &eswin_pvt_dev, entry) {
+		if (pvt->sensor_info && strstr(pvt->sensor_info->label, name) && (pvt->nid == numa_id)) {
+			ret = eswin_pvt_read_data(pvt, PVT_TEMP, val);
+		}
+	}
+	return ret;
+}
+
+int eswin_get_cpu_temp(const char *name, int numa_id, long *val)
+{
+#ifdef CONFIG_ARCH_ESWIN_EIC7702_SOC
+	return eswin_get_cpu_7702_temp(name, numa_id, val);
+#else
+	return eswin_get_cpu_onedie_temp(name, numa_id, val);
+#endif
+}
+EXPORT_SYMBOL_GPL(eswin_get_cpu_temp);
 
 static int eswin_pvt_read_limit(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 			  bool is_low, long *val)
@@ -673,7 +710,9 @@ static struct pvt_hwmon *eswin_pvt_create_data(struct platform_device *pdev)
 	pvt->dev = dev;
 	pvt->sensor = PVT_SENSOR_FIRST;
 	mutex_init(&pvt->iface_mtx);
+	INIT_LIST_HEAD(&pvt->entry);
 
+	list_add(&pvt->entry, &eswin_pvt_dev);
 	for (idx = 0; idx < PVT_SENSORS_NUM; ++idx)
 		init_completion(&pvt->cache[idx].conversion);
 
@@ -705,6 +744,8 @@ static void eswin_pvt_remove(void *data)
 	ret = reset_control_assert(pvt->pvt_rst);
 	WARN_ON(0 != ret);
 	clk_disable_unprepare(pvt->clk);
+
+	list_del(&pvt->entry);
 }
 
 static int eswin_pvt_request_clks(struct pvt_hwmon *pvt)

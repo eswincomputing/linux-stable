@@ -26,9 +26,10 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-
 #include "edac_module.h"
 
+extern int eswin_get_ddr_temp(const char *name, int numa_id, long *val);
+extern int eswin_get_cpu_temp(const char *name, int numa_id, long *val);
 /* Number of cs_rows needed per memory controller */
 #define SYNPS_EDAC_NR_CSROWS 1
 
@@ -337,6 +338,8 @@ struct synps_edac_priv
 	const struct synps_platform_data *p_data;
 	u32 ce_cnt;
 	u32 ue_cnt;
+	int numa_id;
+	struct work_struct pvt_work;
 #ifdef CONFIG_EDAC_DEBUG
 	ulong poison_addr;
 	u32 row_shift[18];
@@ -364,6 +367,30 @@ struct synps_platform_data
 	int quirks;
 };
 
+static void eswin_pvt_work(struct work_struct *work)
+{
+	struct synps_edac_priv *priv = container_of(work, struct synps_edac_priv, pvt_work);
+	int node;
+	int ret;
+	long temp;
+
+	if  (priv == NULL) {
+		pr_err("Read Temperature error, private is NULL.\n");
+		return;
+	}
+
+	node = priv->numa_id;
+	ret = eswin_get_ddr_temp("DDR", node, &temp);
+	if (!ret) {
+		pr_err("DDR Node%u PVT Temperature: %lu °C.\n", node, temp);
+	}
+
+	ret = eswin_get_cpu_temp("SoC", node, &temp);
+	if (!ret) {
+		pr_err("CPU Node%u PVT Temperature: %lu °C.\n", node, temp);
+	}
+}
+
 /**
  * eswin_get_error_info - Get the current ECC error info.
  * @priv:	DDR memory controller private instance data.
@@ -378,7 +405,6 @@ static int eswin_get_error_info(struct synps_edac_priv *priv)
 
 	base = priv->baseaddr;
 	p = &priv->stat;
-
 	regval = readl(base + ECC_STAT_OFST);
 	if (!regval)
 		return 1;
@@ -422,7 +448,7 @@ out:
 	regval = readl(base + ECC_STAT_OFST);
 
 	cache = readl(base + ECC_ERRCNT_OFST);
-
+	queue_work(system_highpri_wq, &priv->pvt_work);
 	return 0;
 }
 
@@ -1288,9 +1314,14 @@ static int mc_probe(struct platform_device *pdev)
 	void __iomem *baseaddr;
 	struct resource *res;
 	int rc;
+	int nid;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
+	if (of_property_read_s32(pdev->dev.of_node, "numa-node-id", &nid)) {
+		dev_err(&pdev->dev, "numa-node-id was not defined, err.\n");
+		return -EINVAL;
+	}
 	baseaddr = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(baseaddr))
 		return PTR_ERR(baseaddr);
@@ -1327,8 +1358,9 @@ static int mc_probe(struct platform_device *pdev)
 	priv->baseaddr = baseaddr;
 	priv->start = res->start;
 	priv->p_data = p_data;
-
+	priv->numa_id = nid;
 	mc_init(mci, pdev);
+	INIT_WORK(&priv->pvt_work, eswin_pvt_work);
 
 	if (priv->p_data->quirks & DDR_ECC_INTR_SUPPORT)
 	{

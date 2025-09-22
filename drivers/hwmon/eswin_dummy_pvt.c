@@ -46,6 +46,7 @@
 #include  <linux/mfd/syscon.h>
 #include <linux/of.h>
 
+static LIST_HEAD(eswin_pvt_dummy_dev);
 /*
  * For the sake of the code simplification we created the sensors info table
  * with the sensor names, activation modes, threshold registers base address
@@ -248,6 +249,19 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 
 	return 0;
 }
+
+int eswin_get_cpu_7702_temp(const char *name, int numa_id, long *val)
+{
+	struct pvt_hwmon *pvt = NULL;
+
+	list_for_each_entry(pvt, &eswin_pvt_dummy_dev, entry) {
+		if (pvt->sensor_info && strstr(pvt->sensor_info->label, name) && pvt->nid == numa_id) {
+			ret = eswin_pvt_read_data(pvt, PVT_TEMP, val);
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(eswin_get_cpu_7702_temp);
 
 static int eswin_pvt_read_limit(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 			  bool is_low, long *val)
@@ -632,7 +646,9 @@ static struct pvt_hwmon *eswin_pvt_create_data(struct platform_device *pdev)
 	pvt->dev = dev;
 	pvt->sensor = PVT_SENSOR_FIRST;
 	mutex_init(&pvt->iface_mtx);
+	INIT_LIST_HEAD(&pvt->entry);
 
+	list_add(&pvt->entry, &eswin_pvt_dummy_dev);
 	for (idx = 0; idx < PVT_SENSORS_NUM; ++idx)
 		init_completion(&pvt->cache[idx].conversion);
 
@@ -660,9 +676,12 @@ static int eswin_pvt_request_regs(struct pvt_hwmon *pvt)
 static void eswin_pvt_remove(void *data)
 {
 	struct pvt_hwmon *pvt = data;
+
 	if (!IS_ERR_OR_NULL(pvt->regmap)) {
 		regmap_exit(pvt->regmap);
 		pvt->regmap = NULL;
+
+		list_del(&pvt->entry);
 	}
 }
 
