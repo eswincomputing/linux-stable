@@ -58,5 +58,6 @@ int esw_sof_dma_close(struct snd_soc_component *component,
 		      struct snd_pcm_substream *substream);
 
 int esw_pcm_dma_dai_register(struct i2s_dev *chip);
+void esw_pcm_dma_dai_unregister(struct i2s_dev *chip);
 
 #endif
