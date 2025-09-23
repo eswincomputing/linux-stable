@@ -1181,11 +1181,11 @@
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage", "D0 NPU CURRENT", "D0 NPU Temperature";
 		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC";
+				regulator-name="D0_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1120000>;
 				regulator-min-microamp=<20000000>;
@@ -1201,11 +1201,11 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC2";
+				regulator-name="D1_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1120000>;
 				regulator-min-microamp=<20000000>;
