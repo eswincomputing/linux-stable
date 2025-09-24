@@ -362,7 +362,7 @@ static struct platform_driver eswin_timer_driver = {
     .driver = {
         .name = "eswin-timer",
         .of_match_table = of_match_ptr(eswin_timer_of_match),
-        .pm = &eswin_timer_pm_ops,
+        .pm = pm_sleep_ptr(&eswin_timer_pm_ops),
     },
 };
 module_platform_driver(eswin_timer_driver);

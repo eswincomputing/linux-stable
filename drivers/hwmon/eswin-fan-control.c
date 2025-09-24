@@ -783,7 +783,7 @@ static SIMPLE_DEV_PM_OPS(fan_control_pm_ops, eswin_fan_control_suspend, eswin_fa
 static struct platform_driver eswin_fan_control_driver = {
 	.driver = {
 		.name = "eswin_fan_control_driver",
-		.pm = &fan_control_pm_ops,
+		.pm = pm_sleep_ptr(&fan_control_pm_ops),
 		.of_match_table = eswin_fan_control_of_match,
 	},
 	.probe = eswin_fan_control_probe,

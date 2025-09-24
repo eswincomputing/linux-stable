@@ -653,7 +653,7 @@ static struct pci_driver ahci_pci_driver = {
 	.remove			= ahci_remove_one,
 	.shutdown		= ahci_shutdown_one,
 	.driver = {
-		.pm		= &ahci_pci_pm_ops,
+		.pm		= pm_sleep_ptr(&ahci_pci_pm_ops),
 	},
 };
 

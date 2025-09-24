@@ -859,7 +859,7 @@ static struct platform_driver dwc3_eswin_driver = {
 	.remove		= dwc3_eswin_remove,
 	.driver		= {
 		.name	= "eswin-dwc3",
-		.pm	= DEV_PM_OPS,
+		.pm	= pm_sleep_ptr(DEV_PM_OPS),
 		.of_match_table = eswin_dwc3_match,
 	},
 };

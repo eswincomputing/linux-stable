@@ -1334,7 +1334,7 @@ free_spram:
 }
 #endif
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int llc_sideband_query(struct device *dev)
 {
 	int ret = 0;
@@ -1474,7 +1474,7 @@ static const struct dev_pm_ops llc_dev_pm_ops = {
 #define DEV_PM_OPS (&llc_dev_pm_ops)
 #else
 #define DEV_PM_OPS NULL
-#endif /* CONFIG_PM */
+#endif /* CONFIG_PM_SLEEP */
 
 static struct dma_buf *spram_heap_allocate(struct dma_heap *heap,
 					 unsigned long len,

@@ -1147,7 +1147,7 @@ static struct platform_driver eswin_sdhci_driver =
 		.name = "sdhci-eswin",
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = eswin_sdhci_of_match,
-		.pm = &eswin_sdhci_pmops,
+		.pm = pm_sleep_ptr(&eswin_sdhci_pmops),
 	},
 	.probe = eswin_sdhci_probe,
 	.remove = eswin_sdhci_remove,

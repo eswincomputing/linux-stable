@@ -1077,7 +1077,7 @@ static int __maybe_unused dw_hdmi_eswin_resume_early(struct device *dev)
 
 static const struct dev_pm_ops dw_hdmi_eswin_pm = {
 	SET_SYSTEM_SLEEP_PM_OPS(dw_hdmi_eswin_suspend, dw_hdmi_eswin_resume)
-	.resume_early = dw_hdmi_eswin_resume_early,
+	.resume_early = pm_sleep_ptr(dw_hdmi_eswin_resume_early),
 };
 
 struct platform_driver dw_hdmi_eswin_pltfm_driver = {
@@ -1086,7 +1086,7 @@ struct platform_driver dw_hdmi_eswin_pltfm_driver = {
     .shutdown = dw_hdmi_eswin_shutdown,
     .driver = {
         .name = "dw-hdmi-eswin",
-        .pm = &dw_hdmi_eswin_pm,
+        .pm = pm_sleep_ptr(&dw_hdmi_eswin_pm),
         .of_match_table = dw_hdmi_eswin_dt_ids,
     },
 };

@@ -603,7 +603,7 @@ static struct platform_driver eswin_mbox_driver = {
 	.driver = {
 		.name = "eswin-mailbox",
 		.of_match_table = of_match_ptr(eswin_mbox_of_match),
-		.pm	= pm_ptr(&eswin_mbox_dev_pm_ops),
+		.pm	= pm_sleep_ptr(&eswin_mbox_dev_pm_ops),
 	},
 };
 

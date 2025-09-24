@@ -596,7 +596,7 @@ static struct platform_driver es_drm_platform_driver = {
     .driver = {
         .name = DRV_NAME,
         .of_match_table = es_drm_dt_ids,
-        .pm = &es_drm_pm_ops,
+        .pm = pm_sleep_ptr(&es_drm_pm_ops),
     },
 };
 

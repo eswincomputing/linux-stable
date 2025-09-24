@@ -338,7 +338,7 @@ static struct platform_driver eswin_rtc_driver = {
 	.remove     = eswin_rtc_remove,
 	.driver     = {
 		.name   = "eswin-rtc",
-		.pm = &eswin_rtc_pm_ops,
+		.pm = pm_sleep_ptr(&eswin_rtc_pm_ops),
 		.of_match_table = of_match_ptr(eswin_rtc_of_match),
 	},
 };

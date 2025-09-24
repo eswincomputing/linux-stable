@@ -1863,7 +1863,7 @@ static const struct i2c_device_id imx586_match_id[] = {
 static struct i2c_driver imx586_i2c_driver = {
 	.driver = {
 		.name = IMX586_NAME,
-		.pm = &imx586_pm_ops,
+		.pm = pm_sleep_ptr(&imx586_pm_ops),
 		.of_match_table = of_match_ptr(imx586_of_match),
 	},
 	.probe		= imx586_probe,

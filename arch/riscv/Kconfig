@@ -938,7 +938,7 @@ config ARCH_HIBERNATION_HEADER
 	def_bool HIBERNATION
 
 config ARCH_SUSPEND_POSSIBLE
-	def_bool y
+	bool "eic7700 pm support"
 
 endmenu # "Power management options"
 

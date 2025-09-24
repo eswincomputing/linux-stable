@@ -261,6 +261,7 @@ static int eic770x_pmu_init_domain(struct eic770x_pmu *pmu, int index)
 
 	pmd->genpd.name = pmd->domain_info->name;
 
+#ifdef CONFIG_ARCH_SUSPEND_POSSIBLE
 	if(pmd->domain_info->status == 2) {
 		pmd->genpd.flags = GENPD_FLAG_ALWAYS_ON;
 	}
@@ -271,6 +272,10 @@ static int eic770x_pmu_init_domain(struct eic770x_pmu *pmu, int index)
 	else {
 		eic770x_pmu_domain_on(&pmd->genpd);
 	}
+#else
+	pmd->genpd.flags = GENPD_FLAG_ALWAYS_ON;
+	eic770x_pmu_domain_on(&pmd->genpd);
+#endif
 
 	ret = eic770x_pmu_get_domain_state(pmd, &is_on);
 	if (ret)

@@ -545,7 +545,7 @@ static struct platform_driver dw_spi_mmio_driver = {
 		.name	= DRIVER_NAME,
 		.of_match_table = dw_spi_mmio_of_match,
 		.acpi_match_table = ACPI_PTR(dw_spi_mmio_acpi_match),
-		.pm = &dw_spi_pm,
+		.pm = pm_sleep_ptr(&dw_spi_pm),
 	},
 };
 module_platform_driver(dw_spi_mmio_driver);
