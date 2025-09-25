@@ -28,9 +28,7 @@
 #include "es_plane.h"
 #include "es_crtc.h"
 #include "es_dc_hw.h"
-#ifdef CONFIG_ESWIN_MMU
 #include "es_dc_mmu.h"
-#endif
 
 struct es_dc_funcs {
 	void (*dump_enable)(struct device *dev, dma_addr_t addr,

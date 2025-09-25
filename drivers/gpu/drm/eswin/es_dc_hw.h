@@ -22,9 +22,7 @@
 #ifndef __ES_DC_HW_H__
 #define __ES_DC_HW_H__
 
-#ifdef CONFIG_ESWIN_MMU
 #include "es_dc_mmu.h"
-#endif
 
 #define DC_HW_REVISION 0x24
 #define DC_HW_CHIP_CID 0x30
@@ -175,7 +173,6 @@
 #define YUV_TO_RGB_TABLE_SIZE 16
 #define RGB_TO_YUV_TABLE_SIZE 12
 
-#ifdef CONFIG_ESWIN_MMU
 #define DC_MMU_PREFETCH 0x1E98
 
 #define MMU_REG_BASE 0x0180
@@ -190,7 +187,6 @@
 
 #define DEC_REG_CONTROL 0x0800
 #define DEC_REG_CONTROL_VALUE 0x02010188
-#endif
 
 enum dc_hw_chip_rev {
 	DC_REV_5551,
@@ -451,9 +447,8 @@ struct dc_hw {
 	enum dc_hw_out out;
 	void *hi_base;
 	void *reg_base;
-#ifdef CONFIG_ESWIN_MMU
 	void *mmu_base;
-#endif
+
 	struct dc_hw_read *read_block;
 	struct dc_hw_display display;
 	struct dc_hw_gamma gamma;
@@ -484,11 +479,11 @@ bool dc_hw_check_underflow(struct dc_hw *hw);
 void dc_hw_enable_shadow_register(struct dc_hw *hw, bool enable);
 void dc_hw_set_out(struct dc_hw *hw, enum dc_hw_out out);
 void dc_hw_commit(struct dc_hw *hw);
-#ifdef CONFIG_ESWIN_MMU
+
 int dc_hw_mmu_init(struct dc_hw *hw, dc_mmu_pt mmu);
 void dc_hw_enable_mmu_prefetch(struct dc_hw *hw, bool enable);
 void dc_mmu_flush(struct dc_hw *hw);
-#endif
+
 void dc_hw_update_roi(struct dc_hw *hw, enum dc_hw_plane_id id,
 		      struct dc_hw_roi *roi);
 void dc_hw_update_colorkey(struct dc_hw *hw, enum dc_hw_plane_id id,

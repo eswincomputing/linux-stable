@@ -28,12 +28,10 @@
 
 #include "es_drv.h"
 
-#ifdef CONFIG_ESWIN_MMU
 typedef struct _iova_info {
 	u32 iova;
 	u32 nr_pages;
 } iova_info_t;
-#endif
 
 /*
  *
@@ -60,10 +58,8 @@ struct es_gem_object {
 	bool get_pages;
 	struct page **pages;
 	struct sg_table *sgt;
-#ifdef CONFIG_ESWIN_MMU
 	iova_info_t *iova_list;
 	u32 nr_iova;
-#endif
 };
 
 static inline struct es_gem_object *to_es_gem_object(struct drm_gem_object *obj)

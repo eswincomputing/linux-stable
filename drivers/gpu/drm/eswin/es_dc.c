@@ -400,12 +400,12 @@ static void es_dc_enable(struct device *dev, struct drm_crtc *crtc)
 	else
 		dc_hw_set_out(&dc->hw, OUT_DP);
 
-#ifdef CONFIG_ESWIN_MMU
+
 	if (crtc_state->mmu_prefetch == ES_MMU_PREFETCH_ENABLE)
 		dc_hw_enable_mmu_prefetch(&dc->hw, true);
 	else
 		dc_hw_enable_mmu_prefetch(&dc->hw, false);
-#endif
+
 
 	dc_hw_setup_display(&dc->hw, &display);
 	cursor.enable = false;
@@ -940,9 +940,7 @@ static void es_dc_commit(struct device *dev)
 {
 	struct es_dc *dc = dev_get_drvdata(dev);
 
-#ifdef CONFIG_ESWIN_MMU
 	dc_mmu_flush(&dc->hw);
-#endif
 
 	if (!dc->first_frame) {
 		if (dc_hw_flip_in_progress(&dc->hw))
@@ -986,9 +984,7 @@ static const struct es_dc_funcs dc_funcs = {
 static int dc_bind(struct device *dev, struct device *master, void *data)
 {
 	struct drm_device *drm_dev = data;
-#ifdef CONFIG_ESWIN_MMU
 	struct es_drm_private *priv = drm_dev->dev_private;
-#endif
 	struct es_dc *dc = dev_get_drvdata(dev);
 	struct device_node *port;
 	struct es_crtc *crtc;
@@ -1009,7 +1005,6 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 		return ret;
 	}
 
-#ifdef CONFIG_ESWIN_MMU
 	if (priv->mmu_constructed == false) {
 		ret = dc_mmu_construct(priv->dma_dev, &priv->mmu);
 		if (ret) {
@@ -1023,7 +1018,6 @@ static int dc_bind(struct device *dev, struct device *master, void *data)
 		dev_err(dev, "failed to init DC MMU\n");
 		goto err_clean_dc;
 	}
-#endif
 
 	ret = es_drm_iommu_attach_device(drm_dev, dev);
 	if (ret < 0) {
@@ -1160,11 +1154,9 @@ static int dc_probe(struct platform_device *pdev)
 	if (IS_ERR(dc->hw.hi_base))
 		return PTR_ERR(dc->hw.hi_base);
 
-#ifdef CONFIG_ESWIN_MMU
 	dc->hw.mmu_base = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(dc->hw.mmu_base))
 		return PTR_ERR(dc->hw.mmu_base);
-#endif
 
 	dc->hw.reg_base = devm_platform_ioremap_resource(pdev, 2);
 	if (IS_ERR(dc->hw.reg_base))

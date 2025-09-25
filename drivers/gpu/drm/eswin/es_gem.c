@@ -39,7 +39,6 @@ static void nonseq_free(struct page **pages, unsigned int nr_page)
 		__free_page(pages[i]);
 }
 
-#ifdef CONFIG_ESWIN_MMU
 static int get_pages(unsigned int nr_page, struct es_gem_object *es_obj)
 {
 	struct page *pages;
@@ -89,7 +88,6 @@ static int get_pages(unsigned int nr_page, struct es_gem_object *es_obj)
 
 	return 0;
 }
-#endif
 
 static void put_pages(unsigned int nr_page, struct es_gem_object *es_obj)
 {
@@ -109,9 +107,7 @@ static int es_gem_alloc_buf(struct es_gem_object *es_obj)
 	unsigned int nr_pages;
 	struct sg_table sgt;
 	int ret = -ENOMEM;
-#ifdef CONFIG_ESWIN_MMU
 	struct es_drm_private *priv = dev->dev_private;
-#endif
 
 	if (es_obj->dma_addr) {
 		DRM_DEV_DEBUG_KMS(dev->dev, "already allocated.\n");
@@ -136,19 +132,13 @@ static int es_gem_alloc_buf(struct es_gem_object *es_obj)
 					 &es_obj->dma_addr, GFP_KERNEL,
 					 es_obj->dma_attrs);
 	if (!es_obj->cookie) {
-#ifdef CONFIG_ESWIN_MMU
 		ret = get_pages(nr_pages, es_obj);
 		if (ret) {
 			DRM_DEV_ERROR(dev->dev, "fail to allocate buffer.\n");
 			goto err_free;
 		}
-#else
-		DRM_DEV_ERROR(dev->dev, "failed to allocate buffer.\n");
-		goto err_free;
-#endif
 	}
 
-#ifdef CONFIG_ESWIN_MMU
 	/* MMU map*/
 	if (!priv->mmu) {
 		DRM_DEV_ERROR(dev->dev, "invalid mmu.\n");
@@ -167,9 +157,6 @@ static int es_gem_alloc_buf(struct es_gem_object *es_obj)
 		DRM_DEV_ERROR(dev->dev, "failed to do mmu map.\n");
 		goto err_mem_free;
 	}
-#else
-	es_obj->iova = es_obj->dma_addr;
-#endif
 
 	if (!es_obj->get_pages) {
 		ret = dma_get_sgtable_attrs(to_dma_dev(dev), &sgt,
@@ -208,17 +195,14 @@ err_free:
 static void es_gem_free_buf(struct es_gem_object *es_obj)
 {
 	struct drm_device *dev = es_obj->base.dev;
-#ifdef CONFIG_ESWIN_MMU
 	struct es_drm_private *priv = dev->dev_private;
 	unsigned int nr_pages;
-#endif
 
 	if ((!es_obj->get_pages) && (!es_obj->dma_addr)) {
 		DRM_DEV_DEBUG_KMS(dev->dev, "dma_addr is invalid.\n");
 		return;
 	}
 
-#ifdef CONFIG_ESWIN_MMU
 	if (!priv->mmu) {
 		DRM_DEV_ERROR(dev->dev, "invalid mmu.\n");
 		return;
@@ -239,7 +223,6 @@ static void es_gem_free_buf(struct es_gem_object *es_obj)
 			}
 		}
 	}
-#endif
 
 	if (!es_obj->get_pages) {
 		dma_free_attrs(to_dma_dev(dev), es_obj->size, es_obj->cookie,
@@ -259,12 +242,13 @@ static void es_gem_free_object(struct drm_gem_object *obj)
 {
 	struct es_gem_object *es_obj = to_es_gem_object(obj);
 
-#ifdef CONFIG_ESWIN_MMU
-	if (es_obj)
-		es_gem_free_buf(es_obj);
-#endif
 	if (obj->import_attach) {
 		drm_prime_gem_destroy(obj, es_obj->sgt);
+		kvfree(es_obj->pages);
+	} else {
+		if (es_obj) {
+			es_gem_free_buf(es_obj);
+		}
 	}
 
 	drm_gem_object_release(obj);
@@ -472,7 +456,6 @@ es_gem_prime_import_sg_table(struct drm_device *dev,
 	u32 i = 0;
 	dma_addr_t expected;
 	size_t size = attach->dmabuf->size;
-#ifdef CONFIG_ESWIN_MMU
 	u32 iova, j;
 	struct scatterlist **splist;
 	struct es_drm_private *priv = dev->dev_private;
@@ -482,7 +465,6 @@ es_gem_prime_import_sg_table(struct drm_device *dev,
 		ret = -EINVAL;
 		return ERR_PTR(ret);
 	}
-#endif
 
 	size = PAGE_ALIGN(size);
 
@@ -503,7 +485,6 @@ es_gem_prime_import_sg_table(struct drm_device *dev,
 		goto err_free_page;
 
 	expected = sg_dma_address(sgt->sgl);
-#ifdef CONFIG_ESWIN_MMU
 	splist = (struct scatterlist **)kzalloc(sizeof(s) * sgt->nents,
 						GFP_KERNEL);
 	if (!splist) {
@@ -528,23 +509,12 @@ es_gem_prime_import_sg_table(struct drm_device *dev,
 
 	for (j = sgt->nents; j > 0; j--) {
 		s = splist[j - 1];
-#else
-	for_each_sg (sgt->sgl, s, sgt->nents, i) {
-#endif
-		if (sg_dma_address(s) != expected) {
-#ifndef CONFIG_ESWIN_MMU
-			DRM_ERROR("sg_table is not contiguous");
-			ret = -EINVAL;
-			goto err;
-#endif
-		}
 
 		if (sg_dma_len(s) & (PAGE_SIZE - 1)) {
 			ret = -EINVAL;
 			goto err;
 		}
 
-#ifdef CONFIG_ESWIN_MMU
 		iova = 0;
 
 		if (j == 1) {
@@ -560,29 +530,20 @@ es_gem_prime_import_sg_table(struct drm_device *dev,
 
 		if (i == 0)
 			es_obj->iova = iova;
-#else
-		if (i == 0)
-			es_obj->iova = sg_dma_address(s);
-#endif
-
 		expected = sg_dma_address(s) + sg_dma_len(s);
 	}
 
 	es_obj->dma_addr = sg_dma_address(sgt->sgl);
 
 	es_obj->sgt = sgt;
-#ifdef CONFIG_ESWIN_MMU
 	kfree(splist);
-#endif
 
 	return &es_obj->base;
 
-#ifdef CONFIG_ESWIN_MMU
 err:
 	kfree(es_obj->iova_list);
 err_sp:
 	kfree(splist);
-#endif
 err_free_page:
 	kvfree(es_obj->pages);
 err_gemalloc:
