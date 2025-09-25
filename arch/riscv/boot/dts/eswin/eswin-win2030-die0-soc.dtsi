@@ -358,33 +358,81 @@
 			};
 		};
 
-		d0_aon_dmac: dma-controller-aon@0x518c0000 {
-			compatible = "eswin,eic770x-axi-dma";
-			reg = <0x0 0x518c0000 0x0 0x10000>;
-			interrupt-parent = <&plic0>;
-			interrupts = <289>;
-			#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
-			clocks = <&d0_clock EIC7700_CLK_AONDMA_ACLK>,
-				 <&d0_clock EIC7700_CLK_AONDMA_CFG>;
-			clock-names = "core-clk", "cfgr-clk";
-			resets = <&d0_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
-				<&d0_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
-			reset-names = "arst", "prst";
-			dma-channels = <16>;
-			snps,dma-masters = <2>;
-			snps,priority = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
-			snps,data-width = <3>;
-			snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
-			snps,axi-max-burst-len = <64>;
-			snps,max-msize = <64>;
+		do_aon_subsys_bus: aon-subsys-bus@0{
+			compatible = "eswin,eic7700-aon-subsys-bus","simple-bus";
+			dma-ranges = <0x0 0x80000000 0x0 0x80000000 0x3FF 0x80000000>;
 			#size-cells = <2>;
 			#address-cells = <2>;
-			dma-ranges = <0x0 0x80000000 0x0 0x80000000 0x100 0x0>;
-			iommus = <&smmu0 WIN2030_SID_DMA1>;
-			tbus = <WIN2030_TBUID_DMA1>;
-			eswin,syscfg = <&d0_sys_con DMA1_SID_REG_OFFSET 0x370>;
-			numa-node-id = <0>;
-			dma-noncoherent;
+			ranges;
+			d0_aon_dmac: dma-controller-aon@0x518c0000 {
+				compatible = "eswin,eic770x-axi-dma";
+				reg = <0x0 0x518c0000 0x0 0x10000>;
+				interrupt-parent = <&plic0>;
+				interrupts = <289>;
+				#dma-cells = <3>; // dma-cells <request channel id, handshake number, dma sel bit>;
+				clocks = <&d0_clock EIC7700_CLK_AONDMA_ACLK>,
+					<&d0_clock EIC7700_CLK_AONDMA_CFG>;
+				clock-names = "core-clk", "cfgr-clk";
+				resets = <&d0_reset DMA1_RST_CTRL SW_DMA1_ARSTN>,
+					<&d0_reset DMA1_RST_CTRL SW_DMA1_HRSTN>;
+				reset-names = "arst", "prst";
+				dma-channels = <16>;
+				snps,dma-masters = <2>;
+				snps,priority = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+				snps,data-width = <3>;
+				snps,block-size = <0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000 0x80000>;
+				snps,axi-max-burst-len = <64>;
+				snps,max-msize = <64>;
+				#size-cells = <2>;
+				#address-cells = <2>;
+				iommus = <&smmu0 WIN2030_SID_DMA1>;
+				tbus = <WIN2030_TBUID_DMA1>;
+				eswin,syscfg = <&d0_sys_con DMA1_SID_REG_OFFSET 0x370>;
+				numa-node-id = <0>;
+				dma-noncoherent;
+			};
+
+			d0_ipc_scpu:ipc@0 {
+				compatible = "eswin,win2030-ipc", "simple-bus";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				iommus = <&smmu0 WIN2030_SID_SCPU>, <&smmu0 WIN2030_SID_CRYPT>;
+				tbus = <WIN2030_TBUID_SCPU>;
+				eswin,syscfg = <&d0_sys_con SCPU_SID_REG_OFFSET 0>,
+					<&d0_sys_con CRYPT_SID_REG_OFFSET 0>;
+				mboxes = <&d0_mbox0 0>;
+				mbox-names = "u84_scpu";
+				numa-node-id = <0>;
+				dma-noncoherent;
+				d0_trng@0 {
+					compatible = "eswin,ex77xx-trng";
+					reg = <0>;
+					status = "okay";
+				};
+			};
+
+			d0_lpcpu:lpcpu@0 {
+				compatible = "eswin,win2030-lpcpu";
+				/* fw-region = <&lpcpu0_reserved>; */
+				clocks = <&d0_clock EIC7700_CLK_CLK_LPCPU_CORE>,
+						<&d0_clock EIC7700_CLK_CLK_LPCPU_BUS>;
+				clock-names = "core_clk", "bus_clk";
+
+				reset-names = "core_rst", "bus_rst", "dbg_rst";
+				resets = <&d0_reset LPCPU_RST_CTRL SW_LPCPU_CORE_RSTN>,
+						<&d0_reset LPCPU_RST_CTRL SW_LPCPU_BUS_RSTN>,
+						<&d0_reset LPCPU_RST_CTRL SW_LPCPU_DBG_RSTN>;
+				#size-cells = <2>;
+
+				iommus = <&smmu0 WIN2030_SID_LCPU>;
+				eswin,syscfg = <&d0_sys_con LCPU_SID_REG_OFFSET 0>;
+				tbus = <WIN2030_TBUID_LPCPU>;
+				mboxes = <&d0_mbox1 0>;
+				mbox-names = "u84_lpcpu";
+				numa-node-id = <0>;
+				status = "disabled";
+				dma-noncoherent;
+			};
 		};
 
 		d0_dmac0: dma-controller-hsp@0x50430000 {
@@ -482,45 +530,51 @@
 			#include "eswin-win2030-die0-noc.dtsi"
 		};
 
-		d0_npu: eswin-npu@51c00000 {
-			compatible = "eswin,npu";
-			reg = <0x0 0x51c00000 0x0 0x400000>;
-			interrupt-parent = <&plic0>;
-			interrupts = <387 16>;
-			/*spram-region = <&npu0_reserved>;*/
+		d0_npu_subsys_bus: npu-subsys-bus@0{
+			compatible = "eswin,eic7700-npu-subsys-bus","simple-bus";
+			dma-ranges = <0x1 0x0 0x0 0xc0000000 0x100 0x0>;
+			#address-cells = <2>;
 			#size-cells = <2>;
-			dma-ranges = <0x1 0x0 0x0 0xc0000000 0x1ff 0x0>;
-			iommus = <&smmu0 WIN2030_SID_NPU_DMA>;
-			tbus = <WIN2030_TBUID_NPU>;
-			dsp-avail-num = <1>;
-			spram-size = <0x400000>;
-			npu_mbox = <&d0_mbox2>;
-			clocks = <&d0_clock EIC7700_CLK_NPU_ACLK>,
-					<&d0_clock EIC7700_CLK_NPU_CFG_CLK>,
-					<&d0_clock EIC7700_CLK_NPU_CLK>,
-					<&d0_clock EIC7700_CLK_NPU_LLC_ACLK>,
-					<&d0_clock EIC7700_CLK_NPU_E31_CLK>,
-					<&d0_clock EIC7700_MUX_U_NPU_CORE_3MUX1_GFREE>,
-					<&d0_clock EIC7700_MUX_U_NPU_LLCLK_3MUX1_GFREE>,
-					<&d0_clock EIC7700_SPLL2_FOUT2>,
-					<&d0_clock EIC7700_SPLL1_FOUT1>,
-					<&d0_clock EIC7700_CLK_CLK_NPU_LLC_SRC0>,
-					<&d0_clock EIC7700_CLK_CLK_NPU_LLC_SRC1>,
-					<&d0_clock EIC7700_VPLL_FOUT1>;
+			ranges;
+			d0_npu: eswin-npu@51c00000 {
+				compatible = "eswin,npu";
+				reg = <0x0 0x51c00000 0x0 0x400000>;
+				interrupt-parent = <&plic0>;
+				interrupts = <387 16>;
+				/*spram-region = <&npu0_reserved>;*/
+				#size-cells = <2>;
+				iommus = <&smmu0 WIN2030_SID_NPU_DMA>;
+				tbus = <WIN2030_TBUID_NPU>;
+				dsp-avail-num = <1>;
+				spram-size = <0x400000>;
+				npu_mbox = <&d0_mbox2>;
+				clocks = <&d0_clock EIC7700_CLK_NPU_ACLK>,
+						<&d0_clock EIC7700_CLK_NPU_CFG_CLK>,
+						<&d0_clock EIC7700_CLK_NPU_CLK>,
+						<&d0_clock EIC7700_CLK_NPU_LLC_ACLK>,
+						<&d0_clock EIC7700_CLK_NPU_E31_CLK>,
+						<&d0_clock EIC7700_MUX_U_NPU_CORE_3MUX1_GFREE>,
+						<&d0_clock EIC7700_MUX_U_NPU_LLCLK_3MUX1_GFREE>,
+						<&d0_clock EIC7700_SPLL2_FOUT2>,
+						<&d0_clock EIC7700_SPLL1_FOUT1>,
+						<&d0_clock EIC7700_CLK_CLK_NPU_LLC_SRC0>,
+						<&d0_clock EIC7700_CLK_CLK_NPU_LLC_SRC1>,
+						<&d0_clock EIC7700_VPLL_FOUT1>;
 
-			clock-names = 	"aclk", "cfg_clk", "core_clk", "clk_npu_llc_aclk", "e31_core_clk",
-					"mux_u_npu_core_3mux1_gfree", "mux_u_npu_llclk_3mux1_gfree",
-					"fixed_rate_clk_spll2_fout2", "fixed_rate_clk_spll1_fout1", "clk_clk_npu_llc_src0",
-					"clk_clk_npu_llc_src1", "fixed_rate_clk_vpll_fout1";
+				clock-names = 	"aclk", "cfg_clk", "core_clk", "clk_npu_llc_aclk", "e31_core_clk",
+						"mux_u_npu_core_3mux1_gfree", "mux_u_npu_llclk_3mux1_gfree",
+						"fixed_rate_clk_spll2_fout2", "fixed_rate_clk_spll1_fout1", "clk_clk_npu_llc_src0",
+						"clk_clk_npu_llc_src1", "fixed_rate_clk_vpll_fout1";
 
-			resets = <&d0_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
-			reset-names = "e31_core";
-			operating-points-v2 = <&npu_opp_table>;
-			#cooling-cells = <2>;
-			dynamic-power-coefficient = <16000>; /*TBD*/
-			numa-node-id = <0>;
-			firmware-name = "eic7700_die0_e31_fw";
-			dma-noncoherent;
+				resets = <&d0_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
+				reset-names = "e31_core";
+				operating-points-v2 = <&npu_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <16000>; /*TBD*/
+				numa-node-id = <0>;
+				firmware-name = "eic7700_die0_e31_fw";
+				dma-noncoherent;
+			};
 		};
 
 		dev_llc_d0: llc@51c00000 {
@@ -1266,50 +1320,6 @@
 			lock-bit = <ESWIN_MAILBOX_WR_LOCK_BIT_U84>;
 			irq-bit  = <ESWIN_MAIBOX_DSP_3_IRQ_BIT>;
 			numa-node-id = <0>;
-			dma-noncoherent;
-		};
-
-		d0_ipc_scpu:ipc@0 {
-			compatible = "eswin,win2030-ipc", "simple-bus";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0x80000000>;
-			iommus = <&smmu0 WIN2030_SID_SCPU>, <&smmu0 WIN2030_SID_CRYPT>;
-			tbus = <WIN2030_TBUID_SCPU>;
-			eswin,syscfg = <&d0_sys_con SCPU_SID_REG_OFFSET 0>,
-			               <&d0_sys_con CRYPT_SID_REG_OFFSET 0>;
-			mboxes = <&d0_mbox0 0>;
-			mbox-names = "u84_scpu";
-			numa-node-id = <0>;
-			dma-noncoherent;
-			d0_trng@0 {
-				compatible = "eswin,ex77xx-trng";
-				reg = <0>;
-				status = "okay";
-			};
-		};
-
-		d0_lpcpu:lpcpu@0 {
-			compatible = "eswin,win2030-lpcpu";
-			/* fw-region = <&lpcpu0_reserved>; */
-			clocks = <&d0_clock EIC7700_CLK_CLK_LPCPU_CORE>,
-					<&d0_clock EIC7700_CLK_CLK_LPCPU_BUS>;
-			clock-names = "core_clk", "bus_clk";
-
-			reset-names = "core_rst", "bus_rst", "dbg_rst";
-			resets = <&d0_reset LPCPU_RST_CTRL SW_LPCPU_CORE_RSTN>,
-					<&d0_reset LPCPU_RST_CTRL SW_LPCPU_BUS_RSTN>,
-					<&d0_reset LPCPU_RST_CTRL SW_LPCPU_DBG_RSTN>;
-			#size-cells = <2>;
-
-			dma-ranges = <0x0 0xb0000000 0x0 0xc0000000 0x0 0x50000000>;
-			iommus = <&smmu0 WIN2030_SID_LCPU>;
-			eswin,syscfg = <&d0_sys_con LCPU_SID_REG_OFFSET 0>;
-			tbus = <WIN2030_TBUID_LPCPU>;
-			mboxes = <&d0_mbox1 0>;
-			mbox-names = "u84_lpcpu";
-			numa-node-id = <0>;
-			status = "disabled";
 			dma-noncoherent;
 		};
 

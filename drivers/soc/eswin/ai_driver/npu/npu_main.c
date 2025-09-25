@@ -791,6 +791,11 @@ static int32_t edla_probe(struct platform_device *pdev)
 		goto err_load_firm;
 	}
 
+	/* Set dma_mask and coherent_dma_mask before perfroming spram buffer attachment*/
+	err = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(41));
+	if (err)
+		dev_warn(dev, "Unable to set coherent mask\n");
+
 	err = npu_spram_get(nvdla_dev);
 	if (err) {
 		dla_error("error get  spram.\n");
@@ -801,10 +806,6 @@ static int32_t edla_probe(struct platform_device *pdev)
 
 	/* config streamID of NPU_DMA */
 	npu_dma_sid_cfg(nvdla_dev->base, WIN2030_SID_NPU_DMA);
-
-	err = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(41));
-	if (err)
-		dev_warn(dev, "Unable to set coherent mask\n");
 
 	npu_hw_init(nvdla_dev);
 	err = edma_init(nvdla_dev);
