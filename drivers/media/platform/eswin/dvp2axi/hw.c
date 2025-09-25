@@ -21,6 +21,7 @@
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/unistd.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/nvmem-consumer.h>
@@ -47,29 +48,12 @@
 
 /* eic770x */
 #include <media/eswin/common-def.h>
-#include "../vi_top/vitop.h"
 #include "dvp2axi.h"
 
 #define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
 #define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
 #define ARSMMUSID	GENMASK(15, 8)	// The sid of read operation
 #define ARSMMUSSID	GENMASK(7, 0)	// The ssid of read operation
-
-u32 devm_irq_num[6] = {0};
-
-static inline void DVP2AXI_HalWriteReg(struct es_dvp2axi_hw *dvp2axi_hw,
-				       u32 address, u32 data)
-{
-	writel(data, dvp2axi_hw->base_addr + address);
-}
-
-static inline u32 DVP2AXI_HalReadReg(struct es_dvp2axi_hw *dvp2axi_hw,
-				     u32 address)
-{
-	u32 val;
-	val = readl(dvp2axi_hw->base_addr + address);
-	return val;
-}
 
 static const struct of_device_id es_dvp2axi_plat_of_match[] = {
 	{
@@ -158,76 +142,56 @@ void es_dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *dvp2axi_hw, bool is_rst_iomm
 			reset_control_deassert(dvp2axi_hw->dvp2axi_rst[i]);
 }
 
-/* CTRL1 */
-#define DVP2AXI_DVP0_PWIDTH 16
-#define DVP2AXI_DVP1_PWIDTH 16
-
-#define DVP2AXI_IO_DVP_DIS  0
-#define DVP2AXI_IO_DVP_ENA  1
-#define DVP2AXI_PIXEL_MODE_1WORD 0
-#define DVP2AXI_PIXEL_MODE_2WORD 1
-#define DVP2AXI_PIXEL_MODE_3WORD 2
-
-/* CTRL2 */
-#define DVP2AXI_DVP2_PWIDTH 16
-#define DVP2AXI_DVP3_PWIDTH 16
-#define DVP2AXI_DVP4_PWIDTH 16
-#define DVP2AXI_DVP5_PWIDTH 16
-#define DVP2AXI_OUTSTANDING_SIZE 16
-#define DVP2AXI_WQOS_CFG 0
-
-
-static int dvp2axi_smmu_sid_cfg(struct device* dev)
+static int dvp2axi_smmu_sid_cfg(struct device *dev)
 {
-    int ret = 0;
-    struct regmap* regmap = NULL;
-    int mmu_tbu0_vi_dvp2axi_reg = 0;
-    u32 rdwr_sid_ssid = 0;
-    u32 sid = 0;
-	u32 val;
+	int ret = 0;
+	struct regmap *regmap = NULL;
+	int mmu_tbu0_vi_dvp2axi_reg = 0;
+	u32 rdwr_sid_ssid = 0;
+	u32 sid = 0;
 
-    struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 
-    if (fwspec == NULL) {
-        pr_debug("Device is not behind SMMU, using default streamID(0)\n");
-        return 0;
-    }
+	if (fwspec == NULL) {
+		pr_info("Device is not behind SMMU, using default streamID(0)\n");
+		return 0;
+	}
 
 	if (fwspec->num_ids == 0) {
 		dev_err(dev, "No Stream IDs configured!\n");
 		return -EINVAL;
 	}
 
-    sid = fwspec->ids[0];
+	sid = fwspec->ids[0];
 
-    regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,vi_top_csr");
-    if (IS_ERR(regmap)) {
-        pr_err("No vi_top_csr phandle specified, regmap=%ld\n", PTR_ERR(regmap));
+	regmap = syscon_regmap_lookup_by_phandle(dev->of_node,
+						 "eswin,vi_top_csr");
+	if (IS_ERR(regmap)) {
+		pr_err("No vi_top_csr phandle specified, regmap=%ld\n",
+		       PTR_ERR(regmap));
 		return PTR_ERR(regmap);
-    }
+	}
 
-    ret = of_property_read_u32_index(dev->of_node, "eswin,vi_top_csr", 1,
-                                    &mmu_tbu0_vi_dvp2axi_reg);
-    if (ret) {
-        pr_err("Failed to get sid cfg reg offset, ret=%d\n", ret);
-        return ret;
-    }
+	ret = of_property_read_u32_index(dev->of_node, "eswin,vi_top_csr", 1,
+					 &mmu_tbu0_vi_dvp2axi_reg);
+	if (ret) {
+		pr_err("Failed to get sid cfg reg offset, ret=%d\n", ret);
+		return ret;
+	}
 
-    rdwr_sid_ssid  = FIELD_PREP(AWSMMUSID, sid);
-    rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, sid);
-    rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
-    rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
+	rdwr_sid_ssid = FIELD_PREP(AWSMMUSID, sid);
+	rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, sid);
+	rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
+	rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
 
-    regmap_write(regmap, mmu_tbu0_vi_dvp2axi_reg, rdwr_sid_ssid);
+	regmap_write(regmap, mmu_tbu0_vi_dvp2axi_reg, rdwr_sid_ssid);
 
+	ret = win2030_dynm_sid_enable(dev_to_node(dev));
+	if (ret < 0)
+		pr_err("Failed to enable dynamic SID for sid=%u, ret=%d\n", sid,
+		       ret);
 
-	regmap_read(regmap, mmu_tbu0_vi_dvp2axi_reg, &val);
-
-    ret = win2030_dynm_sid_enable(dev_to_node(dev));
-    if (ret < 0)
-        pr_err("Failed to enable dynamic SID for sid=%u, ret=%d\n", sid, ret);
-
-    return ret;
+	return ret;
 }
 
 static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
@@ -253,8 +217,9 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "dvp2axi_regs");
+	res = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM,
+		"dvp2axi_regs");
 	dvp2axi_hw->base_addr = devm_ioremap_resource(dev, res);
 	if (PTR_ERR(dvp2axi_hw->base_addr) == -EBUSY) {
 		resource_size_t offset = res->start;
@@ -272,7 +237,7 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 		dvp2axi_hw->devm_irq_num[i] = irq;
 		if (irq < 0)
 			return irq;
-		if(i == ES_DVP2AXI_ERR_IRQ || i == ES_DVP2AXI_AFULL_IRQ)
+		if(i == ES_DVP2AXI_ERR_IRQ || i == ES_DVP2AXI_AFULL_IRQ) 
 			ret = devm_request_irq(dev, irq, es_dvp2axi_err_irq_handler,
 			       IRQF_SHARED,
 			       dev_driver_string(dev), dev);
@@ -289,13 +254,16 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 
 	for(int i=0; i < 6; i++)
 		dvp2axi_hw_irq_mask(dvp2axi_hw, i, 1);
-	dvp2axi_hw_irq_axi_mask(dvp2axi_hw, 1);
+
+	dvp2axi_hw_irq_axi(dvp2axi_hw, 1);
+
 
 	for(int i = 0; i < ES_DVP2AXI_ERRIRQ_NUM; i++)
 		atomic_set(&dvp2axi_hw->dvp2axi_errirq_cnts[i], 0);
 
 	dvp2axi_hw->irq = irq;
 
+	// dvp2axi_hw->is_dma_sg_ops = true;
 	dvp2axi_hw->is_dma_sg_ops = false;
 	dvp2axi_hw->is_dma_contig = true;
 	mutex_init(&dvp2axi_hw->dev_lock);
@@ -304,6 +272,11 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	spin_lock_init(&dvp2axi_hw->group_lock);
 	spin_lock_init(&dvp2axi_hw->intr_spinlock);
 	atomic_set(&dvp2axi_hw->power_cnt, 0);
+
+	tasklet_init(&dvp2axi_hw->dvp2axi_err_tasklet, es_dvp2axi_tasklet_err_handle,
+		(unsigned long)dvp2axi_hw);
+
+	tasklet_enable(&dvp2axi_hw->dvp2axi_err_tasklet);
 
 	pm_runtime_enable(&pdev->dev);
 
@@ -324,6 +297,7 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 #else
 	platform_driver_register(&es_dvp2axi_plat_drv);
 #endif
+	pr_info("%s success! \n", __func__);
 	return 0;
 }
 
@@ -335,7 +309,8 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 
 	mutex_destroy(&dvp2axi_hw->dev_lock);
 	mutex_destroy(&dvp2axi_hw->dev_multi_chn_lock);
-
+	tasklet_disable(&dvp2axi_hw->dvp2axi_err_tasklet);
+	tasklet_kill(&dvp2axi_hw->dvp2axi_err_tasklet);
 	return 0;
 }
 
@@ -349,6 +324,7 @@ static void es_dvp2axi_hw_shutdown(struct platform_device *pdev)
 	write_dvp2axi_reg(dvp2axi_hw->base_addr, 0, 0);
 	if (dvp2axi_hw->irq > 0)
 		disable_irq(dvp2axi_hw->irq);
+
 	pm_runtime_put(&pdev->dev);
 }
 

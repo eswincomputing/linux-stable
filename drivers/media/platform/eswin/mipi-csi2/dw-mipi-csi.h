@@ -234,6 +234,7 @@ struct csi_data {
 	u32 fps;
 	u32 bpp;
 	u32 output;
+	u32 hdr_mode;
 
 	u32 ipi_dt;
 	u32 ipi_emb;
@@ -301,14 +302,15 @@ struct dw_csi {
 	u8 hw_version_major;
 	u16 hw_version_minor;
 
+	u32 hdr_mode;
+
 	bool sink_linked[CSI2_NUM_SRC_PADS];
 	struct csi2_sensor_info	sensors[MAX_CSI2_SENSORS];
 	int			num_sensors;
 	struct v4l2_mbus_config_mipi_csi2	bus;
 	struct v4l2_mbus_framefmt	format_mbus;
 	struct v4l2_rect	crop;
-
-
+	struct notifier_block of_notifier;
 };
 
 static inline struct dw_csi *sd_to_mipi_csi_dev(struct v4l2_subdev *sdev)

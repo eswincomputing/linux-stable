@@ -2117,40 +2117,6 @@
 
 			d1_vi_top_csr: vi_common_top_csr@71030000 {
 				compatible = "esw,vi-common-csr", "syscon";
-				clocks = <&d1_clock EIC7700_CLK_VI_ACLK>,
-						 <&d1_clock EIC7700_CLK_VI_CFG_CLK>,
-						 <&d1_clock EIC7700_CLK_VI_DIG_ISP_CLK>,
-						 <&d1_clock EIC7700_CLK_VI_DVP_CLK>,
-						 <&d1_clock EIC7700_CLK_VI_PHY_CFG>,
-						 <&d1_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
-						 <&d1_clock EIC7700_CLK_VI_SHUTTER_0>,
-						 <&d1_clock EIC7700_CLK_VI_SHUTTER_1>,
-						 <&d1_clock EIC7700_CLK_VI_SHUTTER_2>,
-						 <&d1_clock EIC7700_CLK_VI_SHUTTER_3>,
-						 <&d1_clock EIC7700_CLK_VI_SHUTTER_4>,
-						 <&d1_clock EIC7700_CLK_VI_SHUTTER_5>,
-						 <&d1_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
-						 <&d1_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
-						 <&d1_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
-						 <&d1_clock EIC7700_SPLL0_FOUT1>,
-						 <&d1_clock EIC7700_VPLL_FOUT1>;
-				clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
-							"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
-							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
-				resets = <&d1_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
-						 <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
-						 <&d1_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
-						 <&d1_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
-						 <&d1_reset DVP_RST_CTRL SW_VI_DVP_RSTN>,
-						 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_0>,
-						 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_1>,
-						 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_2>,
-						 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_3>,
-						 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
-						 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
-				reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
-
-				id = <0>;
 				#size-cells = <2>;
 				reg = <0x0 0x71030000 0x0 0x10000>;
 				numa-node-id = <1>;
@@ -2229,12 +2195,12 @@
 				numa-node-id = <1>;
 				#size-cells = <2>;
 				dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
-				iommus = <&smmu1 WIN2030_SID_DW>;
+				iommus = <&smmu1 WIN2030_SID_DVP>;
 				tbus = <WIN2030_TBUID_DW>;
 				status = "disabled";
 			};
 
-			d1_dvp2axi_mipi_lvds: d1-dvp2axi_mipi_lvds {
+			d1_dvp2axi_mipi_lvds0: d1-dvp2axi_mipi_lvds0 {
 				compatible = "eswin,dvp2axi-mipi-lvds_d1";
 				eswin,hw = <&d1_dvp2axi>;
 				status = "disabled";
@@ -2365,7 +2331,7 @@
 				status = "disabled";
 			};
 
-			d1_csi2_dphy_hw: d1-csi2-dphy-hw@710c0000 {
+			d1_csi2_dphy_hw0: d1-csi2-dphy-hw@710c0000 {
 				compatible = "eswin,eic770x-csi2-dphy-hw";
 				reg = <0x0 0x710c0000 0x0 0x20000>;
 				phy_cfg = <0x710d8000>;
@@ -2418,7 +2384,7 @@
 
 			d1_csi2_dphy0: d1-csi2-dphy0 {
 				compatible = "eswin,eic770x-csi2-dphy";
-				eswin,hw = <&d1_csi2_dphy_hw>;
+				eswin,hw = <&d1_csi2_dphy_hw0>;
 				index = <0>;
 				status = "disabled";
 			};
@@ -2457,138 +2423,6 @@
 				index = <5>;
 				status = "disabled";
 			};
-
-
-			d1_mipi_dphy_rx: dphy@710c0000 {
-				compatible = "snps,dw-dphy-rx";
-				#phy-cells = <1>;
-				bus-width = <8>;
-				snps,dphy-frequency = <300000>;
-				snps,phy_type = <8>;
-				reg = <0x0 0x710c0000 0x0 0x20000>;
-				numa-node-id = <1>;
-			};
-
-			d1_csi_dma0: csidma@72048000 {
-				compatible = "eswin,csi-video";
-				interrupt-parent = <&plic1>;
-				interrupts = <29>;
-				reg = <0x0 0x72048000 0x0 0x1000>;
-				numa-node-id = <1>;
-
-				port {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					d1_csi_dmar_0: endpoint@0 {
-						reg = <0>;
-						bus-type = <4>;
-						remote-endpoint = <&d1_csi2_dma_0_3>;
-					};
-				};
-			};
-
-			d1_csi_dma1: csidma@72058000 {
-				compatible = "eswin,csi-video";
-				interrupt-parent = <&plic1>;
-				interrupts = <30>;
-				reg = <0x0 0x72058000 0x0 0x1000>;
-				numa-node-id = <1>;
-
-				port {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					d1_csi_dmar_1: endpoint@0 {
-						reg = <0>;
-						bus-type = <4>;
-						remote-endpoint = <&d1_csi2_dma_1_3>;
-					};
-				};
-			};
-
-			d1_csi2_0: csi2@71050000 {
-				compatible = "snps,dw-csi";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				interrupt-parent = <&plic1>;
-				interrupts = <29>;
-				snps,output-type = <0>;
-				reg = <0x0 0x71050000 0x0 0x1000>;
-				/*phys = <&mipi_dphy_rx 1>;*/
-				numa-node-id = <1>;
-
-				ipi2_en = <0>;/* for virtual channel */
-				ipi2_vcid = <0>;/* virtual channel id */
-				ipi3_en = <0>;
-				ipi3_vcid = <0>;
-
-				#ifdef MIPI_CSI2_IMX290_ENBALE
-				port@1 {
-					reg = <1>;
-					d1_csi2_0_1: endpoint {
-						bus-type = <4>;
-						clock-lanes = <0>;
-						#ifdef MIPI_CSI2_2LINE_ENABLE
-						data-lanes = <1 2>;
-						#else
-						data-lanes = <1 2 3 4>;
-						#endif
-						//remote-endpoint = <&imx290_csi2>;
-					};
-				};
-				#endif
-
-				port@2 {
-					reg = <2>;
-					d1_csi2_dma_0_3: endpoint {
-						bus-type = <5>;
-						remote-endpoint = <&d1_csi_dmar_0>;
-					};
-				};
-			};
-
-			d1_csi2_1: csi2@71060000 {
-				compatible = "snps,dw-csi";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				interrupt-parent = <&plic1>;
-				interrupts = <30>;
-				snps,output-type = <0>;
-				reg = <0x0 0x71060000 0x0 0x1000>;
-				/*phys = <&mipi_dphy_rx 1>;*/
-				numa-node-id = <1>;
-
-				ipi2_en = <0>;/* for virtual channel */
-				ipi2_vcid = <0>;/* virtual channel id */
-				ipi3_en = <0>;
-				ipi3_vcid = <0>;
-
-				#ifdef MIPI_CSI2_IMX290_ENBALE
-				port@1 {
-					reg = <1>;
-					d1_csi2_1_1: endpoint {
-						bus-type = <4>;
-						clock-lanes = <0>;
-						#ifdef MIPI_CSI2_2LINE_ENABLE
-						data-lanes = <1 2>;
-						#else
-						data-lanes = <1 2 3 4>;
-						#endif
-						//remote-endpoint = <&imx290_csi2>;
-					};
-				};
-				#endif
-
-				port@2 {
-					reg = <2>;
-					d1_csi2_dma_1_3: endpoint {
-						bus-type = <5>;
-						remote-endpoint = <&d1_csi_dmar_1>;
-					};
-				};
-			};
-
 		};
 
 		d1_dc_test: dctest@702c0000 {

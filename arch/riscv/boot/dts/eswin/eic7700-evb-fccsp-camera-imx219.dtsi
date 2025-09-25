@@ -1,3 +1,4 @@
+// #include "eswin-win2030-die0-soc.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 &vi_subsys {
@@ -134,7 +135,9 @@
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio71_default>;
+			reset-gpio = <&portc 7 GPIO_ACTIVE_HIGH>;
 
 			port {
 				imx219_out0: endpoint {
@@ -149,7 +152,7 @@
 &d0_i2c4 {
 	/* mipi csi2/csi3 */
 	status = "okay";
-	imx219_2: imx219@10 {
+	imx219_1: imx219@10 {
 			compatible = "sony,imx219";
 			status = "okay";
 			address-cells = <1>;
@@ -159,10 +162,12 @@
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio77_default>;
+			reset-gpio = <&portc 13 GPIO_ACTIVE_HIGH>;
 
 			port {
-				imx219_out2: endpoint {
+				imx219_out1: endpoint {
 					remote-endpoint = <&mipidphy2_in_ucam0>;
 					data-lanes = <1 2 3 4>;
 					link-frequencies = /bits/ 64 <364000000>;
@@ -174,7 +179,7 @@
 &d0_i2c5 {
 	/* mipi csi4/csi5 */
 	status = "okay";
-	imx219_4: imx219@10 {
+	imx219_2: imx219@10 {
 			compatible = "sony,imx219";
 			status = "okay";
 			address-cells = <1>;
@@ -184,10 +189,12 @@
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <24000000>;
 			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio83_default>;
+			reset-gpio = <&portc 19 GPIO_ACTIVE_HIGH>;
 
 			port {
-				imx219_out4: endpoint {
+				imx219_out2: endpoint {
 					remote-endpoint = <&mipidphy4_in_ucam0>;
 					data-lanes = <1 2 3 4>;
 					link-frequencies = /bits/ 64 <364000000>;
@@ -196,7 +203,7 @@
 		};
 };
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
@@ -227,7 +234,6 @@
 				remote-endpoint = <&mipi_csi2_input>;
 			};
 		};
-
 	};
 };
 
@@ -249,7 +255,7 @@
 
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx219_out2>;
+				remote-endpoint = <&imx219_out1>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -285,7 +291,7 @@
 
 			mipidphy4_in_ucam0: endpoint@0 {
 				reg = <0>;
-				remote-endpoint = <&imx219_out4>;
+				remote-endpoint = <&imx219_out2>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -407,7 +413,7 @@
 	status = "okay";
 };
 
-&dvp2axi_mipi_lvds {
+&dvp2axi_mipi_lvds0 {
 	status = "okay";
 	dvp2axi_id = <0>;
 	ports{

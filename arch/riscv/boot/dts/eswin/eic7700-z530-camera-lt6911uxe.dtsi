@@ -1,0 +1,278 @@
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+&vi_subsys {
+	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
+};
+
+&d0_aon_i2c0 {
+	/* lt6911uxe */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c10_default>;
+	i2c-sda-hold-time-ns = <0x40>;
+	/*eswin,syscfg = <&d0_sys_con 0x3C0 16>;*/
+	lt611uxe: lt611uxe@2b {
+		compatible = "lontium,lt6911uxe";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x2b>;
+		interrupt-parent = <&porta>;
+		interrupts = <9 IRQ_TYPE_EDGE_BOTH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio9_default &pinctrl_gpio71_default>;
+		reset-gpios = <&portc 7 GPIO_ACTIVE_HIGH>;
+		plugin-det-gpios = <&porta 9 GPIO_ACTIVE_HIGH>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		clock-frequency = <37125000>;
+		#assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <37125000>;
+		clock-names = "xvclk";
+
+		eswin,camera-module-index = <0>;
+		eswin,camera-module-facing = "back";
+		eswin,camera-module-name = "LT";
+		eswin,camera-module-lens-name = "HDMI-IN";
+
+		status = "okay";
+
+		port {
+			hdmiin_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <150000000>;
+			};
+		};
+	};
+};
+
+&csi2_dphy_hw0 {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_ucam0: endpoint {
+				remote-endpoint = <&hdmiin_out0>;
+				data-lanes = <1 2>;
+			};
+		};
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint {
+				remote-endpoint = <&mipi_csi2_input>;
+			};
+		};
+
+	};
+};
+
+&mipi_csi2_0 {
+	status = "okay";
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			mipi_csi2_input: endpoint {
+				remote-endpoint = <&csidphy0_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			mipi_csi2_output: endpoint {
+				remote-endpoint = <&axi2dvp_mipi2_in0>;
+			};
+		};
+	};
+};
+
+&mipi_csi2_2 {
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_2_input: endpoint@0 {
+				remote-endpoint = <&csidphy2_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_2_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in2>;
+			};
+		};
+	};
+};
+
+&mipi_csi2_4 {
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_4_input: endpoint@0 {
+				remote-endpoint = <&csidphy4_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_4_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in4>;
+			};
+		};
+	};
+};
+
+&dvp2axi {
+	status = "okay";
+};
+
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
+	dvp2axi_id = <0>;
+	ports{
+		#address-cells = <1>;
+        #size-cells = <0>;
+		port@0 {
+			#address-cells = <1>;
+        	#size-cells = <0>;
+			reg = <0>;
+			axi2dvp_mipi2_in0: endpoint {
+				remote-endpoint = <&mipi_csi2_output>;
+			};
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds1 {
+	dvp2axi_id = <1>;
+	status = "disabled";
+};
+
+&dvp2axi_mipi_lvds2 {
+	status = "disabled";
+	dvp2axi_id = <2>;
+	port@0 {
+		axi2dvp_mipi2_in2: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_2_output0>;
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds3 {
+	dvp2axi_id = <3>;
+	status = "disabled";
+};
+
+&dvp2axi_mipi_lvds4 {
+	dvp2axi_id = <4>;
+	status = "disabled";
+	port@0 {
+		axi2dvp_mipi2_in4: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_4_output0>;
+		};
+	};
+};
+
+&dvp2axi_mipi_lvds5 {
+	dvp2axi_id = <5>;
+	status = "disabled";
+};
+
+&csi2_dphy_hw2 {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
+	status = "disabled";
+};
+
+&csi2_dphy2 {
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy2_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_2_input>;
+			};
+		};
+	};
+};
+
+&csi2_dphy_hw4 {
+	lanes = <1 2>;
+	lanes-dp-dn = <0 0>;
+	status = "disabled";
+};
+
+&csi2_dphy4 {
+	status = "disabled";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy4_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_4_input>;
+			};
+		};
+	};
+};

@@ -95,7 +95,7 @@ int vvcam_isp_post_event(struct v4l2_subdev *sd, struct vvcam_isp_event_pkg *eve
         pr_err("%s: invalid sd/dev/devnode\n", __func__);
         return -ENODEV;
     }
-
+    
     memset(&event, 0, sizeof(event));
 
     event.type   = VVCAM_ISP_DEAMON_EVENT;

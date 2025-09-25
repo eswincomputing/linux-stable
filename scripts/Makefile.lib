@@ -419,11 +419,30 @@ quiet_cmd_dtb = $(quiet_cmd_dtc)
       cmd_dtb = $(cmd_dtc)
 endif
 
+quiet_cmd_dtbo = DTBO    $@
+cmd_dtbo = mkdir -p $(dir ${dtc-tmp}) ; \
+	$(CPP) $(dtc_cpp_flags) -x assembler-with-cpp -o $(dtc-tmp) $< ; \
+	$(DTC) -@ -H epapr -O dtb -o $@ -b 0 \
+		-i $(dir $<) $(DTC_FLAGS) \
+		-Wno-interrupts_property \
+		-Wno-label_is_string \
+		-Wno-reg_format \
+		-Wno-pci_device_bus_num \
+		-Wno-i2c_bus_reg \
+		-Wno-spi_bus_reg \
+		-Wno-avoid_default_addr_size \
+		-Wno-graph_port -Wno-graph_endpoint \
+		-d $(depfile).dtc.tmp $(dtc-tmp) ; \
+		cat $(depfile).pre.tmp $(depfile).dtc.tmp > $(depfile)
+
 $(obj)/%.dtb: $(src)/%.dts $(DTC) $(DT_TMP_SCHEMA) FORCE
 	$(call if_changed_dep,dtb)
 
 $(obj)/%.dtbo: $(src)/%.dtso $(DTC) FORCE
 	$(call if_changed_dep,dtc)
+
+$(obj)/%.dtbo: $(src)/%.dts FORCE
+	$(call if_changed,dtbo)
 
 dtc-tmp = $(subst $(comma),_,$(dot-target).dts.tmp)
 

@@ -44,7 +44,7 @@ static void es_dvp2axi_init_dummy_vb2(struct es_dvp2axi_device *dev,
 int es_dvp2axi_alloc_buffer(struct es_dvp2axi_device *dev,
 		       struct es_dvp2axi_dummy_buffer *buf)
 {
-	const struct vb2_mem_ops *g_ops = dev->hw_dev->mem_ops;
+	const struct vb2_mem_ops *g_ops = &vb2_dma_contig_memops;
 	struct sg_table	 *sg_tbl;
 	void *mem_priv;
 	int ret = 0;
@@ -53,7 +53,6 @@ int es_dvp2axi_alloc_buffer(struct es_dvp2axi_device *dev,
 		ret = -EINVAL;
 		goto err;
 	}
-
 	es_dvp2axi_init_dummy_vb2(dev, buf);
 
 	buf->size = PAGE_ALIGN(buf->size);
@@ -71,8 +70,10 @@ int es_dvp2axi_alloc_buffer(struct es_dvp2axi_device *dev,
 	} else {
 		buf->dma_addr = *((dma_addr_t *)g_ops->cookie(&buf->vb, mem_priv));
 	}
+
 	if (buf->is_need_vaddr)
 		buf->vaddr = g_ops->vaddr(&buf->vb, mem_priv);
+
 	if (buf->is_need_dbuf) {
 		buf->dbuf = g_ops->get_dmabuf(&buf->vb, mem_priv, O_RDWR);
 		if (buf->is_need_dmafd) {
@@ -85,6 +86,7 @@ int es_dvp2axi_alloc_buffer(struct es_dvp2axi_device *dev,
 			get_dma_buf(buf->dbuf);
 		}
 	}
+
 	v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev,
 		 "%s buf:0x%x~0x%x size:%d\n", __func__,
 		 (u32)buf->dma_addr, (u32)buf->dma_addr + buf->size, buf->size);
@@ -97,7 +99,7 @@ err:
 void es_dvp2axi_free_buffer(struct es_dvp2axi_device *dev,
 			struct es_dvp2axi_dummy_buffer *buf)
 {
-	const struct vb2_mem_ops *g_ops = dev->hw_dev->mem_ops;
+	const struct vb2_mem_ops *g_ops = &vb2_dma_contig_memops;
 
 	if (buf && buf->mem_priv) {
 		v4l2_dbg(1, es_dvp2axi_debug, &dev->v4l2_dev,

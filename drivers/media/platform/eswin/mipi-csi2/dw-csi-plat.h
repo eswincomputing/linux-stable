@@ -59,7 +59,7 @@ struct mipi_fmt dw_mipi_csi_formats[] = {
 		/* RAW 10 */
 		.mbus_code = MEDIA_BUS_FMT_SBGGR10_1X10,
 		.depth = 10,
-	},{
+	}, {
 		/* RAW 10 */
 		.mbus_code = MEDIA_BUS_FMT_SGBRG10_1X10,
 		.depth = 10,

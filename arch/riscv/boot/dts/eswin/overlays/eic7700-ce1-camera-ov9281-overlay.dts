@@ -1,0 +1,215 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+		target =  <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <5>;
+		};
+	};
+
+	fragment@1 {
+		target =  <&imx219_0>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target =  <&imx219_1>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+    fragment@3 {
+		target =  <&imx219_2>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target = <&mipi_csi2_0>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@5 {
+		target = <&mipi_csi2_2>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@6 {
+		target = <&mipi_csi2_4>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@7 { 
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>; 
+			status = "okay";
+		};
+	};
+
+	fragment@8 { 
+		target = <&csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>; 
+			status = "okay";
+		};
+	};
+
+	fragment@9 { 
+		target = <&csi2_dphy_hw4>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>; 
+			status = "okay";
+		};
+	};
+
+	fragment@10 { 
+		target = <&mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out0>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@11 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out1>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@12 {
+		target = <&mipidphy4_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out2>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@13 {
+		target = <&csi2_dphy0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@14 {
+		target = <&csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@15 {
+		target = <&csi2_dphy4>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@16 {
+		target = <&d0_i2c3>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ov9281_0: ov9281_0@60 {
+				compatible = "ovti,ov9281";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x60>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio71_default>;
+				reset-gpio = <&portc 7 0>;
+
+				port {
+					ov9281_out0: endpoint {
+						remote-endpoint = <&mipidphy0_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <400000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@17 {
+		target = <&d0_i2c4>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ov9281_1: ov9281_1@60 {
+				compatible = "ovti,ov9281";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x60>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio77_default>;
+				reset-gpio = <&portc 13 0>;
+
+				port {
+					ov9281_out1: endpoint {
+						remote-endpoint = <&mipidphy2_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <400000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@18 {
+		target = <&d0_i2c5>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ov9281_2: ov9281_2@60 {
+				compatible = "ovti,ov9281";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x60>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio83_default>;
+				reset-gpio = <&portc 19 0>;
+
+				port {
+					ov9281_out2: endpoint {
+						remote-endpoint = <&mipidphy0_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <400000000>;
+					};
+				};
+			};
+		};
+	};
+};

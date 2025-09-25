@@ -1,0 +1,224 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target =  <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <5>;
+		};
+	};
+
+	fragment@1 {
+		target =  <&imx219_0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target =  <&imx219_1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target =  <&imx219_2>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target =  <&imx219_3>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+
+	fragment@5 { 
+		target = <&mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out0>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@6 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out1>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@7 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out2>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@8 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&ov9281_out3>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@9 {
+		target = <&csi2_dphy0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@10 {
+		target = <&csi2_dphy1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@11 {
+		target = <&csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@12 {
+		target = <&csi2_dphy3>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@13 {
+		target =  <&d0_i2c5>;
+		__overlay__ {
+			i2c-mux@70 {
+				/*compatible = "ti,tca9548"; */
+				compatible = "nxp,pca9548";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x70>;
+				i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x0>;
+
+					ov9281_0: ov9281_0@60 {
+						status = "okay";
+						compatible = "ovti,ov9281";
+						reg = <0x60>;
+
+						clocks = <&d0_clock 0x244>;
+						assigned-clocks = <&d0_clock 0x244>;
+						assigned-clock-rates = <24000000>;
+						clock-names = "xclk";
+						pinctrl-names = "default";
+						pinctrl-0 = <&pinctrl_gpio72_default>;
+						reset-gpio = <&portc 8 0>;
+
+						port {
+							ov9281_out0: endpoint {
+								remote-endpoint = <&mipidphy0_in_ucam0>;
+								data-lanes = <1 2>;
+								link-frequencies = /bits/ 64 <400000000>;
+							};
+						};
+					};
+				};
+
+				i2c@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x1>;
+
+					ov9281_1: ov9281_1@60 {
+						status = "okay";
+						compatible = "ovti,ov9281";
+						reg = <0x60>;
+
+						clocks = <&d0_clock 0x244>;
+						assigned-clocks = <&d0_clock 0x244>;
+						assigned-clock-rates = <24000000>;
+						clock-names = "xclk";
+						pinctrl-names = "default";
+						pinctrl-0 = <&pinctrl_gpio75_default>;
+						reset-gpio = <&portc 11 0>;
+
+						port {
+							ov9281_out1: endpoint {
+								remote-endpoint = <&mipidphy1_in_ucam0>;
+								data-lanes = <1 2>;
+								link-frequencies = /bits/ 64 <400000000>;
+							};
+						};
+					};
+				};
+
+				i2c@2 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x2>;
+
+					ov9281_2: ov9281_2@60 {
+						status = "okay";
+						compatible = "ovti,ov9281";
+						reg = <0x60>;
+
+						clocks = <&d0_clock 0x244>;
+						assigned-clocks = <&d0_clock 0x244>;
+						assigned-clock-rates = <24000000>;
+						clock-names = "xclk";
+						pinctrl-names = "default";
+						pinctrl-0 = <&pinctrl_gpio78_default>;
+						reset-gpio = <&portc 14 0>;
+
+						port {
+							ov9281_out2: endpoint {
+								remote-endpoint = <&mipidphy2_in_ucam0>;
+								data-lanes = <1 2>;
+								link-frequencies = /bits/ 64 <400000000>;
+							};
+						};
+					};
+				};
+				
+				i2c@3 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x3>;
+
+					ov9281_3: ov9281_3@60 {
+						status = "okay";
+						compatible = "ovti,ov9281";
+						reg = <0x60>;
+
+						clocks = <&d0_clock 0x244>;
+						assigned-clocks = <&d0_clock 0x244>;
+						assigned-clock-rates = <24000000>;
+						clock-names = "xclk";
+						pinctrl-names = "default";
+						pinctrl-0 = <&pinctrl_gpio81_default>;
+						reset-gpio = <&portc 17 0>;
+
+						port {
+							ov9281_out3: endpoint {
+								remote-endpoint = <&mipidphy3_in_ucam0>;
+								data-lanes = <1 2>;
+								link-frequencies = /bits/ 64 <400000000>;
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};

@@ -434,26 +434,6 @@
 	status = "okay";
 };
 
-&mipi_dphy_rx {
-	status = "okay";
-};
-
-&csi_dma0 {
-	status = "okay";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "okay";
-};
-
-&csi2_1 {
-	status = "disabled";
-};
-
 &sdhci_emmc {
 	/* emmc */
 	status = "okay";

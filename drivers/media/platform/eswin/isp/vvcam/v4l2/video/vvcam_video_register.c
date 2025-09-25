@@ -1881,22 +1881,22 @@ static int vvcam_videoc_subscribe_event(struct v4l2_fh *fh,
 //                 break;
 //             case V4L2_MBUS_BT656:
 //                 mbus_config->type = MBUS_BT656;
-//                 break;            
+//                 break;
 //             case V4L2_MBUS_CSI1:
 //                 mbus_config->type = MBUS_CSI1;
-//                 break; 
+//                 break;
 //             case V4L2_MBUS_CCP2:
 //                 mbus_config->type = MBUS_CCP2;
-//                 break; 
+//                 break;
 //             case V4L2_MBUS_CSI2_DPHY:
 //                 mbus_config->type = MBUS_CSI2_DPHY;
-//                 break; 
+//                 break;
 //             case V4L2_MBUS_CSI2_CPHY:
 //                 mbus_config->type = MBUS_CSI2_CPHY;
-//                 break; 
+//                 break;
 //             case V4L2_MBUS_DPI:
 //                 mbus_config->type = MBUS_DPI;
-//                 break;                 
+//                 break;
 //         }
 //         mbus_config->bus.mipi_csi2.num_data_lanes = mbus.bus.mipi_csi2.num_data_lanes;
 //         return 0;
@@ -1963,7 +1963,7 @@ static __poll_t vvcam_video_poll(struct file *file,
                         struct poll_table_struct *wait)
 {
     struct v4l2_fh *fh = file->private_data;
-   
+
     if (!list_empty(&fh->subscribed)) {
         return v4l2_ctrl_poll(file, wait);
     } else {
@@ -2138,10 +2138,10 @@ static int isp_pipeline_start(struct media_entity *entity, int on)
 
 		if (!(pad->flags & MEDIA_PAD_FL_SINK))
 			return -1;
-            
+
 		pad = media_pad_remote_pad_first(pad);
 		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
-			return -1; 
+			return -1;
 
 		entity = pad->entity;
         subdev = media_entity_to_v4l2_subdev(entity);
@@ -2158,7 +2158,7 @@ static int isp_pipeline_start(struct media_entity *entity, int on)
             }
         }
     }
-	return 0;    
+	return 0;
 }
 
 static int vvcam_video_vb2_start_streaming(struct vb2_queue *queue,
@@ -2181,6 +2181,7 @@ static int vvcam_video_vb2_start_streaming(struct vb2_queue *queue,
         memset(&stream_status, 0, sizeof(stream_status));
         stream_status.pad = pad->index;
         stream_status.status = 1;
+
         ret = v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_S_STREAM, &stream_status);
         if(ret) {
             printk("vvcam_video_vb2_start_streaming failed\n");
@@ -2219,8 +2220,6 @@ static void vvcam_video_vb2_stop_streaming(struct vb2_queue *queue)
 		if(queue->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
 			vb2_buffer_done(queue->bufs[i], VB2_BUF_STATE_ERROR);
 	}
-
-    
     return;
 }
 
@@ -2274,7 +2273,7 @@ static const struct media_entity_operations vvcam_video_entity_ops = {
 	.link_validate  = v4l2_subdev_link_validate,
 };
 
-int 
+int
 vvcam_video_register(struct vvcam_media_dev *vvcam_mdev, int port)
 {
     int ret = 0;
@@ -2333,7 +2332,7 @@ vvcam_video_register(struct vvcam_media_dev *vvcam_mdev, int port)
 		dev_err(vvcam_mdev->dev, "video register device error\n");
 		goto err_media_entity_cleanup;
     }
-    
+
     vvcam_vdev->event_shm.virt_addr = (void *)__get_free_pages(GFP_KERNEL, 0);
     vvcam_vdev->event_shm.size = PAGE_SIZE;
     memset(vvcam_vdev->event_shm.virt_addr, 0, vvcam_vdev->event_shm.size);

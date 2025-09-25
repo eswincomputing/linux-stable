@@ -67,35 +67,31 @@ static int csi2_dphy_get_sensor_data_rate(struct v4l2_subdev *sd)
 {
 	struct csi2_dphy *dphy = to_csi2_dphy(sd);
 	struct v4l2_subdev *sensor_sd = get_remote_sensor(sd);
-	struct v4l2_ctrl *link_freq;
-	struct v4l2_querymenu qm = {
-		.id = V4L2_CID_LINK_FREQ,
+	struct v4l2_fwnode_endpoint bus_cfg = {
+		.bus_type = V4L2_MBUS_CSI2_DPHY,
 	};
+	struct fwnode_handle *ep;
 	int ret = 0;
 
 	if (!sensor_sd)
 		return -ENODEV;
 
-	link_freq = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_LINK_FREQ);
-	if (!link_freq) {
-		v4l2_warn(sd, "No pixel rate control in subdev\n");
-		return -EPIPE;
-	}
+	ep = fwnode_graph_get_next_endpoint(dev_fwnode(sensor_sd->dev), NULL);
+	if (!ep)
+		return -ENXIO;
 
-	qm.index = v4l2_ctrl_g_ctrl(link_freq);
-	ret = v4l2_querymenu(sensor_sd->ctrl_handler, &qm);
-	if (ret < 0) {
-		v4l2_err(sd, "Failed to get menu item\n");
+	ret = v4l2_fwnode_endpoint_alloc_parse(ep, &bus_cfg);
+	if(ret) {
+		dev_err(dphy->dev, "could not parse endpoint\n");
+		fwnode_handle_put(ep);
 		return ret;
 	}
+	fwnode_handle_put(ep);
 
-	if (!qm.value) {
-		v4l2_err(sd, "Invalid link_freq\n");
-		return -EINVAL;
-	}
-
-	dphy->data_rate_mbps = qm.value * 2;
+	dphy->data_rate_mbps = bus_cfg.link_frequencies[0] * 2;
 	do_div(dphy->data_rate_mbps, 1000 * 1000);
+	dev_dbg(dphy->dev, "dphy%d, data_rate_mbps %lld\n", dphy->phy_index,
+		  dphy->data_rate_mbps);
 	return 0;
 }
 
@@ -117,74 +113,13 @@ static int eswin_csi2_dphy_attach_hw(struct csi2_dphy *dphy, int csi_idx,
 		mutex_lock(&dphy_hw->mutex);
 		dphy_hw->dphy_dev[dphy_hw->dphy_dev_num] = dphy;
 		dphy_hw->dphy_dev_num++;
-		switch (dphy->phy_index) {
-		case 0:
-			dphy->lane_mode = PHY_FULL_MODE;
-			dphy_hw->lane_mode = LANE_MODE_FULL;
-			break;
-		case 1:
-			dphy->lane_mode = PHY_SPLIT_01;
-			dphy_hw->lane_mode = LANE_MODE_SPLIT;
-			break;
-		case 2:
-			dphy->lane_mode = PHY_SPLIT_23;
-			dphy_hw->lane_mode = LANE_MODE_SPLIT;
-			break;
-		default:
-			dphy->lane_mode = PHY_FULL_MODE;
-			dphy_hw->lane_mode = LANE_MODE_FULL;
-			break;
-		}
 		dphy->dphy_hw = dphy_hw;
 		dphy->phy_hw[index] = (void *)dphy_hw;
-		dphy->csi_info.dphy_vendor[index] = PHY_VENDOR_INNO;
 		mutex_unlock(&dphy_hw->mutex);
-	}  
+	}
 	else {
-		dphy_hw = dphy->dphy_hw_group[csi_idx / 2];
-		mutex_lock(&dphy_hw->mutex);
-		if (csi_idx == 0 || csi_idx == 2) {
-			if (lanes == 4) {
-				dphy->lane_mode = PHY_FULL_MODE;
-				dphy_hw->lane_mode = LANE_MODE_FULL;
-				if (csi_idx == 0)
-					dphy->phy_index = 0;
-				else
-					dphy->phy_index = 3;
-			} else {
-				dphy->lane_mode = PHY_SPLIT_01;
-				dphy_hw->lane_mode = LANE_MODE_SPLIT;
-				if (csi_idx == 0)
-					dphy->phy_index = 1;
-				else
-					dphy->phy_index = 4;
-			}
-		} else if (csi_idx == 1 || csi_idx == 3) {
-			if (lanes == 4) {
-				dev_dbg(
-					dphy->dev,
-					"%s csi host%d only support PHY_SPLIT_23\n",
-					__func__, csi_idx);
-				mutex_unlock(&dphy_hw->mutex);
-				return -EINVAL;
-			}
-			dphy->lane_mode = PHY_SPLIT_23;
-			dphy_hw->lane_mode = LANE_MODE_SPLIT;
-			if (csi_idx == 1)
-				dphy->phy_index = 2;
-			else
-				dphy->phy_index = 5;
-		} else {
-			dev_dbg(dphy->dev, "%s error csi host%d\n", __func__,
-				 csi_idx);
-			mutex_unlock(&dphy_hw->mutex);
-			return -EINVAL;
-		}
-		dphy_hw->dphy_dev[dphy_hw->dphy_dev_num] = dphy;
-		dphy_hw->dphy_dev_num++;
-		dphy->phy_hw[index] = (void *)dphy_hw;
-		dphy->csi_info.dphy_vendor[index] = PHY_VENDOR_INNO;
-		mutex_unlock(&dphy_hw->mutex);
+		dev_err(dphy->dev, "Not support %s\n", dphy->drv_data->dev_name);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -227,120 +162,12 @@ static int eswin_csi2_dphy_detach_hw(struct csi2_dphy *dphy, int csi_idx,
 		mutex_lock(&dphy_hw->mutex);
 		eswin_csi2_inno_phy_remove_dphy_dev(dphy, dphy_hw);
 		mutex_unlock(&dphy_hw->mutex);
-	} 
+	}
 	else {
-		dphy_hw = (struct csi2_dphy_hw *)dphy->phy_hw[index];
-		if (!dphy_hw) {
-			dev_err(dphy->dev, "%s csi_idx %d detach hw failed\n",
-				__func__, csi_idx);
-			return -EINVAL;
-		}
-		mutex_lock(&dphy_hw->mutex);
-		eswin_csi2_inno_phy_remove_dphy_dev(dphy, dphy_hw);
-		mutex_unlock(&dphy_hw->mutex);
+		dev_err(dphy->dev, "Not support %s\n", dphy->drv_data->dev_name);
+		return -EINVAL;
 	}
 
-	return 0;
-}
-
-static int csi2_dphy_update_sensor_mbus(struct v4l2_subdev *sd)
-{
-	struct csi2_dphy *dphy = to_csi2_dphy(sd);
-	struct v4l2_subdev *sensor_sd = get_remote_sensor(sd);
-	struct csi2_sensor *sensor;
-	struct v4l2_mbus_config mbus;
-	int ret = 0;
-
-	if (!sensor_sd)
-		return -ENODEV;
-	sensor = sd_to_sensor(dphy, sensor_sd);
-	if (!sensor)
-		return -ENODEV;
-
-	ret = v4l2_subdev_call(sensor_sd, pad, get_mbus_config, 0, &mbus);
-	if (ret) {
-		dev_err(dphy->dev, "%s get_mbus_config fail, pls check it\n",
-			sensor_sd->name);
-		return ret;
-	}
-
-	sensor->mbus = mbus;
-
-	if (mbus.type == V4L2_MBUS_CSI2_DPHY ||
-	    mbus.type == V4L2_MBUS_CSI2_CPHY)
-		sensor->lanes = mbus.bus.mipi_csi2.num_data_lanes;
-	else if (mbus.type == V4L2_MBUS_CCP2)
-		sensor->lanes = mbus.bus.mipi_csi1.data_lane;
-
-	return 0;
-}
-
-static int csi2_dphy_update_config(struct v4l2_subdev *sd)
-{
-	struct csi2_dphy *dphy = to_csi2_dphy(sd);
-	struct v4l2_subdev *sensor_sd = get_remote_sensor(sd);
-	struct esmodule_csi_dphy_param dphy_param;
-	struct esmodule_bus_config bus_config;
-	int csi_idx = 0;
-	int ret = 0;
-	int i = 0;
-
-	for (i = 0; i < dphy->csi_info.csi_num; i++) {
-		if (dphy->drv_data->chip_id != CHIP_ID_EIC7700) {
-			csi_idx = dphy->csi_info.csi_idx[i];
-			eswin_csi2_dphy_attach_hw(dphy, csi_idx, i);
-		}
-		if (dphy->csi_info.dphy_vendor[i] == PHY_VENDOR_INNO) {
-			ret = v4l2_subdev_call(sensor_sd, core, ioctl,
-					       ESMODULE_GET_BUS_CONFIG,
-					       &bus_config);
-			if (!ret) {
-				dev_dbg(dphy->dev, "phy_mode %d,lane %d\n",
-					 bus_config.bus.phy_mode,
-					 bus_config.bus.lanes);
-				if (bus_config.bus.phy_mode == PHY_FULL_MODE) {
-					if (dphy->phy_index % 3 == 2) {
-						dev_err(dphy->dev,
-							"%s dphy%d only use for PHY_SPLIT_23\n",
-							__func__,
-							dphy->phy_index);
-						return -EINVAL;
-					}
-					dphy->lane_mode = PHY_FULL_MODE;
-					dphy->dphy_hw->lane_mode =
-						LANE_MODE_FULL;
-				} else if (bus_config.bus.phy_mode ==
-					   PHY_SPLIT_01) {
-					if (dphy->phy_index % 3 == 2) {
-						dev_err(dphy->dev,
-							"%s dphy%d only use for PHY_SPLIT_23\n",
-							__func__,
-							dphy->phy_index);
-						return -EINVAL;
-					}
-					dphy->lane_mode = PHY_SPLIT_01;
-					dphy->dphy_hw->lane_mode =
-						LANE_MODE_SPLIT;
-				} else if (bus_config.bus.phy_mode ==
-					   PHY_SPLIT_23) {
-					if (dphy->phy_index % 3 != 2) {
-						dev_err(dphy->dev,
-							"%s dphy%d not support PHY_SPLIT_23\n",
-							__func__,
-							dphy->phy_index);
-						return -EINVAL;
-					}
-					dphy->lane_mode = PHY_SPLIT_23;
-					dphy->dphy_hw->lane_mode =
-						LANE_MODE_SPLIT;
-				}
-			}
-		}
-	}
-	ret = v4l2_subdev_call(sensor_sd, core, ioctl,
-			       ESMODULE_GET_CSI_DPHY_PARAM, &dphy_param);
-	if (!ret)
-		dphy->dphy_param = dphy_param;
 	return 0;
 }
 
@@ -351,10 +178,6 @@ static int csi2_dphy_s_stream_start(struct v4l2_subdev *sd)
 	int ret = 0;
 
 	ret = csi2_dphy_get_sensor_data_rate(sd);
-	if (ret < 0)
-		return ret;
-
-	ret = csi2_dphy_update_sensor_mbus(sd);
 	if (ret < 0)
 		return ret;
 
@@ -443,13 +266,6 @@ static int csi2_dphy_s_stream(struct v4l2_subdev *sd, int on)
 			return ret;
 		}
 
-		csi2_dphy_update_sensor_mbus(sd);
-		ret = csi2_dphy_update_config(sd);
-		if (ret < 0) {
-			mutex_unlock(&dphy->mutex);
-			return ret;
-		}
-
 		ret = csi2_dphy_enable_clk(dphy);
 		if (ret) {
 			mutex_unlock(&dphy->mutex);
@@ -462,13 +278,13 @@ static int csi2_dphy_s_stream(struct v4l2_subdev *sd, int on)
 			mutex_unlock(&dphy->mutex);
 			return 0;
 		}
-		
+
 		ret = csi2_dphy_s_stream_stop(sd);
 		csi2_dphy_disable_clk(dphy);
 	}
 	mutex_unlock(&dphy->mutex);
 
-	dev_dbg(dphy->dev, "%s stream on:%d, dphy%d, ret %d\n", __func__, on,
+	dev_info(dphy->dev, "%s stream on:%d, dphy%d, ret %d\n", __func__, on,
 		 dphy->phy_index, ret);
 
 	return ret;
@@ -499,7 +315,7 @@ static int csi2_dphy_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 	if (!sensor)
 		return -ENODEV;
 
-	ret = csi2_dphy_update_sensor_mbus(sd);
+	// ret = csi2_dphy_update_sensor_mbus(sd);
 	*config = sensor->mbus;
 
 	return ret;
@@ -738,20 +554,6 @@ static int eswin_csi2_dphy_fwnode_parse(struct csi2_dphy *dphy)
 			continue;
 		}
 
-		// /* check sensor register state on i2c/spi bus for gki*/
-		// if (!IS_ENABLED(CONFIG_NO_GKI)) {
-		// 	remote_dev = bus_find_device_by_fwnode(&i2c_bus_type,
-		// 					       remote_ep);
-		// 	if (!remote_dev || !remote_dev->driver) {
-		// 		remote_dev = bus_find_device_by_fwnode(
-		// 			&spi_bus_type, remote_ep);
-		// 		if (!remote_dev || !remote_dev->driver) {
-		// 			fwnode_handle_put(remote_ep);
-		// 			continue;
-		// 		}
-		// 	}
-		// }
-
 		fwnode_handle_put(remote_ep);
 
 		v4l2_async_subdev_nf_init(&dphy->notifier, &dphy->sd);
@@ -875,6 +677,46 @@ static int eswin_csi2_dphy_get_hw(struct csi2_dphy *dphy)
 	return ret;
 }
 
+static int eswin_csi2dphy_of_notifier(struct notifier_block *nb,
+				      unsigned long action, void *data)
+{
+	struct csi2_dphy *dphy =
+		container_of(nb, struct csi2_dphy, of_notifier);
+	struct of_overlay_notify_data *notify_data = data;
+	struct v4l2_async_notifier *parent_notifier = NULL;
+	int ret = 0;
+	if (!dphy || !notify_data || !notify_data->target)
+		return NOTIFY_DONE;
+
+	if(dphy->dev->of_node != notify_data->target)
+		return NOTIFY_DONE;
+
+	if (action == OF_OVERLAY_POST_APPLY) {
+		msleep(200);
+		parent_notifier = dphy->notifier.parent;
+		v4l2_async_nf_unregister(&dphy->notifier);
+		v4l2_async_nf_cleanup(&dphy->notifier);
+
+		dphy->notifier.parent = parent_notifier;
+		ret = eswin_csi2_dphy_fwnode_parse(dphy);
+		if (ret < 0) {
+			dev_err(dphy->dev, "failed to parse fwnode: %d\n", ret);
+			return NOTIFY_DONE;
+		}
+
+		dphy->notifier.ops = &eswin_csi2_dphy_async_ops;
+		ret = v4l2_async_nf_register(&dphy->notifier);
+		if (ret) {
+			dev_err(dphy->dev, "Failed to register notifier: %d\n",
+				ret);
+			v4l2_async_nf_cleanup(&dphy->notifier);
+			return NOTIFY_DONE;
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
 static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -882,8 +724,11 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 	struct csi2_dphy *csi2dphy;
 	struct v4l2_subdev *sd;
 	const struct dphy_drv_data *drv_data;
+	struct device *parent = pdev->dev.parent;
+	struct eswin_vi_device* es_vi_dev;
 	int ret;
 
+	es_vi_dev = dev_get_drvdata(parent);
 	csi2dphy = devm_kzalloc(dev, sizeof(*csi2dphy), GFP_KERNEL);
 	if (!csi2dphy)
 		return -ENOMEM;
@@ -897,7 +742,6 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 
 	of_property_read_u32(dev->of_node, "index", &csi2dphy->phy_index);
 
-	// csi2dphy->phy_index = of_alias_get_id(dev->of_node, drv_data->dev_name);
 	if (csi2dphy->phy_index >= PHY_MAX)
 		csi2dphy->phy_index = 0;
 
@@ -911,10 +755,11 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 		{
 			eswin_csi2_dphy_attach_hw(csi2dphy, i, i);
 		}
-		
 	} else {
 		csi2dphy->csi_info.csi_num = 0;
 	}
+	csi2dphy->v4l2_dev.mdev = es_vi_dev->media_dev;
+	ret = v4l2_device_register(dev, &csi2dphy->v4l2_dev);
 	sd = &csi2dphy->sd;
 	mutex_init(&csi2dphy->mutex);
 	v4l2_subdev_init(sd, &csi2_dphy_subdev_ops);
@@ -929,9 +774,10 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto detach_hw;
 
+	csi2dphy->of_notifier.notifier_call = eswin_csi2dphy_of_notifier;
+	of_overlay_notifier_register(&csi2dphy->of_notifier);
 	pm_runtime_enable(&pdev->dev);
-
-	dev_dbg(dev, "csi2 dphy%d probe successfully!\n", csi2dphy->phy_index);
+	dev_info(dev, "csi2 dphy%d probe successfully!\n", csi2dphy->phy_index);
 	return 0;
 
 detach_hw:
@@ -951,6 +797,7 @@ static int eswin_csi2_dphy_remove(struct platform_device *pdev)
 	media_entity_cleanup(&sd->entity);
 	v4l2_async_nf_cleanup(&dphy->notifier);
 	v4l2_async_nf_unregister(&dphy->notifier);
+	v4l2_device_unregister(&dphy->v4l2_dev);
 	v4l2_device_unregister_subdev(sd);
 	pm_runtime_disable(&pdev->dev);
 	mutex_destroy(&dphy->mutex);
@@ -979,7 +826,6 @@ void eswin_csi2_dphy_uinit(void)
 
 late_initcall(eswin_csi2_dphy_init);
 module_exit(eswin_csi2_dphy_uinit);
-// module_platform_driver(eswin_csi2_dphy_driver);
 
 MODULE_AUTHOR("luyulin@eswincomputing.com");
 MODULE_DESCRIPTION("Eswin dphy platform driver");

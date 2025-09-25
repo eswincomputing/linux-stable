@@ -117,6 +117,11 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 #define IMX586_REG_VALUE_16BIT		2
 #define IMX586_REG_VALUE_24BIT		3
 
+#define IMX586_PIXEL_ARRAY_TOP 0
+#define IMX586_PIXEL_ARRAY_LEFT 0
+#define IMX4586_PIXEL_ARRAY_WIDTH 8000
+#define IMX586_PIXEL_ARRAY_HEIGHT 6000
+
 #define OF_CAMERA_HDR_MODE		"eswin,camera-hdr-mode"
 
 #define IMX586_NAME			"imx586"
@@ -169,8 +174,6 @@ struct imx586 {
 	struct i2c_client	*client;
 	struct clk		*xvclk;
 	struct gpio_desc	*reset_gpio;
-	struct gpio_desc	*pwdn_gpio;
-	struct gpio_desc	*mclk_gpio;
 	struct regulator_bulk_data supplies[IMX586_NUM_SUPPLIES];
 
 	struct pinctrl		*pinctrl;
@@ -1147,6 +1150,24 @@ static int imx586_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 	return 0;
 }
 
+static int imx586_get_selection(struct v4l2_subdev *sd,
+	struct v4l2_subdev_state *sd_state,
+	struct v4l2_subdev_selection *sel)
+{
+	switch (sel->target) {
+		case V4L2_SEL_TGT_CROP:
+		case V4L2_SEL_TGT_CROP_DEFAULT:
+		case V4L2_SEL_TGT_CROP_BOUNDS:
+			sel->r.top = IMX586_PIXEL_ARRAY_TOP;
+			sel->r.left = IMX586_PIXEL_ARRAY_LEFT;
+			sel->r.width = IMX4586_PIXEL_ARRAY_WIDTH;
+			sel->r.height = IMX586_PIXEL_ARRAY_HEIGHT;
+			return 0;
+	}
+
+	return -EINVAL;
+}
+
 static long imx586_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	long ret = 0;
@@ -1331,6 +1352,8 @@ static int __imx586_power_on(struct imx586 *imx586)
 		goto disable_clk;
 	}
 
+	if (!IS_ERR(imx586->reset_gpio))
+		gpiod_set_value_cansleep(imx586->reset_gpio, 1);
 
 	/* need wait 8ms to set register */
 	usleep_range(8000, 10000);
@@ -1349,9 +1372,6 @@ disable_clk:
 
 static void __imx586_power_off(struct imx586 *imx586)
 {
-
-	if (!IS_ERR(imx586->pwdn_gpio))
-		gpiod_set_value_cansleep(imx586->pwdn_gpio, 0);
 	clk_disable_unprepare(imx586->xvclk);
 	if (!IS_ERR(imx586->reset_gpio))
 		gpiod_set_value_cansleep(imx586->reset_gpio, 0);
@@ -1448,6 +1468,7 @@ static const struct v4l2_subdev_pad_ops imx586_pad_ops = {
 	.get_fmt = imx586_get_fmt,
 	.set_fmt = imx586_set_fmt,
 	.get_mbus_config = imx586_g_mbus_config,
+	.get_selection = imx586_get_selection,
 };
 
 static const struct v4l2_subdev_ops imx586_subdev_ops = {
@@ -1520,8 +1541,12 @@ static int imx586_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(&client->dev, "set analog gain 0x%x\n",
 			ctrl->val);
 		break;
+	case V4L2_CID_NOTIFY_GAINS:
+		/* Currently do nothing */
+		break;
 	case V4L2_CID_DIGITAL_GAIN:
-	case V4L2_CID_NOTIFY_GAINS: break;
+		/* Currently do nothing */
+		break;
 	case V4L2_CID_VBLANK:
 		ret = imx586_write_reg(imx586->client,
 				       IMX586_REG_VTS_H,
@@ -1634,21 +1659,6 @@ static int imx586_initialize_controls(struct imx586 *imx586)
 					      IMX586_GAIN_MAX,
 					      IMX586_GAIN_STEP,
 					      IMX586_GAIN_DEFAULT);
-
-	v4l2_ctrl_new_std(handler, &imx586_ctrl_ops,
-						V4L2_CID_NOTIFY_GAINS,
-						IMX586_GAIN_MIN,
-						IMX586_GAIN_MAX,
-						IMX586_GAIN_STEP,
-						IMX586_GAIN_DEFAULT);
-
-	v4l2_ctrl_new_std(handler, &imx586_ctrl_ops,
-						V4L2_CID_DIGITAL_GAIN,
-						IMX586_GAIN_MIN,
-						IMX586_GAIN_MAX,
-						IMX586_GAIN_STEP,
-						IMX586_GAIN_DEFAULT);
-
 	imx586->test_pattern = v4l2_ctrl_new_std_menu_items(handler,
 							    &imx586_ctrl_ops,
 				V4L2_CID_TEST_PATTERN,
@@ -1661,6 +1671,14 @@ static int imx586_initialize_controls(struct imx586 *imx586)
 	imx586->v_flip = v4l2_ctrl_new_std(handler, &imx586_ctrl_ops,
 				V4L2_CID_VFLIP, 0, 1, 1, 0);
 	imx586->flip = 0;
+
+	v4l2_ctrl_new_std(handler, &imx586_ctrl_ops, V4L2_CID_NOTIFY_GAINS,
+		IMX586_GAIN_MIN, IMX586_GAIN_MAX,
+		IMX586_GAIN_STEP, IMX586_GAIN_DEFAULT);
+
+	imx586->digi_gain = v4l2_ctrl_new_std(handler, &imx586_ctrl_ops, V4L2_CID_DIGITAL_GAIN,
+		IMX586_GAIN_MIN, IMX586_GAIN_MAX,
+		IMX586_GAIN_STEP, IMX586_GAIN_DEFAULT);
 
 	if (handler->error) {
 		ret = handler->error;
@@ -1732,12 +1750,12 @@ static int imx586_probe(struct i2c_client *client)
 	if (!imx586)
 		return -ENOMEM;
 
-	imx586->mclk_gpio = devm_gpiod_get_optional(dev, "mclk-gpios",
+	imx586->reset_gpio = devm_gpiod_get_optional(dev, "reset",
 		GPIOD_OUT_HIGH);
-	if (IS_ERR(imx586->mclk_gpio)) {
-		dev_dbg(dev, "failed to get mclk-gpios\n");
+	if (IS_ERR(imx586->reset_gpio)) {
+		dev_dbg(dev, "failed to get reset_gpio\n");
 	} else {
-		gpiod_set_value(imx586->mclk_gpio, 1);
+		gpiod_set_value(imx586->reset_gpio, 1);
 	}
 
 	ret = of_property_read_u32(node, OF_CAMERA_HDR_MODE, &hdr_mode);

@@ -1325,7 +1325,7 @@ static int vvcam_isp_notifier_bound(struct v4l2_async_notifier *notifier,
 			continue;
 
         source     = &sd->entity;
-		source_pad = 1;//link.remote_port; // 1
+		source_pad = 2;//link.remote_port; // 1
 		sink       = &isp_dev->sd.entity;
 		sink_pad   = 0;//link.local_port; //0
 		v4l2_fwnode_put_link(&link);
@@ -1337,6 +1337,7 @@ static int vvcam_isp_notifier_bound(struct v4l2_async_notifier *notifier,
 				sink->name, sink_pad, sd->entity.pads[source_pad].flags);
 			break;
 		}
+        break;
     }
 
     fwnode_handle_put(ep);

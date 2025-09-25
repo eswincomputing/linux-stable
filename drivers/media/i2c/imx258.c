@@ -907,7 +907,7 @@ struct imx258 {
 
 	struct clk *clk;
 	struct regulator_bulk_data supplies[IMX258_NUM_SUPPLIES];
-	struct gpio_desc *mclk_gpio;
+	struct gpio_desc *reset_gpio;
 };
 
 static inline struct imx258 *to_imx258(struct v4l2_subdev *_sd)
@@ -1121,7 +1121,6 @@ static int imx258_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = imx258_update_digital_gain(imx258, IMX258_REG_VALUE_16BIT,
 				ctrl->val);
 		break;
-	case V4L2_CID_NOTIFY_GAINS:break;
 	case V4L2_CID_TEST_PATTERN:
 		ret = imx258_write_reg(imx258, IMX258_REG_TEST_PATTERN,
 				IMX258_REG_VALUE_16BIT,
@@ -1450,20 +1449,22 @@ static int imx258_power_on(struct device *dev)
 	struct imx258 *imx258 = to_imx258(sd);
 	int ret;
 
-	// ret = regulator_bulk_enable(IMX258_NUM_SUPPLIES,
-	// 			    imx258->supplies);
-	// if (ret) {
-	// 	dev_err(dev, "%s: failed to enable regulators\n",
-	// 		__func__);
-	// 	return ret;
-	// }
+	ret = regulator_bulk_enable(IMX258_NUM_SUPPLIES,
+				    imx258->supplies);
+	if (ret) {
+		dev_err(dev, "%s: failed to enable regulators\n",
+			__func__);
+		return ret;
+	}
 
 	ret = clk_prepare_enable(imx258->clk);
 	if (ret) {
 		dev_err(dev, "failed to enable clock\n");
-		// regulator_bulk_disable(IMX258_NUM_SUPPLIES, imx258->supplies);
+		regulator_bulk_disable(IMX258_NUM_SUPPLIES, imx258->supplies);
 	}
 
+	gpiod_set_value_cansleep(imx258->reset_gpio, 1);
+	usleep_range(200, 300);
 	return ret;
 }
 
@@ -1472,9 +1473,9 @@ static int imx258_power_off(struct device *dev)
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct imx258 *imx258 = to_imx258(sd);
 
+	gpiod_set_value_cansleep(imx258->reset_gpio, 0);
 	clk_disable_unprepare(imx258->clk);
-	// regulator_bulk_disable(IMX258_NUM_SUPPLIES, imx258->supplies);
-
+	regulator_bulk_disable(IMX258_NUM_SUPPLIES, imx258->supplies);
 	return 0;
 }
 
@@ -1578,9 +1579,13 @@ static int imx258_identify_module(struct imx258 *imx258)
 static int imx258_get_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
 				struct v4l2_mbus_config *cfg)
 {
-	// struct imx258 *imx258 = to_imx258(sd);
+	struct imx258 *imx258 = to_imx258(sd);
 	cfg->type = V4L2_MBUS_CSI2_DPHY;
-	cfg->bus.mipi_csi2.num_data_lanes = 4;
+	if(imx258->lane_mode_idx == IMX258_2_LANE_MODE) {
+		cfg->bus.mipi_csi2.num_data_lanes = 2;
+	} else {
+		cfg->bus.mipi_csi2.num_data_lanes = 4;
+	}
 	return 0;
 }
 
@@ -1692,10 +1697,11 @@ static int imx258_init_controls(struct imx258 *imx258)
 				IMX258_DGTL_GAIN_MIN, IMX258_DGTL_GAIN_MAX,
 				IMX258_DGTL_GAIN_STEP,
 				IMX258_DGTL_GAIN_DEFAULT);
+
 	v4l2_ctrl_new_std(ctrl_hdlr, &imx258_ctrl_ops, V4L2_CID_NOTIFY_GAINS,
-		IMX258_DGTL_GAIN_MIN, IMX258_DGTL_GAIN_MAX,
-		IMX258_DGTL_GAIN_STEP,
-		IMX258_DGTL_GAIN_DEFAULT);
+				IMX258_DGTL_GAIN_MIN, IMX258_DGTL_GAIN_MAX,
+				IMX258_DGTL_GAIN_STEP,
+				IMX258_DGTL_GAIN_DEFAULT);
 
 	v4l2_ctrl_new_std(ctrl_hdlr, &imx258_ctrl_ops, V4L2_CID_WIDE_DYNAMIC_RANGE,
 				0, 1, 1, IMX258_HDR_RATIO_DEFAULT);
@@ -1738,7 +1744,7 @@ static void imx258_free_controls(struct imx258 *imx258)
 	mutex_destroy(&imx258->mutex);
 }
 
-static int __maybe_unused imx258_get_regulators(struct imx258 *imx258,
+static int imx258_get_regulators(struct imx258 *imx258,
 				 struct i2c_client *client)
 {
 	unsigned int i;
@@ -1768,21 +1774,19 @@ static int imx258_probe(struct i2c_client *client)
 	int ret;
 	u32 val = 0;
 
-	pr_info("%s: probing imx258 sensor\n", __func__);
-
 	imx258 = devm_kzalloc(&client->dev, sizeof(*imx258), GFP_KERNEL);
 	if (!imx258)
 		return -ENOMEM;
 
-	// ret = imx258_get_regulators(imx258, client);
-	// if (ret)
-	// 	return ret;
-	imx258->mclk_gpio = devm_gpiod_get_optional(&client->dev, "mclk-gpios",
+	ret = imx258_get_regulators(imx258, client);
+	if (ret)
+		return ret;
+	imx258->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
 		GPIOD_OUT_HIGH);
-	if (IS_ERR(imx258->mclk_gpio)) {
-		dev_dbg(&client->dev, "failed to get mclk-gpios\n");
+	if (IS_ERR(imx258->reset_gpio)) {
+		dev_dbg(&client->dev, "failed to get reset-gpio\n");
 	} else {
-		gpiod_set_value(imx258->mclk_gpio, 1);
+		gpiod_set_value(imx258->reset_gpio, 1);
 	}
 
 	imx258->clk = devm_clk_get_optional(&client->dev, NULL);

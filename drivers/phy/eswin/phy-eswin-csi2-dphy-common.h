@@ -2,8 +2,8 @@
 #define _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 
 #include <media/eswin/eswin_vi.h>
-#include "es-camera-module.h"
-#include "es-dvp2axi-config.h"
+#include <linux/es-camera-module.h>
+#include <linux/es-dvp2axi-config.h>
 
 #define PHY_MAX 16
 #define MAX_DEV_NAME_LEN 32
@@ -37,10 +37,10 @@ struct csi2dphy_reg {
 	u32 offset;
 };
 
-#define MAX_DPHY_SENSORS	(2)
-#define MAX_NUM_CSI2_DPHY	(0x2)
-#define CSI2_DPHY_4LANES	(0x4)
-#define CSI2_DPHY_2LANES	(0x2)
+#define MAX_DPHY_SENSORS (2)
+#define MAX_NUM_CSI2_DPHY (0x2)
+#define CSI2_DPHY_4LANES (0x4)
+#define CSI2_DPHY_2LANES (0x2)
 
 struct reg_val {
 	u32 addr;
@@ -73,6 +73,7 @@ struct csi2_dphy {
 	struct csi2_dphy_hw *dphy_hw;
 	struct csi2_dphy_hw *dphy_hw_group[MAX_INNO_PHY_NUM];
 	struct v4l2_async_notifier notifier;
+	struct v4l2_device v4l2_dev;
 	struct v4l2_subdev sd;
 	struct mutex mutex; /* lock for updating protection */
 	struct media_pad pads[CSI2_DPHY_RX_PADS_NUM];
@@ -86,6 +87,7 @@ struct csi2_dphy {
 	int lane_mode;
 	const struct dphy_drv_data *drv_data;
 	struct esmodule_csi_dphy_param dphy_param;
+	struct notifier_block of_notifier;
 	int phy_num;
 };
 
@@ -115,8 +117,8 @@ struct csi2_dphy_hw {
 	void __iomem *csi_base_addr;
 	void __iomem *combine_dphy_base_addr;
 
-	struct clk_bulk_data	*clks_bulk;
-	struct reset_control	*rsts_bulk;
+	struct clk_bulk_data *clks_bulk;
+	struct reset_control *rsts_bulk;
 	struct csi2_dphy *dphy_dev[MAX_NUM_CSI2_DPHY];
 	struct v4l2_subdev sd;
 	struct mutex mutex; /* lock for updating protection */
@@ -131,6 +133,7 @@ struct csi2_dphy_hw {
 	int lanes_dp_dn[4];
 	u64 rate;
 	struct csi2_dphy_rate_table dphy_rate_tbl;
+	struct notifier_block of_notifier;
 
 	int (*stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
@@ -139,8 +142,6 @@ struct csi2_dphy_hw {
 	int (*quick_stream_on)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 	int (*quick_stream_off)(struct csi2_dphy *dphy, struct v4l2_subdev *sd);
 };
-
-
 
 int eswin_csi2_dphy_hw_init(void);
 int eswin_csi2_dphy_init(void);

@@ -20,6 +20,8 @@
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
 
+#include <linux/es-camera-module.h>
+
 static int es_camera_debug = 0;
 module_param_named(debug, es_camera_debug, int, 0644);
 MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable");
@@ -71,7 +73,7 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 #define IMX415_SHR0		  IMX415_REG_24BIT(0x3050)
 #define IMX415_GAIN_PCG_0	  IMX415_REG_16BIT(0x3090)
 #define IMX415_AGAIN_MIN	  0
-#define IMX415_AGAIN_MAX	  100
+#define IMX415_AGAIN_MAX	  0xF0
 #define IMX415_AGAIN_STEP	  1
 #define IMX415_BLKLEVEL		  IMX415_REG_16BIT(0x30E2)
 #define IMX415_BLKLEVEL_DEFAULT	  50
@@ -105,6 +107,8 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 #define IMX415_TLPX		  IMX415_REG_16BIT(0x4028)
 #define IMX415_INCKSEL7		  IMX415_REG_8BIT(0x4074)
 
+#define OF_CAMERA_HDR_MODE		"eswin,camera-hdr-mode"
+
 struct imx415_reg {
 	u32 address;
 	u32 val;
@@ -132,6 +136,76 @@ struct imx415_clk_params {
 	u64 inck;
 	struct imx415_reg regs[IMX415_NUM_CLK_PARAM_REGS];
 };
+
+static const struct imx415_reg imx415_hdr2_10bit_3864x2192_1485M_regs[] = {
+    { IMX415_REG_8BIT(0x3020), 0x00 },
+    { IMX415_REG_8BIT(0x3021), 0x00 },
+    { IMX415_REG_8BIT(0x3022), 0x00 },
+    { IMX415_REG_8BIT(0x3024), 0xFC },
+    { IMX415_REG_8BIT(0x3025), 0x08 },
+    { IMX415_REG_8BIT(0x3028), 0x1A },
+    { IMX415_REG_8BIT(0x3029), 0x02 },
+    { IMX415_REG_8BIT(0x302C), 0x01 },
+    { IMX415_REG_8BIT(0x302D), 0x01 },
+    { IMX415_REG_8BIT(0x3033), 0x08 },
+    { IMX415_REG_8BIT(0x3050), 0xA8 },
+    { IMX415_REG_8BIT(0x3051), 0x0D },
+    { IMX415_REG_8BIT(0x3054), 0x09 },
+    { IMX415_REG_8BIT(0x3058), 0x3E },
+    { IMX415_REG_8BIT(0x3060), 0x4D },
+    { IMX415_REG_8BIT(0x3064), 0x4A },
+    { IMX415_REG_8BIT(0x30CF), 0x01 },
+    { IMX415_REG_8BIT(0x3118), 0xA0 },
+    { IMX415_REG_8BIT(0x3260), 0x00 },
+    { IMX415_REG_8BIT(0x400C), 0x01 },
+    { IMX415_REG_8BIT(0x4018), 0xA7 },
+    { IMX415_REG_8BIT(0x401A), 0x57 },
+    { IMX415_REG_8BIT(0x401C), 0x5F },
+    { IMX415_REG_8BIT(0x401E), 0x97 },
+    { IMX415_REG_8BIT(0x401F), 0x01 },
+    { IMX415_REG_8BIT(0x4020), 0x5F },
+    { IMX415_REG_8BIT(0x4022), 0xAF },
+    { IMX415_REG_8BIT(0x4024), 0x5F },
+    { IMX415_REG_8BIT(0x4026), 0x9F },
+    { IMX415_REG_8BIT(0x4028), 0x4F },
+    { IMX415_REG_8BIT(0x4074), 0x00 },
+};
+
+static const struct imx415_reg imx415_hdr3_10bit_3864x2192_1485M_regs[] = {
+	{ IMX415_REG_8BIT(0x3020), 0x00 },
+    { IMX415_REG_8BIT(0x3021), 0x00 },
+    { IMX415_REG_8BIT(0x3022), 0x00 },
+    { IMX415_REG_8BIT(0x3024), 0xEA },
+    { IMX415_REG_8BIT(0x3025), 0x07 },
+    { IMX415_REG_8BIT(0x3028), 0xCA },
+    { IMX415_REG_8BIT(0x3029), 0x01 },
+    { IMX415_REG_8BIT(0x302C), 0x01 },
+    { IMX415_REG_8BIT(0x302D), 0x02 },
+    { IMX415_REG_8BIT(0x3033), 0x04 },
+    { IMX415_REG_8BIT(0x3050), 0x3E },
+    { IMX415_REG_8BIT(0x3051), 0x01 },
+    { IMX415_REG_8BIT(0x3054), 0x0D },
+    { IMX415_REG_8BIT(0x3058), 0x9E },
+    { IMX415_REG_8BIT(0x3060), 0x91 },
+    { IMX415_REG_8BIT(0x3064), 0xC2 },
+    { IMX415_REG_8BIT(0x30CF), 0x03 },
+    { IMX415_REG_8BIT(0x3118), 0xC0 },
+    { IMX415_REG_8BIT(0x3260), 0x00 },
+    { IMX415_REG_8BIT(0x400C), 0x01 },
+    { IMX415_REG_8BIT(0x4018), 0xB7 },
+    { IMX415_REG_8BIT(0x401A), 0x67 },
+    { IMX415_REG_8BIT(0x401C), 0x6F },
+    { IMX415_REG_8BIT(0x401E), 0xDF },
+    { IMX415_REG_8BIT(0x401F), 0x01 },
+    { IMX415_REG_8BIT(0x4020), 0x6F },
+    { IMX415_REG_8BIT(0x4022), 0xCF },
+    { IMX415_REG_8BIT(0x4024), 0x6F },
+    { IMX415_REG_8BIT(0x4026), 0xB7 },
+    { IMX415_REG_8BIT(0x4028), 0x5F },
+    { IMX415_REG_8BIT(0x4074), 0x00 },
+};
+
+
 
 /* INCK Settings - includes all lane rate and INCK dependent registers */
 static const struct imx415_clk_params imx415_clk_params[] = {
@@ -561,6 +635,7 @@ static const struct imx415_reg imx415_linkrate_1485mbps[] = {
 struct imx415_mode_reg_list {
 	u32 num_of_regs;
 	const struct imx415_reg *regs;
+	u32 hdr_mode;
 };
 
 struct imx415_mode {
@@ -577,6 +652,25 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_720mbps),
 			.regs = imx415_linkrate_720mbps,
+			.hdr_mode = NO_HDR,
+		},
+	},
+	{
+		.lane_rate = 1485000000,
+		.hmax_min = { 1100, 550 },
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(imx415_hdr2_10bit_3864x2192_1485M_regs),
+			.regs = imx415_hdr2_10bit_3864x2192_1485M_regs,
+			.hdr_mode = HDR_X2,
+		},
+	},
+	{
+		.lane_rate = 1485000000,
+		.hmax_min = { 1100, 550 },
+		.reg_list = {
+			.num_of_regs = ARRAY_SIZE(imx415_hdr3_10bit_3864x2192_1485M_regs),
+			.regs = imx415_hdr3_10bit_3864x2192_1485M_regs,
+			.hdr_mode = HDR_X3,
 		},
 	},
 	{
@@ -585,6 +679,7 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_1440mbps),
 			.regs = imx415_linkrate_1440mbps,
+			.hdr_mode = NO_HDR,
 		},
 	},
 	{
@@ -593,6 +688,7 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_891mbps),
 			.regs = imx415_linkrate_891mbps,
+			.hdr_mode = NO_HDR,
 		},
 	},
 	{
@@ -601,6 +697,7 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_1485mbps),
 			.regs = imx415_linkrate_1485mbps,
+			.hdr_mode = NO_HDR,
 		},
 	},
 	{
@@ -609,6 +706,7 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_1782mbps),
 			.regs = imx415_linkrate_1782mbps,
+			.hdr_mode = NO_HDR,
 		},
 	},
 	{
@@ -617,6 +715,7 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_2079mbps),
 			.regs = imx415_linkrate_2079mbps,
+			.hdr_mode = NO_HDR,
 		},
 	},
 	{
@@ -625,6 +724,7 @@ static const struct imx415_mode supported_modes[] = {
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(imx415_linkrate_2376mbps),
 			.regs = imx415_linkrate_2376mbps,
+			.hdr_mode = NO_HDR,
 		},
 	},
 };
@@ -656,7 +756,6 @@ struct imx415 {
 	unsigned long pixel_rate;
 	struct regulator_bulk_data supplies[ARRAY_SIZE(imx415_supply_names)];
 	struct gpio_desc *reset;
-	struct gpio_desc *mclk_gpio;
 	struct regmap *regmap;
 
 	const struct imx415_clk_params *clk_params;
@@ -675,6 +774,16 @@ struct imx415 {
 
 	unsigned int cur_mode;
 	unsigned int num_data_lanes;
+
+	u32			cfg_num;
+	struct v4l2_ctrl *hdr_mode_ctrl;
+	u32 hdr_mode;
+
+	/* Use our own mutex to protect ctrl handler / subdev state on kernels
+	 * that don't embed a mutex inside v4l2_subdev. This prevents NULL
+	 * derefs for sensor->subdev.lock on older kernels.
+	 */
+	struct mutex lock;
 };
 
 /*
@@ -844,6 +953,8 @@ static int imx415_set_testpattern(struct imx415 *sensor, int val)
 	return 0;
 }
 
+static int imx415_set_mode(struct imx415 *sensor, int mode);
+
 static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx415 *sensor = container_of(ctrl->handler, struct imx415,
@@ -884,7 +995,7 @@ static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 		 */
 		fallthrough;
 	case V4L2_CID_EXPOSURE:
-		/* clamp the exposure value to VMAX. */
+		/* clamp the exposure value to VMAX */
 		vmax = format->height + sensor->vblank->cur.val;
 		ctrl->val = min_t(int, ctrl->val, vmax);
 		return imx415_write(sensor, IMX415_SHR0, vmax - ctrl->val);
@@ -894,6 +1005,7 @@ static int imx415_s_ctrl(struct v4l2_ctrl *ctrl)
 		return imx415_write(sensor, IMX415_GAIN_PCG_0, ctrl->val);
 	case V4L2_CID_NOTIFY_GAINS:return 0;
 	case V4L2_CID_DIGITAL_GAIN:return 0;
+
 	case V4L2_CID_HFLIP:
 	case V4L2_CID_VFLIP:
 		flip = (sensor->hflip->val << IMX415_HREVERSE_SHIFT) |
@@ -945,11 +1057,11 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 				     lane_rate);
 	}
 
+
 	ctrl = v4l2_ctrl_new_int_menu(&sensor->ctrls, &imx415_ctrl_ops,
 				      V4L2_CID_LINK_FREQ,
 				      ARRAY_SIZE(link_freq_menu_items) - 1, i,
 				      link_freq_menu_items);
-
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
@@ -961,6 +1073,7 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 			  V4L2_CID_ANALOGUE_GAIN, IMX415_AGAIN_MIN,
 			  IMX415_AGAIN_MAX, IMX415_AGAIN_STEP,
 			  IMX415_AGAIN_MIN);
+
 	v4l2_ctrl_new_std(&sensor->ctrls, &imx415_ctrl_ops,
 			  V4L2_CID_NOTIFY_GAINS, IMX415_AGAIN_MIN,
 			  IMX415_AGAIN_MAX, IMX415_AGAIN_STEP,
@@ -1003,12 +1116,15 @@ static int imx415_ctrls_init(struct imx415 *sensor)
 	v4l2_ctrl_new_fwnode_properties(&sensor->ctrls, &imx415_ctrl_ops,
 					&props);
 
+	/* check for errors from v4l2 ctrl init */
 	if (sensor->ctrls.error) {
 		dev_err_probe(sensor->dev, sensor->ctrls.error,
 			      "failed to add controls\n");
 		v4l2_ctrl_handler_free(&sensor->ctrls);
 		return sensor->ctrls.error;
 	}
+
+	/* let subdev point to this ctrl handler */
 	sensor->subdev.ctrl_handler = &sensor->ctrls;
 
 	return 0;
@@ -1032,6 +1148,31 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 			return ret;
 	}
 
+
+	switch (sensor->hdr_mode) {
+	case HDR_X2:
+		dev_dbg(sensor->dev, "Applying HDR X2 specific configuration\n");
+		for (i = 0; i < ARRAY_SIZE(imx415_hdr2_10bit_3864x2192_1485M_regs); ++i) {
+			reg = &imx415_hdr2_10bit_3864x2192_1485M_regs[i];
+			ret = imx415_write(sensor, reg->address, reg->val);
+			if (ret)
+				return ret;
+		}
+		break;
+	case HDR_X3:
+		dev_dbg(sensor->dev, "Applying HDR X3 specific configuration\n");
+		for (i = 0; i < ARRAY_SIZE(imx415_hdr3_10bit_3864x2192_1485M_regs); ++i) {
+			reg = &imx415_hdr3_10bit_3864x2192_1485M_regs[i];
+			ret = imx415_write(sensor, reg->address, reg->val);
+			if (ret)
+				return ret;
+		}
+		break;
+	default:
+		dev_dbg(sensor->dev, "Applying NO_HDR configuration\n");
+		break;
+	}
+
 	for (i = 0; i < IMX415_NUM_CLK_PARAM_REGS; ++i) {
 		reg = &sensor->clk_params->regs[i];
 		ret = imx415_write(sensor, reg->address, reg->val);
@@ -1040,8 +1181,8 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 	}
 
 	ret = imx415_write(sensor, IMX415_LANEMODE,
-			   sensor->num_data_lanes == 2 ? IMX415_LANEMODE_2 :
-							 IMX415_LANEMODE_4);
+				sensor->num_data_lanes == 2 ? IMX415_LANEMODE_2 :
+								IMX415_LANEMODE_4);
 
 	return ret;
 }
@@ -1278,7 +1419,79 @@ static const struct v4l2_subdev_pad_ops imx415_subdev_pad_ops = {
 	.get_mbus_config = imx415_get_mbus_config,
 };
 
+static int imx415_find_mode(u64 lane_rate, u32 hdr_mode)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(supported_modes); i++) {
+		if (supported_modes[i].lane_rate == lane_rate &&
+			supported_modes[i].reg_list.hdr_mode == hdr_mode) {
+			return i;
+		}
+	}
+
+	return -EINVAL;
+}
+
+static long imx415_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	struct imx415 *sensor = to_imx415(sd);
+	struct esmodule_hdr_cfg *hdr_cfg;
+	u64 current_lane_rate;
+	int new_mode;
+	int ret = 0;
+
+	switch (cmd) {
+	case ESMODULE_GET_HDR_CFG:
+		hdr_cfg = (struct esmodule_hdr_cfg *)arg;
+		hdr_cfg->hdr_mode = sensor->hdr_mode;
+		dev_dbg(sensor->dev, "Get HDR mode: %d\n", sensor->hdr_mode);
+		break;
+
+	case ESMODULE_SET_HDR_CFG:
+		hdr_cfg = (struct esmodule_hdr_cfg *)arg;
+		if (hdr_cfg->hdr_mode != NO_HDR && 
+			hdr_cfg->hdr_mode != HDR_X2 && 
+			hdr_cfg->hdr_mode != HDR_X3) {
+			dev_err(sensor->dev, "Invalid HDR mode: %d\n", hdr_cfg->hdr_mode);
+			return -EINVAL;
+		}
+
+		/* TODO: support sensor streaming can change HDR MODE */
+		if (sensor->streaming) {
+			dev_err(sensor->dev, "Cannot set HDR mode while streaming. Stop streaming first.\n");
+			return -EBUSY;
+		}
+
+		current_lane_rate = supported_modes[sensor->cur_mode].lane_rate;
+
+		new_mode = imx415_find_mode(current_lane_rate, hdr_cfg->hdr_mode);
+		if (new_mode < 0) {
+			dev_err(sensor->dev, "No mode found for HDR mode %d\n",
+					hdr_cfg->hdr_mode);
+			return -EINVAL;
+		}
+
+		sensor->cur_mode = new_mode;
+		sensor->hdr_mode = hdr_cfg->hdr_mode;
+
+		dev_dbg(sensor->dev, "HDR mode set to %d. Configuration will be applied on next stream start.\n",
+					sensor->hdr_mode);
+		break;
+
+	default:
+		return -ENOIOCTLCMD;
+	}
+
+    return ret;
+}
+
+static const struct v4l2_subdev_core_ops imx415_subdev_core_ops = {
+    .ioctl = imx415_ioctl,
+};
+
 static const struct v4l2_subdev_ops imx415_subdev_ops = {
+	.core = &imx415_subdev_core_ops,
 	.video = &imx415_subdev_video_ops,
 	.pad = &imx415_subdev_pad_ops,
 };
@@ -1290,6 +1503,7 @@ static int imx415_subdev_init(struct imx415 *sensor)
 
 	v4l2_i2c_subdev_init(&sensor->subdev, client, &imx415_subdev_ops);
 
+	/* controls init (subdev.ctrl_handler will be set inside) */
 	ret = imx415_ctrls_init(sensor);
 	if (ret)
 		return ret;
@@ -1320,12 +1534,12 @@ static int imx415_power_on(struct imx415 *sensor)
 {
 	int ret;
 
-	// ret = regulator_bulk_enable(ARRAY_SIZE(sensor->supplies),
-	// 			    sensor->supplies);
-	// if (ret < 0)
-	// 	return ret;
+	ret = regulator_bulk_enable(ARRAY_SIZE(sensor->supplies),
+				    sensor->supplies);
+	if (ret < 0)
+		return ret;
 
-	// gpiod_set_value_cansleep(sensor->reset, 0);
+	gpiod_set_value_cansleep(sensor->reset, 1);
 
 	udelay(1);
 
@@ -1343,16 +1557,16 @@ static int imx415_power_on(struct imx415 *sensor)
 	return 0;
 
 err_reset:
-	// gpiod_set_value_cansleep(sensor->reset, 1);
-	// regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
+	gpiod_set_value_cansleep(sensor->reset, 0);
+	regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
 	return ret;
 }
 
 static void imx415_power_off(struct imx415 *sensor)
 {
 	clk_disable_unprepare(sensor->clk);
-	// gpiod_set_value_cansleep(sensor->reset, 1);
-	// regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
+	gpiod_set_value_cansleep(sensor->reset, 0);
+	regulator_bulk_disable(ARRAY_SIZE(sensor->supplies), sensor->supplies);
 }
 
 static int imx415_identify_model(struct imx415 *sensor)
@@ -1397,7 +1611,7 @@ done:
 static int imx415_check_inck(unsigned long inck, u64 link_frequency)
 {
 	unsigned int i;
-	
+
 	for (i = 0; i < ARRAY_SIZE(imx415_clk_params); ++i) {
 		if ((imx415_clk_params[i].lane_rate == link_frequency * 2) &&
 		    imx415_clk_params[i].inck == inck)
@@ -1418,23 +1632,27 @@ static int imx415_parse_hw_config(struct imx415 *sensor)
 	struct fwnode_handle *ep;
 	u64 lane_rate;
 	unsigned long inck;
-	unsigned int i, j;
+	unsigned int i;
 	int ret;
+
+	ret = of_property_read_u32(sensor->dev->of_node, OF_CAMERA_HDR_MODE, &sensor->hdr_mode);
+	if (ret)
+		sensor->hdr_mode = NO_HDR;
 
 	for (i = 0; i < ARRAY_SIZE(sensor->supplies); ++i)
 		sensor->supplies[i].supply = imx415_supply_names[i];
 
-	// ret = devm_regulator_bulk_get(sensor->dev, ARRAY_SIZE(sensor->supplies),
-	// 			      sensor->supplies);
-	// if (ret)
-	// 	return dev_err_probe(sensor->dev, ret,
-	// 			     "failed to get supplies\n");
+	ret = devm_regulator_bulk_get(sensor->dev, ARRAY_SIZE(sensor->supplies),
+				      sensor->supplies);
+	if (ret)
+		return dev_err_probe(sensor->dev, ret,
+				     "failed to get supplies\n");
 
-	// sensor->reset = devm_gpiod_get_optional(sensor->dev, "reset",
-	// 					GPIOD_OUT_HIGH);
-	// if (IS_ERR(sensor->reset))
-	// 	return dev_err_probe(sensor->dev, PTR_ERR(sensor->reset),
-	// 			     "failed to get reset GPIO\n");
+	sensor->reset = devm_gpiod_get_optional(sensor->dev, "reset",
+						GPIOD_OUT_HIGH);
+	if (IS_ERR(sensor->reset))
+		return dev_err_probe(sensor->dev, PTR_ERR(sensor->reset),
+				     "failed to get reset GPIO\n");
 
 	sensor->clk = devm_clk_get(sensor->dev, "inck");
 	if (IS_ERR(sensor->clk))
@@ -1486,21 +1704,27 @@ static int imx415_parse_hw_config(struct imx415 *sensor)
 			continue;
 		}
 
-		for (j = 0; j < ARRAY_SIZE(supported_modes); ++j) {
-			if (bus_cfg.link_frequencies[i] * 2 !=
-			    supported_modes[j].lane_rate)
-				continue;
-			sensor->cur_mode = j;
+		lane_rate = bus_cfg.link_frequencies[i] * 2;
+		sensor->cur_mode = imx415_find_mode(lane_rate, sensor->hdr_mode);
+		if (sensor->cur_mode >= 0) {
 			break;
+		} else {
+			dev_info(sensor->dev, "No mode found for HDR %d, trying NO_HDR\n",
+						sensor->hdr_mode);
+			sensor->cur_mode = imx415_find_mode(lane_rate, NO_HDR);
+			if (sensor->cur_mode >= 0) {
+				sensor->hdr_mode = NO_HDR;
+				break;
+			}
 		}
-		if (j < ARRAY_SIZE(supported_modes))
-			break;
 	}
+
 	if (i == bus_cfg.nr_of_link_frequencies) {
 		ret = dev_err_probe(sensor->dev, -EINVAL,
 				    "no valid sensor mode defined\n");
 		goto done_endpoint_free;
 	}
+
 	switch (inck) {
 	case 27000000:
 	case 37125000:
@@ -1549,14 +1773,6 @@ static int imx415_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	sensor->dev = &client->dev;
-
-	sensor->mclk_gpio = devm_gpiod_get_optional(sensor->dev, "mclk-gpios",
-		GPIOD_OUT_HIGH);
-	if (IS_ERR(sensor->mclk_gpio)) {
-		dev_dbg(sensor->dev, "failed to get mclk-gpios\n");
-	} else {
-		gpiod_set_value(sensor->mclk_gpio, 1);
-	}
 
 	ret = imx415_parse_hw_config(sensor);
 	if (ret)

@@ -55,6 +55,7 @@
 		compatible = "verisilicon,vb";
 		status = "okay";
 		dma-noncoherent;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu1 WIN2030_SID_ISP0>;
 	};
@@ -64,6 +65,7 @@
         id = <0>;
         status = "okay";
 		dma-noncoherent;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu1 WIN2030_SID_ISP0>;
 
@@ -106,7 +108,7 @@
 	status = "okay";
 };
 
-&d1_dvp2axi_mipi_lvds {
+&d1_dvp2axi_mipi_lvds0 {
 	status = "okay";
 	port@0 {
 		d1_axi2dvp_mipi2_in0: endpoint@0 {
@@ -114,7 +116,6 @@
 		};
 	};
 };
-
 
 &d1_dvp2axi_mipi_lvds1 {
 	status = "okay";
@@ -201,7 +202,7 @@
 	};
 };
 
-&d1_csi2_dphy_hw {
+&d1_csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "okay";
@@ -289,8 +290,6 @@
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
 
-        eswin,board-type = "d560";
-
 		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
 		mclk-en-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
@@ -317,8 +316,6 @@
 		assigned-clocks = <&d1_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
-
-        eswin,board-type = "d560";
 
 		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;

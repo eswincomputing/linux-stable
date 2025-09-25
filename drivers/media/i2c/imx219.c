@@ -175,7 +175,6 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 
 
 static int imx219_again_table[IMX219_AGAIN_TABLE] =
-
 {
 	0,	3,	7,	10,	14,	17,	21,	24,
 	28, 31, 35, 38, 42, 45, 49, 52,
@@ -1141,6 +1140,7 @@ static void imx219_stop_streaming(struct imx219 *imx219)
 	pm_runtime_put(&client->dev);
 }
 
+static int imx219_check_hwcfg(struct device *dev, struct imx219 *imx219);
 static int imx219_set_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct imx219 *imx219 = to_imx219(sd);
@@ -1157,6 +1157,7 @@ static int imx219_set_stream(struct v4l2_subdev *sd, int enable)
 		 * Apply default & customized values
 		 * and then start streaming.
 		 */
+		imx219_check_hwcfg(sd->dev, imx219);
 		ret = imx219_start_streaming(imx219, state);
 		if (ret)
 			goto unlock;
@@ -1178,13 +1179,13 @@ static int imx219_power_on(struct device *dev)
 	struct imx219 *imx219 = to_imx219(sd);
 	int ret;
 
-	// ret = regulator_bulk_enable(IMX219_NUM_SUPPLIES,
-	// 			    imx219->supplies);
-	// if (ret) {
-	// 	dev_err(dev, "%s: failed to enable regulators\n",
-	// 		__func__);
-	// 	return ret;
-	// }
+	ret = regulator_bulk_enable(IMX219_NUM_SUPPLIES,
+				    imx219->supplies);
+	if (ret) {
+		dev_err(dev, "%s: failed to enable regulators\n",
+			__func__);
+		return ret;
+	}
 
 	ret = clk_prepare_enable(imx219->xclk);
 	if (ret) {
@@ -1193,14 +1194,14 @@ static int imx219_power_on(struct device *dev)
 		goto reg_off;
 	}
 
-	// gpiod_set_value_cansleep(imx219->reset_gpio, 1);
+	gpiod_set_value_cansleep(imx219->reset_gpio, 1);
 	usleep_range(IMX219_XCLR_MIN_DELAY_US,
 		     IMX219_XCLR_MIN_DELAY_US + IMX219_XCLR_DELAY_RANGE_US);
 
 	return 0;
 
 reg_off:
-// 	regulator_bulk_disable(IMX219_NUM_SUPPLIES, imx219->supplies);
+	regulator_bulk_disable(IMX219_NUM_SUPPLIES, imx219->supplies);
 
 	return ret;
 }
@@ -1210,8 +1211,8 @@ static int imx219_power_off(struct device *dev)
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct imx219 *imx219 = to_imx219(sd);
 
-	// gpiod_set_value_cansleep(imx219->reset_gpio, 0);
-	// regulator_bulk_disable(IMX219_NUM_SUPPLIES, imx219->supplies);
+	gpiod_set_value_cansleep(imx219->reset_gpio, 0);
+	regulator_bulk_disable(IMX219_NUM_SUPPLIES, imx219->supplies);
 	clk_disable_unprepare(imx219->xclk);
 
 	return 0;
@@ -1464,7 +1465,7 @@ static int imx219_check_hwcfg(struct device *dev, struct imx219 *imx219)
 		goto error_out;
 	}
 	imx219->lanes = ep_cfg.bus.mipi_csi2.num_data_lanes;
-	dev_info(dev, "MIPI CSI2 data lanes: %d\n", imx219->lanes);
+	dev_dbg(dev, "MIPI CSI2 data lanes: %d\n", imx219->lanes);
 	/* Check the link frequency set in device tree */
 	if (!ep_cfg.nr_of_link_frequencies) {
 		dev_err(dev, "link-frequency property not found in DT\n");
@@ -1514,7 +1515,6 @@ static int imx219_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct imx219 *imx219;
-	const char *board_type;
 	int ret;
 
 	imx219 = devm_kzalloc(&client->dev, sizeof(*imx219), GFP_KERNEL);
@@ -1541,37 +1541,18 @@ static int imx219_probe(struct i2c_client *client)
 		return PTR_ERR(imx219->xclk);
 	}
 
-	imx219->mclk_gpio = devm_gpiod_get_optional(dev, "mclk-gpios",
+	imx219->reset_gpio = devm_gpiod_get_optional(dev, "reset",
 	 					     GPIOD_OUT_HIGH);
-	if (IS_ERR(imx219->mclk_gpio)) {
-		dev_dbg(dev, "failed to get mclk-gpios\n");
+	if (IS_ERR(imx219->reset_gpio)) {
+		dev_warn(dev, "failed to get reset-gpio\n");
 	} else {
-		gpiod_set_value(imx219->mclk_gpio, 1);
+		gpiod_set_value(imx219->reset_gpio, 1);
 	}
 
-	/* For the D560 board, raise the GPIO21 operation */
-	ret = of_property_read_string(dev->of_node, "eswin,board-type", &board_type);
-	if (ret || strcmp(board_type, "d560") != 0) {
-		dev_info(dev, "Non-d560 board, skip GPIO operations\n");
-		board_type = NULL;
-	}
-
-	if (board_type) {
-		imx219->power_en_gpio = devm_gpiod_get_optional(dev, "power-en", GPIOD_OUT_LOW);
-		imx219->power_level_gpio = devm_gpiod_get_optional(dev, "power-level", GPIOD_OUT_LOW);
-
-		if (IS_ERR(imx219->power_en_gpio)) {
-			ret = PTR_ERR(imx219->power_en_gpio);
-			dev_err(dev, "get power-en GPIO failed\n");
-			return ret;
-		}
-		if (IS_ERR(imx219->power_level_gpio)) {
-			ret = PTR_ERR(imx219->power_level_gpio);
-			dev_err(dev, "get power-level GPIO failed\n");
-			return ret;
-		}
-		gpiod_set_value_cansleep(imx219->power_en_gpio, 1);
-		gpiod_set_value_cansleep(imx219->power_level_gpio, 1);
+	ret = imx219_get_regulators(imx219);
+	if (ret) {
+		dev_err(dev, "failed to get regulators\n");
+		return ret;
 	}
 
 	/*
@@ -1633,9 +1614,6 @@ static int imx219_probe(struct i2c_client *client)
 		dev_err(dev, "subdev init error: %d\n", ret);
 		goto error_media_entity;
 	}
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-
 
 	ret = v4l2_async_register_subdev_sensor(&imx219->sd);
 	if (ret < 0) {
@@ -1643,6 +1621,9 @@ static int imx219_probe(struct i2c_client *client)
 		goto error_subdev_cleanup;
 	}
 
+	/* Enable runtime PM and turn off the device */
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
 	pm_runtime_idle(dev);
 
 	return 0;
@@ -1652,8 +1633,6 @@ error_subdev_cleanup:
 
 error_media_entity:
 	media_entity_cleanup(&imx219->sd.entity);
-	pm_runtime_disable(dev);
-	pm_runtime_set_suspended(dev);
 
 error_handler_free:
 	imx219_free_controls(imx219);
@@ -1675,10 +1654,9 @@ static void imx219_remove(struct i2c_client *client)
 	imx219_free_controls(imx219);
 
 	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev)) {
+	if (!pm_runtime_status_suspended(&client->dev))
 		imx219_power_off(&client->dev);
-		pm_runtime_set_suspended(&client->dev);
-	}
+	pm_runtime_set_suspended(&client->dev);
 }
 
 static const struct of_device_id imx219_dt_ids[] = {

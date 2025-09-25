@@ -728,41 +728,6 @@
 	status = "okay";
 };
 
-&mipi_dphy_rx {
-	status = "okay";
-};
-&d1_mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "okay";
-};
-&d1_csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-&d1_csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "okay";
-};
-&d1_csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
-	status = "disabled";
-};
-&d1_csi2_1 {
-	status = "disabled";
-};
-
 &sdhci_emmc {
 	/* emmc */
 	status = "okay";
