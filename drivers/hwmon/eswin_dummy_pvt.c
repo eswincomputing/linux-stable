@@ -253,6 +253,7 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 int eswin_get_cpu_7702_temp(const char *name, int numa_id, long *val)
 {
 	struct pvt_hwmon *pvt = NULL;
+	int ret = -EINVAL;
 
 	list_for_each_entry(pvt, &eswin_pvt_dummy_dev, entry) {
 		if (pvt->sensor_info && strstr(pvt->sensor_info->label, name) && pvt->nid == numa_id) {
