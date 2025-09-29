@@ -527,7 +527,7 @@ static void eic770x_csi2_dphy_match_best_rate(struct csi2_dphy *dphy)
 			break;
 	}
 
-	dev_info(dphy->dev, "Matched DPHY rate: %lld Mbps (closest to requested %lld Mbps)\n",
+	dev_dbg(dphy->dev, "Matched DPHY rate: %lld Mbps (closest to requested %lld Mbps)\n",
 		hw->dphy_rate_tbl.rate, rate);
 }
 

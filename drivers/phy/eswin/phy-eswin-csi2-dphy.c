@@ -284,7 +284,7 @@ static int csi2_dphy_s_stream(struct v4l2_subdev *sd, int on)
 	}
 	mutex_unlock(&dphy->mutex);
 
-	dev_info(dphy->dev, "%s stream on:%d, dphy%d, ret %d\n", __func__, on,
+	dev_dbg(dphy->dev, "%s stream on:%d, dphy%d, ret %d\n", __func__, on,
 		 dphy->phy_index, ret);
 
 	return ret;

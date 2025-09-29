@@ -1800,7 +1800,6 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 			stream->stopping = false;
 		}
 
-		video_device_pipeline_stop(&node->vdev);
 		ret = dev->pipe.set_stream(&dev->pipe, false);
 		if (ret < 0)
 			v4l2_err(v4l2_dev,
@@ -2370,12 +2369,6 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 		goto destroy_buf;
 
 	if (stream->cur_stream_mode == ES_DVP2AXI_STREAM_MODE_NONE) {
-		ret = video_device_pipeline_start(&node->vdev, &dev->pipe.pipe);
-		if (ret < 0) {
-			v4l2_err(&dev->v4l2_dev, "start pipeline failed %d\n",
-				 ret);
-			goto pipe_stream_off;
-		}
 		if (sensor_info->mbus.type != V4L2_MBUS_PARALLEL &&
 		    esmodule_stream_seq != ESMODULE_START_STREAM_FRONT) {
 			ret = dev->pipe.set_stream(&dev->pipe, true);
@@ -2390,7 +2383,6 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 
 stop_stream:
 	es_dvp2axi_stream_stop(stream);
-pipe_stream_off:
 	dev->pipe.set_stream(&dev->pipe, false);
 
 destroy_buf:
@@ -2436,6 +2428,7 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	uint32_t dvp2axi_bpp;
 	int ret = 0;
 
+	stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
 	stream->frame_idx = 0;
 
 	switch(stream->id) {
@@ -2503,15 +2496,23 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, dvp2axi_ctrl33);
 	}
 
-	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, (0x1 << (stream->id +2)));
+	//flush irq before start stream
+	if(stream->id < 3) {
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, (0x7 << stream->id));
+	} else {
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, (0x7 << (stream->id - 3)));
+	}
+	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR,(0x1 << (stream->id+2)));
+
+	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
+	if((csr0 & 0x3f) == 0)
+		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
+
 	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
 	dvp2axi_hw_irq_axi(stream->dvp2axidev->hw_dev, 0);
 
 	es_dvp2axi_assign_new_buffer_oneframe(stream , ES_DVP2AXI_YUV_ADDR_STATE_INIT);
 
-	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
-	if((csr0 & 0x3f) == 0)
-		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	csr0 = csr0 | (1 << stream->id);
 	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR, csr0);
 
