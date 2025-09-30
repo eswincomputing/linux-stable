@@ -21,6 +21,8 @@
 /dts-v1/;
 
 #include "eic7702-som560.dtsi"
+#include "eic7702-d560-die0-camera.dtsi"
+#include "eic7702-d560-die1-camera.dtsi"
 
 / {
 	#address-cells = <2>;
