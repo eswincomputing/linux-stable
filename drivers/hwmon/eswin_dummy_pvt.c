@@ -649,7 +649,6 @@ static struct pvt_hwmon *eswin_pvt_create_data(struct platform_device *pdev)
 	mutex_init(&pvt->iface_mtx);
 	INIT_LIST_HEAD(&pvt->entry);
 
-	list_add(&pvt->entry, &eswin_pvt_dummy_dev);
 	for (idx = 0; idx < PVT_SENSORS_NUM; ++idx)
 		init_completion(&pvt->cache[idx].conversion);
 
@@ -773,7 +772,7 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 		dev_err(pvt->dev, "Can't add PVT clocks disable action\n");
 		return ret;
 	}
-
+	list_add(&pvt->entry, &eswin_pvt_dummy_dev);
 	return 0;
 }
 

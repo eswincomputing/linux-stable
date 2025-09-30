@@ -147,6 +147,7 @@ extern int eswin_get_cpu_temp(const char *name, int numa_id, long *val);
 #define ECC_POISON1_OFST 0x1064C
 
 #define ECC_ADDRMAP0_OFFSET 0x200
+#define ECC_ADDRMAP5_OFFSET 0x30014
 
 /* Control register bitfield definitions */
 #define ECC_CTRL_BUSWIDTH_MASK 0x3000
@@ -297,6 +298,8 @@ struct ecc_error_info
 	u32 data;
 	u32 bankgrpnr;
 	u32 cid;
+	u64 sys_base;
+	u64 ecc_base;
 };
 
 /**
@@ -340,6 +343,13 @@ struct synps_edac_priv
 	u32 ue_cnt;
 	int numa_id;
 	struct work_struct pvt_work;
+	u32 row_base;
+	u32 row_num;
+	u32 col[10];
+	u32 bank;
+	u32 bankgrp;
+	u32 rank;
+
 #ifdef CONFIG_EDAC_DEBUG
 	ulong poison_addr;
 	u32 row_shift[18];
@@ -382,15 +392,64 @@ static void eswin_pvt_work(struct work_struct *work)
 	node = priv->numa_id;
 	ret = eswin_get_ddr_temp("DDR", node, &temp);
 	if (!ret) {
-		pr_err("DDR Node%u PVT Temperature: %lu °C.\n", node, temp);
+		pr_err("DDR Node%u PVT Temperature: %lu.\n", node, temp);
 	}
 
 	ret = eswin_get_cpu_temp("SoC", node, &temp);
 	if (!ret) {
-		pr_err("CPU Node%u PVT Temperature: %lu °C.\n", node, temp);
+		pr_err("CPU Node%u PVT Temperature: %lu.\n", node, temp);
 	}
 }
+static u64 eswin_get_sysaddr(struct synps_edac_priv *priv, struct ecc_error_info *info)
+{
+	u64 addr;
+	int j;
+	u32 row_base;
 
+	addr = ((info->rank & 0x1UL) << priv->rank) + (priv->numa_id << 7UL);
+	addr |= ((info->bank & 0x3UL) << priv->bank) + ((info->bankgrpnr & 0x3UL) << priv->bankgrp);
+	for (j = 4; j < 10; j++) {
+		addr |= ((info->col >> j) & 0x1UL) << priv->col[j];
+	}
+	for (j = 0, row_base = priv->row_base; j < priv->row_num; j++, row_base++) {
+		if (row_base == priv->rank) {
+			row_base++;
+			addr |= ((info->row >> j) & 0x1UL) << row_base;
+			continue;
+		}
+		addr |= (((info->row >> j) & 0x1UL) << row_base);
+	}
+	addr += 0x80000000UL;
+
+	addr |= (((info->col & 0x7fUL) * 0x8) & (~0x7fUL));
+	return addr;
+}
+
+static u64 eswin_get_eccaddr(struct synps_edac_priv *priv, struct ecc_error_info *info)
+{
+	u32 col, row_base;
+	u64 addr;
+	int j;
+
+	col = info->col >> 3;
+        addr = (7UL << 31) + 0x80000000UL + (priv->numa_id << 7UL) + ((info->rank & 0x1UL) << priv->rank);
+	addr |= ((info->bank & 0x3UL) << priv->bank) + ((info->bankgrpnr & 0x3UL) << priv->bankgrp);
+
+	for (j = 4; j <= 6; j++) {
+		addr |= (((col >> j) & 0x1UL) << priv->col[j]);
+	}
+	for (j = 0, row_base = priv->row_base; j < priv->row_num; j++, row_base++) {
+		if (row_base == priv->rank) {
+			row_base++;
+			addr |= ((info->row >> j) & 0x1UL) << row_base;
+			continue;
+		}
+		addr |= (((info->row >> j) & 0x1UL) << row_base);
+	}
+
+        addr = addr + (((info->col & 0x7fUL) / 2) &  (~0x3));
+	return addr;
+}
 /**
  * eswin_get_error_info - Get the current ECC error info.
  * @priv:	DDR memory controller private instance data.
@@ -402,6 +461,7 @@ static int eswin_get_error_info(struct synps_edac_priv *priv)
 	struct synps_ecc_status *p;
 	u32 regval = 0, clearval = 0, cache = 0;
 	void __iomem *base;
+	u32 addr0, addr1;
 
 	base = priv->baseaddr;
 	p = &priv->stat;
@@ -422,11 +482,22 @@ static int eswin_get_error_info(struct synps_edac_priv *priv)
 	if (!p->ce_cnt)
 		goto ue_err;
 
+	addr0 = readl(base + ECC_CEADDR0_OFST);
+	addr1 = readl(base + ECC_CEADDR1_OFST),
+	priv->stat.ceinfo.row = addr0 & 0xffff;
+	priv->stat.ceinfo.rank = (addr0 >> 24) & 0x1;
+	priv->stat.ceinfo.col = addr1 & 0x7ff;
+	priv->stat.ceinfo.bank = (addr1 >> 16) & 0x3;
+	priv->stat.ceinfo.bankgrpnr = (addr1 >> 24) & 0x3;
+
+	priv->stat.ceinfo.sys_base = eswin_get_sysaddr(priv, &priv->stat.ceinfo);
+	priv->stat.ceinfo.ecc_base = eswin_get_eccaddr(priv, &priv->stat.ceinfo);
 	pr_err("ECC_CEADDR0: 0x%08X ECC_CEADDR1: 0x%08X ECC_BITMASK0: 0x%08X ECC_BITMASK1: 0x%08X ECC_BITMASK2: 0x%08X\n",
 		   readl(base + ECC_CEADDR0_OFST), readl(base + ECC_CEADDR1_OFST),
 		   readl(base + ECC_BITMASK0_OFST), readl(base + ECC_BITMASK1_OFST),
 		   readl(base + ECC_BITMASK2_OFST));
 
+	pr_err("CE_DATA System Base = 0x%llx, ECC Base=0x%llx.\n", priv->stat.ceinfo.sys_base, priv->stat.ceinfo.ecc_base);
 	pr_err("ECCCSYN0: 0x%08X ECCCSYN1: 0x%08X ECCCSYN2: 0x%08X\n",
 
 		   readl(base + ECC_CSYND0_OFST), readl(base + ECC_CSYND1_OFST),
@@ -435,10 +506,22 @@ ue_err:
 	if (!p->ue_cnt)
 		goto out;
 
+	addr0 = readl(base + ECC_UEADDR0_OFST);
+	addr1 = readl(base + ECC_UEADDR1_OFST),
+
+	priv->stat.ueinfo.row = addr0 & 0xffff;
+	priv->stat.ueinfo.rank = (addr0 >> 24) & 0x3;
+	priv->stat.ueinfo.col = addr1 & 0x7ff;
+	priv->stat.ueinfo.bank = (addr1 >> 16) & 0x3;
+	priv->stat.ueinfo.bankgrpnr = (addr1 >> 24) & 0x3;
+	priv->stat.ueinfo.sys_base = eswin_get_sysaddr(priv, &priv->stat.ueinfo);
+	priv->stat.ueinfo.ecc_base = eswin_get_eccaddr(priv, &priv->stat.ueinfo);
+
 	pr_err("ECC_UEADDR0: 0x%08X ECC_UEADDR1: 0x%08X ECUCSYN0: 0x%08X ECUCSYN1: 0x%08X ECUCSYN2: 0x%08X\n",
 		   readl(base + ECC_UEADDR0_OFST), readl(base + ECC_UEADDR1_OFST),
 		   readl(base + ECC_UESYND0_OFST), readl(base + ECC_UESYND1_OFST),
 		   readl(base + ECC_UESYND2_OFST));
+	pr_err("UE_DATA System Base = 0x%llx, ECC Base=0x%llx.\n", priv->stat.ueinfo.sys_base, priv->stat.ueinfo.ecc_base);
 out:
 	clearval = ECC_CTRL_CLR_CE_ERR | ECC_CTRL_CLR_CE_ERRCNT;
 	clearval |= ECC_CTRL_CLR_UE_ERR | ECC_CTRL_CLR_UE_ERRCNT;
@@ -1296,6 +1379,25 @@ static void setup_address_map(struct synps_edac_priv *priv)
 }
 #endif /* CONFIG_EDAC_DEBUG */
 
+static void eswin_resolve_addr_shift(struct synps_edac_priv *priv)
+{
+	u32 addr5;
+
+	addr5 = readl(priv->baseaddr + ECC_ADDRMAP5_OFFSET);
+	priv->rank = 28;
+	priv->bank = 10;
+	priv->bankgrp = 12;
+
+	priv->col[9] = ((addr5 >> 16) & 0xff) + 9 + 3;
+	priv->col[8] = ((addr5 >> 8) & 0xff) + 8 + 3;
+	priv->col[7] = ((addr5) & 0xff) + 7 + 3;
+	priv->col[6] = 9;
+	priv->col[5] = 8;
+	priv->col[4] = 6;
+	priv->row_base = 14;
+	priv->row_num = priv->col[7] - priv->row_base - 1;
+}
+
 /**
  * mc_probe - Check controller and bind driver.
  * @pdev:	platform device.
@@ -1361,6 +1463,7 @@ static int mc_probe(struct platform_device *pdev)
 	priv->numa_id = nid;
 	mc_init(mci, pdev);
 	INIT_WORK(&priv->pvt_work, eswin_pvt_work);
+	eswin_resolve_addr_shift(priv);
 
 	if (priv->p_data->quirks & DDR_ECC_INTR_SUPPORT)
 	{
