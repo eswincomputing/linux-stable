@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/devfreq.h>
 #include <linux/pm_opp.h>
+#include <linux/cpufreq.h>
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "clk_eic7700.h"
 #include "clk.h"
@@ -3685,6 +3686,11 @@ static struct eswin_clock eic7700_clks[] = {
 	},
 };
 
+struct cpufreq_notifier {
+    struct notifier_block nb;
+    int  suspend_freq;
+};
+
 static void special_div_table_init(struct clk_div_table *table, int table_size)
 {
 	int i;
@@ -3708,6 +3714,56 @@ static void special_div_table_init(struct clk_div_table *table, int table_size)
 	table[table_size - 1].div = 0;
 }
 
+static int cpufreq_notifier_call(struct notifier_block *nb,
+                                unsigned long event, void *unused)
+{
+	struct cpufreq_policy *policy;
+	int cpu, suspend_freq;
+	struct cpufreq_notifier *notifier_data = container_of(nb, struct cpufreq_notifier, nb);
+
+	suspend_freq = (unsigned int)notifier_data->suspend_freq/1000;
+ 	if (event == CPUFREQ_CREATE_POLICY){
+		for_each_online_cpu(cpu) {
+			policy = cpufreq_cpu_get(cpu);
+			if (policy) {
+				policy->suspend_freq = suspend_freq;
+				pr_info("CPU%d: suspend_freq limited to %u kHz\n",
+						cpu, policy->suspend_freq);
+				cpufreq_cpu_put(policy);
+			}
+		}
+	}
+	return 0;
+}
+
+static struct cpufreq_notifier suspend_freq_notifier = {
+	.nb.notifier_call = cpufreq_notifier_call,
+};
+
+static int eswin_cpu_suspendfreq_init(struct device *dev)
+{
+	int numa_id = dev_to_node(dev->parent);
+	struct device_node *np = dev->of_node;
+	u32 suspend_freq;
+	int ret = 0;
+
+	ret = of_property_read_u32(np, "cpu-suspend-frequency", &suspend_freq);
+	if (ret) {
+		dev_info(dev, "cpu-suspend-frequency not set\n");
+		return ret;
+	}
+
+	if(numa_id == 1){
+		suspend_freq_notifier.suspend_freq = suspend_freq;
+		ret = cpufreq_register_notifier(&suspend_freq_notifier.nb, CPUFREQ_POLICY_NOTIFIER);
+		if (ret) {
+			pr_err("Failed to register cpufreq notifier: %d\n", ret);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int eswin_cpu_clk_init(struct platform_device *pdev)
 {
 	struct clk *cpu_clk;
@@ -3725,11 +3781,17 @@ static int eswin_cpu_clk_init(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = eswin_cpu_suspendfreq_init(&pdev->dev);
+	if (ret) {
+		dev_warn(dev, "Failed to register suspend freq\n");
+	}
+
 	ret = of_property_read_u32(np, "cpu-default-frequency", &default_freq);
 	if (ret) {
 		dev_info(dev, "cpu-default-frequency not set\n");
 		return ret;
 	}
+
 	numa_id = dev_to_node(dev->parent);
 	if (numa_id < 0)
 		sprintf(name, "%s", "clk_cpu_ext_src_core_clk_0");

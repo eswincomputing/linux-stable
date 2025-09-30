@@ -187,11 +187,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio94_default>;
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &d1_clock {
 	status = "okay";
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &D1CACHE {
