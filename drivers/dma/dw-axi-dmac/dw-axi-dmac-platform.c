@@ -1826,9 +1826,6 @@ static int dw_probe(struct platform_device *pdev)
 
 	dev_info(chip->dev, "DesignWare AXI DMA Controller, %d channels\n",
 		 dw->hdata->nr_channels);
-	ret = axi_dma_suspend(chip);
-	if (ret < 0)
-		goto err_pm_disable;
 
 	dw_axi_dma_register_debugfs(chip);
 
