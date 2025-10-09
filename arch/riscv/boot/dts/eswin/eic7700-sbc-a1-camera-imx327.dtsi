@@ -129,7 +129,7 @@
 	/* mipi csi0/csi1 */
 	status = "okay";
 	imx327_0: imx327@36 {
-			compatible = "sony,imx327";
+			compatible = "sony,imx327lqr";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
@@ -139,17 +139,20 @@
 			assigned-clock-rates = <37125000>;
 			clock-frequency = <37125000>;
 			clock-names = "xclk";
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpio72_default>;
+			reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
 			port {
 				imx327_out0: endpoint {
 					remote-endpoint = <&mipidphy0_in_ucam0>;
 					data-lanes = <1 2>;
-					link-frequencies = /bits/ 64 <222750000>;
+					link-frequencies = /bits/ 64 <445500000 297000000>;
 				};
 			};
 		};
 };
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2>;
 	lanes-dp-dn = <0 0>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
@@ -226,7 +229,7 @@
 	status = "okay";
 };
 
-&dvp2axi_mipi_lvds {
+&dvp2axi_mipi_lvds0 {
 	status = "okay";
 	dvp2axi_id = <0>;
 	ports{
