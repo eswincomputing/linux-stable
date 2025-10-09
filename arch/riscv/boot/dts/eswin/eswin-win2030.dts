@@ -913,6 +913,10 @@
 	maximum-speed = "super-speed";
 };
 
+&vi_subsys {
+	status = "disabled";
+};
+
 &isp_0 {
 	status = "disabled";
 };
@@ -1318,6 +1322,10 @@
 };
 
 &d1_usbdrd_dwc3_1 {
+	status = "disabled";
+};
+
+&d1_vi_subsys {
 	status = "disabled";
 };
 

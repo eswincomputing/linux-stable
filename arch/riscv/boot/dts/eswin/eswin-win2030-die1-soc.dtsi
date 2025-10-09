@@ -2123,7 +2123,7 @@
 			tbus = <WIN2030_TBUID_DW>;
 			numa-node-id = <1>;
 			ranges;
-			status = "okay";
+			status = "disabled";
 
 			d1_vi_top_csr: vi_common_top_csr@71030000 {
 				compatible = "esw,vi-common-csr", "syscon";

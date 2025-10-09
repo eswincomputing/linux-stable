@@ -406,6 +406,10 @@
 	status = "disabled";
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "okay";
 };

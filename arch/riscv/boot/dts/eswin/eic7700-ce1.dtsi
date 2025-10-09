@@ -422,6 +422,10 @@
 	dais = <&d0_i2s0_port>;
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "okay";
 };

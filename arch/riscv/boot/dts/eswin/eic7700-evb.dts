@@ -413,6 +413,10 @@
 	dais = <&d0_i2s0_port0>, <&d0_i2s0_port1>;
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "okay";
 };

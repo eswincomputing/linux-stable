@@ -710,9 +710,18 @@
 	status = "disabled";
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
+&d1_vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "okay";
 };
+
 &d1_isp_0 {
 	status = "okay";
 };
@@ -720,6 +729,7 @@
 &isp_1 {
 	status = "okay";
 };
+
 &d1_isp_1 {
 	status = "okay";
 };
@@ -727,6 +737,7 @@
 &dewarp {
 	status = "okay";
 };
+
 &d1_dewarp {
 	status = "okay";
 };

@@ -622,6 +622,10 @@
 	dais = <&d0_i2s0_port>;
 };
 
+&vi_subsys {
+	status = "disabled";
+};
+
 &isp_0 {
 	status = "disabled";
 };
