@@ -1816,7 +1816,7 @@ static void hantrovcmd_trigger_irq(struct timer_list *timer)
 }
 #endif
 
-static unsigned int wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
+static long wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 				      u32 *irq_status_ret)
 {
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
@@ -2033,7 +2033,6 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		break;
 	}
 	case HANTRO_IOCH_RESERVE_CMDBUF: {
-		int ret;
 		struct exchange_parameter input_para;
 
 		retval = copy_from_user(&input_para, (struct exchange_parameter __user *)arg,
@@ -2043,8 +2042,8 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		ret = reserve_cmdbuf(filp, &input_para);
-		if (ret == 0) {
+		retval = reserve_cmdbuf(filp, &input_para);
+		if (retval == 0) {
 			retval = copy_to_user((struct exchange_parameter __user *)arg,
 					&input_para,
 					sizeof(struct exchange_parameter));
@@ -2054,12 +2053,11 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			}
 		}
 		LOG_DBG(" VCMD Reserve CMDBUF %d\n", input_para.cmdbuf_id);
-		return ret;
+		return retval;
 	}
 
 	case HANTRO_IOCH_LINK_RUN_CMDBUF: {
 		struct exchange_parameter input_para;
-		long retVal;
 
 		retval = copy_from_user(&input_para, (struct exchange_parameter __user *)arg,
 			       sizeof(struct exchange_parameter));
@@ -2070,7 +2068,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 
 
 		LOG_DBG("VCMD link and run cmdbuf\n");
-		retVal = link_and_run_cmdbuf(filp, &input_para);
+		retval = link_and_run_cmdbuf(filp, &input_para);
 		retval = copy_to_user((struct exchange_parameter __user *)arg, &input_para,
 			     sizeof(struct exchange_parameter));
 		if (retval) {
@@ -2078,13 +2076,12 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		return retVal;
-		break;
+		return retval;
+		// break;
 	}
 
 	case HANTRO_IOCH_WAIT_CMDBUF: {
 		u16 cmdbuf_id;
-		unsigned int tmp;
 		u32 irq_status_ret = 0;
 
 		__get_user(cmdbuf_id, (u16 __user *)arg);
@@ -2093,17 +2090,17 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 		LOG_DBG("VCMD wait for CMDBUF finishing.\n");
 
 		//TODO
-		tmp = wait_cmdbuf_ready(filp, cmdbuf_id, &irq_status_ret);
+		retval = wait_cmdbuf_ready(filp, cmdbuf_id, &irq_status_ret);
 		LOG_TRACE("wait cmdbuf_id for encoder [pid=%d][%u], status:%x\n", current->pid, cmdbuf_id, irq_status_ret);
 		cmdbuf_id = (u16)irq_status_ret;
-		if (tmp == 0) {
+		if (retval == 0) {
 			__put_user(cmdbuf_id, (u16 __user *)arg);
-			return tmp; //return core_id
+			return retval; //return core_id
 		} else {
-			return tmp;
+			return retval;
 		}
 
-		break;
+		// break;
 	}
 	case HANTRO_IOCH_RELEASE_CMDBUF: {
 		u16 cmdbuf_id;
@@ -2115,7 +2112,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 
 		release_cmdbuf(filp, cmdbuf_id);
 		return 0;
-		break;
+		// break;
 	}
 	case HANTRO_IOCH_POLLING_CMDBUF: {
 		u16 core_id;
@@ -2126,7 +2123,7 @@ static long hantrovcmd_ioctl(struct file *filp, unsigned int cmd,
 			return -1;
 		hantrovcmd_isr(core_id, &hantrovcmd_data[core_id]);
 		return 0;
-		break;
+		// break;
 	}
 #ifdef SUPPORT_DMA_HEAP
 	case HANTRO_IOCH_DMA_HEAP_GET_IOVA: {
