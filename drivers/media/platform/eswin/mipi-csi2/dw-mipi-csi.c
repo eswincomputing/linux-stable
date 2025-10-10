@@ -179,10 +179,10 @@ int dw_mipi_csi_hw_stdby(struct dw_csi *csi_dev)
 
 		/* only for version 1.40 */
 		if (csi_dev->hw_version_minor == 40) {
-			//dw_mipi_csi_write(csi_dev,reg.MSK_BNDRY_FRAME_FATAL,GENMASK(31, 0));
-			//dw_mipi_csi_write(csi_dev,reg.MSK_SEQ_FRAME_FATAL,GENMASK(31, 0));
-			dw_mipi_csi_write(csi_dev,reg.MSK_CRC_FRAME_FATAL,GENMASK(31, 0));
-			dw_mipi_csi_write(csi_dev,reg.MSK_PLD_CRC_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_BNDRY_FRAME_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_SEQ_FRAME_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_CRC_FRAME_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_PLD_CRC_FATAL,GENMASK(31, 0));
 			dw_mipi_csi_write(csi_dev,reg.MSK_DATA_ID, GENMASK(31, 0));
 			dw_mipi_csi_write(csi_dev,reg.MSK_ECC_CORRECT, GENMASK(31, 0));
 		}

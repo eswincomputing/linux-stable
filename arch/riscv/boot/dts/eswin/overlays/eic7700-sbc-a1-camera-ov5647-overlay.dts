@@ -91,7 +91,7 @@
 					ov5647_out0: endpoint {
 						remote-endpoint = <&mipidphy0_in_ucam0>;
 						data-lanes = <1 2>;
-						link-frequencies = /bits/ 64 <218500000>;
+						link-frequencies = /bits/ 64 <109250000>;
 					};
 				};
 			};
@@ -118,7 +118,7 @@
 					ov5647_out1: endpoint {
 						remote-endpoint = <&mipidphy2_in_ucam0>;
 						data-lanes = <1 2>;
-						link-frequencies = /bits/ 64 <218500000>;
+						link-frequencies = /bits/ 64 <109250000>;
 					};
 				};
 			};
