@@ -277,11 +277,18 @@
 &d1_i2c0 {
 	/* power monitor(ina236) */
 	status = "okay";
-	ina226@45 {
+	ina226@40 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "cpu_vdd";
-		reg = <0x45>;
+		label = "ina226-u79";
+		reg = <0x40>;
+		shunt-resistor = <1000>;
+	};
+	ina226@44 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "ina226-u80";
+		reg = <0x44>;
 		shunt-resistor = <1000>;
 	};
 };
