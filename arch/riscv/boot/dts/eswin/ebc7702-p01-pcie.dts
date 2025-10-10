@@ -172,7 +172,7 @@
 			numa-node-id = <0>;
 			memory-region = <&ipcm_vdev0vring0>,<&ipcm_vdev0vring1>,<&ipcm_vdev0buffer>;
 			interrupt-parent = <&plic0>;
-			interrupts = <119>;
+			interrupts = <123>;
 		  	smmu_dev = <&smmu_cfg_0>;
 		};
 
@@ -184,7 +184,7 @@
 			numa-node-id = <1>;
 			memory-region = <&ipcm_vdev1vring0>,<&ipcm_vdev1vring1>,<&ipcm_vdev1buffer>;
 			interrupt-parent = <&plic1>;
-			interrupts = <119>;
+			interrupts = <123>;
 			smmu_dev = <&smmu_cfg_1>;
 		};
 
@@ -639,18 +639,16 @@
 };
 
 &d0_lpcpu {
-	/delete-property/ mboxes;
 	status = "okay";
 };
 &d1_lpcpu {
-	/delete-property/ mboxes;
 	status = "okay";
 };
 
-&d0_mbox1 {
+&d0_mbox3 {
 	status = "disabled";
 };
-&d1_mbox1 {
+&d1_mbox3 {
 	status = "disabled";
 };
 
