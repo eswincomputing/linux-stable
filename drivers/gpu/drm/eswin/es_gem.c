@@ -224,15 +224,17 @@ static void es_gem_free_buf(struct es_gem_object *es_obj)
 		}
 	}
 
-	if (!es_obj->get_pages) {
-		dma_free_attrs(to_dma_dev(dev), es_obj->size, es_obj->cookie,
-			       (dma_addr_t)es_obj->dma_addr, es_obj->dma_attrs);
-	} else {
-		if (!es_obj->dma_addr) {
-			DRM_DEV_ERROR(dev->dev, "No dma addr allocated, no need to free\n");
-			return;
+	if(!es_obj->base.import_attach) {
+		if (!es_obj->get_pages) {
+			dma_free_attrs(to_dma_dev(dev), es_obj->size, es_obj->cookie,
+				       (dma_addr_t)es_obj->dma_addr, es_obj->dma_attrs);
+		} else {
+			if (!es_obj->dma_addr) {
+				DRM_DEV_ERROR(dev->dev, "No dma addr allocated, no need to free\n");
+				return;
+			}
+			put_pages(es_obj->size >> PAGE_SHIFT, es_obj);
 		}
-		put_pages(es_obj->size >> PAGE_SHIFT, es_obj);
 	}
 
 	kvfree(es_obj->pages);
@@ -242,14 +244,11 @@ static void es_gem_free_object(struct drm_gem_object *obj)
 {
 	struct es_gem_object *es_obj = to_es_gem_object(obj);
 
-	if (obj->import_attach) {
+	if (es_obj)
+		es_gem_free_buf(es_obj);
+
+	if (obj->import_attach)
 		drm_prime_gem_destroy(obj, es_obj->sgt);
-		kvfree(es_obj->pages);
-	} else {
-		if (es_obj) {
-			es_gem_free_buf(es_obj);
-		}
-	}
 
 	drm_gem_object_release(obj);
 
