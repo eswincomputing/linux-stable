@@ -136,6 +136,203 @@ enum napot_cont_order {
 #define _PAGE_IO_THEAD		(1UL << 63)
 #define _PAGE_MTMASK_THEAD	(_PAGE_PMA_THEAD | _PAGE_IO_THEAD | (1UL << 59))
 
+#ifdef CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY
+#define _PAGE_PROT_MASK  GENMASK(9, 0)
+
+/* DIE0 */
+#define DIE0_MEM_PORT_PFN_START				(CONFIG_RISCV_DIE0_CACHED_OFFSET >> PAGE_SHIFT)
+#define DIE0_MEM_PORT_PFN_END				((CONFIG_RISCV_DIE0_CACHED_OFFSET + CONFIG_RISCV_DIE0_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+#define DIE0_SYS_PORT_PFN_START				(CONFIG_RISCV_DIE0_UNCACHED_OFFSET >> PAGE_SHIFT)
+#define DIE0_MEM_TO_SYS_PFN_ADDRESS(a)			(DIE0_SYS_PORT_PFN_START + ((u64)(a) - DIE0_MEM_PORT_PFN_START))
+#define DIE0_SYS_TO_MEM_PFN_ADDRESS(a)			(DIE0_MEM_PORT_PFN_START + ((u64)(a) - DIE0_SYS_PORT_PFN_START))
+#define DIE0_SYS_PORT_PFN_END				((CONFIG_RISCV_DIE0_UNCACHED_OFFSET + CONFIG_RISCV_DIE0_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+#define DIE0_SYS_PORT_LLC_PFN_START			((CONFIG_RISCV_DIE0_UNCACHED_OFFSET + 0x1800000000)>> PAGE_SHIFT)
+#define DIE0_MEM_TO_SYS_LLC_PFN_ADDRESS(a)		(DIE0_SYS_PORT_LLC_PFN_START + ((u64)(a) - DIE0_MEM_PORT_PFN_START))
+#define DIE0_SYS_LLC_TO_MEM_PFN_ADDRESS(a)		(DIE0_MEM_PORT_PFN_START + ((u64)(a) - DIE0_SYS_PORT_LLC_PFN_START))
+#define DIE0_SYS_PORT_LLC_PFN_END			(((CONFIG_RISCV_DIE0_UNCACHED_OFFSET + 0x1800000000) + CONFIG_RISCV_DIE0_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+/* DIE1 */
+#define DIE1_MEM_PORT_PFN_START				(CONFIG_RISCV_DIE1_CACHED_OFFSET >> PAGE_SHIFT)
+#define DIE1_MEM_PORT_PFN_END				((CONFIG_RISCV_DIE1_CACHED_OFFSET + CONFIG_RISCV_DIE1_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+#define DIE1_SYS_PORT_PFN_START				(CONFIG_RISCV_DIE1_UNCACHED_OFFSET >> PAGE_SHIFT)
+#define DIE1_MEM_TO_SYS_PFN_ADDRESS(a)			(DIE1_SYS_PORT_PFN_START + ((u64)(a) - DIE1_MEM_PORT_PFN_START))
+#define DIE1_SYS_TO_MEM_PFN_ADDRESS(a)			(DIE1_MEM_PORT_PFN_START + ((u64)(a) - DIE1_SYS_PORT_PFN_START))
+#define DIE1_SYS_PORT_PFN_END				((CONFIG_RISCV_DIE1_UNCACHED_OFFSET + CONFIG_RISCV_DIE1_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+#define DIE1_SYS_PORT_LLC_PFN_START			((CONFIG_RISCV_DIE1_UNCACHED_OFFSET + 0x1800000000) >> PAGE_SHIFT)
+#define DIE1_MEM_TO_SYS_LLC_PFN_ADDRESS(a)		(DIE1_SYS_PORT_LLC_PFN_START + ((u64)(a) - DIE1_MEM_PORT_PFN_START))
+#define DIE1_SYS_LLC_TO_MEM_PFN_ADDRESS(a)		(DIE1_MEM_PORT_PFN_START + ((u64)(a) - DIE1_SYS_PORT_LLC_PFN_START))
+#define DIE1_SYS_PORT_LLC_PFN_END			(((CONFIG_RISCV_DIE1_UNCACHED_OFFSET + 0x1800000000) + CONFIG_RISCV_DIE1_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+/* interleave */
+#define INTERLEAVE_MEM_PORT_PFN_START			(CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET >> PAGE_SHIFT)
+#define INTERLEAVE_MEM_PORT_PFN_END			((CONFIG_RISCV_INTERLEAVE_CACHED_OFFSET + CONFIG_RISCV_INTERLEAVE_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+#define INTERLEAVE_SYS_PORT_PFN_START			(CONFIG_RISCV_INTERLEAVE_UNCACHED_OFFSET >> PAGE_SHIFT)
+#define INTERLEAVE_MEM_TO_SYS_PFN_ADDRESS(a)		(INTERLEAVE_SYS_PORT_PFN_START + ((u64)(a) - INTERLEAVE_MEM_PORT_PFN_START))
+#define INTERLEAVE_SYS_TO_MEM_PFN_ADDRESS(a)		(INTERLEAVE_MEM_PORT_PFN_START + ((u64)(a) - INTERLEAVE_SYS_PORT_PFN_START))
+#define INTERLEAVE_SYS_PORT_PFN_END			((CONFIG_RISCV_INTERLEAVE_UNCACHED_OFFSET + CONFIG_RISCV_INTERLEAVE_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+#define INTERLEAVE_SYS_PORT_LLC_PFN_START		((CONFIG_RISCV_INTERLEAVE_UNCACHED_OFFSET + 0x3000000000) >> PAGE_SHIFT)
+#define INTERLEAVE_MEM_TO_SYS_LLC_PFN_ADDRESS(a)	(INTERLEAVE_SYS_PORT_LLC_PFN_START + ((u64)(a) - INTERLEAVE_MEM_PORT_PFN_START))
+#define INTERLEAVE_SYS_LLC_TO_MEM_PFN_ADDRESS(a)	(INTERLEAVE_MEM_PORT_PFN_START + ((u64)(a) - INTERLEAVE_SYS_PORT_LLC_PFN_START))
+#define INTERLEAVE_SYS_PORT_LLC_PFN_END			(((CONFIG_RISCV_INTERLEAVE_UNCACHED_OFFSET + 0x3000000000) + CONFIG_RISCV_INTERLEAVE_MEM_MAX_SIZE) >> PAGE_SHIFT)
+
+/* --------new conversion------- */
+/* DIE0 MEM PORT Address range 0x8000 0000 --- 0xF FFFF FFFF, 62GB */
+#define _MEM_PORT_D0_ADDR_RANGE_VAL	((0x1FUL << 31) >> PAGE_SHIFT)
+#define _MEM_PORT_D0_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 31) >> PAGE_SHIFT)
+
+/* DIE1 MEM PORT Address range 0x20 0000 0000 --- 0x2F FFFF FFFF, 64GB */
+#define _MEM_PORT_D1_ADDR_RANGE_VAL	((0x2UL << 36) >> PAGE_SHIFT)
+#define _MEM_PORT_D1_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+
+/* Dual die, MEM PORT Interleave Address range:0x40 0000 0000 --- 0x5F FFFF FFFF, 128GB
+   part 0: 0x40 0000 0000 --- 0x4F FFFF FFFF, 64GB
+   part 1: 0x50 0000 0000 --- 0x5F FFFF FFFF, 64GB
+ */
+#define _MEM_PORT_INTPART0_ADDR_RANGE_VAL	((0x4UL << 36) >> PAGE_SHIFT)
+#define _MEM_PORT_INTPART0_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 36)>> PAGE_SHIFT)
+#define _MEM_PORT_INTPART1_ADDR_RANGE_VAL	((0x5UL << 36) >> PAGE_SHIFT)
+#define _MEM_PORT_INTPART1_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+
+
+/* DIE0 SYS PORT Address range 0xC0 0000 0000 --- 0xCF FFFF FFFF, 64GB */
+#define _SYS_PORT_D0_ADDR_RANGE_VAL		((0xCUL << 36) >> PAGE_SHIFT)
+#define _SYS_PORT_D0_ADDR_RANGE_BITMASK		(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+
+/* DIE0 SYS LLC PORT Address range 0xD8 0000 0000 --- 0xDF FFFF FFFF, 32GB */
+#define _SYSLLC_PORT_D0_ADDR_RANGE_VAL		((0x1BUL << 35) >> PAGE_SHIFT)
+#define _SYSLLC_PORT_D0_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 35)  >> PAGE_SHIFT)
+
+/* DIE1 SYS PORT Address range 0xE0 0000 0000 --- 0xEF FFFF FFFF, 64GB */
+#define _SYS_PORT_D1_ADDR_RANGE_VAL		((0xEUL << 36) >> PAGE_SHIFT)
+#define _SYS_PORT_D1_ADDR_RANGE_BITMASK		(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+
+/* DIE1 SYS LLC PORT Address range 0xF8 0000 0000 --- 0xFF FFFF FFFF, 32GB */
+#define _SYSLLC_PORT_D1_ADDR_RANGE_VAL		((0x1FUL << 35) >> PAGE_SHIFT)
+#define _SYSLLC_PORT_D1_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 35) >> PAGE_SHIFT)
+
+/* Dual die, SYS PORT Interleave Address range:0x100 0000 0000 --- 0x11F FFFF FFFF, 128GB
+   part 0: 0x100 0000 0000 --- 0x10F FFFF FFFF, 64GB
+   part 1: 0x110 0000 0000 --- 0x11F FFFF FFFF, 64GB
+ */
+#define _SYS_PORT_INTPART0_ADDR_RANGE_VAL	((0x10UL << 36) >> PAGE_SHIFT)
+#define _SYS_PORT_INTPART0_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+#define _SYS_PORT_INTPART1_ADDR_RANGE_VAL	((0x11UL << 36) >> PAGE_SHIFT)
+#define _SYS_PORT_INTPART1_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+
+/* Dual die, SYS LLC PORT Interleave Address range:0x130 0000 0000 --- 0x13F FFFF FFFF, 64GB */
+#define _SYSLLC_PORT_INT_ADDR_RANGE_VAL		((0x13UL << 36) >> PAGE_SHIFT)
+#define _SYSLLC_PORT_INT_ADDR_RANGE_BITMASK	(GENMASK_ULL(63, 36) >> PAGE_SHIFT)
+
+#define CHECK_MEMORY_RANGE_OPFUNC(pfn, range, die)	((pfn & _##range##_PORT_##die##_ADDR_RANGE_BITMASK) == _##range##_PORT_##die##_ADDR_RANGE_VAL)
+
+#define PFN_IN_SPRAM_DIE0(pfn) ((pfn_to_phys(pfn)>=0x59000000) && (pfn_to_phys(pfn)<0x59400000))
+#define PFN_IN_SPRAM_DIE1(pfn) ((pfn_to_phys(pfn)>=0x79000000) && (pfn_to_phys(pfn)<0x79400000))
+/* pha conversion between mem port and sys port or sysllc_port */
+static inline unsigned long convert_pfn_from_mem_to_sys_port(unsigned long pfn)
+{
+	if (((pfn & _MEM_PORT_D0_ADDR_RANGE_BITMASK) >= DIE0_MEM_PORT_PFN_START) && ((pfn & _MEM_PORT_D0_ADDR_RANGE_BITMASK) <= DIE0_MEM_PORT_PFN_END)) {
+		return DIE0_MEM_TO_SYS_PFN_ADDRESS(pfn);
+	}
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	else if (pfn < DIE0_MEM_PORT_PFN_START) {
+		return pfn;
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, MEM, D1)) {
+		return DIE1_MEM_TO_SYS_PFN_ADDRESS(pfn);
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, MEM, INTPART0) || CHECK_MEMORY_RANGE_OPFUNC(pfn, MEM, INTPART1)) {
+		return INTERLEAVE_MEM_TO_SYS_PFN_ADDRESS(pfn);
+	}
+#endif
+	else
+		return pfn;
+}
+#define convert_pha_from_mem_to_sys_port(pha) \
+			(convert_pfn_from_mem_to_sys_port(pha >> PAGE_SHIFT) << PAGE_SHIFT)
+
+static inline unsigned long convert_pfn_from_mem_to_sys_port_llc(unsigned long pfn)
+{
+	if (((pfn & _MEM_PORT_D0_ADDR_RANGE_BITMASK) >= DIE0_MEM_PORT_PFN_START) && ((pfn & _MEM_PORT_D0_ADDR_RANGE_BITMASK) <= DIE0_MEM_PORT_PFN_END)) {
+		return DIE0_MEM_TO_SYS_LLC_PFN_ADDRESS(pfn);
+	}
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	else if (pfn < DIE0_MEM_PORT_PFN_START) {
+		return pfn;
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, MEM, D1)) {
+		return DIE1_MEM_TO_SYS_LLC_PFN_ADDRESS(pfn);
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, MEM, INTPART0) || CHECK_MEMORY_RANGE_OPFUNC(pfn, MEM, INTPART1)) {
+		return INTERLEAVE_MEM_TO_SYS_LLC_PFN_ADDRESS(pfn);
+	}
+#endif
+	else
+		return pfn;
+}
+#define convert_pha_from_mem_to_sys_port_llc(pha) \
+			(convert_pfn_from_mem_to_sys_port_llc(pha >> PAGE_SHIFT) << PAGE_SHIFT)
+
+static inline unsigned long convert_pfn_from_sys_to_mem_port(unsigned long pfn)
+{
+	if (likely(CHECK_MEMORY_RANGE_OPFUNC(pfn, SYS, D0))) {
+		return DIE0_SYS_TO_MEM_PFN_ADDRESS(pfn);
+	}
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	else if (pfn < DIE0_MEM_PORT_PFN_START) {
+		return pfn;
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, SYS, D1)) {
+		return DIE1_SYS_TO_MEM_PFN_ADDRESS(pfn);
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, SYS, INTPART0) || CHECK_MEMORY_RANGE_OPFUNC(pfn, SYS, INTPART1)) {
+		return INTERLEAVE_SYS_TO_MEM_PFN_ADDRESS(pfn);
+	}
+#endif
+	else
+		return pfn;
+}
+
+static inline unsigned long convert_pfn_from_sys_llc_to_mem_port(unsigned long pfn)
+{
+	if (likely(CHECK_MEMORY_RANGE_OPFUNC(pfn, SYSLLC, D0))) {
+		return DIE0_SYS_LLC_TO_MEM_PFN_ADDRESS(pfn);
+	}
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC7702_SOC)
+	else if (pfn < DIE0_MEM_PORT_PFN_START) {
+		return pfn;
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, SYSLLC, D1)) {
+		return DIE1_SYS_LLC_TO_MEM_PFN_ADDRESS(pfn);
+	}
+	else if (CHECK_MEMORY_RANGE_OPFUNC(pfn, SYSLLC, INT)) {
+		return INTERLEAVE_SYS_LLC_TO_MEM_PFN_ADDRESS(pfn);
+	}
+#endif
+	else
+		return pfn;
+}
+
+#define ALT_EIC7700_FIXUP_MT(pfn, prot)						\
+	if (unlikely(_PAGE_UNCACHE == (pgprot_val(prot) & _PAGE_UNCACHE)))	\
+		pfn = convert_pfn_from_mem_to_sys_port(pfn)
+
+#define ALT_EIC7700_UNFIX_MT(_val)							\
+	if (unlikely(_val & _PAGE_UNCACHE)) 						\
+		_val = (convert_pfn_from_sys_to_mem_port(__page_val_to_pfn((_val)))	\
+			<< _PAGE_PFN_SHIFT) | (_val & _PAGE_PROT_MASK)
+
+
+#else
+#define ALT_EIC7700_FIXUP_MT(pfn, prot)
+#define ALT_EIC7700_UNFIX_MT(_val)
+#endif
+
 static inline u64 riscv_page_mtmask(void)
 {
 	u64 val;
@@ -208,6 +405,8 @@ static inline void pud_clear(pud_t *pudp)
 
 static inline pud_t pfn_pud(unsigned long pfn, pgprot_t prot)
 {
+	ALT_EIC7700_FIXUP_MT(pfn, prot);
+
 	return __pud((pfn << _PAGE_PFN_SHIFT) | pgprot_val(prot));
 }
 
@@ -251,6 +450,8 @@ static inline pmd_t pfn_pmd(unsigned long pfn, pgprot_t prot)
 	unsigned long prot_val = pgprot_val(prot);
 
 	ALT_THEAD_PMA(prot_val);
+
+	ALT_EIC7700_FIXUP_MT(pfn, prot);
 
 	return __pmd((pfn << _PAGE_PFN_SHIFT) | prot_val);
 }
@@ -311,6 +512,8 @@ static inline void p4d_clear(p4d_t *p4d)
 
 static inline p4d_t pfn_p4d(unsigned long pfn, pgprot_t prot)
 {
+	ALT_EIC7700_FIXUP_MT(pfn, prot);
+
 	return __p4d((pfn << _PAGE_PFN_SHIFT) | pgprot_val(prot));
 }
 

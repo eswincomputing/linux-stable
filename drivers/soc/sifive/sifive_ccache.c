@@ -270,7 +270,7 @@ static int zero_device_init(struct device_node *root, int nid)
 					return -ENODEV;
 
 				pr_info("zero_device %s: base 0x%llx, size 0x%llx\n", rmem->name, rmem->base, rmem->size);
-				zero_device_base[nid] = ioremap(rmem->base, rmem->size);
+				zero_device_base[nid] = memremap(rmem->base, rmem->size, MEMREMAP_WB);
 				if (IS_ERR(zero_device_base[nid])) {
 					pr_err("failed to ioremap zero device\n");
 					of_node_put(child);

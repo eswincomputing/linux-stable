@@ -265,9 +265,12 @@ static void note_page(struct ptdump_state *pt_st, unsigned long addr,
 		      int level, u64 val)
 {
 	struct pg_state *st = container_of(pt_st, struct pg_state, ptdump);
-	u64 pa = PFN_PHYS(pte_pfn(__pte(val)));
 	u64 prot = 0;
+	u64 pa;
 
+	ALT_EIC7700_UNFIX_MT(val);
+
+	pa = PFN_PHYS(pte_pfn(__pte(val)));
 	if (level >= 0)
 		prot = val & pg_level[level].mask;
 
