@@ -37,8 +37,7 @@
 		};
 	};
 
-
-	fragment@5 { 
+	fragment@5 {
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov9281_out0>;
@@ -47,7 +46,7 @@
 	};
 
 	fragment@6 {
-		target = <&mipidphy2_in_ucam0>;
+		target = <&mipidphy1_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov9281_out1>;
 			data-lanes = <1 2>;
@@ -63,7 +62,7 @@
 	};
 
 	fragment@8 {
-		target = <&mipidphy2_in_ucam0>;
+		target = <&mipidphy3_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov9281_out3>;
 			data-lanes = <1 2>;
