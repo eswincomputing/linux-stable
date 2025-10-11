@@ -227,4 +227,13 @@ struct isp_control_HxV {
 #define VI_TOP_IMX327_WDR_EN_0_BIT              (1 << 4)
 #define VI_TOP_MIPI_CSI_TPG_CLOCK_MUX_EN_BIT    (1 << 3)
 
+#define CSI_CONTROLLER_ID0 0
+#define CSI_CONTROLLER_ID1 1
+#define CSI_CONTROLLER_ID2 2
+#define CSI_CONTROLLER_ID3 3
+#define CSI_CONTROLLER_ID4 4
+#define CSI_CONTROLLER_ID5 5
+
+#define CSI_CONTROLLER_ID CSI_CONTROLLER_ID0
+
 #endif

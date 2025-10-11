@@ -23,6 +23,7 @@
 #ifndef __DVP2AXI_HEADER__
 #define __DVP2AXI_HEADER__
 
+//dvp2axi registers
 #define VI_DVP2AXI_CTRL0_CSR  0x0
 #define VI_DVP2AXI_CTRL0_DVP3_SHIFT_NUM_MASK 0xf0000000
 #define VI_DVP2AXI_CTRL0_DVP2_SHIFT_NUM_MASK 0x0f000000
@@ -187,33 +188,6 @@
 #define DVP_PIXEL_MODE_YUV 0x1
 #define DVP_PIXEL_MODE_RGB 0x2
 
-typedef struct dvp2axi_irq_status {
-    uint32_t dvp_frame_done_irq;
-    uint32_t dvp_frame_flush_irq;
-    uint32_t chn_frame_done[3];
-    uint32_t chn_frame_flush[3];
-}dvp2axi_irq_status;
-
-//little-endian
-typedef union dvp2axi_ctrl36_csr_s {
-    struct {
-        uint32_t dvp0_first_id:2;
-        uint32_t dvp1_first_id:2;
-        uint32_t dvp2_first_id:2;
-        uint32_t dvp3_first_id:2;
-        uint32_t dvp4_first_id:2;
-        uint32_t dvp5_first_id:2;
-        uint32_t dvp_embed_con_en:6;
-        uint32_t dvp0_last_id:2;
-        uint32_t dvp1_last_id:2;
-        uint32_t dvp2_last_id:2;
-        uint32_t dvp3_last_id:2;
-        uint32_t dvp4_last_id:2;
-        uint32_t dvp5_last_id:2;
-        uint32_t reserved:2;
-    } bf;
-    uint32_t dw;
-} dvp2axi_ctrl36_csr_t;
 
 #define VI_DVP2AXI_INT0_CSR 0xa0
 #define VI_DVP2AXI_DVP0_ID0_FRAME_FLUSH_MASK (1 << 0)
@@ -270,22 +244,51 @@ typedef union dvp2axi_ctrl36_csr_s {
 #define VI_DVP2AXI_INT_MASK1_CSR 0xb0
 #define VI_DVP2AXI_INT_MASK2_CSR 0xb4
 
-/* embedded channel setting */
-#define VI_DVP2AXI_CTRL37 0x94
-#define VI_DVP2AXI_CTRL38 0x98
-#define VI_DVP2AXI_CTRL39 0x9c
-#define VI_DVP2AXI_CTRL40 0xe0
-#define VI_DVP2AXI_CTRL41 0xe4
-#define VI_DVP2AXI_CTRL42 0xe8
-#define VI_DVP2AXI_CTRL43 0xec
+
+// DVP2AXI STORED BIT WIDTH
+#define DVP2AXI_RAW_STORED_BIT_WIDTH	(8U)
+#define DVP2AXI_YUV_STORED_BIT_WIDTH	(8U)
+
+/* DVP2AXI FORMAT */
+
+#define INPUT_MODE_RAW			(0x04 << 2)
+#define INPUT_MODE_JPEG			(0x05 << 2)
+
+#define YUV_INPUT_ORDER_UYVY		(0x00 << 5)
+#define YUV_INPUT_ORDER_YVYU		(0x01 << 5)
+#define YUV_INPUT_ORDER_VYUY		(0x10 << 5)
+#define YUV_INPUT_ORDER_YUYV		(0x03 << 5)
+#define YUV_INPUT_422			(0x00 << 7)
+#define YUV_INPUT_420			(0x01 << 7)
+
+#define RAW_DATA_WIDTH_8		(0x00 << 11)
+#define RAW_DATA_WIDTH_10		(0x01 << 11)
+#define RAW_DATA_WIDTH_12		(0x02 << 11)
+#define RAW_DATA_WIDTH_14		(0x03 << 11)
+#define RAW_DATA_WIDTH_16		(0x04 << 11)
+
+#define YUV_OUTPUT_422			(0x00 << 16)
+#define YUV_OUTPUT_420			(0x01 << 16)
+
+#define UV_STORAGE_ORDER_UVUV		(0x00 << 19)
+#define UV_STORAGE_ORDER_VUVU		(0x01 << 19)
 
 
-#define VI_DVP2AXI_DVP_CHANNELS     6
-#define VI_DVP2AXI_VIRTUAL_CHANNELS 4
-#define VI_DVP2AXI_CAP_FRAME_NUMBER 0
+/* DVP2AXI_CSI_ID_CTRL0 */
 
-/* interrupt */
-// #define VI_DVP2AXI_IRQ_ENABLE
-#define VI_DVP2AXI_IRQ_PRIORITY  0
+#define CSI_WRDDR_TYPE_RAW8		(0x0 << 1)
+#define CSI_WRDDR_TYPE_RAW10		(0x1 << 1)
+#define CSI_WRDDR_TYPE_RAW12		(0x2 << 1)
+#define CSI_WRDDR_TYPE_RGB888		(0x3 << 1)
+#define CSI_WRDDR_TYPE_YUV422		(0x4 << 1)
+#define CSI_WRDDR_TYPE_YUV420SP		(0x5 << 1)
+#define CSI_WRDDR_TYPE_YUV400		(0x6 << 1)
+#define CSI_WRDDR_TYPE_RGB565		(0x7 << 1)
+
+#define CSI_YUV_INPUT_ORDER_UYVY	(0x0 << 16)
+#define CSI_YUV_INPUT_ORDER_VYUY	(0x1 << 16)
+#define CSI_YUV_INPUT_ORDER_YUYV	(0x2 << 16)
+#define CSI_YUV_INPUT_ORDER_YVYU	(0x3 << 16)
+
 
 #endif

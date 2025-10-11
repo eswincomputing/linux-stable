@@ -17,14 +17,6 @@ config VIDEO_ESWIN_DVP2AXI_DEPENDENCES
 config VIDEO_ESWIN_DVP2AXI
 	tristate "Eswin Camera AXI2DVP driver"
 	depends on VIDEO_ESWIN_DVP2AXI_DEPENDENCES
-#	select MEDIA_CAMERA_SUPPORT
-#	select VIDEO_V4L2
-#	select MEDIA_CONTROLLER
-#	select VIDEO_V4L2_SUBDEV_API
-#	select VIDEOBUF2_DMA_CONTIG
-#	select V4L2_FWNODE
-#	select VIDEOBUF2_CMA_SG
-#	select VIDEOBUF2_VMALLOC
 	help
 	  Support for DVP2AXi on the eswin eic770x
 

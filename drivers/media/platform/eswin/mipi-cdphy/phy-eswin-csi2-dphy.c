@@ -6,7 +6,6 @@
 #include <linux/of_graph.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <media/media-entity.h>
@@ -92,6 +91,8 @@ static int csi2_dphy_get_sensor_data_rate(struct v4l2_subdev *sd)
 	do_div(dphy->data_rate_mbps, 1000 * 1000);
 	dev_dbg(dphy->dev, "dphy%d, data_rate_mbps %lld\n", dphy->phy_index,
 		  dphy->data_rate_mbps);
+
+	v4l2_fwnode_endpoint_free(&bus_cfg);
 	return 0;
 }
 
@@ -278,7 +279,7 @@ static int csi2_dphy_s_stream(struct v4l2_subdev *sd, int on)
 			mutex_unlock(&dphy->mutex);
 			return 0;
 		}
-
+		
 		ret = csi2_dphy_s_stream_stop(sd);
 		csi2_dphy_disable_clk(dphy);
 	}
@@ -319,16 +320,6 @@ static int csi2_dphy_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 	*config = sensor->mbus;
 
 	return ret;
-}
-
-static int csi2_dphy_s_power(struct v4l2_subdev *sd, int on)
-{
-	struct csi2_dphy *dphy = to_csi2_dphy(sd);
-
-	if (on)
-		return pm_runtime_get_sync(dphy->dev);
-	else
-		return pm_runtime_put(dphy->dev);
 }
 
 /* dphy accepts all fmt/size from sensor */
@@ -379,7 +370,7 @@ static long es_csi2_dphy_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 		break;
 	case ESMODULE_SET_QUICK_STREAM:
 		for (i = 0; i < dphy->csi_info.csi_num; i++) {
-			if (dphy->csi_info.dphy_vendor[i] == PHY_VENDOR_INNO) {
+			if (dphy->csi_info.dphy_vendor[i] == PHY_VENDOR_DWC) {
 				dphy->dphy_hw =
 					(struct csi2_dphy_hw *)dphy->phy_hw[i];
 				if (!dphy->dphy_hw ||
@@ -432,7 +423,6 @@ static long es_csi2_dphy_compat_ioctl32(struct v4l2_subdev *sd,
 #endif
 
 static const struct v4l2_subdev_core_ops csi2_dphy_core_ops = {
-	.s_power = csi2_dphy_s_power,
 	.ioctl = es_csi2_dphy_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = es_csi2_dphy_compat_ioctl32,
@@ -692,7 +682,6 @@ static int eswin_csi2dphy_of_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	if (action == OF_OVERLAY_POST_APPLY) {
-		msleep(200);
 		parent_notifier = dphy->notifier.parent;
 		v4l2_async_nf_unregister(&dphy->notifier);
 		v4l2_async_nf_cleanup(&dphy->notifier);
@@ -750,16 +739,17 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 		return -EINVAL;
 	if (csi2dphy->drv_data->chip_id == CHIP_ID_EIC7700) {
 		csi2dphy->csi_info.csi_num = 1;
-		csi2dphy->csi_info.dphy_vendor[0] = PHY_VENDOR_INNO;
+		csi2dphy->csi_info.dphy_vendor[0] = PHY_VENDOR_DWC;
 		for (size_t i = 0; i < csi2dphy->csi_info.csi_num; i++)
 		{
 			eswin_csi2_dphy_attach_hw(csi2dphy, i, i);
 		}
 	} else {
-		csi2dphy->csi_info.csi_num = 0;
+		dev_err(csi2dphy->dev, "chip id %d not supported\n",
+			 csi2dphy->drv_data->chip_id);
+		return -EINVAL;
 	}
-	csi2dphy->v4l2_dev.mdev = es_vi_dev->media_dev;
-	ret = v4l2_device_register(dev, &csi2dphy->v4l2_dev);
+
 	sd = &csi2dphy->sd;
 	mutex_init(&csi2dphy->mutex);
 	v4l2_subdev_init(sd, &csi2_dphy_subdev_ops);
@@ -776,7 +766,6 @@ static int eswin_csi2_dphy_probe(struct platform_device *pdev)
 
 	csi2dphy->of_notifier.notifier_call = eswin_csi2dphy_of_notifier;
 	of_overlay_notifier_register(&csi2dphy->of_notifier);
-	pm_runtime_enable(&pdev->dev);
 	dev_info(dev, "csi2 dphy%d probe successfully!\n", csi2dphy->phy_index);
 	return 0;
 
@@ -797,9 +786,7 @@ static int eswin_csi2_dphy_remove(struct platform_device *pdev)
 	media_entity_cleanup(&sd->entity);
 	v4l2_async_nf_cleanup(&dphy->notifier);
 	v4l2_async_nf_unregister(&dphy->notifier);
-	v4l2_device_unregister(&dphy->v4l2_dev);
 	v4l2_device_unregister_subdev(sd);
-	pm_runtime_disable(&pdev->dev);
 	mutex_destroy(&dphy->mutex);
 	return 0;
 }

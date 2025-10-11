@@ -5,7 +5,7 @@
 
 config VIDEO_ESWIN_ISP
     tristate "ESWIN ISP driver support"
-    default m
+    default n
     depends on VIDEO_DEV
     select VIDEOBUF2_CORE
     help

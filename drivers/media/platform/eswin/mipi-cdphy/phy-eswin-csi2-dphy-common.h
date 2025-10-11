@@ -1,14 +1,16 @@
 #ifndef _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 #define _PHY_ROCKCHIP_CSI2_DPHY_COMMON_H_
 
-#include <media/eswin/eswin_vi.h>
+#include "../eswin_vi.h"
 #include <linux/es-camera-module.h>
-#include <linux/es-dvp2axi-config.h>
 
 #define PHY_MAX 16
 #define MAX_DEV_NAME_LEN 32
 
 #define MAX_INNO_PHY_NUM 2
+
+ #define ES_DVP2AXI_CMD_SET_CSI_IDX \
+     _IOW('V', BASE_VIDIOC_PRIVATE + 7, struct es_dvp2axi_csi_info)
 
 /* add new chip id in tail by time order */
 enum csi2_dphy_chip_id {
@@ -37,10 +39,11 @@ struct csi2dphy_reg {
 	u32 offset;
 };
 
-#define MAX_DPHY_SENSORS (2)
-#define MAX_NUM_CSI2_DPHY (0x2)
-#define CSI2_DPHY_4LANES (0x4)
-#define CSI2_DPHY_2LANES (0x2)
+#define MAX_DPHY_SENSORS	(2)
+#define MAX_NUM_CSI2_DPHY	(0x2)
+#define CSI2_DPHY_4LANES	(0x4)
+#define CSI2_DPHY_2LANES	(0x2)
+#define ES_DVP2AXI_MAX_CSI_NUM	6
 
 struct reg_val {
 	u32 addr;
@@ -59,6 +62,12 @@ struct csi2_sensor {
 	int lanes;
 };
 
+struct es_dvp2axi_csi_info {
+	int csi_num;
+	int csi_idx[ES_DVP2AXI_MAX_CSI_NUM];
+	int dphy_vendor[ES_DVP2AXI_MAX_CSI_NUM];
+};
+
 struct csi2_dphy_hw;
 
 struct dphy_drv_data {
@@ -73,7 +82,6 @@ struct csi2_dphy {
 	struct csi2_dphy_hw *dphy_hw;
 	struct csi2_dphy_hw *dphy_hw_group[MAX_INNO_PHY_NUM];
 	struct v4l2_async_notifier notifier;
-	struct v4l2_device v4l2_dev;
 	struct v4l2_subdev sd;
 	struct mutex mutex; /* lock for updating protection */
 	struct media_pad pads[CSI2_DPHY_RX_PADS_NUM];
@@ -117,8 +125,8 @@ struct csi2_dphy_hw {
 	void __iomem *csi_base_addr;
 	void __iomem *combine_dphy_base_addr;
 
-	struct clk_bulk_data *clks_bulk;
-	struct reset_control *rsts_bulk;
+	struct clk_bulk_data	*clks_bulk;
+	struct reset_control	*rsts_bulk;
 	struct csi2_dphy *dphy_dev[MAX_NUM_CSI2_DPHY];
 	struct v4l2_subdev sd;
 	struct mutex mutex; /* lock for updating protection */

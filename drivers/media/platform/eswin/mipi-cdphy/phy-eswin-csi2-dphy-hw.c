@@ -6,7 +6,6 @@
 #include <linux/of_graph.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <media/media-entity.h>
@@ -15,8 +14,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
 #include <linux/reset.h>
-#include <media/eswin/common-def.h>
-#include <media/eswin/eswin_vi.h>
+#include "../eswin_vi.h"
 #include "phy-eswin-csi2-dphy-common.h"
 
 /* eic770x */
@@ -626,6 +624,7 @@ static int csi2_dphy_hw_stream_off(struct csi2_dphy *dphy,
 		return -EINVAL;
 	}
 	dev_dbg(hw->dev, "stream off\n");
+
 	return 0;
 }
 
@@ -674,7 +673,6 @@ static int eswin_csi2_dphy_hw_of_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	if (action == OF_OVERLAY_POST_APPLY) {
-		msleep(200);
 
 		dphy_hw->num_lanes = of_property_count_elems_of_size(dphy_hw->dev->of_node, "lanes", sizeof(u32));
 		dev_dbg(dphy_hw->dev, "dphy num lanes %d\n", dphy_hw->num_lanes);

@@ -33,12 +33,10 @@
 #include <linux/mfd/syscon.h>
 #include <linux/clk.h>
 #include <linux/reset.h>
-
-#include <media/eswin/eswin_vi.h>
-#include <media/eswin/common-def.h>
-
-#include "vi_cmn_register.h"
 #include <linux/eswin-win2030-sid-cfg.h>
+
+#include "eswin_vi.h"
+#include "es_vi_cmn_register.h"
 
 #define DRIVER_NAME "eswin-vi"
 #define DEVICE_NAME "eswin_vi"
@@ -590,7 +588,6 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		dev_err(dev, "No syscrg_csr phandle specified\n");
 		return PTR_ERR(es_vi_dev->syscrg_regmap);
 	}
-
 
 	eic770x_vi_init(es_vi_dev);
 
