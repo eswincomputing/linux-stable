@@ -586,13 +586,6 @@
 	status = "disabled";
 };
 
-&timer1 {
-	status = "disabled";
-};
-&d1_timer1 {
-	status = "disabled";
-};
-
 &pwm0 {
 	status = "okay";
 };

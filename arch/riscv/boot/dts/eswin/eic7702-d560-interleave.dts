@@ -298,13 +298,6 @@
 	status = "disabled";
 };
 
-&timer1 {
-	status = "disabled";
-};
-&d1_timer1 {
-	status = "disabled";
-};
-
 &pcie {
 	status = "okay";
 	pinctrl-names = "default";

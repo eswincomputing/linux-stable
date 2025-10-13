@@ -757,22 +757,6 @@
 	status = "disabled";
 };
 
-&timer0 {
-	status = "disabled";
-};
-
-&timer1 {
-	status = "disabled";
-};
-
-&timer2 {
-	status = "disabled";
-};
-
-&timer3 {
-	status = "disabled";
-};
-
 &die0_rtc {
 	status = "disabled";
 };
@@ -1214,22 +1198,6 @@
 };
 
 &d1_gpio0 {
-	status = "disabled";
-};
-
-&d1_timer0 {
-	status = "disabled";
-};
-
-&d1_timer1 {
-	status = "disabled";
-};
-
-&d1_timer2 {
-	status = "disabled";
-};
-
-&d1_timer3 {
 	status = "disabled";
 };
 

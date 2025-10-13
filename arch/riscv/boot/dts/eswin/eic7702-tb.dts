@@ -1408,34 +1408,6 @@
 	status = "okay";
 };
 
-&timer0 {
-	status = "okay";
-};
-&d1_timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "disabled";
-};
-&d1_timer1 {
-	status = "disabled";
-};
-
-&timer2 {
-	status = "okay";
-};
-&d1_timer2 {
-	status = "okay";
-};
-
-&timer3 {
-	status = "okay";
-};
-&d1_timer3 {
-	status = "okay";
-};
-
 &pinctrl {
 	status = "okay";
 };

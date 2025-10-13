@@ -1704,9 +1704,11 @@
 				<&d0_reset TIMER0_RST_CTRL SW_TIMER0_RSTN_7>,
 				<&d0_reset TIMER0_RST_CTRL SW_TIMER0_PRSTN>;
 			reset-names = "trst0","trst1","trst2","trst3","trst4","trst5","trst6","trst7","prst";
+			status = "disabled";
 		};
 
 		timer1: timer@0x51848000 {
+			/* used by lpcpu */
 			compatible = "eswin,eswin-timer";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -1727,9 +1729,11 @@
 				<&d0_reset TIMER1_RST_CTRL SW_TIMER1_RSTN_7>,
 				<&d0_reset TIMER1_RST_CTRL SW_TIMER1_PRSTN>;
 			reset-names = "trst0","trst1","trst2","trst3","trst4","trst5","trst6","trst7","prst";
+			status = "disabled";
 		};
 
 		timer2: timer@0x51850000 {
+			/* used by lpcpu */
 			compatible = "eswin,eswin-timer";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -1750,6 +1754,7 @@
 			   <&d0_reset TIMER2_RST_CTRL SW_TIMER2_RSTN_7>,
 			   <&d0_reset TIMER2_RST_CTRL SW_TIMER2_PRSTN>;
 			reset-names = "trst0","trst1","trst2","trst3","trst4","trst5","trst6","trst7","prst";
+			status = "disabled";
 		};
 
 		timer3: timer@0x51858000 {
@@ -1757,9 +1762,12 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			reg = <0x0 0x51858000 0x0 0x8000>;
+			perf_count = <7>;
 			numa-node-id = <0>;
+			/* disable interrupt because timer's interrupt is routed to lpcpu
 			interrupt-parent = <&plic0>;
 			interrupts = <348>;
+			*/
 			clock-names = "pclk","timer_aclk","timer3_clk8";
 			clocks = <&d0_clock EIC7700_CLK_TIMER_PCLK_3>,
 					 <&d0_clock EIC7700_CLK_TIMER_CLK_3>,
@@ -1774,6 +1782,7 @@
 				<&d0_reset TIMER3_RST_CTRL SW_TIMER3_RSTN_7>,
 				<&d0_reset TIMER3_RST_CTRL SW_TIMER3_PRSTN>;
 			reset-names = "trst0","trst1","trst2","trst3","trst4","trst5","trst6","trst7","prst";
+			status = "okay";
 		};
 
 		die0_rtc: rtc@51818000 {
