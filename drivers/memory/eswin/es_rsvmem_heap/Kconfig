@@ -4,3 +4,12 @@ config ESWIN_RSVMEM_HEAP
 	tristate "ESWIN reserved memory heap"
 	help
 	  ESWIN reserved memory heap device.
+
+config ESWIN_RSVMEM_HEAP_DEBUG_BUFINFO
+	bool "ESWIN reserved-memory heap OOM dump"
+	depends on ESWIN_RSVMEM_HEAP
+	help
+	  If selected, the driver will print a summary of all currently
+	  allocated dmabuf buffers (size, heap name, attached devices)
+	  when an allocation request fails due to out-of-memory.
+	  This is useful for debugging memory leaks or excessive usage.

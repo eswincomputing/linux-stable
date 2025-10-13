@@ -14,6 +14,7 @@
 #define pr_fmt(fmt) "eswin_rsvmem_heap: " fmt
 
 #include <linux/dma-buf.h>
+#include <linux/dma-resv.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/highmem.h>
@@ -33,6 +34,11 @@ static const unsigned int orders[] = { MAX_ORDER - 1, 9, 0 };
 #define NUM_ORDERS ARRAY_SIZE(orders)
 static DEFINE_XARRAY_FLAGS(xa_heap_names, XA_FLAGS_ALLOC);
 
+#ifdef CONFIG_ESWIN_RSVMEM_HEAP_DEBUG_BUFINFO
+static LIST_HEAD(rsvmem_buffer_list);
+static DEFINE_MUTEX(rsvmem_buffer_lock);
+#endif
+
 struct eswin_rsvmem_heap {
 	struct eswin_heap *heap;
 	struct mem_block *memblock;
@@ -43,7 +49,10 @@ struct eswin_rsvmem_heap_buffer {
 	struct list_head attachments;
 	struct mutex lock;
 	unsigned long len;
-
+#ifdef CONFIG_ESWIN_RSVMEM_HEAP_DEBUG_BUFINFO
+	struct list_head list;
+	struct dma_buf *dmabuf;
+#endif
 	// for buddy allocator
 	struct sg_table sg_table;
 
@@ -190,8 +199,8 @@ eswin_rsvmem_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	/* Since the cache sync was skipped when eswin_rsvmem_heap_map_dma_buf/eswin_rsvmem_heap_unmap_dma_buf,
-         * So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
-         * is no device attached to this dmabuf.
+	 * So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
+	 * is no device attached to this dmabuf.
 	 */
 #ifndef QEMU_DEBUG
 	for_each_sg(table->sgl, sg, table->orig_nents, i)
@@ -218,8 +227,8 @@ eswin_rsvmem_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
 
 	/* Since the cache sync was skipped while eswin_rsvmem_heap_map_dma_buf/eswin_rsvmem_heap_unmap_dma_buf,
-         * So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
-         * is no device attached to this dmabuf.
+	 * So force cache sync here when user call ES_SYS_MemFlushCache, eventhough there
+	 * is no device attached to this dmabuf.
 	 */
 #ifndef QEMU_DEBUG
 	for_each_sg(table->sgl, sg, table->orig_nents, i)
@@ -408,6 +417,11 @@ static void eswin_rsvmem_heap_dma_buf_release(struct dma_buf *dmabuf)
 	struct scatterlist *sg;
 	int i;
 
+#ifdef CONFIG_ESWIN_RSVMEM_HEAP_DEBUG_BUFINFO
+	mutex_lock(&rsvmem_buffer_lock);
+	list_del(&buffer->list);
+	mutex_unlock(&rsvmem_buffer_lock);
+#endif
 	table = &buffer->sg_table;
 	if (buffer->vmap_cnt > 0) {
 		WARN(1, "%s: buffer still mapped in the kernel\n", __func__);
@@ -458,6 +472,82 @@ static struct page *alloc_largest_available(struct mem_block *memblock,
 	return NULL;
 }
 
+#ifdef CONFIG_ESWIN_RSVMEM_HEAP_DEBUG_BUFINFO
+#define ATTACH_BUF_LEN 512
+static void rsvmem_dump_buffers_on_oom(void)
+{
+	static unsigned long last_dump_jiffies;
+	static const unsigned long DUMP_INTERVAL = HZ * 10;
+	struct eswin_rsvmem_heap_buffer *buf;
+	struct eswin_heap_attachment *att;
+	char attach_str[ATTACH_BUF_LEN];
+	char expbuf[24], nmbuf[24];
+	struct dma_buf *dmabuf;
+	size_t total, pos;
+	int ret, cnt;
+
+	if (time_is_after_jiffies(last_dump_jiffies + DUMP_INTERVAL))
+		return; // only dump once every 10s
+
+	last_dump_jiffies = jiffies;
+	pr_err("=== === ESWIN-RSVMEM OOM dump ======\n");
+	pr_err("%s,%s,%s,%s\n",
+		   "SIZE", "EXP_NAME", "NAME", "ATTACH_DEVS");
+
+	total = 0;
+	cnt = 0;
+	ret = mutex_lock_interruptible(&rsvmem_buffer_lock);
+	if (ret) {
+		pr_err("cannot got rsvmem_buffer_lock, don't dump!\n");
+		return;
+	}
+
+	list_for_each_entry(buf, &rsvmem_buffer_list, list) {
+		dmabuf = buf->dmabuf;
+		pos = 0;
+
+		ret = dma_resv_lock_interruptible(dmabuf->resv, NULL);
+		if (ret) {
+			pr_err("cannot got dmabuf resvlock, don't dump!\n");
+			goto error_unlock;
+		}
+
+		spin_lock(&dmabuf->name_lock);
+		strscpy(expbuf, dmabuf->exp_name ?: "<anon>", sizeof(expbuf));
+		strscpy(nmbuf,  dmabuf->name  ?: "<noname>", sizeof(nmbuf));
+		spin_unlock(&dmabuf->name_lock);
+
+		list_for_each_entry(att, &dmabuf->attachments, list) {
+			int len = scnprintf(attach_str + pos,
+						ATTACH_BUF_LEN - pos,
+						"%s%s",
+						pos ? "," : "",
+						dev_name(att->dev));
+			if (len >= ATTACH_BUF_LEN - pos - 1)
+				break;
+			pos += len;
+		}
+		dma_resv_unlock(dmabuf->resv);
+
+		if (pos == 0)
+			sprintf(attach_str, "%s", "<none>");
+
+		pr_err("0x%lx,%s,%s,%s\n",
+			buf->len, expbuf, nmbuf, attach_str);
+
+		total += buf->len;
+		cnt++;
+	}
+
+error_unlock:
+	mutex_unlock(&rsvmem_buffer_lock);
+
+	pr_err("=== TOTAL: %d buffers, 0x%lx bytes ===\n", cnt, total);
+}
+#else
+static inline void rsvmem_dump_buffers_on_oom(void) {}
+#endif
+
 static struct dma_buf *eswin_rsvmem_heap_allocate(struct eswin_heap *heap,
 						  unsigned long len,
 						  unsigned long fd_flags,
@@ -507,8 +597,12 @@ static struct dma_buf *eswin_rsvmem_heap_allocate(struct eswin_heap *heap,
 
 		page = alloc_largest_available(rsvmem_heap->memblock,
 					       size_remaining, max_order);
-		if (!page)
+		if (!page){
+			pr_err("error: try alloc 0x%lxbytes form %s, 0x%lxbytes alloc failed!\n",
+				len, heap_name, size_remaining);
+			rsvmem_dump_buffers_on_oom();
 			goto free_buffer;
+		}
 
 		list_add_tail(&page->lru, &pages);
 		size_remaining -= page_size(page);
@@ -538,6 +632,13 @@ static struct dma_buf *eswin_rsvmem_heap_allocate(struct eswin_heap *heap,
 		ret = PTR_ERR(dmabuf);
 		goto free_pages;
 	}
+
+#ifdef CONFIG_ESWIN_RSVMEM_HEAP_DEBUG_BUFINFO
+	mutex_lock(&rsvmem_buffer_lock);
+	buffer->dmabuf = dmabuf;
+	list_add_tail(&buffer->list, &rsvmem_buffer_list);
+	mutex_unlock(&rsvmem_buffer_lock);
+#endif
 	return dmabuf;
 
 free_pages:
@@ -551,7 +652,8 @@ free_buffer:
 	list_for_each_entry_safe(page, tmp_page, &pages, lru)
 		es_free_pages(rsvmem_heap->memblock, page);
 	kfree(buffer);
-
+	pr_err("error: try alloc 0x%lxbytes form %s failed, ret = %d\n",
+		len, heap_name, ret);
 	return ERR_PTR(ret);
 }
 
@@ -755,7 +857,7 @@ static int __add_eswin_rsvmem_heap(struct mem_block *memblock, void *data)
 static char *es_heap_name_prefix[] = {
 						"mmz_nid_",
 						"secure_memory",
-                                                PCI_PHYS_MEM_PREFIX,
+						PCI_PHYS_MEM_PREFIX,
 };
 #define NUM_ESWIN_RSVMEM_HEAPS ARRAY_SIZE(es_heap_name_prefix)
 
