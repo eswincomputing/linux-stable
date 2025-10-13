@@ -43,11 +43,9 @@ MODULE_PARM_DESC(frame_timeout, "frame timeout in ms, default 1000s");
 extern void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
 				       u16 op_index, u32 hw_error);
 
-static inline void pick_next_frame(struct win_engine *engine,
-				   struct host_frame_desc **f)
+static inline void pick_next_frame(struct win_engine *engine, struct host_frame_desc **f)
 {
-	*f = list_first_entry_or_null(&engine->sched_frame_list,
-				      struct host_frame_desc, sched_node);
+	*f = list_first_entry_or_null(&engine->sched_frame_list, struct host_frame_desc, sched_node);
 	if (unlikely(*f == NULL)) {
 		/* No more frame */
 		dla_debug("%s %d no more frame\n", __func__, __LINE__);
@@ -60,10 +58,8 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 			    npu_io_tensor_t *io_tensor, host_node_t *host_node)
 {
 	int ret;
-	emission_node_t *pemission_node =
-		(emission_node_t *)host_node->emission_base_addr;
-	program_node_t *program_node =
-		(program_node_t *)host_node->program_base_addr;
+	emission_node_t *pemission_node = (emission_node_t *)host_node->emission_base_addr;
+	program_node_t *program_node = (program_node_t *)host_node->program_base_addr;
 	u8 param = tiktok | ((engine->perf_switch) ? 0x02 : 0x0);
 	msg_payload_t payload = { FRAME_READY, param };
 	memcpy(&pemission_node->frame_desc[tiktok], frame_desc, sizeof(hetero_ipc_frame_t));
@@ -72,8 +68,7 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 
 	ret = send_mbx_msg_to_e31(engine, payload);
 	if (ret) {
-		dla_error("%s, %d, send mailbox to npu error=%d.\n", __func__,
-			  __LINE__, ret);
+		dla_error("%s, %d, send mailbox to npu error=%d.\n", __func__, __LINE__, ret);
 	}
 	return ret;
 }
@@ -109,8 +104,7 @@ int send_frame_to_npu(struct host_frame_desc *f, int tiktok)
 #elif (NPU_DEV_SIM == NPU_MCU_ALONE)
 	if (!work_pending(&engine->dump_file_work[tiktok].work)) {
 		engine->dump_file_work[tiktok].f = f;
-		queue_work(engine->work_queue,
-			   &engine->dump_file_work[tiktok].work);
+		queue_work(engine->work_queue, &engine->dump_file_work[tiktok].work);
 	} else {
 		dla_error("%s, %d, dump_file_work error\n", __func__, __LINE__);
 		return -1;
@@ -119,8 +113,7 @@ int send_frame_to_npu(struct host_frame_desc *f, int tiktok)
 	dla_debug("hetero_send_frame_to_npu\n");
 	hetero_send_frame_to_npu(tiktok, f);
 #else
-	dla_error("%s, %d, Wrong NPU_DEV_SIM = %d.\n", __func__, __LINE__,
-		  NPU_DEV_SIM);
+	dla_error("%s, %d, Wrong NPU_DEV_SIM = %d.\n", __func__, __LINE__, NPU_DEV_SIM);
 	return -1;
 #endif
 
@@ -144,8 +137,8 @@ void npu_frame_schedule(struct win_engine *engine)
 	struct nvdla_device *ndev = (struct nvdla_device *)engine->nvdla_dev;
 	while (true) {
 		spin_lock_irqsave(&engine->executor_lock, flags);
-		if (atomic_read(&engine->is_sending) ||
-		    engine->tiktok_frame[engine->tiktok] != NULL) {
+		if (atomic_read(&engine->is_sending) || engine->tiktok_frame[engine->tiktok] != NULL ||
+			engine->tiktok_frame[(engine->tiktok + 1) % 2] != NULL) {
 			spin_unlock_irqrestore(&engine->executor_lock, flags);
 			break;
 		}
@@ -164,13 +157,11 @@ void npu_frame_schedule(struct win_engine *engine)
 		ret = is_frame_model_alive(f);
 		if (!ret) {
 			spin_lock_irqsave(&engine->complete_lock, flags);
-			list_add_tail(&f->complete_entry,
-				      &engine->frame_complete_list);
+			list_add_tail(&f->complete_entry, &engine->frame_complete_list);
 			spin_unlock_irqrestore(&engine->complete_lock, flags);
 
 			if (!work_pending(&engine->complete_work)) {
-				queue_work(system_highpri_wq,
-					   &engine->complete_work);
+				queue_work(system_highpri_wq, &engine->complete_work);
 			}
 			list_del(&f->sched_node);
 		} else {
@@ -181,14 +172,11 @@ void npu_frame_schedule(struct win_engine *engine)
 				break;
 			}
 			f->tiktok = engine->tiktok;
-			f->is_event_source_done =
-				engine->is_event_source_done[engine->tiktok];
-			memset(f->is_event_source_done, 0,
-			       COMPLETE_EVENT_ID / 8);
+			f->is_event_source_done = engine->is_event_source_done[engine->tiktok];
+			memset(f->is_event_source_done, 0, COMPLETE_EVENT_ID / 8);
 
 			set_current(engine, f->executor, f->tiktok);
-			engine->timer[f->tiktok].expires =
-				jiffies + msecs_to_jiffies(frame_timeout);
+			engine->timer[f->tiktok].expires = jiffies + msecs_to_jiffies(frame_timeout);
 			engine->tiktok = (engine->tiktok + 1) % NUM_TIKTOK;
 			smp_mb();
 
@@ -262,8 +250,7 @@ void mbx_irq_op_done(struct win_engine *priv, u32 tiktok, u16 op_index)
 		engine->dump_op_work[op_type].tiktok = tiktok;
 		engine->dump_op_work[op_type].f = f;
 		engine->dump_op_work[op_type].op_index = op_index;
-		queue_work(engine->dump_op_work_queue,
-			   &engine->dump_op_work[op_type].work);
+		queue_work(engine->dump_op_work_queue, &engine->dump_op_work[op_type].work);
 		return;
 	}
 }
@@ -280,8 +267,7 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat, u16 hw_er
 
 	ret = del_timer(&engine->timer[tiktok]);
 	if (!ret) {
-		dla_debug("%s, %d, task is now processing in timer.\n",
-			  __func__, __LINE__);
+		dla_debug("%s, %d, task is now processing in timer.\n", __func__, __LINE__);
 		return;
 	}
 
@@ -301,8 +287,7 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat, u16 hw_er
 
 	if (!is_frame_model_alive(f)) {
 		model->uctx->event_desc.len = 0;
-		memset(&model->uctx->event_desc.event_sinks[0], -1,
-		       MAX_EVENT_SINK_SAVE_NUM * sizeof(s16));
+		memset(&model->uctx->event_desc.event_sinks[0], -1, MAX_EVENT_SINK_SAVE_NUM * sizeof(s16));
 	}
 	spin_lock_irqsave(&engine->executor_lock, flags);
 	engine->tiktok_frame[f->tiktok] = NULL;

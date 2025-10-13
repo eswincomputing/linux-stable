@@ -825,7 +825,7 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 	struct win_executor *executor;
 	int ret, i;
 
-	executor = kzalloc(sizeof(struct win_executor), GFP_KERNEL);
+	executor = vzalloc(sizeof(struct win_executor));
 	if (executor == NULL) {
 		dla_error("%s %d no mem\n", __func__, __LINE__);
 		return -ENOMEM;
@@ -900,7 +900,7 @@ err_free2:
 err_free1:
 	vfree(executor->dependency_count);
 err_free0:
-	kfree(executor);
+	vfree(executor);
 	*m_executor = NULL;
 	return ret;
 }
@@ -935,6 +935,6 @@ void executor_clearup(void *arg_executor)
 	dsp_resource_destroy(executor);
 	free_executor_tensor_data(executor);
 
-	kfree(executor);
+	vfree(executor);
 	dla_debug("%s, %d. done.\n", __func__, __LINE__);
 }
