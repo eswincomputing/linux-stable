@@ -47,10 +47,6 @@
 
 	aliases {
 		serial0 = &d0_uart0;
-		ethernet0 = &d0_gmac0;
-		ethernet1 = &d0_gmac1;
-		ethernet2 = &d1_gmac0;
-		ethernet3 = &d1_gmac1;
 		rtc0 = &die0_rtc;
 		rtc1 = &d1_rtc;
 	};
@@ -410,7 +406,7 @@
 	status = "okay";
 };
 &d1_pmu {
-	status = "disabled";
+	status = "okay";
 };
 
 &ddr0 {
@@ -691,42 +687,10 @@
 
 &dc {
 	status = "disabled";
-	dc_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		dc_out_dsi: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&dsi_input>;
-		};
-		dc_out_dpi1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&vd_input>;
-		};
-		dc_out_hdmi: endpoint@2 {
-			reg = <2>;
-			remote-endpoint = <&hdmi_in_dc>;
-		};
-	};
 };
 
 &d1_dc {
 	status = "disabled";
-	d1_dc_out: port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		d1_dc_out_dsi: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&d1_dsi_input>;
-		};
-		d1_dc_out_dpi1: endpoint@1 {
-			reg = <1>;
-			remote-endpoint = <&d1_vd_input>;
-		};
-		d1_dc_out_hdmi: endpoint@2 {
-			reg = <2>;
-			remote-endpoint = <&d1_hdmi_in_dc>;
-		};
-	};
 };
 
 &dc_test {
@@ -738,146 +702,24 @@
 
 &virtual_display {
 	status = "disabled";
-	port {
-		vd_input: endpoint {
-			remote-endpoint = <&dc_out_dpi1>;
-		};
-	};
 };
 
 &d1_virtual_display {
 	status = "disabled";
-	port {
-		d1_vd_input: endpoint {
-			remote-endpoint = <&d1_dc_out_dpi1>;
-		};
-	};
 };
 
 &dsi_controller {
     status = "disabled";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0>;
-			dsi_input: endpoint {
-				remote-endpoint = <&dc_out_dsi>;
-			};
-		};
-		port@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-			mipi_dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
-			};
-		};
-	};
-
-	dsi_panel:dsi_panel@0 {
-		compatible = "eswin,generic-panel";
-		reg = <0>;
-		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
-		dsi,lanes = <4>;
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&mipi_dsi_out>;
-			};
-		};
-	};
 };
 &d1_dsi_controller {
 	status = "disabled";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0>;
-			d1_dsi_input: endpoint {
-				remote-endpoint = <&d1_dc_out_dsi>;
-			};
-		};
-		port@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-			d1_mipi_dsi_out: endpoint {
-				remote-endpoint = <&d1_panel_in>;
-			};
-		};
-	};
-	d1_dsi_panel:dsi_panel@0 {
-		compatible = "eswin,generic-panel";
-		reg = <0>;
-		dsi,format = <0>; //RGB888:0, RGB666:1, RGB565:3
-		dsi,lanes = <4>;
-		port {
-			d1_panel_in: endpoint {
-				remote-endpoint = <&d1_mipi_dsi_out>;
-			};
-		};
-	};
-};
-
-&dsi_panel {
-	status = "disabled";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio27_default &pinctrl_die0_gpio106_default>;
-	backlight0-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
-};
-&d1_dsi_panel {
-	status = "disabled";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die1_gpio69_default &pinctrl_die1_gpio21_default>;
-	backlight0-gpios = <&d1_portc 5 GPIO_ACTIVE_HIGH>;
-	rst-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;
 };
 
 &dw_hdmi {
 	status = "disabled";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s0_endpoint>;
-			};
-		};
-	};
 };
 &d1_dw_hdmi {
 	status = "disabled";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0>;
-			d1_hdmi_in_dc: endpoint@0 {
-				remote-endpoint = <&d1_dc_out_hdmi>;
-			};
-		};
-		port@2 {
-			reg = <2>;
-			d1_hdmi_in_i2s: endpoint@1 {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d1_i2s0_endpoint>;
-			};
-		};
-	};
 };
 
 &dw_hdmi_hdcp2 {
@@ -890,104 +732,50 @@
 
 &d0_i2s0 {
 	status = "disabled";
-	numa-node-id = <0>;
-	d0_i2s0_port: port {
-		d0_i2s0_endpoint: endpoint {
-			remote-endpoint = <&hdmi_in_i2s>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d1_i2s0 {
 	status = "disabled";
-	numa-node-id = <1>;
-	d1_i2s0_port: port {
-		d1_i2s0_endpoint: endpoint {
-			remote-endpoint = <&d1_hdmi_in_i2s>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d0_i2s1 {
 	status = "disabled";
-	numa-node-id = <0>;
-	d0_i2s1_port: port {
-		d0_i2s1_endpoint: endpoint {
-			remote-endpoint = <&d0_codec0_endpoint>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d1_i2s1 {
 	status = "disabled";
-	numa-node-id = <1>;
-	d1_i2s1_port: port {
-		d1_i2s1_endpoint: endpoint {
-			remote-endpoint = <&d1_codec0_endpoint>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d0_i2s2 {
 	status = "disabled";
-	numa-node-id = <0>;
-	d0_i2s2_port: port {
-		d0_i2s2_endpoint: endpoint {
-			remote-endpoint = <&d0_codec1_endpoint>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d1_i2s2 {
 	status = "disabled";
-	numa-node-id = <1>;
-	d1_i2s2_port: port {
-		d1_i2s2_endpoint: endpoint {
-			remote-endpoint = <&d1_codec1_endpoint>;
-			dai-format = "i2s";
-		};
-	};
 };
 
 &d0_graphcard0 {
 	status = "disabled";
-	label = "Analog Audio-0";
-	dais = <&d0_i2s1_port>;
 };
 
 &d0_graphcard1 {
 	status = "disabled";
-	label = "Analog Audio-1";
-	dais = <&d0_i2s2_port>;
 };
 
 &d0_graphcard2 {
 	status = "disabled";
-	label = "HDMI Audio-0";
-	dais = <&d0_i2s0_port>;
 };
 
 &d1_graphcard0 {
 	status = "disabled";
-	label = "Analog Audio-2";
-	dais = <&d1_i2s1_port>;
 };
 
 &d1_graphcard1 {
 	status = "disabled";
-	label = "Analog Audio-3";
-	dais = <&d1_i2s2_port>;
 };
 
 &d1_graphcard2 {
 	status = "disabled";
-	label = "HDMI Audio-1";
-	dais = <&d1_i2s0_port>;
 };
 
 &isp_0 {
@@ -1012,70 +800,19 @@
 };
 
 &sdhci_emmc {
-	/* emmc */
 	status = "disabled";
-	delay_code = <0x17>;
-	drive-impedance-ohm = <50>;
-	enable-cmd-pullup;
-	enable-data-pullup;
-	no-sdio;
-	no-sd;
 };
 
 &d1_sdhci_emmc {
-	/* emmc */
 	status = "disabled";
-	delay_code = <0x17>;
-	drive-impedance-ohm = <50>;
-	enable-cmd-pullup;
-	enable-data-pullup;
-	no-sdio;
-	no-sd;
 };
 
 &sdio0 {
-	/* sd card */
 	status = "disabled";
-	delay_code = <0x55>;
-	drive-impedance-ohm = <33>;
-	enable-cmd-pullup;
-	enable-data-pullup;
-	no-sdio;
-	no-mmc;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio13_default>;
-	cd-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
 };
 
 &d1_sdio0 {
-	/* wifi module */
 	status = "disabled";
-	delay_code = <0x29>;
-	drive-impedance-ohm = <33>;
-	enable-cmd-pullup;
-	enable-data-pullup;
-	keep-power-in-suspend;
-	non-removable;
-	no-sd;
-	no-mmc;
-	vqmmc-supply = <&reg_vcc1v8>;
-	aw315:wifi_aw3155@0 {
-		compatible = "aml_w1_sdio";
-		reg = <0x0>;
-		interrupt-parent = <&d1_porta>;
-		interrupts = <18 IRQ_TYPE_LEVEL_LOW>;
-		pinctrl-names = "default", "default";
-		pinctrl-0 = <&pinctrl_die1_gpio18_default>;
-		pinctrl-1 = <&pinctrl_die1_gpio16_default>;
-		irq-gpios = <&d1_porta 18 GPIO_ACTIVE_HIGH>;
-		rst-gpios = <&d1_porta 16 GPIO_ACTIVE_HIGH>;
-	};
-	mdhd_wlan {
-		compatible = "android,bcmdhd_wlan";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die1_gpio16_default>;
-		gpio_wl_reg_on = <&d1_porta 16 GPIO_ACTIVE_HIGH>;
-	};
 };
 
 &sdio1 {
@@ -1087,52 +824,18 @@
 };
 
 &d0_gmac0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio15_default>;
-	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
-	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
-	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	phy-mode = "rgmii-txid";
-	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
-	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
-	dly-param-10m = <0 0 0>;
 	status = "disabled";
 };
 
 &d1_gmac0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die1_gpio13_default>;
-	rst-gpios = <&d1_porta 13 GPIO_ACTIVE_LOW>;
-	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
-	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	phy-mode = "rgmii-txid";
-	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
-	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
-	dly-param-10m = <0 0 0>;
 	status = "disabled";
 };
 
 &d0_gmac1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio14_default>;
-	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
-	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
-	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
-	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
-	dly-param-10m = <0 0 0>;
 	status = "disabled";
 };
 
 &d1_gmac1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die1_gpio14_default>;
-	rst-gpios = <&d1_porta 14 GPIO_ACTIVE_LOW>;
-	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
-	eswin,led-cfgs = <0x6100 0xa40 0x420>;
-	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
-	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
-	dly-param-10m = <0 0 0>;
 	status = "disabled";
 };
 
@@ -1153,14 +856,10 @@
 
 &d0_usbdrd_dwc3_0 {
 	status = "disabled";
-	dr_mode = "host";
-	maximum-speed = "super-speed";
 };
 
 &d1_usbdrd_dwc3_0 {
 	status = "disabled";
-	dr_mode = "host";
-	maximum-speed = "super-speed";
 };
 
 &d0_usbdrd3_1 {
@@ -1173,14 +872,10 @@
 
 &d0_usbdrd_dwc3_1 {
 	status = "disabled";
-	dr_mode = "host";
-	maximum-speed = "super-speed";
 };
 
 &d1_usbdrd_dwc3_1 {
 	status = "disabled";
-	dr_mode = "host";
-	maximum-speed = "super-speed";
 };
 
 &d0_dmac0 {
@@ -1188,7 +883,7 @@
 };
 
 &d1_dmac0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_aon_dmac {
@@ -1249,50 +944,10 @@
 };
 
 &ssi0 {
-	/* spi flash */
 	status = "disabled";
-	num-cs = <2>;
-	spi-flash@0 {
-		compatible = "winbond,w25q128fw",
-					"jedec,spi-nor";
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <4800000>;
-		rx-sample-delay-ns = <10>;
-	};
-	spi-flash@1 {
-		compatible = "winbond,w25q128fw",
-					"jedec,spi-nor";
-		reg = <1>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <4800000>;
-		rx-sample-delay-ns = <10>;
-	};
 };
 &d1_ssi0 {
-	/* spi flash */
 	status = "disabled";
-	num-cs = <2>;
-	spi-flash@0 {
-		compatible = "winbond,w25q128fw",
-					"jedec,spi-nor";
-		reg = <0>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <4800000>;
-		rx-sample-delay-ns = <10>;
-	};
-	spi-flash@1 {
-		compatible = "winbond,w25q128fw",
-					"jedec,spi-nor";
-		reg = <1>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-max-frequency = <4800000>;
-		rx-sample-delay-ns = <10>;
-	};
 };
 
 &ssi1 {
@@ -1399,66 +1054,22 @@
 };
 
 &d0_i2c0 {
-	/* codec es8388 */
+	/* SOC1 ina226, used by lpcpu */
 	status = "disabled";
-	d0_es8388_0: es8388-0@10 {
-		compatible = "eswin,es8388";
-		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s1_endpoint>;
-			};
-		};
-	};
-	d0_es8388_1: es8388-1@11 {
-		compatible = "eswin,es8388";
-		reg = <0x11>;
-		#sound-dai-cells = <0>;
-		port {
-			d0_codec1_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d0_i2s2_endpoint>;
-			};
-		};
-	};
 };
 
 &d1_i2c0 {
-	/* codec es8388 */
 	status = "disabled";
-	d1_es8388_0: es8388-0@10 {
-		compatible = "eswin,es8388";
-		reg = <0x10>;
-		#sound-dai-cells = <0>;
-		port {
-			d1_codec0_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d1_i2s1_endpoint>;
-			};
-		};
-	};
-	d1_es8388_1: es8388-1@11 {
-		compatible = "eswin,es8388";
-		reg = <0x11>;
-		#sound-dai-cells = <0>;
-		port {
-			d1_codec1_endpoint: endpoint {
-				system-clock-frequency = <12288000>;
-				remote-endpoint = <&d1_i2s2_endpoint>;
-			};
-		};
-	};
 };
 
 &d0_i2c1 {
-	status = "disabled";
-	es5340@f {
-		compatible = "einno,es5340";
-		reg = <0xf>;
+	/* d0 npu pmic */
+	status = "okay";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage", "D0 NPU CURRENT", "D0 NPU Temperature";
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage";
 		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
@@ -1473,12 +1084,13 @@
 	};
 };
 &d1_i2c1 {
-	status = "disabled";
-	es5340@f {
-		compatible = "einno,es5340";
-		reg = <0xf>;
+	/* d1 npu pmic */
+	status = "okay";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage", "D1 NPU CURRENT", "D1 NPU Temperature";
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
@@ -1494,37 +1106,16 @@
 };
 
 &d0_i2c2 {
-	/* touch screen*/
+	/* SOC1&4 temp sensor, read by lpcpu */
 	status = "disabled";
-	d0_gt911:touchscreen@14 {
-		compatible = "goodix,gt911";
-		reg = <0x14>;
-		interrupt-parent = <&porta>;
-		interrupts = <20 IRQ_TYPE_EDGE_RISING>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die0_gpio20_default>;
-		irq-gpios = <&porta 20 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&portd 15 GPIO_ACTIVE_HIGH>;
-	};
 };
 
 &d1_i2c2 {
-	/* touch screen*/
 	status = "disabled";
-	d1_gt911:touchscreen@14 {
-		compatible = "goodix,gt911";
-		reg = <0x14>;
-		interrupt-parent = <&d1_porta>;
-		interrupts = <0 IRQ_TYPE_EDGE_RISING>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die1_gpio0_default>;
-		irq-gpios = <&d1_porta 0 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&d1_portd 15 GPIO_ACTIVE_HIGH>;
-	};
 };
 
 &d0_i2c3 {
-	/* mipi csi0/csi1 */
+	/* SOC2&4 serdes clk, configured by scpu&lpcpu */
 	status = "disabled";
 };
 &d1_i2c3 {
@@ -1532,7 +1123,7 @@
 };
 
 &d0_i2c4 {
-	/* mipi csi2/csi3 */
+	/* SOC1 ADS1115, accessed by lpcpu */
 	status = "disabled";
 };
 &d1_i2c4 {
@@ -1540,7 +1131,7 @@
 };
 
 &d0_i2c5 {
-	/* mipi csi4/csi5 */
+	/* SOC1 eeprom, read by lpcpu */
 	status = "disabled";
 };
 &d1_i2c5 {
@@ -1564,7 +1155,6 @@
 };
 
 &d0_i2c8 {
-	/* io extended for mipi csi */
 	status = "disabled";
 };
 &d1_i2c8 {
@@ -1580,70 +1170,12 @@
 };
 
 &d0_aon_i2c0 {
-	/* ina226x3 */
+	/* SOC1 smbus, accessed by lpcpu */
 	status = "disabled";
-	i2c-sda-hold-time-ns = <0x40>;
-	ina226@40 {
-		compatible = "ti,ina226";
-		#io-channel-cells = <1>;
-		label = "cpu_vdd";
-		reg = <0x40>;
-		shunt-resistor = <1000>;
-	};
-	ina226@41 {
-		compatible = "ti,ina226";
-		#io-channel-cells = <1>;
-		label = "d0_lpddr_vdd";
-		reg = <0x41>;
-		shunt-resistor = <1000>;
-	};
-	ina226@44 {
-		compatible = "ti,ina226";
-		#io-channel-cells = <1>;
-		label = "d0_soc_vdd";
-		reg = <0x44>;
-		shunt-resistor = <1000>;
-	};
-	tmp102@48 {
-		compatible = "ti,tmp102";
-		reg = <0x48>;
-		label = "d0_board_tmp";
-		#thermal-sensor-cells = <1>;
-	};
 };
 
-
 &d1_aon_i2c0 {
-	/* ina226x4 */
 	status = "disabled";
-	i2c-sda-hold-time-ns = <0x40>;
-	ina226@40 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "vdd_dc_in";
-			reg = <0x40>;
-			shunt-resistor = <1000>;
-		};
-	ina226@41 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "d1_lpddr_vdd";
-			reg = <0x41>;
-			shunt-resistor = <1000>;
-		};
-	ina226@44 {
-			compatible = "ti,ina226";
-			#io-channel-cells = <1>;
-			label = "d1_soc_vdd";
-			reg = <0x44>;
-			shunt-resistor = <1000>;
-		};
-	tmp102@48 {
-		compatible = "ti,tmp102";
-		reg = <0x48>;
-		label = "d1_board_tmp";
-		#thermal-sensor-cells = <1>;
-	};
 };
 &d1_aon_i2c1 {
 	status = "disabled";
@@ -1659,9 +1191,17 @@
 
 &pvt0 {
 	status = "okay";
+	/*
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d0_sys_con 0x0668>;
+	*/
 };
 &d1_pvt0 {
 	status = "okay";
+	/*
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,syscon = <&d1_sys_con 0x0668>;
+	*/
 };
 
 &pvt1 {
@@ -1714,10 +1254,10 @@
 };
 
 &gpio0 {
-	status = "disabled";
+	status = "okay";
 };
 &d1_gpio0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dev_llc_d0{
@@ -1739,42 +1279,3 @@
 	status = "okay";
 };
 
-/* die0 GPIO Function Description
-
-	gpio0   : pcie prstn(I)
-	gpio11  : tmp alert(I)
-	gpio13  : tf card detect(I)
-	gpio14  : gphy1 resetn(O)
-	gpio15  : gphy0 resetn(O)
-	gpio18  : ina226 alert(I)
-	gpio20  : lcd touch int(I)
-	gpio21  : head phone plug/unplug detection2(I)
-	gpio27  : black light pwr_en(O)
-	gpio28  : head phone plug/unplug detection1(I)
-	gpio68  : fan pwm(O)
-	gpio69  : fan touch(I)
-	gpio92  : frex gp0(O)
-	gpio93  : frex gp1(O)
-	gpio106 : mipi dsi resetn(O)
-	gpio111 : lcd touch resetn(O)
-*/
-/* die1 GPIO Function Description
-
-	gpio0   : lcd touch int(I)
-	gpio13  : gphy0 resetn(O)
-	gpio14  : gphy1 resetn(O)
-	gpio15  : bt wake host(I)
-	gpio16  : sdio wifi disable(O)
-	gpio18  : sdio wifi wake host(I)
-	gpio19  : pcie prstn(I)
-	gpio20  : head phone plug/unplug detection2(I)
-	gpio21  : mipi dsi resetn(O)
-	gpio27  : tmp alert(I)
-	gpio28  : head phone plug/unplug detection1(I)
-	gpio68  : system led(O)
-	gpio69  : black light pwr_en(O)
-	gpio92  : frex gp0(O)
-	gpio93  : frex gp1(O)
-	gpio106 : host wak bt(O)
-	gpio111 : lcd touch resetn(O)
-*/
