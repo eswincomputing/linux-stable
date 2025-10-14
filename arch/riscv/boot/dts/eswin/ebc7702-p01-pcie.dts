@@ -382,6 +382,16 @@
 	};
 };
 
+&d0_trip_threshold {
+	temperature = <60000>;
+};
+&d0_trip_target {
+	temperature = <70000>;
+};
+&d0_trip_crit {
+	temperature = <80000>;
+};
+
 &d0_clock {
 	status = "okay";
 };
