@@ -42,7 +42,7 @@
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
-	model = "ESWIN EBC7702-P01 PCIE";
+	model = "ESWIN EBC7702-P01 A1";
 	compatible = "eswin,eic7x";
 
 	aliases {
