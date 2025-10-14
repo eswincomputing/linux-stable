@@ -173,15 +173,20 @@
 			reg = <0x1 0x4414000 0 0x1000>;
 			no-map;
 		};
+		
+		usage_table:usage_table@104415000 {
+			reg = <0x1 0x4415000 0 0x1000>;
+			no-map;
+		};
 
 		share_memory {
 			compatible = "eswin,shm";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			phys-base = <0x1 0x4415000>;
-			virt-base = <0x1 0x4415000>;
-			shm-size = <0xbbeb000>;
-			reg = <0x1 0x4415000 0 0xbbeb000>;
+			phys-base = <0x1 0x4416000>;
+			virt-base = <0x1 0x4416000>;
+			shm-size = <0xbbea000>;
+			reg = <0x1 0x4416000 0 0xbbea000>;
 		};
 
 	};
