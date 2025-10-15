@@ -1255,7 +1255,7 @@ static int ov9282_power_on(struct device *dev)
 		goto error_reset;
 	}
 
-	usleep_range(400, 600);
+	usleep_range(1000, 1600);
 
 	ret = ov9282_write_reg(ov9282, OV9282_REG_MIPI_CTRL00, 1,
 			       ov9282->noncontinuous_clock ?
