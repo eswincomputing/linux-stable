@@ -33,4 +33,7 @@
 					  _PAGE_WRITE | _PAGE_EXEC |	\
 					  _PAGE_USER | _PAGE_GLOBAL))
 
+#define ALT_EIC7700_FIXUP_MT(pfn, prot)
+#define ALT_EIC7700_UNFIX_MT(_val)
+
 #endif /* _ASM_RISCV_PGTABLE_32_H */

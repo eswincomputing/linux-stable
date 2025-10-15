@@ -34,6 +34,7 @@
 #include <linux/regmap.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-fwnode.h>
+#include <media/v4l2-ctrls.h>
 #include <linux/iommu.h>
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
@@ -42,11 +43,7 @@
 #include <linux/kthread.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/of_address.h>
-
 #include <media/eswin/common-def.h>
-
-
-#define ES_DVP2AXI_VERNO_LEN 10
 
 int es_dvp2axi_debug = 0;
 module_param_named(debug, es_dvp2axi_debug, int, 0644);
@@ -934,6 +931,8 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 	int i, ret = 0;
 
 	if (dvp2axi_dev->hdr.hdr_mode == NO_HDR ||
+		dvp2axi_dev->hdr.hdr_mode == HDR_X2 ||
+		dvp2axi_dev->hdr.hdr_mode == HDR_X3 ||
 	    dvp2axi_dev->hdr.hdr_mode == HDR_COMPR) {
 		if ((on && atomic_inc_return(&p->stream_cnt) > 1) ||
 		    (!on && atomic_dec_return(&p->stream_cnt) > 0))
@@ -954,6 +953,7 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 			    ret != -ENODEV)
 				goto err_stream_off;
 		}
+
 	} else {
 		if (!on && atomic_dec_return(&p->stream_cnt) > 0)
 			return 0;
@@ -995,6 +995,7 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 			}
 		}
 	}
+
 
 	return 0;
 
@@ -1077,9 +1078,8 @@ static int es_dvp2axi_create_link(struct es_dvp2axi_device *dev,
 
 	if (linked_sensor.mbus.type != V4L2_MBUS_BT656 &&
 	    linked_sensor.mbus.type != V4L2_MBUS_PARALLEL) {
-			// pr_dev("%s:%d yfx is linked \n", __func__, __LINE__);
 			*mipi_lvds_linked = true;
-		}
+	}
 	return ret;
 }
 
@@ -1205,8 +1205,6 @@ static int subdev_notifier_bound(struct v4l2_async_notifier *notifier,
 	struct es_dvp2axi_async_subdev *s_asd =
 		container_of(asd, struct es_dvp2axi_async_subdev, asd);
 
-	// pr_dev("%s:%d yfx! subdev %p, asd %p \n", __func__, __LINE__,subdev, asd);
-
 	if (dvp2axi_dev->num_sensors == ARRAY_SIZE(dvp2axi_dev->sensors)) {
 		v4l2_err(&dvp2axi_dev->v4l2_dev,
 			 "%s: the num of subdev is beyond %d\n", __func__,
@@ -1260,7 +1258,6 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 			// .bus_type = V4L2_MBUS_CSI2_DPHY
 			.bus_type = V4L2_MBUS_UNKNOWN
 		};
-		// pr_dev("%s:%d yfx! i %d \n", __func__, __LINE__, i);
 		struct es_dvp2axi_async_subdev *s_asd;
 		struct fwnode_handle *ep;
 		struct fwnode_handle *remote_ep = NULL;
@@ -1278,10 +1275,9 @@ static int es_dvp2axi_fwnode_parse(struct es_dvp2axi_device *sditf)
 		}
 
 		ret = v4l2_fwnode_endpoint_parse(ep, &vep);
-		// pr_dev("%s:%d yfx!!!\n", __func__, __LINE__);
 		if (ret)
 			goto err_parse;
-		
+
 		s_asd = v4l2_async_nf_add_fwnode_remote(
 			&sditf->notifier, ep, struct es_dvp2axi_async_subdev);
 		if (IS_ERR(s_asd)) {
@@ -1473,6 +1469,8 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 	int dvp2axi_id;
 
 	dvp2axi_dev->hdr.hdr_mode = NO_HDR;
+
+
 	dvp2axi_dev->inf_id = inf_id;
 
 	es_vi_dev =  dev_get_drvdata(dvp2axi_dev->dev->parent);
@@ -1516,7 +1514,7 @@ int es_dvp2axi_plat_init(struct es_dvp2axi_device *dvp2axi_dev, struct device_no
 
 	dvp2axi_dev->workmode = ES_DVP2AXI_WORKMODE_PINGPONG;
 
-	dvp2axi_dev->is_use_dummybuf = false;
+	dvp2axi_dev->is_use_dummybuf = true;
 	// strlcpy(dvp2axi_dev->media_dev.model, dev_name(dev),
 		// sizeof(dvp2axi_dev->media_dev.model));
 	dvp2axi_dev->csi_host_idx = of_alias_get_id(node, "es_dvp2axi_mipi_lvds");
@@ -1596,7 +1594,6 @@ static const struct of_device_id es_dvp2axi_plat_of_match[] = {
 	{},
 };
 
-#ifdef CONFIG_NUMA
 static const struct of_device_id es_dvp2axi_plat_of_match_d1[] = {
 	{
 		.compatible = "eswin,dvp2axi-mipi-lvds_d1",
@@ -1604,17 +1601,34 @@ static const struct of_device_id es_dvp2axi_plat_of_match_d1[] = {
 	},
 	{},
 };
-#endif
 
 static void es_dvp2axi_parse_dts(struct es_dvp2axi_device *dvp2axi_dev)
 {
 	int ret = 0;
 	struct device_node *node = dvp2axi_dev->dev->of_node;
 
-	ret = of_property_read_u32(node, OF_DVP2AXI_WAIT_LINE, &dvp2axi_dev->wait_line);
+	ret = of_property_read_u32(node, OF_DVP2AXI_HDR_MODE, &dvp2axi_dev->hdr.hdr_mode);
 	if (ret != 0)
-		dvp2axi_dev->wait_line = 0;
-	dev_dbg(dvp2axi_dev->dev, "es_dvp2axi wait line %d\n", dvp2axi_dev->wait_line);
+		dvp2axi_dev->hdr_mode = NO_HDR;
+}
+
+static int dvp2axi_of_notifier(struct notifier_block *nb,
+	unsigned long action, void *data)
+{
+	struct es_dvp2axi_device *dvp2axi_dev = container_of(nb, struct es_dvp2axi_device, of_notifier);
+	struct of_overlay_notify_data *notify_data = data;
+	if (!dvp2axi_dev || !notify_data || !notify_data->target)
+		return NOTIFY_DONE;
+
+	if(dvp2axi_dev->dev->of_node != notify_data->target)
+		return NOTIFY_DONE;
+
+	if (action == OF_OVERLAY_POST_APPLY) {
+		msleep(200);
+		if (of_property_read_u32(dvp2axi_dev->dev->of_node, OF_DVP2AXI_HDR_MODE, &dvp2axi_dev->hdr.hdr_mode))
+			dvp2axi_dev->hdr.hdr_mode = NO_HDR;
+	}
+	return NOTIFY_DONE;
 }
 
 static int es_dvp2axi_plat_probe(struct platform_device *pdev)
@@ -1626,9 +1640,14 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 	const struct es_dvp2axi_match_data *data;
 	int ret;
 
+	dev_dbg(dev, "es_dvp2axi driver version: v0.8\n");
+
 	match = of_match_node(es_dvp2axi_plat_of_match, node);
-	if (IS_ERR(match))
-		return PTR_ERR(match);
+	if (!match) {
+		match = of_match_node(es_dvp2axi_plat_of_match_d1, node);
+		if (!match)
+			return -ENODEV;
+	}
 	data = match->data;
 
 	dvp2axi_dev = devm_kzalloc(dev, sizeof(*dvp2axi_dev), GFP_KERNEL);
@@ -1654,7 +1673,11 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
 	es_dvp2axi_init_reset_monitor(dvp2axi_dev);
 	pm_runtime_enable(&pdev->dev);
-	dev_info(dvp2axi_dev->dev, "probe succsess\n");
+
+	dvp2axi_dev->of_notifier.notifier_call = dvp2axi_of_notifier;
+	of_overlay_notifier_register(&dvp2axi_dev->of_notifier);
+	dev_dbg(dvp2axi_dev->dev, "dvp2axi probe succsess!\n");
+
 	return 0;
 }
 
@@ -1712,7 +1735,6 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 	mutex_lock(&dvp2axi_dev->hw_dev->dev_lock);
 	ret = pm_runtime_resume_and_get(dvp2axi_dev->hw_dev->dev);
 	mutex_unlock(&dvp2axi_dev->hw_dev->dev_lock);
-	es_dvp2axi_do_soft_reset(dvp2axi_dev);
 	return (ret > 0) ? 0 : ret;
 }
 

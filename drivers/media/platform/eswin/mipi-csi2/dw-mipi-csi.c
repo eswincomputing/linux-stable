@@ -179,10 +179,10 @@ int dw_mipi_csi_hw_stdby(struct dw_csi *csi_dev)
 
 		/* only for version 1.40 */
 		if (csi_dev->hw_version_minor == 40) {
-			//dw_mipi_csi_write(csi_dev,reg.MSK_BNDRY_FRAME_FATAL,GENMASK(31, 0));
-			//dw_mipi_csi_write(csi_dev,reg.MSK_SEQ_FRAME_FATAL,GENMASK(31, 0));
-			dw_mipi_csi_write(csi_dev,reg.MSK_CRC_FRAME_FATAL,GENMASK(31, 0));
-			dw_mipi_csi_write(csi_dev,reg.MSK_PLD_CRC_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_BNDRY_FRAME_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_SEQ_FRAME_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_CRC_FRAME_FATAL,GENMASK(31, 0));
+			// dw_mipi_csi_write(csi_dev,reg.MSK_PLD_CRC_FATAL,GENMASK(31, 0));
 			dw_mipi_csi_write(csi_dev,reg.MSK_DATA_ID, GENMASK(31, 0));
 			dw_mipi_csi_write(csi_dev,reg.MSK_ECC_CORRECT, GENMASK(31, 0));
 		}
@@ -217,6 +217,7 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 		break;
 	case MEDIA_BUS_FMT_RGB888_2X12_LE:
 	case MEDIA_BUS_FMT_RGB888_2X12_BE:
+	case MEDIA_BUS_FMT_RGB888_1X24:
 		csi_dev->hw.ipi_dt = CSI_2_RGB888;
 		break;
 
@@ -276,7 +277,7 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 		break;
 
 	case MEDIA_BUS_FMT_Y10_1X10:
-		csi_dev->hw.ipi_dt = CSI_2_RAW8;
+		csi_dev->hw.ipi_dt = CSI_2_RAW10;
 		break;
 
 	default:
@@ -289,8 +290,8 @@ void dw_mipi_csi_set_ipi_fmt(struct dw_csi *csi_dev)
 void dw_mipi_csi_fill_timings(struct dw_csi *dev)
 {
 	dev->hw.ipi_vcid = 0;
-	// dev->hw.ipi_dt = CSI_2_RAW10;
-	// dev->hw.ipi_emb = 1;
+	dev->hw.ipi_dt = CSI_2_RAW10;
+	//dev->hw.ipi_emb = 1;
 	dev->hw.ipi_color_mode = COLOR16;
 	dev->hw.ipi_auto_flush = 0;
 	dev->hw.ipi_mode = CAMERA_TIMING;
@@ -301,7 +302,7 @@ void dw_mipi_csi_fill_timings(struct dw_csi *dev)
 #else
     dev->hw.ipi_line_event = LINE_EVENT_SELECTION(EVSELPROG) | EN_VIDEO |  EN_EMBEDDED;
 #endif
-
+	// dev->hw.ipi_line_event = EN_NULL | EN_EMBEDDED | EN_VIDEO | LINE_EVENT_SELECTION(EVSELPROG);
 	dev->hw.output = 0;
 
 #ifdef ESWIN_MOD
@@ -353,7 +354,7 @@ void dw_mipi_csi_start(struct dw_csi *csi_dev)
         /* TODO: Configure line event selection */
         dw_mipi_csi_write(csi_dev, reg.IPI_ADV_FEATURES, csi_dev->hw.ipi_line_event);
         /* Configure ipi sync event mode */
-        // dw_mipi_csi_write_part(csi_dev, reg.IPI_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
+        dw_mipi_csi_write_part(csi_dev, reg.IPI_ADV_FEATURES, csi_dev->hw.frame_det, 24, 1);
     }
 
     // dw_mipi_csi_write_part(csi_dev, reg.IPI_SOFTRSTN, 1, 0, 1);
@@ -393,8 +394,8 @@ void dw_mipi_csi_start(struct dw_csi *csi_dev)
 				reg.IPI_VFP_LINES, csi_dev->hw.vfp);
 	dw_mipi_csi_write(csi_dev,
 				reg.IPI_VACTIVE_LINES, csi_dev->hw.vactive);
-	if(csi_dev->hw.ipi2_en) {
 
+	if(csi_dev->hw.ipi2_en) {
 		/* select IPI virtual channal */
 		dw_mipi_csi_write(csi_dev, reg.IPI2_VCID, csi_dev->hw.ipi2_vcid);
 		/* select IPI data type */
@@ -649,10 +650,10 @@ int dw_mipi_csi_specific_mappings(struct dw_csi *csi_dev)
 			csi_int.ECC_CORRECTED = BIT(7);
 
 		} else {
-			dev_dbg(dev, "Version minor not supported.");
+			dev_warn(dev, "Version minor not supported.");
 		}
 	} else {
-		dev_dbg(dev, "Version major not supported.");
+		dev_warn(dev, "Version major not supported.");
 	}
 	return 0;
 }

@@ -514,6 +514,10 @@
 	dais = <&d0_i2s0_port>;
 };
 
+&vi_subsys {
+	status = "disabled";
+};
+
 &isp_0 {
 	status = "disabled";
 };
@@ -523,26 +527,6 @@
 };
 
 &dewarp {
-	status = "disabled";
-};
-
-&mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
 	status = "disabled";
 };
 
@@ -601,6 +585,7 @@
 	rst-gpios = <&portc 30 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x23232323 0x800c8023 0x0c0c0c0c>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
@@ -613,6 +598,7 @@
 	rst-gpios = <&porta 16 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x25252525 0x80268025 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
@@ -799,7 +785,7 @@
 		compatible = "ti,tps549d22";
 		reg = <0x10>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1";
+		eswin,regulator_label = "Supply VDD", "NPU Voltage";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
@@ -938,22 +924,6 @@
 };
 
 &die0_rtc {
-	status = "okay";
-};
-
-&timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "okay";
-};
-
-&timer2 {
-	status = "okay";
-};
-
-&timer3 {
 	status = "okay";
 };
 

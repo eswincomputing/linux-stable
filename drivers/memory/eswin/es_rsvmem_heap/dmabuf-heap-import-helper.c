@@ -58,7 +58,7 @@ struct dma_heap_attachment_cma {
 static void __common_dmabuf_heap_release(struct kref *kref);
 
 static int dmabuf_heap_add_buf_handle(struct dmaheap_file_private *prime_fpriv,
-				    struct dma_buf *dma_buf, uint64_t handle)
+				      struct dma_buf *dma_buf, uint64_t handle)
 {
 	struct drm_prime_member *member;
 	struct rb_node **p, *rb;
@@ -104,9 +104,9 @@ static int dmabuf_heap_add_buf_handle(struct dmaheap_file_private *prime_fpriv,
 	return 0;
 }
 
-static int dmabuf_heap_lookup_buf_handle(struct dmaheap_file_private *prime_fpriv,
-				       struct dma_buf *dma_buf,
-				       uint64_t *handle)
+static int
+dmabuf_heap_lookup_buf_handle(struct dmaheap_file_private *prime_fpriv,
+			      struct dma_buf *dma_buf, uint64_t *handle)
 {
 	struct rb_node *rb;
 
@@ -128,8 +128,9 @@ static int dmabuf_heap_lookup_buf_handle(struct dmaheap_file_private *prime_fpri
 	return -ENOENT;
 }
 
-static void _dmabuf_heap_remove_buf_handle(struct dmaheap_file_private *prime_fpriv,
-					struct dma_buf *dma_buf)
+static void
+_dmabuf_heap_remove_buf_handle(struct dmaheap_file_private *prime_fpriv,
+			       struct dma_buf *dma_buf)
 {
 	struct rb_node *rb;
 
@@ -178,162 +179,169 @@ EXPORT_SYMBOL(common_dmabuf_heap_import_uninit);
 
 static struct heap_mem *dmabuf_heap_import(struct heap_root *root, int fd)
 {
-    struct dma_buf *dma_buf;
-    struct dma_buf_attachment *attach;
-    struct sg_table *sgt;
+	struct dma_buf *dma_buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 
-    uint64_t handle;
-    struct heap_mem *heap_obj;
-    int ret;
+	uint64_t handle;
+	struct heap_mem *heap_obj;
+	int ret;
 
-    /* get dmabuf handle */
-    dma_buf = dma_buf_get(fd);
+	/* get dmabuf handle */
+	dma_buf = dma_buf_get(fd);
 	if (IS_ERR(dma_buf))
 		return ERR_CAST(dma_buf);
 
-    mutex_lock(&root->lock);
+	mutex_lock(&root->lock);
 
-    ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, &handle);
-    if (ret == 0) {
-        heap_obj = (struct heap_mem *)handle;
-        dma_buf_put(dma_buf);
-        kref_get(&heap_obj->refcount);
-        mutex_unlock(&root->lock);
-	return heap_obj;
-    }
-
-    heap_obj = kzalloc(sizeof(*heap_obj), GFP_KERNEL);
-    if (!heap_obj) {
-        mutex_unlock(&root->lock);
-        dma_buf_put(dma_buf);
-        return ERR_PTR(-ENOMEM);
-    }
-
-    attach = dma_buf_attach(dma_buf, root->dev);
-	if (IS_ERR(attach)) {
-		ret = PTR_ERR(attach);
-        goto clean_up;
-    }
-
-    sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(sgt)) {
-		ret = PTR_ERR(sgt);
-		goto fail_detach;
-	}
-
-    heap_obj->dbuf_fd = fd;
-    heap_obj->dbuf = dma_buf;
-
-    heap_obj->import_attach = attach;
-    heap_obj->sgt = sgt;
-
-	heap_obj->root = root;
-	heap_obj->vaddr = NULL;
-	heap_obj->dir = DMA_BIDIRECTIONAL;
-
-	/* get_dma_buf was called in dmabuf_heap_add_buf_handle()*/
-    ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf, (uint64_t)heap_obj);
-    if (ret) {
-        goto fail_add_handle;
-    }
-
-    kref_init(&heap_obj->refcount);
-
-    INIT_LIST_HEAD(&heap_obj->list);
-    list_add(&heap_obj->list, &root->header);
-
-    mutex_unlock(&root->lock);
-
-    dma_buf_put(dma_buf);
-
-    return heap_obj;
-
-fail_add_handle:
-	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
-fail_detach:
-    dma_buf_detach(dma_buf, attach);
-clean_up:
-    kfree(heap_obj);
-	mutex_unlock(&root->lock);
-    dma_buf_put(dma_buf);
-
-    return ERR_PTR(ret);
-}
-
-static struct heap_mem *dmabuf_heap_import_with_dma_buf_st(struct heap_root *root, struct dma_buf *dma_buf)
-{
-    struct dma_buf_attachment *attach;
-    struct sg_table *sgt;
-
-    uint64_t handle;
-    struct heap_mem *heap_obj;
-    int ret;
-
-    mutex_lock(&root->lock);
-
-    ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, &handle);
+	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, &handle);
 	if (ret == 0) {
-        heap_obj = (struct heap_mem *)handle;
-        kref_get(&heap_obj->refcount);
-        mutex_unlock(&root->lock);
-	return heap_obj;
-    }
+		heap_obj = (struct heap_mem *)handle;
+		dma_buf_put(dma_buf);
+		kref_get(&heap_obj->refcount);
+		mutex_unlock(&root->lock);
+		return heap_obj;
+	}
 
-    heap_obj = kzalloc(sizeof(*heap_obj), GFP_KERNEL);
-    if (!heap_obj) {
-        mutex_unlock(&root->lock);
-        return ERR_PTR(-ENOMEM);
-    }
+	heap_obj = kzalloc(sizeof(*heap_obj), GFP_KERNEL);
+	if (!heap_obj) {
+		mutex_unlock(&root->lock);
+		dma_buf_put(dma_buf);
+		return ERR_PTR(-ENOMEM);
+	}
 
-    attach = dma_buf_attach(dma_buf, root->dev);
+	attach = dma_buf_attach(dma_buf, root->dev);
 	if (IS_ERR(attach)) {
 		ret = PTR_ERR(attach);
-        goto clean_up;
-    }
+		goto clean_up;
+	}
 
-    sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
 	}
 
-    heap_obj->dbuf_fd = -1;
-    heap_obj->dbuf = dma_buf;
+	heap_obj->dbuf_fd = fd;
+	heap_obj->dbuf = dma_buf;
 
-    heap_obj->import_attach = attach;
-    heap_obj->sgt = sgt;
+	heap_obj->import_attach = attach;
+	heap_obj->sgt = sgt;
 
 	heap_obj->root = root;
 	heap_obj->vaddr = NULL;
 	heap_obj->dir = DMA_BIDIRECTIONAL;
 
 	/* get_dma_buf was called in dmabuf_heap_add_buf_handle()*/
-    ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf, (uint64_t)heap_obj);
-    if (ret) {
-        goto fail_add_handle;
-    }
+	ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf,
+					 (uint64_t)heap_obj);
+	if (ret) {
+		goto fail_add_handle;
+	}
 
-    kref_init(&heap_obj->refcount);
+	kref_init(&heap_obj->refcount);
 
-    INIT_LIST_HEAD(&heap_obj->list);
-    list_add(&heap_obj->list, &root->header);
+	INIT_LIST_HEAD(&heap_obj->list);
+	list_add(&heap_obj->list, &root->header);
 
-    mutex_unlock(&root->lock);
+	mutex_unlock(&root->lock);
 
-    return heap_obj;
+	dma_buf_put(dma_buf);
+
+	return heap_obj;
 
 fail_add_handle:
-	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach,
+					  heap_obj->sgt, heap_obj->dir);
 fail_detach:
-    dma_buf_detach(dma_buf, attach);
+	dma_buf_detach(dma_buf, attach);
 clean_up:
-    kfree(heap_obj);
-    mutex_unlock(&root->lock);
+	kfree(heap_obj);
+	mutex_unlock(&root->lock);
+	dma_buf_put(dma_buf);
 
-    return ERR_PTR(ret);
+	return ERR_PTR(ret);
 }
 
-struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int fd)
+static struct heap_mem *
+dmabuf_heap_import_with_dma_buf_st(struct heap_root *root,
+				   struct dma_buf *dma_buf)
+{
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+
+	uint64_t handle;
+	struct heap_mem *heap_obj;
+	int ret;
+
+	mutex_lock(&root->lock);
+
+	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, &handle);
+	if (ret == 0) {
+		heap_obj = (struct heap_mem *)handle;
+		kref_get(&heap_obj->refcount);
+		mutex_unlock(&root->lock);
+		return heap_obj;
+	}
+
+	heap_obj = kzalloc(sizeof(*heap_obj), GFP_KERNEL);
+	if (!heap_obj) {
+		mutex_unlock(&root->lock);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	attach = dma_buf_attach(dma_buf, root->dev);
+	if (IS_ERR(attach)) {
+		ret = PTR_ERR(attach);
+		goto clean_up;
+	}
+
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(sgt)) {
+		ret = PTR_ERR(sgt);
+		goto fail_detach;
+	}
+
+	heap_obj->dbuf_fd = -1;
+	heap_obj->dbuf = dma_buf;
+
+	heap_obj->import_attach = attach;
+	heap_obj->sgt = sgt;
+
+	heap_obj->root = root;
+	heap_obj->vaddr = NULL;
+	heap_obj->dir = DMA_BIDIRECTIONAL;
+
+	/* get_dma_buf was called in dmabuf_heap_add_buf_handle()*/
+	ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf,
+					 (uint64_t)heap_obj);
+	if (ret) {
+		goto fail_add_handle;
+	}
+
+	kref_init(&heap_obj->refcount);
+
+	INIT_LIST_HEAD(&heap_obj->list);
+	list_add(&heap_obj->list, &root->header);
+
+	mutex_unlock(&root->lock);
+
+	return heap_obj;
+
+fail_add_handle:
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach,
+					  heap_obj->sgt, heap_obj->dir);
+fail_detach:
+	dma_buf_detach(dma_buf, attach);
+clean_up:
+	kfree(heap_obj);
+	mutex_unlock(&root->lock);
+
+	return ERR_PTR(ret);
+}
+
+struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root,
+						    int fd)
 {
 	int ret = 0;
 	struct dma_buf *dma_buf;
@@ -345,7 +353,8 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int 
 		return ERR_CAST(dma_buf);
 
 	mutex_lock(&root->lock);
-	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, (uint64_t *)&heap_obj);
+	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf,
+					    (uint64_t *)&heap_obj);
 	mutex_unlock(&root->lock);
 
 	dma_buf_put(dma_buf);
@@ -356,15 +365,18 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_fd(struct heap_root *root, int 
 }
 EXPORT_SYMBOL(common_dmabuf_lookup_heapobj_by_fd);
 
-struct heap_mem *common_dmabuf_lookup_heapobj_by_dma_buf_st(struct heap_root *root, struct dma_buf *dma_buf)
+struct heap_mem *
+common_dmabuf_lookup_heapobj_by_dma_buf_st(struct heap_root *root,
+					   struct dma_buf *dma_buf)
 {
 	int ret = 0;
 	struct heap_mem *heap_obj;
 
-	pr_debug("%s:dma_buf=0x%px, file_count=%ld\n",
-		__func__, dma_buf, file_count(dma_buf->file));
+	pr_debug("%s:dma_buf=0x%px, file_count=%ld\n", __func__, dma_buf,
+		 file_count(dma_buf->file));
 	mutex_lock(&root->lock);
-	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, (uint64_t *)&heap_obj);
+	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf,
+					    (uint64_t *)&heap_obj);
 	mutex_unlock(&root->lock);
 
 	if (0 == ret)
@@ -374,13 +386,16 @@ struct heap_mem *common_dmabuf_lookup_heapobj_by_dma_buf_st(struct heap_root *ro
 }
 EXPORT_SYMBOL(common_dmabuf_lookup_heapobj_by_dma_buf_st);
 
-struct heap_mem *common_dmabuf_heap_import_from_user(struct heap_root *root, int fd)
+struct heap_mem *common_dmabuf_heap_import_from_user(struct heap_root *root,
+						     int fd)
 {
 	return dmabuf_heap_import(root, fd);
 }
 EXPORT_SYMBOL(common_dmabuf_heap_import_from_user);
 
-struct heap_mem *common_dmabuf_heap_import_from_user_with_dma_buf_st(struct heap_root *root, struct dma_buf *dma_buf)
+struct heap_mem *
+common_dmabuf_heap_import_from_user_with_dma_buf_st(struct heap_root *root,
+						    struct dma_buf *dma_buf)
 {
 	return dmabuf_heap_import_with_dma_buf_st(root, dma_buf);
 }
@@ -389,7 +404,8 @@ EXPORT_SYMBOL(common_dmabuf_heap_import_from_user_with_dma_buf_st);
 static void __common_dmabuf_heap_release(struct kref *kref)
 {
 	struct heap_root *root;
-	struct heap_mem *heap_obj = container_of(kref, struct heap_mem, refcount);
+	struct heap_mem *heap_obj =
+		container_of(kref, struct heap_mem, refcount);
 
 	WARN_ON(!heap_obj);
 	if (!heap_obj)
@@ -401,7 +417,8 @@ static void __common_dmabuf_heap_release(struct kref *kref)
 
 	common_dmabuf_heap_umap_vaddr(heap_obj);
 
-	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach, heap_obj->sgt, heap_obj->dir);
+	dma_buf_unmap_attachment_unlocked(heap_obj->import_attach,
+					  heap_obj->sgt, heap_obj->dir);
 
 	dma_buf_detach(heap_obj->dbuf, heap_obj->import_attach);
 
@@ -427,23 +444,23 @@ EXPORT_SYMBOL(common_dmabuf_heap_release);
 
 void *common_dmabuf_heap_map_vaddr(struct heap_mem *heap_obj)
 {
-    struct dma_buf_map map;
-    int ret;
+	struct dma_buf_map map;
+	int ret;
 
 	if (WARN_ON(IS_ERR(heap_obj)))
 		return NULL;
 
-    if (heap_obj->vaddr)
-        return heap_obj->vaddr;
+	if (heap_obj->vaddr)
+		return heap_obj->vaddr;
 
-    ret = dma_buf_vmap_unlocked(heap_obj->dbuf, &map);
-    if (ret)
-        return NULL;
+	ret = dma_buf_vmap_unlocked(heap_obj->dbuf, &map);
+	if (ret)
+		return NULL;
 
-    WARN_ON_ONCE(map.is_iomem);
-    heap_obj->vaddr = map.vaddr;
+	WARN_ON_ONCE(map.is_iomem);
+	heap_obj->vaddr = map.vaddr;
 
-    return heap_obj->vaddr;
+	return heap_obj->vaddr;
 }
 EXPORT_SYMBOL(common_dmabuf_heap_map_vaddr);
 
@@ -455,29 +472,31 @@ void common_dmabuf_heap_umap_vaddr(struct heap_mem *heap_obj)
 		return;
 
 	if (heap_obj && heap_obj->vaddr) {
-        map.vaddr = heap_obj->vaddr;
-        map.is_iomem = 0;
-        dma_buf_vunmap_unlocked(heap_obj->dbuf, &map);
-        heap_obj->vaddr = NULL;
-    }
+		map.vaddr = heap_obj->vaddr;
+		map.is_iomem = 0;
+		dma_buf_vunmap_unlocked(heap_obj->dbuf, &map);
+		heap_obj->vaddr = NULL;
+	}
 }
 EXPORT_SYMBOL(common_dmabuf_heap_umap_vaddr);
 
-struct heap_mem *
-common_dmabuf_heap_import_from_kernel(struct heap_root *root, char *name, size_t len, unsigned int fd_flags)
+struct heap_mem *common_dmabuf_heap_import_from_kernel(struct heap_root *root,
+						       char *name, size_t len,
+						       unsigned int fd_flags)
 {
 	int dbuf_fd;
 
 	dbuf_fd = eswin_heap_kalloc(name, len, O_RDWR | fd_flags, 0);
 	if (dbuf_fd < 0) {
-        return ERR_PTR(dbuf_fd);
+		return ERR_PTR(dbuf_fd);
 	}
 
 	return dmabuf_heap_import(root, dbuf_fd);
 }
 EXPORT_SYMBOL(common_dmabuf_heap_import_from_kernel);
 
-struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd, dma_addr_t iova, size_t size)
+struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd,
+						 dma_addr_t iova, size_t size)
 {
 	struct dma_buf *dma_buf;
 	struct dma_buf_attachment *attach;
@@ -494,7 +513,8 @@ struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd,
 	}
 
 	mutex_lock(&root->lock);
-	dev_dbg(root->dev, "%s, fd=%d, iova=0x%llx, size=0x%lx\n", __func__, fd, iova, size);
+	dev_dbg(root->dev, "%s, fd=%d, iova=0x%llx, size=0x%lx\n", __func__, fd,
+		iova, size);
 
 	ret = dmabuf_heap_lookup_buf_handle(&root->fp, dma_buf, &handle);
 	if (ret == 0) {
@@ -533,8 +553,9 @@ struct heap_mem *common_dmabuf_heap_rsv_iova_map(struct heap_root *root, int fd,
 	heap_obj->size = size;
 
 	/* get_dma_buf was called in dmabuf_heap_add_buf_handle()*/
-	ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf, (uint64_t)heap_obj);
-		if (ret) {
+	ret = dmabuf_heap_add_buf_handle(&root->fp, dma_buf,
+					 (uint64_t)heap_obj);
+	if (ret) {
 		goto fail_add_handle;
 	}
 	/* get_dma_buf was called in dmabuf_heap_add_buf_handle(), need to put back since
@@ -567,7 +588,8 @@ EXPORT_SYMBOL(common_dmabuf_heap_rsv_iova_map);
 static void __common_dmabuf_heap_rsv_iova_unmap(struct kref *kref)
 {
 	struct heap_root *root;
-	struct heap_mem *heap_obj = container_of(kref, struct heap_mem, refcount);
+	struct heap_mem *heap_obj =
+		container_of(kref, struct heap_mem, refcount);
 
 	WARN_ON(!heap_obj);
 	if (!heap_obj)
@@ -576,7 +598,6 @@ static void __common_dmabuf_heap_rsv_iova_unmap(struct kref *kref)
 	root = heap_obj->root;
 	WARN_ON(!mutex_is_locked(&root->lock));
 	list_del(&heap_obj->list);
-
 
 	iommu_unmap_rsv_iova(root->dev, 0, heap_obj->iova, heap_obj->size);
 	/* dma_buf_put will be  called in _dmabuf_heap_remove_buf_handle(),
@@ -613,7 +634,6 @@ void common_dmabuf_heap_rsv_iova_uninit(struct heap_root *root)
 }
 EXPORT_SYMBOL(common_dmabuf_heap_rsv_iova_uninit);
 
-
 struct eswin_split_attachment {
 	struct device *dev;
 	struct sg_table *table;
@@ -648,7 +668,7 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 
 // #define PRINT_ORIGINAL_SPLITTERS 1
 static int eswin_split_heap_attach(struct dma_buf *dmabuf,
-			   struct dma_buf_attachment *attachment)
+				   struct dma_buf_attachment *attachment)
 {
 	struct eswin_split_buffer *buffer = dmabuf->priv;
 	struct eswin_split_attachment *a;
@@ -679,7 +699,7 @@ static int eswin_split_heap_attach(struct dma_buf *dmabuf,
 }
 
 static void eswin_split_heap_detach(struct dma_buf *dmabuf,
-			    struct dma_buf_attachment *attachment)
+				    struct dma_buf_attachment *attachment)
 {
 	struct eswin_split_buffer *buffer = dmabuf->priv;
 	struct eswin_split_attachment *a = attachment->priv;
@@ -693,11 +713,12 @@ static void eswin_split_heap_detach(struct dma_buf *dmabuf,
 	kfree(a);
 }
 
-static struct sg_table *eswin_split_map_dma_buf(struct dma_buf_attachment *attachment,
-					     enum dma_data_direction direction)
+static struct sg_table *
+eswin_split_map_dma_buf(struct dma_buf_attachment *attachment,
+			enum dma_data_direction direction)
 {
 	struct eswin_split_attachment *a = attachment->priv;
-	struct sg_table *table =a->table;
+	struct sg_table *table = a->table;
 	int ret;
 	unsigned long attrs = DMA_ATTR_SKIP_CPU_SYNC;
 
@@ -714,8 +735,8 @@ static struct sg_table *eswin_split_map_dma_buf(struct dma_buf_attachment *attac
 }
 
 static void eswin_spilt_unmap_dma_buf(struct dma_buf_attachment *attachment,
-				   struct sg_table *table,
-				   enum dma_data_direction direction)
+				      struct sg_table *table,
+				      enum dma_data_direction direction)
 {
 	struct eswin_split_attachment *a = attachment->priv;
 	unsigned long attrs = DMA_ATTR_SKIP_CPU_SYNC;
@@ -730,8 +751,9 @@ static void eswin_spilt_unmap_dma_buf(struct dma_buf_attachment *attachment,
 	dma_unmap_sgtable(attachment->dev, table, direction, attrs);
 }
 
-static int eswin_split_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
-					     enum dma_data_direction direction)
+static int
+eswin_split_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+				     enum dma_data_direction direction)
 {
 	struct eswin_split_buffer *buffer = dmabuf->priv;
 	struct sg_table *table = &buffer->sg_table;
@@ -756,7 +778,7 @@ static int eswin_split_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 }
 
 static int eswin_split_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
-					   enum dma_data_direction direction)
+					      enum dma_data_direction direction)
 {
 	struct eswin_split_buffer *buffer = dmabuf->priv;
 	struct sg_table *table = &buffer->sg_table;
@@ -786,7 +808,8 @@ static int eswin_split_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	unsigned long addr = vma->vm_start;
 	unsigned long pgoff = (table->sgl->offset >> PAGE_SHIFT);
 	// unsigned long pgoff = (buffer->slice.offset >> PAGE_SHIFT);
-	unsigned long size_remaining = vma->vm_end - vma->vm_start;//vma_pages(vma);
+	unsigned long size_remaining =
+		vma->vm_end - vma->vm_start; //vma_pages(vma);
 	struct sg_page_iter piter;
 	int ret;
 
@@ -814,9 +837,13 @@ static int eswin_split_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		   cached mode(i.e, ES_SYS_Mmap(SYS_CACHE_MODE_CACHED))
 		*/
 	}
-	pr_debug("%s, vma->vm_start:0x%lx, vma->vm_end:0x%lx\n", __func__, vma->vm_start, vma->vm_end);
-	pr_debug("%s, size_remaining:0x%lx, pgoff:0x%lx, vma->vm_pgoff:0x%lx, dmabuf->size:0x%lx, start_phys:0x%llx, pfn sg_page(sg):0x%lx,sg->length=0x%x\n",
-		__func__, size_remaining, pgoff, vma->vm_pgoff, dmabuf->size, sg_phys(table->sgl),page_to_pfn(sg_page(table->sgl)), table->sgl->length);
+	pr_debug("%s, vma->vm_start:0x%lx, vma->vm_end:0x%lx\n", __func__,
+		 vma->vm_start, vma->vm_end);
+	pr_debug(
+		"%s, size_remaining:0x%lx, pgoff:0x%lx, vma->vm_pgoff:0x%lx, dmabuf->size:0x%lx, start_phys:0x%llx, pfn sg_page(sg):0x%lx,sg->length=0x%x\n",
+		__func__, size_remaining, pgoff, vma->vm_pgoff, dmabuf->size,
+		sg_phys(table->sgl), page_to_pfn(sg_page(table->sgl)),
+		table->sgl->length);
 
 	for_each_sgtable_page(table, &piter, pgoff) {
 		struct page *page = sg_page_iter_page(&piter);
@@ -856,9 +883,9 @@ static void *eswin_split_heap_do_vmap(struct dma_buf *dmabuf)
 	/* The property of this dmabuf in kernel space is determined by heap alloc with fd_flag. */
 	if (buffer->fd_flags & O_DSYNC) {
 		prot = pgprot_dmacoherent(PAGE_KERNEL);
-		pr_debug("%s syport uncached kernel dmabuf!, prot=0x%x\n", __func__, (unsigned int)pgprot_val(prot));
-	}
-	else {
+		pr_debug("%s syport uncached kernel dmabuf!, prot=0x%x\n",
+			 __func__, (unsigned int)pgprot_val(prot));
+	} else {
 		pr_debug("%s memport cached kernel dmabuf!\n", __func__);
 	}
 
@@ -871,7 +898,8 @@ static void *eswin_split_heap_do_vmap(struct dma_buf *dmabuf)
 	return vaddr;
 }
 
-static int eswin_split_heap_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+static int eswin_split_heap_vmap(struct dma_buf *dmabuf,
+				 struct dma_buf_map *map)
 {
 	struct eswin_split_buffer *buffer = dmabuf->priv;
 	void *vaddr;
@@ -898,7 +926,8 @@ out:
 	return ret;
 }
 
-static void eswin_split_heap_vunmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+static void eswin_split_heap_vunmap(struct dma_buf *dmabuf,
+				    struct dma_buf_map *map)
 {
 	struct eswin_split_buffer *buffer = dmabuf->priv;
 
@@ -917,8 +946,8 @@ static int eswin_get_split_dmabuf(struct eswin_split_buffer *split_buffer)
 	struct dma_buf *par_dma_buf = split_buffer->dmabuf;
 	u64 offset = split_buffer->slice.offset;
 	size_t size = split_buffer->slice.len;
-	 struct sg_table *splitted_sgt = &split_buffer->sg_table;
-	 struct sg_table *orig_splitted_sgt = &split_buffer->orig_sg_table;
+	struct sg_table *splitted_sgt = &split_buffer->sg_table;
+	struct sg_table *orig_splitted_sgt = &split_buffer->orig_sg_table;
 	struct dma_buf_attachment *attach;
 	struct dma_heap_attachment *a;
 	struct dma_heap_attachment_cma *cma_a;
@@ -943,32 +972,34 @@ static int eswin_get_split_dmabuf(struct eswin_split_buffer *split_buffer)
 		return ret;
 	}
 
-	if (unlikely(!strcmp("linux,cma", par_dma_buf->exp_name)))
-	{
+	if (unlikely(!strcmp("linux,cma", par_dma_buf->exp_name))) {
 		cma_a = (struct dma_heap_attachment_cma *)attach->priv;
 		par_origin_table = &cma_a->table;
-	}
-	else {
+	} else {
 		a = (struct dma_heap_attachment *)attach->priv;
 		par_origin_table = a->table;
 	}
 
-	#ifdef PRINT_ORIGINAL_SPLITTERS
+#ifdef PRINT_ORIGINAL_SPLITTERS
 	{
-		pr_debug("%s:parent[0x%px]:sgt->orig_nents=%d, nents=%d, sg_nents(in) %d\n",
-			__func__, par_dma_buf,
-			par_origin_table->orig_nents, par_origin_table->nents,
+		pr_debug(
+			"%s:parent[0x%px]:sgt->orig_nents=%d, nents=%d, sg_nents(in) %d\n",
+			__func__, par_dma_buf, par_origin_table->orig_nents,
+			par_origin_table->nents,
 			sg_nents(par_origin_table->sgl));
-		for_each_sg(par_origin_table->sgl, sg, par_origin_table->orig_nents, i) {
-			pr_debug("parent[0x%px]:orig[%d]:sg->offset=0x%x ,sg->length=0x%x, sg_dma_len=0x%x, sg_phys=0x%lx\n",
-				par_dma_buf, i, sg->offset, sg->length, sg_dma_len(sg), (unsigned long)sg_phys(sg));
+		for_each_sg(par_origin_table->sgl, sg,
+			    par_origin_table->orig_nents, i) {
+			pr_debug(
+				"parent[0x%px]:orig[%d]:sg->offset=0x%x ,sg->length=0x%x, sg_dma_len=0x%x, sg_phys=0x%lx\n",
+				par_dma_buf, i, sg->offset, sg->length,
+				sg_dma_len(sg), (unsigned long)sg_phys(sg));
 		}
 	}
-	#endif
+#endif
 
 	/* split unmaped/original sgt of parent */
-	ret = sg_split(par_origin_table->sgl, 0, offset, 1, &size,
-					&split_sg, &out_nents[0], GFP_KERNEL);
+	ret = sg_split(par_origin_table->sgl, 0, offset, 1, &size, &split_sg,
+		       &out_nents[0], GFP_KERNEL);
 	if (ret) {
 		pr_err("Failed to split from parents's sgt\n");
 	}
@@ -984,12 +1015,13 @@ static int eswin_get_split_dmabuf(struct eswin_split_buffer *split_buffer)
 		splitted_sgt->sgl = sg_next(split_sg);
 		splitted_sgt->orig_nents--;
 		splitted_sgt->nents--;
-	}
-	else {
+	} else {
 		splitted_sgt->sgl = split_sg;
 	}
 	/* Re-format the splitted sg list in the actual slice len */
-	pr_debug("%s:%d, split[0x%px]:out_nents[0]=%d, Re-format the splitted sgl.\n", __func__, __LINE__, par_dma_buf, out_nents[0]);
+	pr_debug(
+		"%s:%d, split[0x%px]:out_nents[0]=%d, Re-format the splitted sgl.\n",
+		__func__, __LINE__, par_dma_buf, out_nents[0]);
 	size_remaining = size;
 
 	for_each_sgtable_sg(splitted_sgt, sg, i) {
@@ -998,17 +1030,23 @@ static int eswin_get_split_dmabuf(struct eswin_split_buffer *split_buffer)
 		if (size_remaining == 0) {
 			sg->length = len;
 			sg_mark_end(sg);
-			pr_debug("split[0x%px]:orig[%d]:sg->offset=0x%x ,sg->length=0x%x, sg_dma_len=0x%x, sg_phys=0x%lx\n",
-				par_dma_buf, i, sg->offset, sg->length, sg_dma_len(sg), (unsigned long)sg_phys(sg));
+			pr_debug(
+				"split[0x%px]:orig[%d]:sg->offset=0x%x ,sg->length=0x%x, sg_dma_len=0x%x, sg_phys=0x%lx\n",
+				par_dma_buf, i, sg->offset, sg->length,
+				sg_dma_len(sg), (unsigned long)sg_phys(sg));
 			break;
 		}
-			pr_debug("split[0x%px]:orig[%d]:sg->offset=0x%x ,sg->length=0x%x, sg_dma_len=0x%x, sg_phys=0x%lx\n",
-				par_dma_buf, i, sg->offset, sg->length, sg_dma_len(sg), (unsigned long)sg_phys(sg));
+		pr_debug(
+			"split[0x%px]:orig[%d]:sg->offset=0x%x ,sg->length=0x%x, sg_dma_len=0x%x, sg_phys=0x%lx\n",
+			par_dma_buf, i, sg->offset, sg->length, sg_dma_len(sg),
+			(unsigned long)sg_phys(sg));
 	}
 	splitted_sgt->orig_nents = splitted_sgt->nents = i + 1;
 
-	pr_debug("%s:split[0x%px]reformatted, splitted:sgt->orig_nents=%d, nents=%d, out_nents[0]=%d\n",
-		__func__, par_dma_buf, splitted_sgt->orig_nents, splitted_sgt->nents, out_nents[0]);
+	pr_debug(
+		"%s:split[0x%px]reformatted, splitted:sgt->orig_nents=%d, nents=%d, out_nents[0]=%d\n",
+		__func__, par_dma_buf, splitted_sgt->orig_nents,
+		splitted_sgt->nents, out_nents[0]);
 	/* parent's dupped sgt table is useless*/
 	dma_buf_detach(par_dma_buf, attach);
 	dma_buf_put(par_dma_buf);
@@ -1024,7 +1062,8 @@ static void eswin_put_split_dmabuf(struct sg_table *splitted_sgt)
 static void eswin_split_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct eswin_split_buffer *split_buffer = dmabuf->priv;
-	struct sg_table *table = &split_buffer->orig_sg_table;;
+	struct sg_table *table = &split_buffer->orig_sg_table;
+	;
 
 	pr_debug("%s %d\n", __func__, __LINE__);
 	/* free splitted sgt->sgl which was allocated during esw_common_dmabuf_split_export()*/
@@ -1050,8 +1089,8 @@ static const struct dma_buf_ops eswin_common_buf_ops = {
 	.release = eswin_split_dma_buf_release,
 };
 
-
-int esw_common_dmabuf_split_export(int par_dmabuf_fd, unsigned int offset, size_t len, int fd_flags, char *name)
+int esw_common_dmabuf_split_export(int par_dmabuf_fd, __u64 offset, size_t len,
+				   int fd_flags, char *name)
 {
 	struct eswin_split_buffer *split_buffer;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
@@ -1079,12 +1118,12 @@ int esw_common_dmabuf_split_export(int par_dmabuf_fd, unsigned int offset, size_
 		return PTR_ERR(split_buffer->dmabuf);
 	}
 
-	pr_debug("%s:%d, par_dbuf_fd %d, input slice: oft=0x%llx, len=0x%lx\n", __func__, __LINE__,
-		split_buffer->dbuf_fd, split_buffer->slice.offset, split_buffer->slice.len);
+	pr_debug("%s:%d, par_dbuf_fd %d, input slice: oft=0x%llx, len=0x%lx\n",
+		 __func__, __LINE__, split_buffer->dbuf_fd,
+		 split_buffer->slice.offset, split_buffer->slice.len);
 
 	split_buffer->slice.offset = PAGE_ALIGN(split_buffer->slice.offset);
 	split_buffer->slice.len = PAGE_ALIGN(split_buffer->slice.len);
-
 
 	table = &split_buffer->sg_table;
 	ret = eswin_get_split_dmabuf(split_buffer);
@@ -1124,11 +1163,10 @@ int esw_common_dmabuf_split_export(int par_dmabuf_fd, unsigned int offset, size_
 EXPORT_SYMBOL(esw_common_dmabuf_split_export);
 
 /* create a misc device for attaching the parent dmabuf to get the parent's original sgt*/
-#define DRIVER_NAME 	"split_dmabuf"
+#define DRIVER_NAME "split_dmabuf"
 
 static int split_dmabuf_open(struct inode *inode, struct file *file)
 {
-
 	pr_debug("%s:%d, success!\n", __func__, __LINE__);
 
 	return 0;
@@ -1142,16 +1180,16 @@ static int split_dmabuf_release(struct inode *inode, struct file *file)
 }
 
 static struct file_operations split_dmabuf_fops = {
-	.owner        = THIS_MODULE,
-	.llseek        = no_llseek,
-	.open        = split_dmabuf_open,
-	.release    = split_dmabuf_release,
+	.owner = THIS_MODULE,
+	.llseek = no_llseek,
+	.open = split_dmabuf_open,
+	.release = split_dmabuf_release,
 };
 
 static struct miscdevice split_dmabuf_miscdev = {
-	.minor	= MISC_DYNAMIC_MINOR,
-	.name	= DRIVER_NAME,
-	.fops	= &split_dmabuf_fops,
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = DRIVER_NAME,
+	.fops = &split_dmabuf_fops,
 };
 
 static int __init split_dmabuf_init(void)
@@ -1160,8 +1198,8 @@ static int __init split_dmabuf_init(void)
 	struct device *dev;
 
 	ret = misc_register(&split_dmabuf_miscdev);
-	if(ret) {
-		pr_err ("cannot register miscdev (err=%d)\n", ret);
+	if (ret) {
+		pr_err("cannot register miscdev (err=%d)\n", ret);
 		return ret;
 	}
 	split_dmabuf_dev = split_dmabuf_miscdev.this_device;
@@ -1191,9 +1229,9 @@ static void __exit split_dmabuf_exit(void)
 module_init(split_dmabuf_init);
 module_exit(split_dmabuf_exit);
 
-
 static int vmf_replace_pages(struct vm_area_struct *vma, unsigned long addr,
-				struct page **pages, unsigned long num, pgprot_t prot)
+			     struct page **pages, unsigned long num,
+			     pgprot_t prot)
 {
 	struct mm_struct *const mm = vma->vm_mm;
 	unsigned long remaining_pages_total = num;
@@ -1211,17 +1249,21 @@ static int vmf_replace_pages(struct vm_area_struct *vma, unsigned long addr,
 
 		entry = ptep_get(pte);
 		pfn = page_to_pfn(pages[i]);
-		pr_debug("page_to_pfn(pages[%d])=0x%lx, pte_pfn(entry)=0x%lx, pte_val(entry)=0x%lx\n",
+		pr_debug(
+			"page_to_pfn(pages[%d])=0x%lx, pte_pfn(entry)=0x%lx, pte_val(entry)=0x%lx\n",
 			i, pfn, pte_pfn(entry), pte_val(entry));
 
-		newprot_val = (pte_val(entry) & (~_PAGE_PFN_MASK)) | newprot_val;
+		newprot_val = (pte_val(entry) & (~_PAGE_PFN_MASK)) |
+			      newprot_val;
 		if (newprot_val == (pte_val(entry) & (~_PAGE_PFN_MASK)))
 			goto SKIP_PAGE;
 
 		new_prot = __pgprot(newprot_val);
 		entry = mk_pte(pages[i], new_prot);
-		pr_debug("page_to_pfn(pages[%d])=0x%lx, pte_pfn(entry)=0x%lx, modified pte_val(entry)=0x%lx\n",
-			i, page_to_pfn(pages[i]), pte_pfn(entry), pte_val(entry));
+		pr_debug(
+			"page_to_pfn(pages[%d])=0x%lx, pte_pfn(entry)=0x%lx, modified pte_val(entry)=0x%lx\n",
+			i, page_to_pfn(pages[i]), pte_pfn(entry),
+			pte_val(entry));
 		set_pte_at(vma->vm_mm, addr, pte, entry);
 		update_mmu_cache(vma, addr, pte);
 
@@ -1235,7 +1277,8 @@ SKIP_PAGE:
 	return 0;
 }
 
-static int zap_and_replace_pages(struct vm_area_struct *vma, u64 addr, size_t len, pgprot_t prot)
+static int zap_and_replace_pages(struct vm_area_struct *vma, u64 addr,
+				 size_t len, pgprot_t prot)
 {
 	struct page **pages;
 	u32 offset;
@@ -1254,43 +1297,41 @@ static int zap_and_replace_pages(struct vm_area_struct *vma, u64 addr, size_t le
 
 	/* Calculate number of pages */
 	first = (addr & PAGE_MASK) >> PAGE_SHIFT;
-	last  = ((addr + len - 1) & PAGE_MASK) >> PAGE_SHIFT;
+	last = ((addr + len - 1) & PAGE_MASK) >> PAGE_SHIFT;
 	nr_pages = last - first + 1;
-	pr_debug("%s:%d, addr=0x%llx(addr_aligned=0x%llx), len=0x%lx, nr_pages=0x%lx(fist:0x%llx,last:0x%llx)\n",
-		__func__, __LINE__, addr, addr_aligned, len, nr_pages, first, last);
+	pr_debug(
+		"%s:%d, addr=0x%llx(addr_aligned=0x%llx), len=0x%lx, nr_pages=0x%lx(fist:0x%llx,last:0x%llx)\n",
+		__func__, __LINE__, addr, addr_aligned, len, nr_pages, first,
+		last);
 
 	/* alloc array to storing the pages */
-	pages = kvmalloc_array(nr_pages,
-				   sizeof(struct page *),
-				   GFP_KERNEL);
+	pages = kvmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
 	if (!pages)
 		return -ENOMEM;
 
-	ret = get_user_pages_fast(addr_aligned,
-				nr_pages,
-				FOLL_FORCE | FOLL_WRITE,
-				pages);
+	ret = get_user_pages_fast(addr_aligned, nr_pages,
+				  FOLL_FORCE | FOLL_WRITE, pages);
 
 	if (ret != nr_pages) {
 		nr_pages = (ret >= 0) ? ret : 0;
-		pr_err("get_user_pages_fast, err=%d [0x%lx]\n",
-			ret, nr_pages);
+		pr_err("get_user_pages_fast, err=%d [0x%lx]\n", ret, nr_pages);
 		ret = ret < 0 ? ret : -EINVAL;
 		goto free_pages_list;
 	}
-	#if 0
+#if 0
 	for (i = 0; i < nr_pages; i++) {
 		pr_debug("page_to_pfn(pages[%i])=0x%lx\n", i, page_to_pfn(pages[i]));
 	}
-	#endif
+#endif
 
-	pr_debug("%s, vma->vm_start 0x%lx, vma->vm_end 0x%lx, (vm_end - vm_start) 0x%lx, vma->vm_pgoff 0x%lx, user_va 0x%llx, len 0x%lx, nr_pages 0x%lx\n",
+	pr_debug(
+		"%s, vma->vm_start 0x%lx, vma->vm_end 0x%lx, (vm_end - vm_start) 0x%lx, vma->vm_pgoff 0x%lx, user_va 0x%llx, len 0x%lx, nr_pages 0x%lx\n",
 		__func__, vma->vm_start, vma->vm_end,
-		(vma->vm_end - vma->vm_start), vma->vm_pgoff, addr, len, nr_pages);
+		(vma->vm_end - vma->vm_start), vma->vm_pgoff, addr, len,
+		nr_pages);
 
 	/* construct new page table entry for the pages*/
-	ret = vmf_replace_pages(vma, addr_aligned,
-				pages, nr_pages, prot);
+	ret = vmf_replace_pages(vma, addr_aligned, pages, nr_pages, prot);
 	if (ret) {
 		pr_err("err %d, failed to vmf_replace_pages!!!\n", ret);
 		ret = -EFAULT;
@@ -1301,12 +1342,12 @@ static int zap_and_replace_pages(struct vm_area_struct *vma, u64 addr, size_t le
 	if (pgprot_val(prot) & _PAGE_UNCACHE) {
 		for (i = 0; i < nr_pages; i++) {
 			/* flush cache*/
-			arch_sync_dma_for_device(page_to_phys(pages[i]), PAGE_SIZE, DMA_BIDIRECTIONAL);
+			arch_sync_dma_for_device(page_to_phys(pages[i]),
+						 PAGE_SIZE, DMA_BIDIRECTIONAL);
 			/* put page back */
 			put_page(pages[i]);
 		}
-	}
-	else {
+	} else {
 		for (i = 0; i < nr_pages; i++) {
 			/* put page back */
 			put_page(pages[i]);

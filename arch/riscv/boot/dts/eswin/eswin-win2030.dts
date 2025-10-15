@@ -446,10 +446,12 @@
 
 &d0_gmac0 {
 	status = "disabled";
+	phy-mode = "rgmii-txid";
 };
 
 &d0_gmac1 {
 	status = "disabled";
+	phy-mode = "rgmii-txid";
 };
 
 
@@ -755,22 +757,6 @@
 	status = "disabled";
 };
 
-&timer0 {
-	status = "disabled";
-};
-
-&timer1 {
-	status = "disabled";
-};
-
-&timer2 {
-	status = "disabled";
-};
-
-&timer3 {
-	status = "disabled";
-};
-
 &die0_rtc {
 	status = "disabled";
 };
@@ -911,6 +897,10 @@
 	maximum-speed = "super-speed";
 };
 
+&vi_subsys {
+	status = "disabled";
+};
+
 &isp_0 {
 	status = "disabled";
 };
@@ -920,26 +910,6 @@
 };
 
 &dewarp {
-	status = "disabled";
-};
-
-&mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
 	status = "disabled";
 };
 
@@ -1231,22 +1201,6 @@
 	status = "disabled";
 };
 
-&d1_timer0 {
-	status = "disabled";
-};
-
-&d1_timer1 {
-	status = "disabled";
-};
-
-&d1_timer2 {
-	status = "disabled";
-};
-
-&d1_timer3 {
-	status = "disabled";
-};
-
 &d1_rtc {
 	status = "disabled";
 };
@@ -1336,6 +1290,10 @@
 };
 
 &d1_usbdrd_dwc3_1 {
+	status = "disabled";
+};
+
+&d1_vi_subsys {
 	status = "disabled";
 };
 

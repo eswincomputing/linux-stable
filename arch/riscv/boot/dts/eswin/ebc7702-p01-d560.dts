@@ -1,0 +1,736 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7702 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+#include "eic7702-som560.dtsi"
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	model = "ESWIN EBC7702-P01 D560";
+
+	reserved-memory {
+
+		rpc_reserved:rpc_reserved@100000000 {
+			reg = <0x1 0x0 0 0x1000>;
+			no-map;
+		};
+
+		commu_reserved:commu_reserved@100001000 {
+			reg = <0x1 0x1000 0 0x10000>;
+			no-map;
+		};
+
+		kernel_debug_reserved:kernel_debug_reserved@100011000 {
+			reg = <0x1 0x11000 0 0x100000>;
+			no-map;
+		};
+
+		pgretire_reserved:pgretire_reserved@100111000 {
+			reg = <0x1 0x111000 0 0x100000>;
+			no-map;
+		};
+
+		configs_reserved:configs_reserved@100211000 {
+			reg = <0x10 0x211000 0 0x1000>;
+			no-map;
+		};
+
+		ipcm_vdev0vring0:vdev0vring0@100212000 {
+			reg = <0x1 0x212000 0 0x100000>;
+			no-map;
+		};
+
+		ipcm_vdev0vring1:vdev0vring1@100312000 {
+			reg = <0x1 0x312000 0 0x100000>;
+			no-map;
+		};
+
+		ipcm_vdev0buffer:vdev0buffer@100412000 {
+			compatible = "shared-dma-pool";
+			reg = <0x1 0x412000 0 0x4000000>; // pre is rx
+			no-map;
+		};
+
+		rsc_table0:rsc_table0@104412000 {
+			reg = <0x1 0x4412000 0 0x1000>;
+			no-map;
+		};
+
+		version_table:version_table@104413000 {
+			reg = <0x1 0x4413000 0 0x1000>;
+			no-map;
+		};
+
+		bd_table:bd_table@104414000 {
+			reg = <0x1 0x4414000 0 0x1000>;
+			no-map;
+		};
+
+		share_memory {
+			compatible = "eswin,shm";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			phys-base = <0x1 0x4415000>;
+			virt-base = <0x1 0x4415000>;
+			shm-size = <0xbbeb000>;
+			reg = <0x1 0x4415000 0 0xbbeb000>;
+		};
+
+		/* die 1 share memory*/
+		rpc_reserved1:rpc_reserved1@2080000000 {
+			reg = <0x20 0x80000000 0 0x1000>;
+			no-map;
+		};
+
+		commu_reserved1:commu_reserved1@2080001000 {
+			reg = <0x20 0x80001000 0 0x10000>;
+			no-map;
+		};
+
+		kernel_debug_reserved1:kernel_debug_reserved1@2080011000 {
+			reg = <0x20 0x80011000 0 0x100000>;
+			no-map;
+		};
+
+		pgretire_reserved1:pgretire_reserved1@2080111000 {
+			reg = <0x20 0x80111000 0 0x100000>;
+			no-map;
+		};
+
+		configs_reserved1:configs_reserved1@2080211000 {
+			reg = <0x20 0x80211000 0 0x1000>;
+			no-map;
+		};
+
+		ipcm_vdev1vring0:vdev1vring0@2080212000 {
+			reg = <0x20 0x80212000 0 0x100000>;
+			no-map;
+		};
+
+		ipcm_vdev1vring1:vdev1vring1@2080312000 {
+			reg = <0x20 0x80312000 0 0x100000>;
+			no-map;
+		};
+
+		ipcm_vdev1buffer:vdev1buffer@2080412000 {
+			compatible = "shared-dma-pool";
+			reg = <0x20 0x80412000 0 0x4000000>; // pre is rx
+			no-map;
+		};
+
+		rsc_table1:rsc_table1@2084412000 {
+			reg = <0x20 0x84412000 0 0x1000>;
+			no-map;
+		};
+
+		version_table1:version_table@2084413000 {
+			reg = <0x20 0x84413000 0 0x1000>;
+			no-map;
+		};
+
+		bd_table1:bd_table@2084414000 {
+			reg = <0x20 0x84414000 0 0x1000>;
+			no-map;
+		};
+
+		share_memory1 {
+			compatible = "eswin,shm";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			phys-base = <0x20 0x84415000>;
+			virt-base = <0x20 0x84415000>;
+			shm-size = <0xbbeb000>;
+			reg = <0x20 0x84415000 0 0xbbeb000>;
+		};
+	};
+
+	soc {
+		d0_ipcm:ipcm@0 {
+			compatible = "eswin,ipcm", "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			vf_id = <0>;
+			numa-node-id = <0>;
+			memory-region = <&ipcm_vdev0vring0>,<&ipcm_vdev0vring1>,<&ipcm_vdev0buffer>;
+			interrupt-parent = <&plic0>;
+			interrupts = <123>;
+		  	smmu_dev = <&smmu_cfg_0>;
+		};
+
+		d1_ipcm:ipcm@1 {
+			compatible = "eswin,ipcm", "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			vf_id = <0>;
+			numa-node-id = <1>;
+			memory-region = <&ipcm_vdev1vring0>,<&ipcm_vdev1vring1>,<&ipcm_vdev1buffer>;
+			interrupt-parent = <&plic1>;
+			interrupts = <123>;
+			smmu_dev = <&smmu_cfg_1>;
+		};
+
+		dev_smmu_cfg: smmu_cfg@0 {
+			compatible = "eswin,vpu7702_dev_smmu_cfg";
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0xc0000000>;
+			iommus = <&smmu0 WIN2030_SID_DEV_FOO_B>;
+			iommu-map = <0x000000 &smmu0 0xff0000 0xffffff>;
+			tbus = <WIN2030_TBUID_PCIE>;
+			status = "okay";
+			numa-node-id = <0>;
+			dma-noncoherent;
+                        #include "smmu_cfg.dtsi"
+		};
+
+		dev_smmu_cfg_d1: smmu_cfg@1 {
+			compatible = "eswin,vpu7702_dev_smmu_cfg";
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x80000000 0x0 0xc0000000 0x0 0xc0000000>;
+			iommus = <&smmu1 WIN2030_SID_DEV_FOO_B>;
+			iommu-map = <0x000000 &smmu1 0xff0000 0xffffff>;
+			tbus = <WIN2030_TBUID_PCIE>;
+			status = "okay";
+			numa-node-id = <1>;
+			dma-noncoherent;
+			#include "smmu_cfg_die1.dtsi"
+		};
+	};
+
+	/* die0 gpio111 system led */
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio111_default>;
+
+		gpio-111 {
+			gpios = <&portd 15 GPIO_ACTIVE_LOW>;
+			label = "heartbeat";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+	reg_vcc1v8: vcc1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+};
+
+&d0_i2s1 {
+	status = "okay";
+	numa-node-id = <0>;
+	d0_i2s1_port: port {
+		d0_i2s1_endpoint: endpoint {
+			remote-endpoint = <&d0_codec0_endpoint>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&sdio0 {
+	/* sd card */
+	status = "okay";
+	delay_code = <0x55>;
+	drive-impedance-ohm = <33>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	disable-wp;
+	no-sdio;
+	no-mmc;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio13_default>;
+	cd-gpios = <&porta 13 GPIO_ACTIVE_LOW>;
+};
+
+&d1_sdio0 {
+	/* wifi module */
+	status = "okay";
+	delay_code = <0x29>;
+	drive-impedance-ohm = <33>;
+	enable-cmd-pullup;
+	enable-data-pullup;
+	keep-power-in-suspend;
+	non-removable;
+	no-sd;
+	no-mmc;
+	vqmmc-supply = <&reg_vcc1v8>;
+	mdhd_wlan {
+		compatible = "android,bcmdhd_wlan";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die1_gpio13_default>;
+		gpio_wl_reg_on = <&d1_porta 13 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&d0_usbdrd3_1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio14_default>;
+	hub-rst-gpios = <&porta 14 GPIO_ACTIVE_HIGH>;
+};
+
+&d1_uart1 {
+	/* BT M.2 KEY-E */
+	status = "okay";
+};
+
+&d0_uart2 {
+	/* connect mcu */
+	status = "okay";
+};
+
+&d1_uart2 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_uart3 {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_uart3_default>;
+};
+
+&ssi0 {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_dual_spi1_default>;
+	num-cs = <1>;
+	spi-flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <4800000>;
+		rx-sample-delay-ns = <10>;
+	};
+};
+&d1_ssi0 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_graphcard1 {
+	status = "okay";
+	label = "Analog Audio-1";
+	dais = <&d0_i2s1_port>;
+};
+
+&video_output {
+	status = "okay";
+};
+
+&d1_video_output {
+	status = "okay";
+};
+
+&dc {
+	status = "okay";
+	dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&vd_input>;
+		};
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&hdmi_in_dc>;
+		};
+	};
+};
+
+&d1_dc {
+	status = "okay";
+	d1_dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		d1_dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&d1_vd_input>;
+		};
+		d1_dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&d1_hdmi_in_dc>;
+		};
+	};
+};
+
+&dw_hdmi {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&dc_out_hdmi>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s0_endpoint>;
+			};
+		};
+	};
+};
+
+
+&d1_dw_hdmi {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			d1_hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&d1_dc_out_hdmi>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			d1_hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d1_i2s0_endpoint>;
+			};
+		};
+	};
+};
+
+&d0_i2s0 {
+	status = "okay";
+	numa-node-id = <0>;
+	d0_i2s0_port: port {
+		d0_i2s0_endpoint: endpoint {
+			remote-endpoint = <&hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d1_i2s0 {
+	status = "okay";
+	numa-node-id = <1>;
+	d1_i2s0_port: port {
+		d1_i2s0_endpoint: endpoint {
+			remote-endpoint = <&d1_hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d0_i2c0 {
+	/* codec es8388 */
+	status = "okay";
+	d0_es8388_0: es8388-0@11 {
+		compatible = "eswin,es8388";
+		reg = <0x11>;
+		#sound-dai-cells = <0>;
+		eswin-plat = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio25_default &pinctrl_die0_gpio26_default>;
+		front-jack-gpios = <&porta 25 GPIO_ACTIVE_HIGH>;
+		back-jack-gpios = <&porta 26 GPIO_ACTIVE_HIGH>;
+		port {
+			d0_codec0_endpoint: endpoint {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s1_endpoint>;
+			};
+		};
+	};
+};
+
+&d1_i2c0 {
+	/* power monitor(ina236) */
+	status = "okay";
+	ina226@45 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "cpu_vdd";
+		reg = <0x45>;
+		shunt-resistor = <1000>;
+	};
+};
+
+&fan_control {
+	status = "okay";
+};
+
+&d1_fan_control {
+	pinctrl-0 = <&pinctrl_die1_fan_tach_default &pinctrl_die1_pwm0_default
+				&pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
+	status = "okay";
+	fan-0 {
+		label = "d1_fan";
+		pwms = <&d1_pwm0 0 100000 0>;
+		status = "okay";
+	};
+	fan-1 {
+		label = "chassis_fan1";
+		pwms = <&d1_pwm0 1 100000 0>;
+		status = "okay";
+	};
+	fan-2 {
+		label = "chassis_fan2";
+		pwms = <&d1_pwm0 2 100000 0>;
+		status = "okay";
+	};
+};
+
+&d0_i2c1 {
+	/* unused */
+	status = "disabled";
+};
+&d1_i2c1 {
+	/* eeprom(at24c02c) & rtc(rs4c411) */
+	status = "okay";
+	rtc_m41t11: m41t11@68 {
+		compatible = "st,m41t11";
+		reg = <0x68>;
+	};
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+	};
+};
+
+&d0_i2c2 {
+	/* d0 dsi*/
+	status = "ok";
+};
+
+&d1_i2c2 {
+	/* d1 dsi */
+	status = "ok";
+};
+
+&d0_i2c3 {
+	/* d0 csi0-1 */
+	status = "okay";
+};
+&d1_i2c3 {
+	/* d1 csi0-1 */
+	status = "okay";
+};
+
+&d0_i2c4 {
+	/* d0 csi2-3 */
+	status = "okay";
+};
+
+&d1_i2c4 {
+	/* d1 csi2-3 */
+	status = "okay";
+};
+
+&d0_i2c5 {
+	/* pin header */
+	status = "okay";
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "board_tmp";
+		#thermal-sensor-cells = <1>;
+	};
+};
+&d1_i2c5 {
+	/* cc logic fusb303b */
+	fusb303b@21 {
+		compatible = "fcs,fusb303b";
+		status = "okay";
+		reg = <0x21>;
+		eswin,syscfg = <&d1_sys_con 0x3C0 12>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die1_gpio30_default>;
+		int-gpios = <&d1_porta 30 GPIO_ACTIVE_HIGH>;
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "host";
+		};
+	};
+};
+
+&d0_i2c8 {
+	/* unused */
+	status = "disabled";
+};
+&d1_i2c8 {
+	/* unused */
+	status = "disabled";
+};
+
+&d0_i2c9 {
+	/* unused */
+	status = "disabled";
+};
+&d1_i2c9 {
+	/* pin header */
+	status = "okay";
+	sys_power:ina226@40 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "sys_power";
+		reg = <0x40>;
+		shunt-resistor = <1000>;
+	};
+};
+
+&wdt0 {
+	status = "disabled";
+};
+&d1_wdt0 {
+	status = "disabled";
+};
+
+&wdt1 {
+	status = "disabled";
+};
+&d1_wdt1 {
+	status = "disabled";
+};
+
+&wdt2 {
+	status = "disabled";
+};
+&d1_wdt2 {
+	status = "disabled";
+};
+
+&wdt3 {
+	status = "disabled";
+};
+&d1_wdt3 {
+	status = "disabled";
+};
+
+&pwm0 {
+	status = "okay";
+};
+
+&d0_lpcpu {
+	status = "okay";
+};
+&d1_lpcpu {
+	status = "okay";
+};
+
+&d0_mbox3 {
+	status = "disabled";
+};
+&d1_mbox3 {
+	status = "disabled";
+};
+
+&pcie {
+	status = "disabled";
+};
+
+&d1_pcie {
+	status = "disabled";
+};
+
+&pinctrl {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio6_default &pinctrl_die0_gpio12_default &pinctrl_die0_gpio39_default 
+				&pinctrl_die0_gpio40_default &pinctrl_die0_gpio41_default &pinctrl_die0_gpio46_default
+				&pinctrl_die0_gpio47_default &pinctrl_die0_gpio73_default &pinctrl_die0_gpio74_default
+				&pinctrl_die0_gpio75_default &pinctrl_die0_gpio81_default>;
+
+};
+
+&d1_pinctrl {
+	/* pin header */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die1_gpio36_default &pinctrl_die1_gpio39_default
+				&pinctrl_die1_gpio92_default &pinctrl_die1_gpio93_default
+				&pinctrl_die1_gpio18_default>;
+};
+
+/******** pin headers *********
+     pin : function
+       3 : D0 I2C5 SDA
+       5 : D0 I2C5 SCL
+       7 : D0 GPIO46
+       8 : D0 UART3 TX
+      10 : D0 UART3 RX
+      11 : D0 GPIO6
+      12 : D0 GPIO12
+      13 : D0 GPIO5 (x)
+      15 : D0 GPIO81
+      16 : D0 GPIO47
+      18 : D0 SPI1 D3(GPIO40)
+      19 : D0 SPI1 D0
+      21 : D0 SPI1 D1
+      22 : D0 SPI1 D2(GPIO39)
+      23 : D0 SPI1 CLK
+      24 : D0 SPI1 CS0
+      26 : D0 SPI1 CS1(GPIO41)
+      27 : D1 I2C9 SDA
+      28 : D1 I2C9 SCL
+      29 : D1 GPIO93
+      31 : D1 GPIO92
+      32 : D1 GPIO35 (x)
+      33 : D1 GPIO36
+      35 : D1 GPIO39
+      36 : D0 GPIO79 (x)
+      37 : D0 GPIO74
+      38 : D0 GPIO75
+      40 : D0 GPIO73
+*********************************/
+
+
+
+/* die0 GPIO Function Description
+
+	gpio0   : pcie prstn(I)
+	gpio11  : tmp alert(I)
+	gpio13  : tf card detect(I)
+	gpio18  : ina226 alert(I)
+	gpio25  : front panel audio insert detection(I)
+	gpio27  : sata act(O)
+	gpio28  : to mcu pb5
+	gpio29  : gphy0 resetn(O)
+	gpio34  : gphy1 resetn(O)
+	gpio42  : usb0 pwren(O)
+	gpio43  : usb1 pwren(O)
+	gpio111 : sys run led(O)
+*/
+/* die1 GPIO Function Description
+
+	gpio0   : pcie prstn(I)
+	gpio5   : classis fan1 fantach
+	gpio6   : classis fan2 fantach
+	gpio27  : to mcu pb3
+	gpio28  : to mcu pb4
+	gpio29  : gphy0 resetn(O)
+	gpio34  : gphy1 resetn(O)
+	gpio42  : usb0 pwren(O)
+	gpio43  : usb1 pwren(O)
+*/

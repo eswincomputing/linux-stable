@@ -1199,7 +1199,7 @@ static struct platform_driver i2s_driver = {
 	.driver		= {
 		.name	= "es-i2s",
 		.of_match_table = of_match_ptr(i2s_of_match),
-		.pm = pm_sleep_ptr(&i2s_pm_ops),
+		.pm = pm_ptr(&i2s_pm_ops),
 	},
 };
 

@@ -18,6 +18,10 @@
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
 
+static int es_camera_debug = 0;
+module_param_named(debug, es_camera_debug, int, 0644);
+MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable");
+
 /* Streaming Mode */
 #define OV9282_REG_MODE_SELECT	0x0100
 #define OV9282_MODE_STANDBY	0x00
@@ -679,8 +683,12 @@ static int ov9282_set_ctrl(struct v4l2_ctrl *ctrl)
 	}
 
 	/* Set controls only if sensor is in power on state */
-	if (!pm_runtime_get_if_in_use(ov9282->dev))
-		return 0;
+	if(es_camera_debug) { // for manual config
+		pm_runtime_get_sync(ov9282->dev);
+	} else {
+		if (!pm_runtime_get_if_in_use(ov9282->dev))
+	 	return 0;
+	}
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
@@ -1078,12 +1086,16 @@ error_unlock:
 static int ov9282_detect(struct ov9282 *ov9282)
 {
 	int ret;
-	u32 val;
+	u32 val, msb;
 
-	ret = ov9282_read_reg(ov9282, OV9282_REG_ID, 2, &val);
+	ret = ov9282_read_reg(ov9282, OV9282_REG_ID + 1, 1, &val);
+	if (ret)
+		return ret;
+	ret = ov9282_read_reg(ov9282, OV9282_REG_ID, 1, &msb);
 	if (ret)
 		return ret;
 
+	val |= (msb << 8);
 	if (val != OV9282_ID) {
 		dev_err(ov9282->dev, "chip id mismatch: %x!=%x",
 			OV9282_ID, val);
@@ -1148,8 +1160,8 @@ static int ov9282_parse_hw_config(struct ov9282 *ov9282)
 
 	rate = clk_get_rate(ov9282->inclk);
 	if (rate != OV9282_INCLK_RATE) {
-		dev_err(ov9282->dev, "inclk frequency mismatch");
-		return -EINVAL;
+		dev_warn(ov9282->dev, "inclk frequency mismatch expected %lu Hz actual %lu Hz",
+				(unsigned long)OV9282_INCLK_RATE, rate);
 	}
 
 	ep = fwnode_graph_get_next_endpoint(fwnode, NULL);
@@ -1275,7 +1287,6 @@ static int ov9282_power_off(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct ov9282 *ov9282 = to_ov9282(sd);
-
 	gpiod_set_value_cansleep(ov9282->reset_gpio, 0);
 
 	clk_disable_unprepare(ov9282->inclk);

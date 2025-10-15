@@ -59,9 +59,7 @@ static void es_crtc_reset(struct drm_crtc *crtc)
 	state->sync_mode = ES_SINGLE_DC;
 	state->output_fmt = MEDIA_BUS_FMT_RBG888_1X24;
 	state->encoder_type = DRM_MODE_ENCODER_NONE;
-#ifdef CONFIG_ESWIN_MMU
 	state->mmu_prefetch = ES_MMU_PREFETCH_DISABLE;
-#endif
 }
 
 static struct drm_crtc_state *
@@ -87,9 +85,7 @@ es_crtc_atomic_duplicate_state(struct drm_crtc *crtc)
 	state->dither_enable = ori_state->dither_enable;
 	state->underflow = ori_state->underflow;
 	state->bg_color = ori_state->bg_color;
-#ifdef CONFIG_ESWIN_MMU
 	state->mmu_prefetch = ori_state->mmu_prefetch;
-#endif
 
 	return &state->base;
 }
@@ -350,12 +346,10 @@ static const struct drm_prop_enum_list es_sync_mode_enum_list[] = {
 	{ ES_MULTI_DC_SECONDARY, "secondary dc for multi dc mode" },
 };
 
-#ifdef CONFIG_ESWIN_MMU
 static const struct drm_prop_enum_list es_mmu_prefetch_enum_list[] = {
 	{ ES_MMU_PREFETCH_DISABLE, "disable mmu prefetch" },
 	{ ES_MMU_PREFETCH_ENABLE, "enable mmu prefetch" },
 };
-#endif
 
 struct es_crtc *es_crtc_create(struct drm_device *drm_dev,
 			       struct es_dc_info *info)
@@ -417,7 +411,6 @@ struct es_crtc *es_crtc_create(struct drm_device *drm_dev,
 
 	drm_object_attach_property(&crtc->base.base, crtc->dither, 0);
 
-#ifdef CONFIG_ESWIN_MMU
 	if (info->mmu_prefetch) {
 		crtc->mmu_prefetch = drm_property_create_enum(
 			drm_dev, 0, "MMU_PREFETCH", es_mmu_prefetch_enum_list,
@@ -428,7 +421,6 @@ struct es_crtc *es_crtc_create(struct drm_device *drm_dev,
 		drm_object_attach_property(&crtc->base.base, crtc->mmu_prefetch,
 					   ES_MMU_PREFETCH_DISABLE);
 	}
-#endif
 
 	crtc->max_bpc = info->max_bpc;
 	crtc->color_formats = info->color_formats;

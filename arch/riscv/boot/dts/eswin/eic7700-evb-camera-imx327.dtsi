@@ -4,7 +4,9 @@
 &vi_subsys {
 	eswin,isp_dvp0_hor = <1920>;
 	eswin,isp_dvp0_ver = <1080>;
+	/* imx327 4lane HDR mode */
 	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
+	// imx327,wdr-en-2;
 	status = "disabled";
 	vvcam_isp_0: vvcam_isp@0 {
 		compatible = "verisilicon,isp-v4l2";
@@ -171,9 +173,14 @@
 			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
 			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
 			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
+			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			//pinctrl-names = "default";
+			//pinctrl-0 = <&cif_clkout>;
 
 			port {
 				imx327_out2: endpoint {
+					// remote-endpoint = <&mipi_in_ucam0>;
 					remote-endpoint = <&mipidphy2_in_ucam0>;
 					data-lanes = <1 2 3 4>;
 					link-frequencies = /bits/ 64 <222750000>;
@@ -200,9 +207,14 @@
 			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
 			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
 			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
+			// reset-gpios = <&portd 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
+			// pwdn-gpios = <&portd 6 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
+			//pinctrl-names = "default";
+			//pinctrl-0 = <&cif_clkout>;
 
 			port {
 				imx327_out4: endpoint {
+					// remote-endpoint = <&mipi_in_ucam0>;
 					remote-endpoint = <&mipidphy4_in_ucam0>;
 					data-lanes = <1 2 3 4>;
 					link-frequencies = /bits/ 64 <222750000>;
@@ -242,7 +254,7 @@
 	};
 };
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <3 3 3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "disabled";
@@ -261,7 +273,6 @@
 
 			mipidphy0_in_ucam0: endpoint {
 				remote-endpoint = <&imx327_out0>;
-				data-lanes = <1 2>;
 			};
 		};
 		port@1 {
@@ -296,7 +307,6 @@
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&imx327_out2>;
-				data-lanes = <1 2>;
 			};
 		};
 
@@ -332,7 +342,6 @@
 			mipidphy4_in_ucam0: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&imx327_out4>;
-				data-lanes = <1 2>;
 			};
 		};
 
@@ -353,17 +362,21 @@
 	status = "disabled";
 	num_lanes = <4>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	/* enable HDR X2 */
+	ipi2_en            = <1>;
+    ipi2_vcid          = <1>;      /* data mapped to VC1 */
+    ipi3_en            = <0>;
+    ipi3_vcid          = <2>;      /* data mapped to VC2 */
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		port@0 {
 			#address-cells = <1>;
-			#size-cells = <0>;	
+			#size-cells = <0>;
 			reg = <0>;
 			mipi_csi2_input: endpoint {
 				remote-endpoint = <&csidphy0_out>;
-				data-lanes = <1 2>;
 			};
 		};
 
@@ -454,8 +467,8 @@
 	status = "disabled";
 };
 
-&dvp2axi_mipi_lvds {
-	status = "disabled";
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
 	dvp2axi_id = <0>;
 	ports{
 		#address-cells = <1>;

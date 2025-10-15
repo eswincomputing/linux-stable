@@ -55,6 +55,7 @@ struct tmp102 {
 	struct regmap *regmap;
 	u16 config_orig;
 	unsigned long ready_time;
+	const char *label;
 };
 
 /* convert left adjusted 13-bit TMP102 register value to milliCelsius */
@@ -132,6 +133,7 @@ static umode_t tmp102_is_visible(const void *data, enum hwmon_sensor_types type,
 
 	switch (attr) {
 	case hwmon_temp_input:
+	case hwmon_temp_label:
 		return 0444;
 	case hwmon_temp_max_hyst:
 	case hwmon_temp_max:
@@ -141,11 +143,21 @@ static umode_t tmp102_is_visible(const void *data, enum hwmon_sensor_types type,
 	}
 }
 
+static int tmp102_read_string(struct device *dev, enum hwmon_sensor_types type,
+			     u32 attr, int channel, const char **str)
+{
+	struct tmp102 *data = dev_get_drvdata(dev);
+	
+	*str = data->label;
+	
+	return 0;
+}
+
 static const struct hwmon_channel_info * const tmp102_info[] = {
 	HWMON_CHANNEL_INFO(chip,
 			   HWMON_C_REGISTER_TZ),
 	HWMON_CHANNEL_INFO(temp,
-			   HWMON_T_INPUT | HWMON_T_MAX | HWMON_T_MAX_HYST),
+			   HWMON_T_INPUT | HWMON_T_MAX | HWMON_T_MAX_HYST | HWMON_T_LABEL),
 	NULL
 };
 
@@ -153,6 +165,7 @@ static const struct hwmon_ops tmp102_hwmon_ops = {
 	.is_visible = tmp102_is_visible,
 	.read = tmp102_read,
 	.write = tmp102_write,
+	.read_string = tmp102_read_string,
 };
 
 static const struct hwmon_chip_info tmp102_chip_info = {
@@ -239,6 +252,9 @@ static int tmp102_probe(struct i2c_client *client)
 	if (err < 0) {
 		dev_err(dev, "error writing config register\n");
 		return err;
+	}
+	if(device_property_read_string(dev, "label", &tmp102->label)) {
+		strcpy(tmp102->label, "temp1");
 	}
 
 	/*

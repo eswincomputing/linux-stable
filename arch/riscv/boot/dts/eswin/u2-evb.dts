@@ -235,7 +235,7 @@
 			numa-node-id = <0>;
 			memory-region = <&ipcm_vdev0vring0>,<&ipcm_vdev0vring1>,<&ipcm_vdev0buffer>;
 			interrupt-parent = <&plic0>;
-			interrupts = <119>;
+			interrupts = <123>;
 		  	smmu_dev = <&smmu_cfg_0>;
 		};
 
@@ -889,15 +889,23 @@
 	dais = <&d1_i2s0_port>;
 };
 
-&isp_0 {
+&vi_subsys {
 	status = "okay";
+};
+
+&d1_vi_subsys {
+	status = "okay";
+};
+
+&isp_0 {
+	status = "disabled";
 };
 &d1_isp_0 {
 	status = "disabled";
 };
 
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_isp_1 {
 	status = "disabled";
@@ -908,41 +916,6 @@
 };
 &d1_dewarp {
 	status = "okay";
-};
-
-&mipi_dphy_rx {
-	status = "okay";
-};
-&d1_mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "okay";
-};
-&d1_csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-&d1_csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "okay";
-};
-&d1_csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
-	status = "disabled";
-};
-&d1_csi2_1 {
-	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -1026,6 +999,7 @@
 	rst-gpios = <&porta 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
@@ -1038,6 +1012,7 @@
 	rst-gpios = <&d1_porta 13 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x23232323 0x5a0c6423 0x0c0c0c0c>;
 	dly-param-100m = <0x50505050 0x803f8050 0x3f3f3f3f>;
 	dly-param-10m = <0 0 0>;
@@ -1050,6 +1025,7 @@
 	rst-gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
@@ -1062,6 +1038,7 @@
 	rst-gpios = <&d1_porta 14 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&d1_pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x25252525 0x5a266425 0x26262626>;
 	dly-param-100m = <0x48484848 0x80588048 0x58585858>;
 	dly-param-10m = <0 0 0>;
@@ -1279,10 +1256,10 @@
 };
 
 &d0_mbox1 {
-	status = "disabled";
+	status = "okay";
 };
 &d1_mbox1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d0_mbox2 {
@@ -1293,10 +1270,10 @@
 };
 
 &d0_mbox3 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_mbox3 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_mbox4 {
@@ -1394,11 +1371,11 @@
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage", "D0 NPU CURRENT", "D0 NPU Temperature";
 		label = "npu_vdd";
 		regulators{
 			d0_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC";
+				regulator-name="D0_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -1414,11 +1391,11 @@
 		compatible = "einno,es5340";
 		reg = <0xf>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage", "D1 NPU CURRENT", "D1 NPU Temperature";
 		label = "d1_npu_vdd";
 		regulators{
 			d1_npu_vcc:npu_svcc{
-				regulator-name="NPU_SVCC2";
+				regulator-name="D1_NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1100000>;
 				regulator-min-microamp=<20000000>;
@@ -1639,34 +1616,6 @@
 	status = "okay";
 };
 &d1_rtc {
-	status = "okay";
-};
-
-&timer0 {
-	status = "okay";
-};
-&d1_timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "disabled";
-};
-&d1_timer1 {
-	status = "disabled";
-};
-
-&timer2 {
-	status = "okay";
-};
-&d1_timer2 {
-	status = "okay";
-};
-
-&timer3 {
-	status = "okay";
-};
-&d1_timer3 {
 	status = "okay";
 };
 

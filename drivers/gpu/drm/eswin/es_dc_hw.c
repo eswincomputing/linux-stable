@@ -1512,7 +1512,6 @@ void dc_hw_commit(struct dc_hw *hw)
 	}
 }
 
-#ifdef CONFIG_ESWIN_MMU
 static u32 mmu_read(struct dc_hw *hw, u32 reg)
 {
 	return readl(hw->mmu_base + reg - MMU_REG_BASE);
@@ -1596,7 +1595,6 @@ void dc_mmu_flush(struct dc_hw *hw)
 	mmu_write(hw, MMU_REG_CONFIG, config);
 	mmu_write(hw, MMU_REG_CONFIG, read);
 }
-#endif
 
 void dc_hw_update_roi(struct dc_hw *hw, enum dc_hw_plane_id id,
 		      struct dc_hw_roi *roi)

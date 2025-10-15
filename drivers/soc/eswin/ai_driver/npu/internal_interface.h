@@ -29,6 +29,7 @@
 #include <nvdla_linux.h>
 #include "eswin-khandle.h"
 #include <linux/timer.h>
+#include <linux/semaphore.h>
 #include "hetero_ioctl.h"
 #include "dla_engine.h"
 #include "dla_log.h"
@@ -73,6 +74,7 @@ typedef struct _event_desc {
 	u16 consumer_idx;
 	u16 len;
 	s16 event_sinks[MAX_EVENT_SINK_SAVE_NUM];
+	s16 hw_error[MAX_EVENT_SINK_SAVE_NUM];
 } event_desc_t;
 
 struct user_context {
@@ -96,11 +98,6 @@ struct user_model {
 	void *engine;  //win_engine.
 	void *nvdla_dev;
 	struct dma_buf *dma_buf_address_list;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
-	struct iosys_map dma_buf_map_address_list;
-#else
-	struct dma_buf_map dma_buf_map_address_list;
-#endif
 	hetero_ipc_frame_t e31_frame_info;
 	/* frame counter: Only commit == done could release model */
 	s64 frame_commit_cnt;
@@ -227,7 +224,11 @@ struct host_frame_desc {
 	npu_io_tensor_t io_tensor;
 	//for e31
 	u32 tiktok;
+	u16 hw_error;
 	bool dump_dtim;
+	bool sync_flag;
+	s32 sync_event_id;
+	struct completion synctask_comp;
 	struct list_head complete_entry;
 
 	struct win_executor *executor;
@@ -238,8 +239,7 @@ struct host_frame_desc {
 	wait_queue_head_t frame_done;
 	struct host_frame_desc *next;
 	u8 *is_event_source_done;
-	struct dsp_dma_buf *dsp_io_dmabuf[DSP_MAX_CORE_NUM]
-					 [DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+	struct dsp_dma_buf *dsp_io_dmabuf[DSP_MAX_CORE_NUM][DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
 
 	struct dla_buffer_object *input_bobj[ES_TASK_MAX_FD_CNT];
 	struct dla_buffer_object *output_bobj[ES_TASK_MAX_FD_CNT];
@@ -276,10 +276,10 @@ typedef struct _conv_tensor_t {
 typedef struct _dsp_tensor_t {
 	u32 have_unfold;
 
-	u32 src_is_io_tensor[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-	u32 dst_is_io_tensor[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-	u64 src_base_addr[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-	u64 dst_base_addr[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+	u32 src_is_io_tensor[DSP_KERNEL_MAX_IN_TENSOR_NUM];
+	u32 dst_is_io_tensor[DSP_KERNEL_MAX_OUT_TENSOR_NUM];
+	u64 src_base_addr[DSP_KERNEL_MAX_IN_TENSOR_NUM];
+	u64 dst_base_addr[DSP_KERNEL_MAX_OUT_TENSOR_NUM];
 	u64 handle;
 	u32 flat1_size;
 	u32 flat1_addr_offset;
@@ -370,8 +370,7 @@ struct win_executor {
 	struct xarray dsp_ddr_xrray[DSP_MAX_CORE_NUM];
 	struct mutex xrray_lock[DSP_MAX_CORE_NUM];
 
-	struct io_mem_info dsp_io[DSP_MAX_CORE_NUM]
-				 [DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+	struct io_mem_info dsp_io[DSP_MAX_CORE_NUM][DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
 
 	int dsp_iobuf_cnt[DSP_MAX_CORE_NUM];
 	void *dsp_iobuf_virt[DSP_MAX_CORE_NUM];
@@ -439,7 +438,7 @@ int read_input_address(struct win_executor *executor,
 int io_tensor_to_io_addr(struct win_executor *executor,
 			 struct host_frame_desc *f);
 int create_new_frame(struct win_executor *executor, struct host_frame_desc **f,
-		     void *model);
+		     void *model, bool sync_flag);
 void destroy_frame(struct host_frame_desc *f);
 void executor_clearup(void *arg_executor);
 
@@ -456,10 +455,9 @@ int set_pause_op_done(struct win_executor *executor,
 		      kmd_dump_info_t *dump_info);
 int reset_pause_op_done(struct win_executor *executor);
 
-void mbx_irq_frame_done(struct win_engine *engine, u32 tiktok, u32 stat);
+void mbx_irq_frame_done(struct win_engine *engine, u32 tiktok, u32 stat, u16 hw_error);
 void mbx_irq_op_done(struct win_engine *engine, u32 tiktok, u16 op_index);
-void mbx_irq_event_sink_done(struct win_engine *engine, u32 tiktok,
-			     u16 op_index);
+void mbx_irq_event_sink_done(struct win_engine *engine, u32 tiktok, u16 op_index, u32 hw_error);
 int send_frame_to_npu(struct host_frame_desc *f, int tiktok);
 /**************** frame_scheduler.c ****************/
 int edma_tensor_unfold(struct win_executor *executor, int op_idx,

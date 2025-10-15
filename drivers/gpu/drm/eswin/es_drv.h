@@ -29,9 +29,7 @@
 #include <drm/drm_device.h>
 
 #include "es_plane.h"
-#ifdef CONFIG_ESWIN_MMU
 #include "es_dc_mmu.h"
-#endif
 
 /*
  *
@@ -57,11 +55,8 @@ struct es_drm_private {
 	struct drm_property *async_commit_prop;
 	struct drm_property *share_id_prop;
 #endif
-
-#ifdef CONFIG_ESWIN_MMU
 	dc_mmu *mmu;
 	bool mmu_constructed;
-#endif
 	unsigned int die_id;
 
 	unsigned int pitch_alignment;

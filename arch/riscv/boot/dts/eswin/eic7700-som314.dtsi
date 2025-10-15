@@ -32,7 +32,7 @@
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
-#include "eic7700-d314-camera.dtsi"
+//#include "eic7700-d314-camera.dtsi"
 
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 
@@ -376,36 +376,20 @@
 	dais = <&d0_i2s0_port>;
 };
 
-&isp_0 {
+&vi_subsys {
 	status = "okay";
 };
 
+&isp_0 {
+	status = "disabled";
+};
+
 &isp_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dewarp {
 	status = "okay";
-};
-
-&mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
-	status = "disabled";
 };
 
 &sdhci_emmc {
@@ -436,6 +420,7 @@
 	rst-gpios = <&portd 10 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0xA0205A20 0x20202020>;
 	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -448,6 +433,7 @@
 	rst-gpios = <&portd 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x46204620 0x20202020>;
 	dly-param-100m = <0x20202020 0x50205020 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -650,22 +636,6 @@
 };
 
 &die0_rtc {
-	status = "okay";
-};
-
-&timer0 {
-	status = "okay";
-};
-
-&timer1 {
-	status = "okay";
-};
-
-&timer2 {
-	status = "okay";
-};
-
-&timer3 {
 	status = "okay";
 };
 

@@ -437,7 +437,7 @@ void npu_frame_timeout_tik(struct timer_list *t)
 }
 
 int create_new_frame(struct win_executor *executor, struct host_frame_desc **f,
-		     void *model)
+		     void *model, bool sync_flag)
 {
 	int ret = 0;
 	struct user_model *m = (struct user_model *)model;
@@ -461,6 +461,11 @@ int create_new_frame(struct win_executor *executor, struct host_frame_desc **f,
 		dla_error("create khandle for frame error.\n");
 		ret = -ENOMEM;
 		goto err;
+	}
+	(*f)->sync_flag = sync_flag;
+	if(sync_flag) {
+		(*f)->sync_event_id = -1;
+		init_completion(&(*f)->synctask_comp);
 	}
 
 	INIT_LIST_HEAD(&(*f)->complete_entry);

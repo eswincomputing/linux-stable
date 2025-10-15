@@ -173,12 +173,13 @@
 	};
 };
 
+
 &dvp2axi {
 	status = "disabled";
 };
 
-&dvp2axi_mipi_lvds {
-	status = "disabled";
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
 	dvp2axi_id = <0>;
 	port@0 {
 		axi2dvp_mipi2_in0: endpoint@0 {
@@ -202,7 +203,8 @@
 	};
 };
 
-&csi2_dphy_hw {
+
+&csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "disabled";
@@ -220,7 +222,6 @@
 			#size-cells = <0>;
 
 			mipidphy0_in_ucam0: endpoint@0 {
-				reg = <0>;
 				remote-endpoint = <&imx219_out0>;
 			};
 		};
@@ -231,7 +232,6 @@
 			#size-cells = <0>;
 
 			csidphy0_out: endpoint@1 {
-				reg = <1>;
 				remote-endpoint = <&mipi0_csi2_input>;
 			};
 		};
@@ -256,8 +256,7 @@
 			#size-cells = <0>;
 
 			mipidphy2_in_ucam0: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&imx219_out2>;
+				remote-endpoint = <&imx219_out1>;
 				data-lanes = <1 2 3 4>;
 			};
 		};
@@ -268,8 +267,34 @@
 			#size-cells = <0>;
 
 			csidphy2_out: endpoint@1 {
-				reg = <1>;
 				remote-endpoint = <&mipi_csi2_2_input>;
+			};
+		};
+	};
+};
+
+&d0_i2c3 {
+	/* mipi csi0/csi1 */
+	status = "okay";
+	imx219_0: imx219_0@10 {
+		compatible = "sony,imx219";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x10>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xvclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio72_default>;
+		reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+
+		port {
+			imx219_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <364000000>;
 			};
 		};
 	};
@@ -277,52 +302,29 @@
 
 &d0_i2c2 {
 	/* mipi csi2/csi3 */
-	status = "disabled";
-	imx219_0: imx219@10 {
-			compatible = "sony,imx219";
-			status = "disabled";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x10>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+	imx219_1: imx219_1@10 {
+		compatible = "sony,imx219";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x10>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xvclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio78_default>;
+		reset-gpio = <&portc 14 GPIO_ACTIVE_HIGH>;
 
-			port {
-				imx219_out2: endpoint {
-					remote-endpoint = <&mipidphy2_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <364000000>;
-				};
+		port {
+			imx219_out1: endpoint {
+				remote-endpoint = <&mipidphy2_in_ucam0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <364000000>;
 			};
 		};
-};
-
-&d0_i2c3 {
-	/* mipi csi0/csi1 */
-	status = "disabled";
-	imx219_1: imx219@10 {
-			compatible = "sony,imx219";
-			status = "disabled";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x10>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <24000000>;
-			clock-names = "xvclk";
-			mclk-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
-
-			port {
-				imx219_out0: endpoint {
-					remote-endpoint = <&mipidphy0_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <364000000>;
-				};
-			};
-		};
+	};
 };
 
 &isp_0 {

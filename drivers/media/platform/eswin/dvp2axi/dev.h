@@ -32,10 +32,8 @@
 #include <media/v4l2-mc.h>
 #include <linux/workqueue.h>
 #include <media/eswin/eswin_vi.h>
-#include "../../../../phy/eswin/es-camera-module.h"
-#include "../../../../phy/eswin/es-dvp2axi-config.h"
-
-#include "regs.h"
+#include <linux/es-camera-module.h>
+#include <linux/es-dvp2axi-config.h>
 #include "hw.h"
 
 #define DVP2AXI_DRIVER_NAME		"es_dvp2axi"
@@ -44,6 +42,8 @@
 
 #define OF_DVP2AXI_MONITOR_PARA	"eic770x,dvp2axi-monitor"
 #define OF_DVP2AXI_WAIT_LINE	"wait-line"
+
+#define OF_DVP2AXI_HDR_MODE     "eswin,dvp2axi-hdr-mode"
 
 #define DVP2AXI_MONITOR_PARA_NUM	(5)
 
@@ -132,9 +132,6 @@ enum es_dvp2axi_workmode {
 enum es_dvp2axi_stream_mode {
 	ES_DVP2AXI_STREAM_MODE_NONE       = 0x0,
 	ES_DVP2AXI_STREAM_MODE_CAPTURE    = 0x01,
-	ES_DVP2AXI_STREAM_MODE_TOISP      = 0x02,
-	ES_DVP2AXI_STREAM_MODE_TOSCALE    = 0x04,
-	ES_DVP2AXI_STREAM_MODE_TOISP_RDBK = 0x08,
 	ES_DVP2AXI_STREAM_MODE_ESKIT     = 0x10
 };
 
@@ -577,7 +574,6 @@ struct es_dvp2axi_stream {
 	unsigned int			buf_wake_up_cnt;
 	struct es_dvp2axi_skip_info		skip_info;
 	struct tasklet_struct		vb_done_tasklet;
-	struct tasklet_struct		dvp2axi_err_tasklet;
 	struct list_head		vb_done_list;
 	int				last_rx_buf_idx;
 	int				last_frame_idx;
@@ -609,6 +605,7 @@ struct es_dvp2axi_stream {
 
 	bool 				is_first_flush;
 	bool				is_dummy_buffer;
+	struct es_dvp2axi_dummy_buffer dummy_buf;
 };
 
 struct es_dvp2axi_lvds_subdev {
@@ -867,6 +864,11 @@ struct es_dvp2axi_device {
 	struct media_device		*media_dev;
 	struct v4l2_async_notifier	notifier;
 
+	struct v4l2_subdev       sd;
+	struct v4l2_ctrl_handler ctrl_handler;
+
+	int hdr_mode;
+
 	struct es_dvp2axi_sensor_info	sensors[ES_DVP2AXI_MAX_SENSOR];
 	u32				num_sensors;
 	struct es_dvp2axi_sensor_info	*active_sensor;
@@ -944,12 +946,12 @@ struct es_dvp2axi_device {
 	u32				intr_mask;
 	struct delayed_work		work_deal_err;
 	u32						dvp2axi_id;
+	struct notifier_block of_notifier;
 };
-
 
 void dvp2axi_hw_soft_reset(struct es_dvp2axi_hw *es_dvp2axi_hw);
 void dvp2axi_hw_irq_mask(struct es_dvp2axi_hw *dvp2axi_hw, u32 stream_id, int mask);
-void dvp2axi_hw_irq_axi_mask(struct es_dvp2axi_hw *dvp2axi_hw, int mask);
+void dvp2axi_hw_irq_axi(struct es_dvp2axi_hw *dvp2axi_hw, int mask);
 
 extern struct platform_driver es_dvp2axi_plat_drv;
 #ifdef CONFIG_NUMA
@@ -970,6 +972,7 @@ void dvp2axi_interrupt_handler(struct device *dev);
 
 void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
 void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
+void es_dvp2axi_tasklet_err_handle(unsigned long data);
 
 void es_irq_oneframe_new(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
 
@@ -1048,7 +1051,6 @@ int es_dvp2axi_clr_unready_dev(void);
 const struct
 dvp2axi_output_fmt *es_dvp2axi_find_output_fmt(struct es_dvp2axi_stream *stream, u32 pixelfmt);
 
-void es_dvp2axi_err_print_work(struct work_struct *work);
 int es_dvp2axi_stream_suspend(struct es_dvp2axi_device *dvp2axi_dev, int mode);
 int es_dvp2axi_stream_resume(struct es_dvp2axi_device *dvp2axi_dev, int mode);
 

@@ -15,4 +15,6 @@ struct mem_block *eswin_rsvmem_get_memblock(const char *memBlkName);
 int eswin_rsvmem_for_each_block(int (*it)(struct mem_block *rsvmem_block, void *data), void *data);
 const char *eswin_rsvmem_get_name(const struct mem_block *memblock);
 
+#define PCI_PHYS_MEM_PREFIX "pci_phys_mem"
+
 #endif

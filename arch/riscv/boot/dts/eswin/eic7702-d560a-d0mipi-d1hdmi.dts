@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7702 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+#include "eic7702-d560-d0mipi-d1hdmi.dts"
+
+/ {
+	model = "ESWIN EIC7702 D560A";
+	compatible = "eswin,eic770x";
+};
+
+&bootspi {
+	/* spi flash PY25Q128LA */
+};
+
+&sdhci_emmc {
+	/* emmc YXSCG6PE-AK */
+};
+
+&d0_aon_i2c1 {
+	/* temp sensor(gx112) & pmic(ES5340) */
+	/delete-node/ tmp102@48;
+	/delete-node/ tps549d22@10;
+
+	es5340@f {
+		compatible = "einno,es5340";
+		reg = <0xf>;
+		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		label = "npu_vdd";
+		regulators{
+			d0_npu_vcc:npu_svcc{
+				regulator-name="NPU_SVCC_D0";
+				regulator-min-microvolt=<700000>;
+				regulator-max-microvolt=<1100000>;
+				regulator-min-microamp=<20000000>;
+				regulator-max-microamp=<40000000>;
+				regulator-ov-protection-microvolt=<1100000>;
+			};
+		};
+	};
+};
+
+&d1_aon_i2c1 {
+	/* pmic(ES5340) */
+	/delete-node/ tps549d22@10;
+
+	es5340@f {
+		compatible = "einno,es5340";
+		reg = <0xf>;
+		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		label = "d1_npu_vdd";
+		regulators{
+			d1_npu_vcc:npu_svcc{
+				regulator-name="NPU_SVCC_D1";
+				regulator-min-microvolt=<700000>;
+				regulator-max-microvolt=<1100000>;
+				regulator-min-microamp=<20000000>;
+				regulator-max-microamp=<40000000>;
+				regulator-ov-protection-microvolt=<1100000>;
+			};
+		};
+	};
+};

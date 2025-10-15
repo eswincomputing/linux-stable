@@ -333,10 +333,147 @@ static void sdp_post_drp_set_dst_addr(sdp_program_t *data, u64 addr)
 	npu_set_u64_bit(DRP_D_REG_BASE_ADDR_L, &data->u84_drp_bitmap);
 }
 
-static int32_t
-processor_sdp_program(struct win_executor *executor, int rdma, int idx,
-		      union dla_operation_container *operation_desc,
-		      union dla_surface_container *surface_desc)
+static void dump_sdp_tensor_t(sdp_tensor_t *tensor, const char *name)
+{
+	printk(KERN_INFO "=== %s ===\n", name);
+	printk(KERN_INFO "src_is_io_tensor: %u\n", tensor->src_is_io_tensor);
+	printk(KERN_INFO "dst_is_io_tensor: %u\n", tensor->dst_is_io_tensor);
+	printk(KERN_INFO "x1_is_io_tensor: %u\n", tensor->x1_is_io_tensor);
+	printk(KERN_INFO "x2_is_io_tensor: %u\n", tensor->x2_is_io_tensor);
+	printk(KERN_INFO "y_is_io_tensor: %u\n", tensor->y_is_io_tensor);
+	printk(KERN_INFO "no_fly_src_addr: 0x%llx\n", tensor->no_fly_src_addr);
+	printk(KERN_INFO "out_dma_dst_addr: 0x%llx\n", tensor->out_dma_dst_addr);
+	printk(KERN_INFO "x1_addr: 0x%llx\n", tensor->x1_addr);
+	printk(KERN_INFO "x2_addr: 0x%llx\n", tensor->x2_addr);
+	printk(KERN_INFO "y_addr: 0x%llx\n", tensor->y_addr);
+	printk(KERN_INFO "fly: %u\n", tensor->fly);
+	printk(KERN_INFO "out_dma_ena: %u\n", tensor->out_dma_ena);
+	printk(KERN_INFO "x1_rdma_ena: %u\n", tensor->x1_rdma_ena);
+	printk(KERN_INFO "x2_rdma_ena: %u\n", tensor->x2_rdma_ena);
+	printk(KERN_INFO "y_rdma_ena: %u\n", tensor->y_rdma_ena);
+}
+
+static void dump_dla_cvt_param(struct dla_cvt_param *param, const char *name)
+{
+	printk(KERN_INFO "        === %s ===\n", name);
+	printk(KERN_INFO "        scale: %d\n", param->scale);
+	printk(KERN_INFO "        truncate: %u\n", param->truncate);
+	printk(KERN_INFO "        enable: %u\n", param->enable);
+	printk(KERN_INFO "        offset: %d\n", param->offset);
+}
+
+static void dump_dla_sdp_cvt(struct dla_sdp_cvt *cvt)
+{
+	printk(KERN_INFO "    ALU CVT:\n");
+	dump_dla_cvt_param(&cvt->alu_cvt, "alu_cvt");
+	printk(KERN_INFO "    MUL CVT:\n");
+	dump_dla_cvt_param(&cvt->mul_cvt, "mul_cvt");
+}
+
+static void dump_dla_sdp_op(struct dla_sdp_op *op, const char *name)
+{
+	printk(KERN_INFO "=== %s ===\n", name);
+	printk(KERN_INFO "enable: %u\n", op->enable);
+	printk(KERN_INFO "alu_type: %u\n", op->alu_type);
+	printk(KERN_INFO "type: %u\n", op->type);
+	printk(KERN_INFO "mode: %u\n", op->mode);
+	printk(KERN_INFO "act: %u\n", op->act);
+	printk(KERN_INFO "shift_value: %u\n", op->shift_value);
+	printk(KERN_INFO "truncate: %u\n", op->truncate);
+	printk(KERN_INFO "precision: %u\n", op->precision);
+	printk(KERN_INFO "alu_operand: %d\n", op->alu_operand);
+	printk(KERN_INFO "mul_operand: %d\n", op->mul_operand);
+
+	dump_dla_sdp_cvt(&op->cvt);
+}
+
+static void dump_post_drp_op_desc(struct post_drp_op_desc *desc)
+{
+	printk(KERN_INFO "=== post_drp_op_desc ===\n");
+	printk(KERN_INFO "op_en_trig: %u\n", desc->op_en_trig);
+	printk(KERN_INFO "op_en_status: %u\n", desc->op_en_status);
+	printk(KERN_INFO "g_stride_lsram: %u\n", desc->g_stride_lsram);
+	printk(KERN_INFO "n_stride_lsram: %u\n", desc->n_stride_lsram);
+	printk(KERN_INFO "h_stride: %u\n", desc->h_stride);
+	printk(KERN_INFO "c_stride: %u\n", desc->c_stride);
+	printk(KERN_INFO "w_stride: %u\n", desc->w_stride);
+	printk(KERN_INFO "n: %u\n", desc->n);
+	printk(KERN_INFO "e: %u\n", desc->e);
+	printk(KERN_INFO "m: %u\n", desc->m);
+	printk(KERN_INFO "f: %u\n", desc->f);
+	printk(KERN_INFO "c0: %u\n", desc->c0);
+	printk(KERN_INFO "base_addr_ofmap_h: %u\n", desc->base_addr_ofmap_h);
+	printk(KERN_INFO "base_addr_ofmap_l: %u\n", desc->base_addr_ofmap_l);
+	printk(KERN_INFO "type_16: %u\n", desc->type_16);
+	printk(KERN_INFO "surface_double: %u\n", desc->surface_double);
+	printk(KERN_INFO "split_num: %u\n", desc->split_num);
+	printk(KERN_INFO "f_lst: %u\n", desc->f_lst);
+	printk(KERN_INFO "f_mid: %u\n", desc->f_mid);
+	printk(KERN_INFO "f_fst: %u\n", desc->f_fst);
+	printk(KERN_INFO "Reserved: %u\n", desc->Reserved);
+	printk(KERN_INFO "e4_all: %u\n", desc->e4_all);
+	printk(KERN_INFO "m3_all: %u\n", desc->m3_all);
+	printk(KERN_INFO "n3_all: %u\n", desc->n3_all);
+	printk(KERN_INFO "g3_all: %u\n", desc->g3_all);
+}
+
+static void dump_dla_sdp_op_desc(struct dla_sdp_op_desc *desc)
+{
+	printk(KERN_INFO "========== dla_sdp_op_desc ==========\n");
+	printk(KERN_INFO "src_precision: %u\n", desc->src_precision);
+	printk(KERN_INFO "dst_precision: %u\n", desc->dst_precision);
+	printk(KERN_INFO "lut_index: %d\n", desc->lut_index);
+	dump_dla_cvt_param(&desc->out_cvt, "out_cvt");
+	printk(KERN_INFO "conv_mode: %u\n", desc->conv_mode);
+	printk(KERN_INFO "batch_num: %u\n", desc->batch_num);
+	printk(KERN_INFO "reserved0: %u\n", desc->reserved0);
+	printk(KERN_INFO "batch_stride: %u\n", desc->batch_stride);
+	dump_dla_sdp_op(&desc->x1_op, "x1_op");
+	dump_dla_sdp_op(&desc->x2_op, "x2_op");
+	dump_dla_sdp_op(&desc->y_op, "y_op");
+	dump_post_drp_op_desc(&desc->post_drp_op);
+	printk(KERN_INFO "========== End of dla_sdp_op_desc ==========\n");
+}
+
+static void dump_dla_data_cube(struct dla_data_cube *cube, const char *name)
+{
+	printk(KERN_INFO "    === %s ===\n", name);
+	printk(KERN_INFO "    type: %u\n", cube->type);
+	printk(KERN_INFO "    address: %d\n", cube->address);
+	printk(KERN_INFO "    offset: %u\n", cube->offset);
+	printk(KERN_INFO "    size: %u\n", cube->size);
+	printk(KERN_INFO "    batch: %u\n", cube->batch);
+	printk(KERN_INFO "    width: %u\n", cube->width);
+	printk(KERN_INFO "    height: %u\n", cube->height);
+	printk(KERN_INFO "    channel: %u\n", cube->channel);
+	printk(KERN_INFO "    reserved0: %u\n", cube->reserved0);
+	printk(KERN_INFO "    line_stride: %u\n", cube->line_stride);
+	printk(KERN_INFO "    surf_stride: %u\n", cube->surf_stride);
+	printk(KERN_INFO "    plane_stride: %u\n", cube->plane_stride);
+}
+
+static void dump_dla_sdp_surface_desc(struct dla_sdp_surface_desc *desc)
+{
+	printk(KERN_INFO "=== dla_sdp_surface_desc ===\n");
+	printk(KERN_INFO "Source Data Cube:\n");
+	dump_dla_data_cube(&desc->src_data, "src_data");
+
+	printk(KERN_INFO "X1 Data Cube:\n");
+	dump_dla_data_cube(&desc->x1_data, "x1_data");
+
+	printk(KERN_INFO "X2 Data Cube:\n");
+	dump_dla_data_cube(&desc->x2_data, "x2_data");
+
+	printk(KERN_INFO "Y Data Cube:\n");
+	dump_dla_data_cube(&desc->y_data, "y_data");
+
+	printk(KERN_INFO "Destination Data Cube:\n");
+	dump_dla_data_cube(&desc->dst_data, "dst_data");
+}
+
+static int32_t processor_sdp_program(struct win_executor *executor, int rdma, int idx,
+									 union dla_operation_container *operation_desc,
+									 union dla_surface_container *surface_desc, u16 op_idx)
 {
 	int32_t ret = 0;
 	uint32_t not_used;
@@ -368,10 +505,16 @@ processor_sdp_program(struct win_executor *executor, int rdma, int idx,
 	sdp_prog->x1_tensor_idx = invalid_tensor_idx;
 	sdp_prog->x2_tensor_idx = invalid_tensor_idx;
 	sdp_prog->y_tensor_idx = invalid_tensor_idx;
-	dla_debug(
-		"sdp_tensor_set no_fly_src_addr 0x%llx out_dma_dst_addr 0x%llx x1_addr 0x%llx x2_addr 0x%llx y_addr 0x%llx\n",
-		sdp_tensor->no_fly_src_addr, sdp_tensor->out_dma_dst_addr,
-		sdp_tensor->x1_addr, sdp_tensor->x2_addr, sdp_tensor->y_addr);
+	dla_debug("op index:%d, sdp_tensor_set no_fly_src_addr 0x%llx out_dma_dst_addr 0x%llx\n",
+			  op_idx, sdp_tensor->no_fly_src_addr, sdp_tensor->out_dma_dst_addr);
+	dla_debug("x1_addr 0x%llx x2_addr 0x%llx y_addr 0x%llx\n",
+			  sdp_tensor->x1_addr, sdp_tensor->x2_addr, sdp_tensor->y_addr);
+
+#ifdef SDP_DUMP
+		dump_sdp_tensor_t(sdp_tensor, "sdp tensor");
+		dump_dla_sdp_surface_desc(sdp_surface);
+		dump_dla_sdp_op_desc(sdp_op);
+#endif
 
 	fly = sdp_surface->src_data.type == DLA_MEM_HW;
 	out_dma_ena = sdp_surface->dst_data.type != DLA_MEM_HW;
@@ -388,96 +531,7 @@ processor_sdp_program(struct win_executor *executor, int rdma, int idx,
 	y_rdma_ena &= (y_op->mode != SDP_OP_PER_LAYER);
 
 	sdp_prog->is_rdma = (!fly) || (x1_rdma_ena || x2_rdma_ena || y_rdma_ena);
-#ifdef CONV_DUMP
-	dla_debug(
-		"--fly: %d, x1_rdma_ena: %d, x2_rdma_ena: %d, y_rdma_ena: %x\n",
-		fly, x1_rdma_ena, x2_rdma_ena, y_rdma_ena);
 
-	dla_debug("--src_precision: %d\n", sdp_op->src_precision);
-	dla_debug("--dst_precision: %d\n", sdp_op->dst_precision);
-	dla_debug("--lut_index: %d\n", sdp_op->lut_index);
-	dla_debug("--out_cvt.scale: %d\n", sdp_op->out_cvt.scale);
-	dla_debug("--out_cvt.truncate: %d\n", sdp_op->out_cvt.truncate);
-	dla_debug("--out_cvt.enable: %d\n", sdp_op->out_cvt.enable);
-	dla_debug("--sdp_op->out_cvt.offset: %d\n", sdp_op->out_cvt.offset);
-	dla_debug("--conv_mode: %d\n", sdp_op->conv_mode);
-	dla_debug("--batch_num: %d\n", sdp_op->batch_num);
-	dla_debug("--batch_stride: %d\n", sdp_op->batch_stride);
-
-	dla_debug("--src_data.type: %d\n", sdp_surface->src_data.type);
-	dla_debug("--src_data.address: %d\n", sdp_surface->src_data.address);
-	dla_debug("--src_data.offset: %d\n", sdp_surface->src_data.offset);
-	dla_debug("--src_data.size: %d\n", sdp_surface->src_data.size);
-	dla_debug("--src_data.batch: %d\n", sdp_surface->src_data.batch);
-	dla_debug("--src_data.width: %d\n", sdp_surface->src_data.width);
-	dla_debug("--src_data.height: %d\n", sdp_surface->src_data.height);
-	dla_debug("--src_data.channel: %d\n", sdp_surface->src_data.channel);
-	dla_debug("--src_data.line_stride: %d\n",
-		  sdp_surface->src_data.line_stride);
-	dla_debug("--src_data.sur_stride: %d\n",
-		  sdp_surface->src_data.surf_stride);
-	dla_debug("--src_data.plan_stride: %d\n",
-		  sdp_surface->src_data.plane_stride);
-
-	dla_debug("--x1_data.type: %d\n", sdp_surface->x1_data.type);
-	dla_debug("--x1_data.address: %d\n", sdp_surface->x1_data.address);
-	dla_debug("--x1_data.offset: %d\n", sdp_surface->x1_data.offset);
-	dla_debug("--x1_data.size: %d\n", sdp_surface->x1_data.size);
-	dla_debug("--x1_data.batch: %d\n", sdp_surface->x1_data.batch);
-	dla_debug("--x1_data.width: %d\n", sdp_surface->x1_data.width);
-	dla_debug("--x1_data.height: %d\n", sdp_surface->x1_data.height);
-	dla_debug("--x1_data.channel: %d\n", sdp_surface->x1_data.channel);
-	dla_debug("--x1_data.line_stride: %d\n",
-		  sdp_surface->x1_data.line_stride);
-	dla_debug("--x1_data.sur_stride: %d\n",
-		  sdp_surface->x1_data.surf_stride);
-	dla_debug("--x1_data.plan_stride: %d\n",
-		  sdp_surface->x1_data.plane_stride);
-
-	dla_debug("--x2_data.type: %d\n", sdp_surface->x2_data.type);
-	dla_debug("--x2_data.address: %d\n", sdp_surface->x2_data.address);
-	dla_debug("--x2_data.offset: %d\n", sdp_surface->x2_data.offset);
-	dla_debug("--x2_data.size: %d\n", sdp_surface->x2_data.size);
-	dla_debug("--x2_data.batch: %d\n", sdp_surface->x2_data.batch);
-	dla_debug("--x2_data.width: %d\n", sdp_surface->x2_data.width);
-	dla_debug("--x2_data.height: %d\n", sdp_surface->x2_data.height);
-	dla_debug("--x2_data.channel: %d\n", sdp_surface->x2_data.channel);
-	dla_debug("--x2_data.line_stride: %d\n",
-		  sdp_surface->x2_data.line_stride);
-	dla_debug("--x2_data.sur_stride: %d\n",
-		  sdp_surface->x2_data.surf_stride);
-	dla_debug("--x2_data.plan_stride: %d\n",
-		  sdp_surface->x2_data.plane_stride);
-
-	dla_debug("--y_data.type: %d\n", sdp_surface->y_data.type);
-	dla_debug("--y_data.address: %d\n", sdp_surface->y_data.address);
-	dla_debug("--y_data.offset: %d\n", sdp_surface->y_data.offset);
-	dla_debug("--y_data.size: %d\n", sdp_surface->y_data.size);
-	dla_debug("--y_data.batch: %d\n", sdp_surface->y_data.batch);
-	dla_debug("--y_data.width: %d\n", sdp_surface->y_data.width);
-	dla_debug("--y_data.height: %d\n", sdp_surface->y_data.height);
-	dla_debug("--y_data.channel: %d\n", sdp_surface->y_data.channel);
-	dla_debug("--y_data.line_stride: %d\n",
-		  sdp_surface->y_data.line_stride);
-	dla_debug("--y_data.sur_stride: %d\n", sdp_surface->y_data.surf_stride);
-	dla_debug("--y_data.plan_stride: %d\n",
-		  sdp_surface->y_data.plane_stride);
-
-	dla_debug("--dst_data.type: %d\n", sdp_surface->dst_data.type);
-	dla_debug("--dst_data.address: %d\n", sdp_surface->dst_data.address);
-	dla_debug("--dst_data.offset: %d\n", sdp_surface->dst_data.offset);
-	dla_debug("--dst_data.size: %d\n", sdp_surface->dst_data.size);
-	dla_debug("--dst_data.batch: %d\n", sdp_surface->dst_data.batch);
-	dla_debug("--dst_data.width: %d\n", sdp_surface->dst_data.width);
-	dla_debug("--dst_data.height: %d\n", sdp_surface->dst_data.height);
-	dla_debug("--dst_data.channel: %d\n", sdp_surface->dst_data.channel);
-	dla_debug("--dst_data.line_stride: %d\n",
-		  sdp_surface->dst_data.line_stride);
-	dla_debug("--dst_data.sur_stride: %d\n",
-		  sdp_surface->dst_data.surf_stride);
-	dla_debug("--dst_data.plan_stride: %d\n",
-		  sdp_surface->dst_data.plane_stride);
-#endif
 	if (sdp_surface->dst_data.type != DLA_MEM_HW) {
 		sdp_post_drp_handle(sdp_prog, &sdp_op->post_drp_op);
 	}
@@ -1064,7 +1118,7 @@ int dla_sdp_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
 	int32_t ret;
 
 	ret = processor_sdp_program(executor, rdma, idx, operation_desc,
-				    surface_desc);
+				    surface_desc, op_idx);
 	if (ret)
 		goto exit;
 

@@ -688,10 +688,12 @@ struct dsp_op_desc {
     uint32_t offset;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
-#define DSP_KERNEL_MAX_INOUT_TENSOR_NUM 8
+#define DSP_KERNEL_MAX_IN_TENSOR_NUM 8
+#define DSP_KERNEL_MAX_OUT_TENSOR_NUM 8
+#define DSP_KERNEL_MAX_INOUT_TENSOR_NUM (DSP_KERNEL_MAX_IN_TENSOR_NUM + DSP_KERNEL_MAX_OUT_TENSOR_NUM)
 struct dsp_surface_desc {
-    struct dla_data_cube src_data[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
-    struct dla_data_cube dst_data[DSP_KERNEL_MAX_INOUT_TENSOR_NUM];
+    struct dla_data_cube src_data[DSP_KERNEL_MAX_IN_TENSOR_NUM];
+    struct dla_data_cube dst_data[DSP_KERNEL_MAX_OUT_TENSOR_NUM];
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 struct hae_op_desc {

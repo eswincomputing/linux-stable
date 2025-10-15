@@ -38,7 +38,6 @@
 
 //EMMC_DWC_MSHC_CRYPTO_CFG_PTR 8 -- parameter
 #define eswin_sdhci_VENDOR_REGISTER_BASEADDR 0x800
-#define eswin_sdhci_VENDOR_EMMC_CTRL_REGISTER 0x2c
 #define VENDOR_ENHANCED_STROBE BIT(8)
 
 #define eswin_sdhci_CQE_BASE_ADDR eswin_sdhci_VENDOR_REGISTER_BASEADDR
@@ -87,13 +86,13 @@ static void eswin_sdhci_hs400_enhanced_strobe(struct mmc_host *mmc,
 	u32 vendor;
 	struct sdhci_host *host = mmc_priv(mmc);
 
-	vendor = sdhci_readl(host, eswin_sdhci_VENDOR_EMMC_CTRL_REGISTER);
+	vendor = sdhci_readl(host, VENDOR_EMMC_CTRL_R);
 	if (ios->enhanced_strobe)
 		vendor |= VENDOR_ENHANCED_STROBE;
 	else
 		vendor &= ~VENDOR_ENHANCED_STROBE;
 
-	sdhci_writel(host, vendor, eswin_sdhci_VENDOR_EMMC_CTRL_REGISTER);
+	sdhci_writel(host, vendor, VENDOR_EMMC_CTRL_R);
 }
 
 static void eswin_sdhci_config_phy_delay(struct sdhci_host *host, int delay)
@@ -121,6 +120,8 @@ static void eswin_sdhci_config_phy(struct sdhci_host *host)
 	val = sdhci_readw(host, VENDOR_EMMC_CTRL_R);
 	val |= EMMC_CRAD_PRESENT;  // emmc card
 	sdhci_writew(host, val, VENDOR_EMMC_CTRL_R);
+	if(phy->negedge_data_out)
+		sdhci_writeb(host, 0x3, 0x508);
 
 	eswin_sdhci_disable_card_clk(host);
 
@@ -240,9 +241,8 @@ static int eswin_sdhci_delay_tuning(struct sdhci_host *host, u32 opcode)
 		eswin_sdhci_config_phy_delay(host, i);
 		eswin_sdhci_enable_card_clk(host);
 		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
+		host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 		if (ret) {
-			host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
-			udelay(200);
 			if (delay_min != -1 && delay_max != -1)
 				break;
 		} else {
@@ -251,6 +251,8 @@ static int eswin_sdhci_delay_tuning(struct sdhci_host *host, u32 opcode)
 				continue;
 			} else {
 				delay_max = i;
+				if( delay_max - delay_min > PHY_TUNING_THRESHOLD)
+					break;
 				continue;
 			}
 		}
@@ -288,9 +290,8 @@ static int eswin_sdhci_phase_code_tuning(struct sdhci_host *host, u32 opcode)
 		eswin_sdhci_enable_card_clk(host);
 
 		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
+		host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 		if (ret) {
-			host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
-			udelay(200);
 			if (code_min != -1 && code_max != -1)
 				break;
 		} else {
@@ -327,6 +328,10 @@ static int eswin_sdhci_executing_tuning(struct sdhci_host *host, u32 opcode)
 	u32 ctrl;
 	u32 val;
 	int ret = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct eswin_sdhci_data *eswin_sdhci = sdhci_pltfm_priv(pltfm_host);
+
+	sdhci_reset_tuning(host);
 
 	eswin_sdhci_disable_card_clk(host);
 
@@ -343,10 +348,13 @@ static int eswin_sdhci_executing_tuning(struct sdhci_host *host, u32 opcode)
 
 	sdhci_writew(host, 0x0, SDHCI_CMD_DATA);
 
-	ret = eswin_sdhci_delay_tuning(host, opcode);
-	if (ret < 0) {
-		return ret;
+	if(!eswin_sdhci->phy.negedge_data_out) {
+		ret = eswin_sdhci_delay_tuning(host, opcode);
+		if (ret < 0) {
+			return ret;
+		}
 	}
+
 	ret = eswin_sdhci_phase_code_tuning(host, opcode);
 	if (ret < 0) {
 		return ret;
@@ -387,9 +395,11 @@ void eswin_sdhci_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 	if ((timing == MMC_TIMING_MMC_HS400) && (host->clock == 200000000)) {
 		eswin_sdhci_disable_card_clk(host);
 
+		sdhci_writeb(host, 0, PHY_DLL_CTRL_R);
+
 		val = sdhci_readl(host, VENDOR_AT_CTRL_R);
 		val &= ~(LATENCY_LT_MASK << LATENCY_LT_BIT_OFFSET);
-		val |= (LATENCY_LT_3 << LATENCY_LT_MASK);
+		val |= (LATENCY_LT_3 << LATENCY_LT_BIT_OFFSET);
 		sdhci_writel(host, val, VENDOR_AT_CTRL_R);
 
 		sdhci_writeb(host, 0x23, PHY_DLL_CNFG1_R);
@@ -1025,6 +1035,11 @@ static int eswin_sdhci_probe(struct platform_device *pdev)
 		eswin_sdhci->phy.enable_strobe_pulldown = ENABLE;
 	else
 		eswin_sdhci->phy.enable_strobe_pulldown = DISABLE;
+
+	if (of_property_read_bool(dev->of_node, "negedge-data-out"))
+		eswin_sdhci->phy.negedge_data_out = ENABLE;
+	else
+		eswin_sdhci->phy.negedge_data_out = DISABLE;
 
 	sdhci_get_of_property(pdev);
 

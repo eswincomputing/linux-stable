@@ -30,7 +30,7 @@
 #include <media/v4l2-device.h>
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-mc.h>
-#include "../../../../phy/eswin/es-camera-module.h"
+#include <linux/es-camera-module.h>
 #include "regs.h"
 #include "dev.h"
 
@@ -165,7 +165,7 @@ struct es_dvp2axi_hw {
 	atomic_t 			dvp2axi_errirq_cnts[ES_DVP2AXI_ERRIRQ_NUM]; 
 	struct mutex		dev_multi_chn_lock;
 	spinlock_t			intr_spinlock;
-
+	struct tasklet_struct		dvp2axi_err_tasklet;
 };
 
 void es_dvp2axi_disable_sys_clk(struct es_dvp2axi_hw *dvp2axi_hw);

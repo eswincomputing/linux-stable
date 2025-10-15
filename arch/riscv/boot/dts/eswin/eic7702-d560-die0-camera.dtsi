@@ -56,6 +56,7 @@
 		compatible = "verisilicon,vb";
 		status = "disabled";
 		dma-noncoherent;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 	};
@@ -65,6 +66,7 @@
         id = <0>;
         status = "disabled";
 		dma-noncoherent;
+		#size-cells = <2>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 
@@ -107,8 +109,8 @@
 	status = "disabled";
 };
 
-&dvp2axi_mipi_lvds {
-	status = "disabled";
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
 	port@0 {
 		axi2dvp_mipi2_in0: endpoint@0 {
 			remote-endpoint = <&mipi2_csi2_output0>;
@@ -201,7 +203,7 @@
 	};
 };
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2 3 4>;
 	lanes-dp-dn = <0 0 0 0>; 	// 4lanes: positive on dp/ negative on dn to hs and lp mode
 	status = "disabled";
@@ -288,8 +290,6 @@
 		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 		assigned-clock-rates = <24000000>;
 		clock-names = "xvclk";
-
-        eswin,board-type = "d560";
 
 		power-en-gpios = <&portc 8 GPIO_ACTIVE_HIGH>;
 		power-level-gpios = <&d1_porta 21 GPIO_ACTIVE_HIGH>;

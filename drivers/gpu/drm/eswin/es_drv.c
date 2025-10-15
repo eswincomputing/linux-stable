@@ -418,7 +418,7 @@ static int es_drm_of_component_probe(struct device *dev,
 
 	ret = of_reserved_mem_device_init(dev);
 	if (ret) {
-		dev_info(dev, "No memory-region specified, use system cma, ret:%d\n", ret);
+		dev_dbg(dev, "No memory-region specified, use system cma, ret:%d\n", ret);
 	}
 
 	/*

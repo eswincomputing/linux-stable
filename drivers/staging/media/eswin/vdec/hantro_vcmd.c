@@ -591,7 +591,7 @@ struct vcmd_config vcmd_core_array[MAX_SUBSYS_NUM] = {
 #define PROCESS_MAX_VIDEO_SIZE                                                 \
 	(4096 * 2160 * MAX_SAME_MODULE_TYPE_CORE_NUMBER *                      \
 	 MAX_PROCESS_CORE_NUMBER)
-#define PROCESS_MAX_JPEG_SIZE (2147483648U) //32K*32K*2
+#define PROCESS_MAX_JPEG_SIZE (32768ULL*32768ULL*(2+1)) //32K*32K*(2(a pic per core)+1(extra a pic for a proc))
 #define PROCESS_MAX_SUM_OF_IMAGE_SIZE                                          \
 	(PROCESS_MAX_VIDEO_SIZE > PROCESS_MAX_JPEG_SIZE ?                      \
 		 PROCESS_MAX_VIDEO_SIZE :                                      \
@@ -2713,9 +2713,6 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 	}
 	if (dev->hw_version_id >= HW_ID_1_2_1) {
 		for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
-			if (!(&dev[core_id]))
-				continue;
-
 			if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
 				return -ERESTARTSYS;
 
@@ -2990,9 +2987,6 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 		}
 	} else {
 		for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
-			if ((&dev[core_id]) == NULL)
-				continue;
-
 			if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
 				return -ERESTARTSYS;
 

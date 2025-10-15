@@ -33,7 +33,7 @@
 #include "eic7700-pinctrl.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
-#include "eic7700-hifive-premier-p550-camera.dtsi"
+//#include "eic7700-hifive-premier-p550-camera.dtsi"
 
 /* Clock frequency (in Hz) of the PCB crystal for rtcclk */
 
@@ -117,6 +117,13 @@
 			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
 		};
+	};
+
+	reg_vcc1v8: vcc1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 	};
 
 	reg_vcc1v8: vcc1v8 {
@@ -403,6 +410,10 @@
 	status = "disabled";
 };
 
+&vi_subsys {
+	status = "okay";
+};
+
 &isp_0 {
 	status = "disabled";
 };
@@ -412,7 +423,7 @@
 };
 
 &dewarp {
-	status = "disabled";
+	status = "okay";
 };
 
 &sdhci_emmc {
@@ -480,6 +491,7 @@
 	rst-gpios = <&portd 10 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x290 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-100m = <0x20202020 0x96205A20 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -492,6 +504,7 @@
 	rst-gpios = <&portd 15 GPIO_ACTIVE_LOW>;
 	eswin,rgmiisel = <&pinctrl 0x294 0x3>;
 	eswin,led-cfgs = <0x6100 0xa40 0x420>;
+	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x20202020 0x46204620 0x20202020>;
 	dly-param-100m = <0x20202020 0x50205020 0x20202020>;
 	dly-param-10m = <0 0 0>;
@@ -729,11 +742,11 @@
 		compatible = "microchip,pac1934";
 		/*update all register data*/
 		update_time_ms = <1000>;
-		eswin,chan_label = "som vdd", "soc vdd", "cpu vdd", "ddr lpvdd";
+		eswin,chan_label = "som vdd", "soc vdd", "cpu vdd";
 		label = "som_info";
 		/*The update number of times the energy accumulates*/
 		energy_acc_count = <0>;
-		shunt_resistors=<1 1 1 1>;
+		shunt_resistors=<1 1 1>;
 		reg = <0x10>;
 	};
 
@@ -749,7 +762,7 @@
 		compatible = "mps,mpq8785";
 		reg = <0x12>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD", "NPU Voltage", "NPU CURRENT", "NPU Temperature";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{
@@ -799,22 +812,6 @@
 
 &die0_rtc {
 	status = "okay";
-};
-
-&timer0 {
-	status = "disabled";
-};
-
-&timer1 {
-	status = "disabled";
-};
-
-&timer2 {
-	status = "disabled";
-};
-
-&timer3 {
-	status = "disabled";
 };
 
 &pinctrl {

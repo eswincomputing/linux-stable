@@ -21,6 +21,8 @@
 /dts-v1/;
 
 #include "eic7702-som560.dtsi"
+//#include "eic7702-d560-die0-camera.dtsi"
+//#include "eic7702-d560-die1-camera.dtsi"
 
 / {
 	#address-cells = <2>;
@@ -146,6 +148,111 @@
 	dais = <&d0_i2s1_port>;
 };
 
+&video_output {
+	status = "okay";
+};
+
+&d1_video_output {
+	status = "okay";
+};
+
+&dc {
+	status = "okay";
+	dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&vd_input>;
+		};
+		dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&hdmi_in_dc>;
+		};
+	};
+};
+
+&d1_dc {
+	status = "okay";
+	d1_dc_out: port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		d1_dc_out_dpi1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&d1_vd_input>;
+		};
+		d1_dc_out_hdmi: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&d1_hdmi_in_dc>;
+		};
+	};
+};
+
+&dw_hdmi {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&dc_out_hdmi>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d0_i2s0_endpoint>;
+			};
+		};
+	};
+};
+
+
+&d1_dw_hdmi {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			d1_hdmi_in_dc: endpoint@0 {
+				remote-endpoint = <&d1_dc_out_hdmi>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			d1_hdmi_in_i2s: endpoint@1 {
+				system-clock-frequency = <12288000>;
+				remote-endpoint = <&d1_i2s0_endpoint>;
+			};
+		};
+	};
+};
+
+&d0_i2s0 {
+	status = "okay";
+	numa-node-id = <0>;
+	d0_i2s0_port: port {
+		d0_i2s0_endpoint: endpoint {
+			remote-endpoint = <&hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
+};
+
+&d1_i2s0 {
+	status = "okay";
+	numa-node-id = <1>;
+	d1_i2s0_port: port {
+		d1_i2s0_endpoint: endpoint {
+			remote-endpoint = <&d1_hdmi_in_i2s>;
+			dai-format = "i2s";
+		};
+	};
+};
+
 &d0_i2c0 {
 	/* codec es8388 */
 	status = "okay";
@@ -170,11 +277,18 @@
 &d1_i2c0 {
 	/* power monitor(ina236) */
 	status = "okay";
-	ina226@45 {
+	ina226@40 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
-		label = "cpu_vdd";
-		reg = <0x45>;
+		label = "ina226-u79";
+		reg = <0x40>;
+		shunt-resistor = <1000>;
+	};
+	ina226@44 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "ina226-u80";
+		reg = <0x44>;
 		shunt-resistor = <1000>;
 	};
 };
@@ -254,7 +368,7 @@
 	tmp102@48 {
 		compatible = "ti,tmp102";
 		reg = <0x48>;
-		label = "board_tmp";
+		label = "daughter card tmp";
 		#thermal-sensor-cells = <1>;
 	};
 };
@@ -328,13 +442,6 @@
 	status = "disabled";
 };
 &d1_wdt3 {
-	status = "disabled";
-};
-
-&timer1 {
-	status = "disabled";
-};
-&d1_timer1 {
 	status = "disabled";
 };
 

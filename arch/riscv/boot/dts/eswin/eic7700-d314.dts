@@ -85,12 +85,20 @@
 	status = "disabled";
 };
 
-&isp_0 {
+&vi_subsys {
 	status = "okay";
+};
+
+&isp_0 {
+	status = "disabled";
 };
 
 &isp_1 {
 	status = "disabled";
+};
+
+&dewarp {
+	status = "okay";
 };
 
 &sdio0 {
@@ -275,11 +283,11 @@
 		compatible = "microchip,pac1934";
 		/*update all register data*/
 		update_time_ms = <1000>;
-		eswin,chan_label = "som vdd", "soc vdd", "cpu vdd", "ddr lpvdd";
+		eswin,chan_label = "som vdd", "soc vdd", "cpu vdd";
 		label = "som_info";
 		/*The update number of times the energy accumulates*/
 		energy_acc_count = <0>;
-		shunt_resistors=<1 1 1 1>;
+		shunt_resistors=<1 1 1>;
 		reg = <0x10>;
 	};
 
@@ -295,7 +303,7 @@
 		compatible = "mps,mpq8785";
 		reg = <0x12>;
 		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "supply vdd1", "npu vdd1", "npu current1", "npu temperature1";
+		eswin,regulator_label = "Supply VDD", "NPU Voltage", "NPU CURRENT", "NPU Temperature";
 		label = "npu_vdd";
 		regulators{
 			npu_vcc1:npu_svcc{

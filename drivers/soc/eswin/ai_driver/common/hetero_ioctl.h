@@ -117,6 +117,11 @@ enum WIN_IOCTL_CMD {
     WIN_IOCTL_CMD_NUM,
 };
 
+enum NPU_HETERO_CMD {
+    ASYNC_SUBMIT_TASK = 0,
+    SYNC_EXECUTE_TASK,
+};
+
 #define TASK_RESULT_ARRAY_NUM 16
 
 enum task_result_status {
