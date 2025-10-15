@@ -163,7 +163,9 @@ void npu_frame_schedule(struct win_engine *engine)
 			if (!work_pending(&engine->complete_work)) {
 				queue_work(system_highpri_wq, &engine->complete_work);
 			}
+			spin_lock_irqsave(&engine->executor_lock, flags);
 			list_del(&f->sched_node);
+			spin_unlock_irqrestore(&engine->executor_lock, flags);
 		} else {
 			engine->tiktok_frame[engine->tiktok] = f;
 			if (ndev->is_suspend == true) {
@@ -184,7 +186,9 @@ void npu_frame_schedule(struct win_engine *engine)
 			add_timer(&engine->timer[f->tiktok]);
 			send_frame_to_npu(f, f->tiktok);
 			preempt_enable();
+			spin_lock_irqsave(&engine->executor_lock, flags);
 			list_del(&f->sched_node);
+			spin_unlock_irqrestore(&engine->executor_lock, flags);
 			dla_debug("%s, %d, done.\n", __func__, __LINE__);
 		}
 		atomic_set(&engine->is_sending, 0);
