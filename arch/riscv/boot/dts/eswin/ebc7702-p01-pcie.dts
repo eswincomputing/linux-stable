@@ -845,10 +845,10 @@
 };
 
 &dewarp {
-	status = "disabled";
+	status = "okay";
 };
 &d1_dewarp {
-	status = "disabled";
+	status = "okay";
 };
 
 &sdhci_emmc {
