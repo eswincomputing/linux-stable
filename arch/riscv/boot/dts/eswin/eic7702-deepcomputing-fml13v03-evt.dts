@@ -266,11 +266,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio19_default>;
 	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &d1_clock {
 	status = "okay";
 	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &d0_reset {
@@ -839,41 +841,6 @@
 	status = "disabled";
 };
 &d1_dewarp {
-	status = "disabled";
-};
-
-&mipi_dphy_rx {
-	status = "disabled";
-};
-&d1_mipi_dphy_rx {
-	status = "disabled";
-};
-
-&csi_dma0 {
-	status = "disabled";
-};
-&d1_csi_dma0 {
-	status = "disabled";
-};
-
-&csi_dma1 {
-	status = "disabled";
-};
-&d1_csi_dma1 {
-	status = "disabled";
-};
-
-&csi2_0 {
-	status = "disabled";
-};
-&d1_csi2_0 {
-	status = "disabled";
-};
-
-&csi2_1 {
-	status = "disabled";
-};
-&d1_csi2_1 {
 	status = "disabled";
 };
 
