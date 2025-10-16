@@ -302,12 +302,12 @@
 			no-map;
 		};
 
-		version_table1:version_table@2084413000 {
+		version_table1:version_table1@2084413000 {
 			reg = <0x20 0x84413000 0 0x1000>;
 			no-map;
 		};
 
-		bd_table1:bd_table@2084414000 {
+		bd_table1:bd_table1@2084414000 {
 			reg = <0x20 0x84414000 0 0x1000>;
 			no-map;
 		};
