@@ -400,9 +400,15 @@
 
 &d0_clock {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_die0_gpio27_default>;
+	cpu-voltage-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 &d1_clock {
 	status = "okay";
+	cpu-voltage-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
+	cpu-suspend-frequency = <CLK_FREQ_1400M>;
 };
 
 &d0_reset {
@@ -674,17 +680,17 @@
 };
 
 &vdec0 {
-	status = "disabled";
+	status = "okay";
 };
 &vdec1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &venc0 {
-	status = "disabled";
+	status = "okay";
 };
 &venc1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &video_output {
