@@ -153,6 +153,11 @@ static int eswin_pcie_power_on(struct eswin_pcie *pcie)
 {
 	int ret = 0;
 
+	/* clear pcie cfg config */
+	ret = reset_control_assert(pcie->cfg_rst);
+	WARN_ON(0 != ret);
+	msleep(500);
+
 	/* pciet_cfg_rstn */
 	ret = reset_control_reset(pcie->cfg_rst);
 	WARN_ON(0 != ret);
