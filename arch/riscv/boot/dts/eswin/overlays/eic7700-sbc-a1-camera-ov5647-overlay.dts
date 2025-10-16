@@ -23,7 +23,21 @@
 		};
 	};
 
-	fragment@3 { 
+	fragment@3 {
+		target = <&mipi_csi2_0>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@4 {
+		target = <&mipi_csi2_2>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@5 {
 		target = <&csi2_dphy_hw0>;
 		__overlay__ {
 			lanes = <1 2>;
@@ -32,7 +46,7 @@
 		};
 	};
 
-	fragment@4 { 
+	fragment@6 {
 		target = <&csi2_dphy_hw2>;
 		__overlay__ {
 			lanes = <1 2>;
@@ -41,7 +55,7 @@
 		};
 	};
 
-	fragment@5 { 
+	fragment@7 {
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov5647_out0>;
@@ -49,7 +63,7 @@
 		};
 	};
 
-	fragment@6 {
+	fragment@8 {
 		target = <&mipidphy2_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov5647_out1>;
@@ -57,21 +71,21 @@
 		};
 	};
 
-	fragment@7 {
+	fragment@9 {
 		target = <&csi2_dphy0>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@8 {
+	fragment@10 {
 		target = <&csi2_dphy2>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@9 {
+	fragment@11 {
 		target =  <&d0_i2c3>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -86,6 +100,9 @@
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <25000000>;
 				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio72_default>;
+				reset-gpio = <&portc 8 0>;
 
 				port {
 					ov5647_out0: endpoint {
@@ -98,7 +115,7 @@
 		};
 	};
 
-	fragment@10 {
+	fragment@12 {
 		target =  <&d0_i2c2>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -113,6 +130,9 @@
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <25000000>;
 				clock-names = "xclk";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl_gpio78_default>;
+				reset-gpio = <&portc 14 0>;
 
 				port {
 					ov5647_out1: endpoint {
