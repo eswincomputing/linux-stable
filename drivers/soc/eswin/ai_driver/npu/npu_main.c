@@ -82,21 +82,10 @@
 
 MODULE_IMPORT_NS(DMA_BUF);
 #define DRIVER_NAME "eswin_npu"
+
 #define NPU_CORE_CLK_HIGHEST 1500000000
-
-typedef enum {
-	NPU_1_5_GHZ = 0,
-	NPU_1_1_GHZ,
-	NPU_1_0_GHZ,
-	NPU_750_MHZ,
-	NPU_520_MHZ,
-	NPU_TBL_MAX
-} NPU_RATE;
-
-#define NPU_VOLTAGE_HIGHEST 1050000
 #define DEVFREQ_VOLT_DELAY 50
 
-static struct npu_freq_param npu_freq_tbl[2][NPU_TBL_MAX] = { 0 };
 int64_t dla_get_time_us(void)
 {
 	return 0;
@@ -420,6 +409,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	unsigned long target_volt, target_rate;
 	int ret;
 	struct npu_freq_param *tbl = NULL;
+	int highset_idx = nvdla_dev->freq_count - 1;
 
 	if (nvdla_dev->is_low_freq) {
 		dev_dbg(dev, "NPU uses a fixed frequency of 1G\n");
@@ -440,25 +430,23 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	}
 	mutex_lock(&nvdla_dev->devfreq_lock);
 
-	for (int i = 0; i < NPU_TBL_MAX; i++) {
-		if (npu_freq_tbl[nvdla_dev->numa_id][i].npu_rate == target_rate) {
-			tbl = &npu_freq_tbl[nvdla_dev->numa_id][i];
-			if (tbl->volt != target_volt && target_volt > 0) {
-				tbl->volt = target_volt;
-			}
+	for (int i = 0; i < nvdla_dev->freq_count; i++) {
+		if (nvdla_dev->freq_tbl[i].npu_rate == target_rate && nvdla_dev->freq_tbl[i].valid == 1) {
+			tbl = &nvdla_dev->freq_tbl[i];
 			break;
 		}
 	}
 
 	if (!tbl) {
-		dev_warn(dev, "can't find suitable freq table\n");
+		dev_err(dev, "can't find suitable freq table\n");
 		goto out;
 	}
 
 	if (target_rate > nvdla_dev->rate) { // rise freq
-		ret = regulator_set_voltage(nvdla_dev->npu_regulator, NPU_VOLTAGE_HIGHEST, NPU_VOLTAGE_HIGHEST);
+		ret = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->freq_tbl[highset_idx].volt,
+					nvdla_dev->freq_tbl[highset_idx].volt);
 		if (ret) {
-			dev_err(dev, "Cannot set voltage %d uV\n", NPU_VOLTAGE_HIGHEST);
+			dev_err(dev, "Cannot set voltage %d uV\n", nvdla_dev->freq_tbl[highset_idx].volt);
 			goto out;
 		}
 
@@ -468,7 +456,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 			goto out;
 		}
 		mdelay(1);
-		if (target_rate != NPU_CORE_CLK_HIGHEST) {
+		if (target_rate != nvdla_dev->freq_tbl[highset_idx].npu_rate) {
 			ret = regulator_set_voltage(nvdla_dev->npu_regulator, tbl->volt, tbl->volt);
 			if (ret) {
 				dev_err(dev, "Cannot set voltage %d uV\n", tbl->volt);
@@ -476,10 +464,11 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 			}
 		}
 	} else if (target_rate < nvdla_dev->rate) { // lower freq
-		if (nvdla_dev->rate != NPU_CORE_CLK_HIGHEST) {
-			ret = regulator_set_voltage(nvdla_dev->npu_regulator, NPU_VOLTAGE_HIGHEST, NPU_VOLTAGE_HIGHEST);
+		if (nvdla_dev->rate != nvdla_dev->freq_tbl[highset_idx].npu_rate) {
+			ret = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->freq_tbl[highset_idx].volt,
+						nvdla_dev->freq_tbl[highset_idx].volt);
 			if (ret) {
-				dev_err(dev, "Cannot set voltage %d uV\n", NPU_VOLTAGE_HIGHEST);
+				dev_err(dev, "Cannot set voltage %d uV\n", nvdla_dev->freq_tbl[highset_idx].volt);
 				goto out;
 			}
 			mdelay(DEVFREQ_VOLT_DELAY);
@@ -550,44 +539,104 @@ static struct devfreq_simple_ondemand_data ondemand_data =
 };
 #endif
 
-static void npu_set_freq_table(struct nvdla_device *nvdla_dev)
+static int npu_set_freq_table(struct nvdla_device *nvdla_dev)
 {
-	int numa_id = nvdla_dev->numa_id;
+#if defined(CONFIG_PM_DEVFREQ)
+	unsigned long freq = 0;
+    unsigned long voltage;
+	struct device *dev = &nvdla_dev->pdev->dev;
+	struct dev_pm_opp *opp;
+	int opp_count, i = 0;
+
+	opp_count = dev_pm_opp_get_opp_count(dev);
+	if (opp_count <= 0) {
+        dev_err(dev, "Failed to get OPP count: %d\n", opp_count);
+        return -ENODEV;
+    }
+
+	dev_dbg(dev, "get opp count:%d\n", opp_count);
+
+	nvdla_dev->freq_tbl = kmalloc(sizeof(struct npu_freq_param) * opp_count, GFP_KERNEL);
+	if (!nvdla_dev->freq_tbl)
+	return -ENOMEM;
+
+	nvdla_dev->freq_count = opp_count;
+
+	while (i < opp_count) {
+        opp = dev_pm_opp_find_freq_ceil(dev, &freq);
+        if (IS_ERR(opp)) {
+            break;
+        }
+
+        voltage = dev_pm_opp_get_voltage(opp);
+        dev_dbg(dev, "Frequency: %lu Hz, Voltage: %lu uV\n", freq, voltage);
+
+		nvdla_dev->freq_tbl[i].npu_rate = freq;
+		nvdla_dev->freq_tbl[i].volt = voltage;
+
+		if (freq == 1500000000) {
+			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
+			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
+			nvdla_dev->freq_tbl[i].llc_rate = 1188000000;
+			nvdla_dev->freq_tbl[i].valid = 1;
+		} else if (freq == 1188000000) {
+			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
+			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
+			nvdla_dev->freq_tbl[i].llc_rate = 800000000;
+			nvdla_dev->freq_tbl[i].valid = 1;
+		} else if (freq == 1040000000) {
+			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
+			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
+			nvdla_dev->freq_tbl[i].llc_rate = 800000000;
+			nvdla_dev->freq_index_1G = i;
+			nvdla_dev->freq_tbl[i].valid = 1;
+		} else if (freq == 750000000) {
+			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
+			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout1;
+			nvdla_dev->freq_tbl[i].llc_rate = 520000000;
+			nvdla_dev->freq_tbl[i].valid = 1;
+		} else if (freq == 520000000) {
+			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
+			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
+			nvdla_dev->freq_tbl[i].llc_rate = 400000000;
+			nvdla_dev->freq_tbl[i].valid = 1;
+		}
+
+		i++;
+		freq++;
+
+        dev_pm_opp_put(opp);
+    }
+
+	if (nvdla_dev->freq_tbl[opp_count-1].valid != 1 || nvdla_dev->freq_index_1G == 0) {
+		dev_err(dev, "opp table not include 1.5G or 1G freq\n");
+		return -ENOMEM;
+	}
+#else
+	nvdla_dev->freq_tbl = kmalloc(sizeof(struct npu_freq_param) * 2, GFP_KERNEL);
+	if (!nvdla_dev->freq_tbl)
+		return -ENOMEM;
+
+	nvdla_dev->freq_count = 2;
+	/* NPU 1G HZ, LLC 800M HZ */
+	nvdla_dev->freq_tbl[0].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
+	nvdla_dev->freq_tbl[0].npu_rate = 1040000000;
+	nvdla_dev->freq_tbl[0].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
+	nvdla_dev->freq_tbl[0].llc_rate = 800000000;
+	nvdla_dev->freq_tbl[0].volt = 900000;
+	nvdla_dev->freq_index_1G = 0;
+	nvdla_dev->freq_tbl[0].valid = 1;
 
 	/* NPU 1.5G HZ, LLC 1.188G HZ*/
-	npu_freq_tbl[numa_id][NPU_1_5_GHZ].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
-	npu_freq_tbl[numa_id][NPU_1_5_GHZ].npu_rate = 1500000000;
-	npu_freq_tbl[numa_id][NPU_1_5_GHZ].llc_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
-	npu_freq_tbl[numa_id][NPU_1_5_GHZ].llc_rate = 1188000000;
-	npu_freq_tbl[numa_id][NPU_1_5_GHZ].volt = 1050000;
+	nvdla_dev->freq_tbl[1].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
+	nvdla_dev->freq_tbl[1].npu_rate = 1500000000;
+	nvdla_dev->freq_tbl[1].llc_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
+	nvdla_dev->freq_tbl[1].llc_rate = 1188000000;
+	nvdla_dev->freq_tbl[1].volt = 1050000;
+	nvdla_dev->freq_tbl[1].valid = 1;
+#endif
 
-	/* NPU 1188M HZ, LLC 800M HZ */
-	npu_freq_tbl[numa_id][NPU_1_1_GHZ].npu_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
-	npu_freq_tbl[numa_id][NPU_1_1_GHZ].npu_rate = 1188000000;
-	npu_freq_tbl[numa_id][NPU_1_1_GHZ].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
-	npu_freq_tbl[numa_id][NPU_1_1_GHZ].llc_rate = 800000000;
-	npu_freq_tbl[numa_id][NPU_1_1_GHZ].volt = 1000000;
-
-	/* NPU 1G HZ, LLC 800M HZ */
-	npu_freq_tbl[numa_id][NPU_1_0_GHZ].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
-	npu_freq_tbl[numa_id][NPU_1_0_GHZ].npu_rate = 1040000000;
-	npu_freq_tbl[numa_id][NPU_1_0_GHZ].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
-	npu_freq_tbl[numa_id][NPU_1_0_GHZ].llc_rate = 800000000;
-	npu_freq_tbl[numa_id][NPU_1_0_GHZ].volt = 900000;
-
-	/* NPU 750M HZ, LLC 520M HZ */
-	npu_freq_tbl[numa_id][NPU_750_MHZ].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
-	npu_freq_tbl[numa_id][NPU_750_MHZ].npu_rate = 750000000;
-	npu_freq_tbl[numa_id][NPU_750_MHZ].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout1;
-	npu_freq_tbl[numa_id][NPU_750_MHZ].llc_rate = 520000000;
-	npu_freq_tbl[numa_id][NPU_750_MHZ].volt = 800000;
-
-	/* NPU 520M HZ, LLC 400M HZ */
-	npu_freq_tbl[numa_id][NPU_520_MHZ].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
-	npu_freq_tbl[numa_id][NPU_520_MHZ].npu_rate = 520000000;
-	npu_freq_tbl[numa_id][NPU_520_MHZ].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
-	npu_freq_tbl[numa_id][NPU_520_MHZ].llc_rate = 400000000;
-	npu_freq_tbl[numa_id][NPU_520_MHZ].volt = 800000;
+	return 0;
 }
 
 static int32_t  npu_probe_result = 0;
@@ -603,14 +652,12 @@ static int32_t edla_probe(struct platform_device *pdev)
 	struct devfreq *df = NULL;
 #endif
 
-	dla_debug("%s enter.\n", __FUNCTION__);
+	dev_info(dev, "Probe Eswin NPU.\n");
 #if SMALL_PEC_MAT
-	dla_debug("load npu driver with PEC2x2.\n");
+	dev_dbg(dev, "load npu driver with PEC2x2.\n");
 #else
-	dla_debug("load npu driver with PEC4x8.\n");
+	dev_dbg(dev, "load npu driver with PEC4x8.\n");
 #endif
-
-	pr_err("Probe Eswin NPU.\n");
 
 	nvdla_dev = devm_kzalloc(dev, sizeof(*nvdla_dev), GFP_KERNEL);
 	if (!nvdla_dev)
@@ -625,7 +672,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 
 	nvdla_dev->npu_regulator = devm_regulator_get(dev, "npu");
 	if (nvdla_dev->npu_regulator == NULL) {
-		dla_error("cannot get npu regulator, error.\n");
+		dev_err(dev, "cannot get npu regulator, error.\n");
 		return -EINVAL;
 	}
 	nvdla_dev->is_low_freq = of_property_read_bool(pdev->dev.of_node, "apply_npu_1G_freq");
@@ -639,14 +686,14 @@ static int32_t edla_probe(struct platform_device *pdev)
 	err = regulator_enable(nvdla_dev->npu_regulator);
 	if (err < 0)
 	{
-		dla_error("npu_regulator enble error:%d\n\r", err);
+		dev_err(dev, "npu_regulator enble error:%d\n\r", err);
 		nvdla_dev->npu_regulator = NULL;
 		return err;
 	}
 
 	err = npu_dt_node_resources(nvdla_dev);
 	if (err) {
-		dla_error("error, get hw resource, ret=%d\n", err);
+		dev_err(dev, "error, get hw resource, ret=%d\n", err);
 		platform_set_drvdata(pdev, NULL);
 		regulator_disable(nvdla_dev->npu_regulator);
 		return -EINVAL;
@@ -659,7 +706,33 @@ static int32_t edla_probe(struct platform_device *pdev)
 		goto err_mem0;
 	}
 
-	npu_set_freq_table(nvdla_dev);
+#if defined(CONFIG_PM_DEVFREQ)
+	/* Add OPP table from device tree */
+	err = devm_pm_opp_of_add_table(dev);
+	if (err) {
+		dev_err(dev, "%s, %d, Failed to add OPP table, ret = %d.\n", __func__, __LINE__, err);
+		goto err_mem0;
+	}
+
+	df = devm_devfreq_add_device(dev, &npu_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
+	if (IS_ERR(df)) {
+		err = PTR_ERR(df);
+		dev_err(dev, "%s, %d, Failed to add devfreq device, ret=%d.\n", __func__, __LINE__, err);
+		goto err_mem0;
+	}
+	/* Register opp_notifier to catch the change of OPP  ????*/
+	err = devm_devfreq_register_opp_notifier(&pdev->dev, df);
+	if (err < 0) {
+		dev_err(&pdev->dev, "failed to register opp notifier\n");
+		goto err_mem0;
+	}
+#endif
+
+	err = npu_set_freq_table(nvdla_dev);
+	if (err < 0) {
+		dev_err(dev, "failed to set freq table\n");
+		goto err_mem0;
+	}
 
 	if (nvdla_dev->is_low_freq == 0) {
 		if (nvdla_dev->npu_def_high_vol) {
@@ -667,24 +740,25 @@ static int32_t edla_probe(struct platform_device *pdev)
 										nvdla_dev->npu_def_high_vol);
 		} else {
 			err = regulator_set_voltage(nvdla_dev->npu_regulator,
-						npu_freq_tbl[nvdla_dev->numa_id][NPU_1_5_GHZ].volt,
-						npu_freq_tbl[nvdla_dev->numa_id][NPU_1_5_GHZ].volt);
+						nvdla_dev->freq_tbl[nvdla_dev->freq_count - 1].volt,
+						nvdla_dev->freq_tbl[nvdla_dev->freq_count - 1].volt);
 		}
 
 		if (err != 0) {
-			dla_error("error npu regulator volt:%duV ret:%d.\n",
-				nvdla_dev->npu_def_high_vol ? : npu_freq_tbl[nvdla_dev->numa_id][NPU_1_5_GHZ].volt, err);
+			dev_err(dev, "error npu regulator volt:%duV ret:%d.\n",
+				nvdla_dev->npu_def_high_vol ? : nvdla_dev->freq_tbl[nvdla_dev->freq_count - 1].volt, err);
 			goto err_mem0;
 		}
         mdelay(10);
-		err = npu_set_freq_req(nvdla_dev, &npu_freq_tbl[nvdla_dev->numa_id][NPU_1_5_GHZ]);
+		err = npu_set_freq_req(nvdla_dev, &nvdla_dev->freq_tbl[nvdla_dev->freq_count - 1]);
     } else {
 		err = regulator_set_voltage(nvdla_dev->npu_regulator,
-						npu_freq_tbl[nvdla_dev->numa_id][NPU_1_0_GHZ].volt,
-						npu_freq_tbl[nvdla_dev->numa_id][NPU_1_0_GHZ].volt);
-		dla_debug("name:%s, volt:%d, ret:%d\n", pdev->name, npu_freq_tbl[nvdla_dev->numa_id][NPU_1_0_GHZ].volt, err);
+						nvdla_dev->freq_tbl[nvdla_dev->freq_index_1G].volt,
+						nvdla_dev->freq_tbl[nvdla_dev->freq_index_1G].volt);
+		dev_dbg(dev, "name:%s, volt:%d, ret:%d\n", pdev->name,
+				nvdla_dev->freq_tbl[nvdla_dev->freq_index_1G].volt, err);
 		mdelay(10);
-		err = npu_set_freq_req(nvdla_dev, &npu_freq_tbl[nvdla_dev->numa_id][NPU_1_0_GHZ]);
+		err = npu_set_freq_req(nvdla_dev, &nvdla_dev->freq_tbl[nvdla_dev->freq_index_1G]);
     }
 
 	if (err) {
@@ -701,8 +775,8 @@ static int32_t edla_probe(struct platform_device *pdev)
 		err = PTR_ERR(nvdla_dev->base);
 		goto err_mem0;
 	}
-	if (request_mem_region(E31_EMISSION_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET, E31_EMISSION_DTIM_SIZE,
-			       "EMISSION_BASE") == NULL) {
+	if (request_mem_region(E31_EMISSION_DTIM_BASE + nvdla_dev->numa_id * NPU_DIE_REG_OFFSET,
+						E31_EMISSION_DTIM_SIZE, "EMISSION_BASE") == NULL) {
 		dev_err(&pdev->dev, "request_mem_region error\n");
 		err = -EBUSY;
 		goto err_mem0;
@@ -743,28 +817,6 @@ static int32_t edla_probe(struct platform_device *pdev)
 			__func__, __LINE__, err);
 		goto err_iomap_program;
 	}
-
-#if defined(CONFIG_PM_DEVFREQ)
-	/* Add OPP table from device tree */
-	err = devm_pm_opp_of_add_table(dev);
-	if (err) {
-		dev_err(dev, "%s, %d, Failed to add OPP table, ret = %d.\n", __func__, __LINE__, err);
-		goto err_init_reset;
-	}
-
-	df = devm_devfreq_add_device(dev, &npu_devfreq_profile, DEVFREQ_GOV_SIMPLE_ONDEMAND, &ondemand_data);
-	if (IS_ERR(df)) {
-		err = PTR_ERR(df);
-		dev_err(dev, "%s, %d, Failed to add devfreq device, ret=%d.\n", __func__, __LINE__, err);
-		goto err_init_reset;
-	}
-	/* Register opp_notifier to catch the change of OPP  ????*/
-	err = devm_devfreq_register_opp_notifier(&pdev->dev, df);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to register opp notifier\n");
-		return err;
-	}
-#endif
 
 	err = npu_init_reset(nvdla_dev);
 	if (err)
@@ -907,6 +959,11 @@ static int32_t __exit edla_remove(struct platform_device *pdev)
 		vfree(nvdla_dev->pause_op_list);
 		nvdla_dev->pause_op_list = NULL;
 	}
+
+	if (nvdla_dev->freq_tbl) {
+		kfree(nvdla_dev->freq_tbl);
+		nvdla_dev->freq_tbl = NULL;
+	}
 	return 0;
 }
 
@@ -942,12 +999,6 @@ int __maybe_unused npu_runtime_resume(struct device *dev)
     }
 	npu_tbu_power(dev, true);
 
-	for (int i = 0; i < NPU_TBL_MAX; i++) {
-		if (npu_freq_tbl[ndev->numa_id][i].npu_rate == ndev->rate) {
-			break;
-		}
-	}
-
 	return ret;
 }
 
@@ -978,17 +1029,16 @@ int __maybe_unused npu_suspend(struct device *dev)
 
 	if(!pm_runtime_status_suspended(dev)) {
 		dev_dbg(dev, "disable clk\n");
-	npu_tbu_power(dev, false);
-	npu_disable_clock(nvdla_dev);
+		npu_tbu_power(dev, false);
+		npu_disable_clock(nvdla_dev);
 	}
 
 	npu_dev_assert(nvdla_dev);
 	if ((NULL != nvdla_dev->npu_regulator) && (!IS_ERR(nvdla_dev->npu_regulator)))
 	{
 		is_enable = regulator_is_enabled(nvdla_dev->npu_regulator);
-		if(1 == is_enable)
-		{
-		regulator_disable(nvdla_dev->npu_regulator);
+		if(1 == is_enable) {
+			regulator_disable(nvdla_dev->npu_regulator);
 			mdelay(20);
 		}
 	}

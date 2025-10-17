@@ -35,6 +35,15 @@
 #include "dla_interface.h"
 #include "hetero_common.h"
 
+struct npu_freq_param {
+	struct clk *npu_clk_parent;
+	unsigned long npu_rate;
+	struct clk *llc_clk_parent;
+	unsigned long llc_rate;
+	int volt;
+	int valid;
+};
+
 struct nvdla_device {
 	int numa_id;
 	int32_t npu_irq;
@@ -101,15 +110,12 @@ struct nvdla_device {
 	atomic64_t total_lock_time;
 	bool is_suspend;
 	atomic64_t total_frame_done;
+
+	struct npu_freq_param *freq_tbl;
+	u32 freq_count;
+	u32 freq_index_1G;
 };
 
-struct npu_freq_param {
-	struct clk *npu_clk_parent;
-	unsigned long npu_rate;
-	struct clk *llc_clk_parent;
-	unsigned long llc_rate;
-	int volt;
-};
 void dla_reg_write(struct nvdla_device *dev, uint32_t addr, uint32_t value);
 
 uint32_t dla_reg_read(struct nvdla_device *dev, uint32_t addr);
