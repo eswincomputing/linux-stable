@@ -83,6 +83,18 @@
 		numa-node-id = <1>;
 	};
 
+	memory@8000000000 {
+		device_type = "memory";
+		reg = <0x80 0x0 0x20 0x0>;
+		numa-node-id = <0>;
+	};
+
+	memory@a000000000 {
+		device_type = "memory";
+		reg = <0xa0 0x0 0x20 0x0>;
+		numa-node-id = <1>;
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -154,6 +166,12 @@
 			no-map;
 		};
 
+		pci_phys_mem_0 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x80 0x0 0x20 0x0>;
+			no-map;
+		};
+
 		rpc_reserved:rpc_reserved@100000000 {
 			reg = <0x1 0x0 0 0x1000>;
 			no-map;
@@ -221,11 +239,23 @@
 			#size-cells = <2>;
 			phys-base = <0x1 0x4416000>;
 			virt-base = <0x1 0x4416000>;
-			shm-size = <0xbbea000>;
-			reg = <0x1 0x4416000 0 0xbbea000>;
+			shm-size = <0xb7ea000>;
+			reg = <0x1 0x4416000 0 0xb7ea000>;
+		};
+
+		pci_phys_mem_1 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x1 0xFC00000 0 0x400000>;
+			no-map;
 		};
 
 		/* die 1 share memory*/
+		pci_phys_mem_2 {
+			compatible = "eswin-reserve-memory";
+			reg = <0xa0 0x0 0x20 0x0>;
+			no-map;
+		};
+
 		rpc_reserved1:rpc_reserved1@2080000000 {
 			reg = <0x20 0x80000000 0 0x1000>;
 			no-map;
@@ -293,8 +323,14 @@
 			#size-cells = <2>;
 			phys-base = <0x20 0x84416000>;
 			virt-base = <0x20 0x84416000>;
-			shm-size = <0xbbea000>;
-			reg = <0x20 0x84416000 0 0xbbea000>;
+			shm-size = <0xb7ea000>;
+			reg = <0x20 0x84416000 0 0xb7ea000>;
+		};
+
+		pci_phys_mem_3 {
+			compatible = "eswin-reserve-memory";
+			reg = <0x20 0x8FC00000 0 0x400000>;
+			no-map;
 		};
 	};
 
@@ -1294,4 +1330,3 @@
 &d1_d2d {
 	status = "okay";
 };
-
