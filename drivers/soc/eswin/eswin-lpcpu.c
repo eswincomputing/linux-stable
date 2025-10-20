@@ -61,9 +61,9 @@ struct lowpower_info {
 #define CFG_RECV_SUCC  0x366676
 
 #define LPCPU_BOOT_ADDR         0x51828314
-#define LPCPU_CONFIG_ADDR       0x5880dc00
+#define LPCPU_CONFIG_ADDR       0x5880d400
 #define LPCPU_CONFIG_MAGIC      0x4c435055
-#define LPCPU_CONFIG_VERSION    2
+#define LPCPU_CONFIG_VERSION    3
 #define LPCPU_NPU_FW_MAX_SIZE   (64*1024)
 #define LPCPU_RSV_MEM_MIN_SIZE  (5*1024*1024)
 
