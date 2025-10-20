@@ -479,7 +479,7 @@ static void rsvmem_dump_buffers_on_oom(void)
 	static unsigned long last_dump_jiffies;
 	static const unsigned long DUMP_INTERVAL = HZ * 10;
 	struct eswin_rsvmem_heap_buffer *buf;
-	struct eswin_heap_attachment *att;
+	struct dma_buf_attachment *att;
 	char attach_str[ATTACH_BUF_LEN];
 	char expbuf[24], nmbuf[24];
 	struct dma_buf *dmabuf;
@@ -517,7 +517,7 @@ static void rsvmem_dump_buffers_on_oom(void)
 		strscpy(nmbuf,  dmabuf->name  ?: "<noname>", sizeof(nmbuf));
 		spin_unlock(&dmabuf->name_lock);
 
-		list_for_each_entry(att, &dmabuf->attachments, list) {
+		list_for_each_entry(att, &dmabuf->attachments, node) {
 			int len = scnprintf(attach_str + pos,
 						ATTACH_BUF_LEN - pos,
 						"%s%s",

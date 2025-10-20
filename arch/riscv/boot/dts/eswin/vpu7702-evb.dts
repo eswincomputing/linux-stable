@@ -115,7 +115,7 @@
 
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x3 0x0 0x1 0x0>;
+			reg = <0x3 0x0 0x1 0x80000000>;
 			no-map;
 		};
 
