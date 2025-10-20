@@ -7,7 +7,7 @@
         id = <0>;
         status = "okay";
 		dma-noncoherent;
-
+		depends-on = <&camera_imx219>;
         ports {
             #address-cells = <1>;
             #size-cells = <0>;
@@ -56,6 +56,7 @@
 		status = "okay";
 		dma-noncoherent;
 		#size-cells = <2>;
+		depends-on = <&camera_imx219>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 	};
@@ -66,6 +67,7 @@
         status = "okay";
 		dma-noncoherent;
 		#size-cells = <2>;
+		depends-on = <&camera_imx219>;
 		dma-ranges = <0x0 0x20000000 0x0 0x80000000 0x0 0x40000000>;
 		iommus = <&smmu0 WIN2030_SID_ISP0>;
 
@@ -255,7 +257,6 @@
 			reg = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-
 			mipidphy2_in_ucam0: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&imx219_out2>;
