@@ -980,7 +980,7 @@
 			/* sdhci-caps-mask =  <0x2 0x3000000>; */
 			/* smmu */
 			#size-cells = <2>;
-			/* iommus = <&smmu0 WIN2030_SID_EMMC0>; */
+			iommus = <&smmu0 WIN2030_SID_EMMC0>;
 			tbus = <WIN2030_TBUID_EMMC>;
 			dma-ranges = <0x0 0x00000000 0x0 0xc0000000 0x1 0x0>;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1038 0x508 0x50c>;
@@ -1013,7 +1013,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
-			/* iommus = <&smmu0 WIN2030_SID_SD0>; */
+			iommus = <&smmu0 WIN2030_SID_SD0>;
 			tbus = <WIN2030_TBUID_SD>;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x103c 0x608 0x60c>;
 			eswin,syscrg_csr = <&d0_sys_crg 0x164 0x148 0x14c>;
@@ -1047,7 +1047,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			dma-ranges = <0x0 0x20000000 0x0 0xc0000000 0x0 0x40000000>;
-			/* iommus = <&smmu0 WIN2030_SID_SD1>; */
+			iommus = <&smmu0 WIN2030_SID_SD1>;
 			tbus = <WIN2030_TBUID_SD>;
 			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1040 0x708 0x70c>;
 			eswin,syscrg_csr = <&d0_sys_crg 0x168 0x148 0x14c>;
