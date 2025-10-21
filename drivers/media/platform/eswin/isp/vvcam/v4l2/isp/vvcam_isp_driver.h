@@ -151,6 +151,7 @@ struct vvcam_isp_dev {
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct mutex ctrl_lock;
 	uint32_t ctrl_pad;
+    uint32_t frame_idx;
 
 	unsigned long pde;
 	struct vvcam_isp_sensor_info sensor_info[VVCAM_ISP_PORT_NR];

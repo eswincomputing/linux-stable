@@ -771,6 +771,7 @@ static int vvcam_isp_buf_done(struct v4l2_subdev *sd, void *arg)
 
     memcpy(&ubuf, arg, sizeof(struct vvcam_isp_buf));
     cur_pad = &isp_dev->pad_data[ubuf.pad];
+    isp_dev->frame_idx++;
 
     if (list_empty(&cur_pad->queue) || (cur_pad->stream == 0))
         return -EINVAL;
@@ -803,6 +804,7 @@ static int vvcam_isp_buf_done(struct v4l2_subdev *sd, void *arg)
             video = media_entity_to_video_device(pad->entity);
             if (buf->sequence < video->queue->num_buffers) {
                 if (buf->vb.vb2_buf.state == VB2_BUF_STATE_ACTIVE) {
+                    buf->vb.sequence = isp_dev->frame_idx - 1;
                     vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
                     //printk("vb done addr = 0x%x\n", buf->vb.vb2_buf.planes[0].dma_addr + buf->vb.vb2_buf.planes[0].offset);
                 }
