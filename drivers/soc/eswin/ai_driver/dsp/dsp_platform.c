@@ -1261,7 +1261,7 @@ int es_dsp_hw_init(struct es_dsp *dsp)
 
 	hw->pts_iova = DSP_PTS_IOVA;
 	hw->pts_iova_size = DSP_PTS_IOVA_SIZE;
-	hw->pts_phys_base = 0x51840000 + dsp->numa_id * DIE_BASE_INTERVAL;
+	hw->pts_phys_base = TIMER3_BASE_ADDR + dsp->numa_id * DIE_BASE_INTERVAL;
 	ret = iommu_map_rsv_iova_with_phys(dsp->dev, (dma_addr_t)DSP_PTS_IOVA,
 					   DSP_PTS_IOVA_SIZE, hw->pts_phys_base,
 					   IOMMU_MMIO);

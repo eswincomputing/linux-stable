@@ -773,7 +773,6 @@ int __maybe_unused dsp_resume(struct device *dev)
 		goto out;
 	}
 
-
 	ret = win2030_tbu_power(dsp->dev, true);
 	if (ret) {
 		dev_err(dev, "tbu power failed, ret=%d\n", ret);
@@ -1104,7 +1103,6 @@ static int es_dsp_hw_remove(struct platform_device *pdev)
 	dsp_disable_mbox_clock(dsp);
 	es_dsp_unmap_resource(dsp);
 	dsp_put_resource(dsp);
-
 
 	pm_runtime_disable(dsp->dev);
 

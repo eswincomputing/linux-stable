@@ -221,15 +221,15 @@ static int npu_stat_show(struct seq_file *m, void *p)
 		{
 			curr_rtc = get_perf_timer_cnt(i);
 			if(curr_rtc > frame_start) {
-				gap_adjust = (curr_rtc - frame_start) * 1000 /24;
+				gap_adjust = (curr_rtc - frame_start) * 10000 / 495; // timer3 channel 7 clk 49.5MHz.
 			} else {
-				gap_adjust = (-1U - frame_start + curr_rtc) * 1000 /24;
+				gap_adjust = (-1U - frame_start + curr_rtc) * 10000 / 495;
 			}
 		}
 
 		seq_printf(m, "npu%d %llu %llu %llu %llu\n",i, start_stat_time,
-		           (total_hwexec_time * 1000) /24 + gap_adjust,
-		           (total_hwexec_time * 1000) /24,
+		           (total_hwexec_time * 10000) / 495 + gap_adjust,
+		           (total_hwexec_time * 10000) / 495,
 		           atomic64_read(&ndev->total_frame_done));
 
 		npu_pm_put(ndev);

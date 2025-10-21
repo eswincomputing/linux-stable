@@ -1126,7 +1126,6 @@ int npu_enable_clock(struct nvdla_device *ndev)
 {
 	int ret;
 
-
 	ret = clk_prepare_enable(ndev->core_clk);
 	if (ret) {
 		dla_error("failed to enable core_clk: %d\n", ret);
@@ -1143,6 +1142,7 @@ int npu_enable_clock(struct nvdla_device *ndev)
 		dla_error("npu enable mbox clock failed.\n");
 		goto err_mbox_clk;
 	}
+
 	return 0;
 err_mbox_clk:
 	clk_disable_unprepare(ndev->e31_core_clk);

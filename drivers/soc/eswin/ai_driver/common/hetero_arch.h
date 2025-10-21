@@ -126,13 +126,13 @@ static inline u32 _ffs(u32 r0)
 }
 
 #if defined(DIE1) && DIE1
-#define TIMER0_BASE 0x71858000
+#define TIMER3_BASE 0x71858000
 #else
-#define TIMER0_BASE 0x51858000
+#define TIMER3_BASE 0x51858000
 #endif
 #define PTS_CHAN 7
-#define PTS_END_CYCLE (*(u32 *)(TIMER0_BASE + 0x0 + PTS_CHAN * 0x14))
-#define PTS_START_CYCLE (*(u32 *)(TIMER0_BASE + 0x4 + PTS_CHAN * 0x14))
+#define PTS_END_CYCLE (*(u32 *)(TIMER3_BASE + 0x0 + PTS_CHAN * 0x14))
+#define PTS_START_CYCLE (*(u32 *)(TIMER3_BASE + 0x4 + PTS_CHAN * 0x14))
 
 static inline u32 es_sys_getcurcnt(void) { return (PTS_END_CYCLE - PTS_START_CYCLE); }
 

@@ -1088,7 +1088,6 @@ int __maybe_unused npu_resume(struct device *dev)
 		goto err_reset;
 	}
 
-
 	ret = npu_dev_deassert(ndev);
 	if (ret < 0) {
 		goto err_reset;
