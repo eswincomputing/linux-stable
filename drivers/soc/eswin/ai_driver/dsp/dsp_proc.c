@@ -73,7 +73,7 @@ static int stats_show(struct seq_file *m, void *p)
 			}
 			memcpy((void *)&perf_info, dsp->perf_reg_base, sizeof(es_dsp_perf_info));
 			seq_printf( m, "dsp%d %llu %llu\n",j*dsp_cnt + i, ktime_get_real_ns(),
-			            (perf_info.total_ran_time * 1000) /24);
+			            (perf_info.total_ran_time * 10000) / 495); // timer3 channel 7 clk 49.5MHz.
 		}
 	}
 	return 0;

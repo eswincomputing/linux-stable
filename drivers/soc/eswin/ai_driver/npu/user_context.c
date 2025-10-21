@@ -995,7 +995,6 @@ int npu_dev_open(struct inode *inode, struct file *file)
 
 	major = imajor(file->f_inode);
 	minor = iminor(file->f_inode);
-
 	npu_cdev = get_npu_dev_by_devid(major, minor);
 	if (npu_cdev == NULL) {
 		dla_error("cannot find npu device. \n");
@@ -1004,7 +1003,6 @@ int npu_dev_open(struct inode *inode, struct file *file)
 
 	ndev = npu_cdev->nvdla_dev;
 	engine = ndev->win_engine;
-
 	ret = npu_pm_get(ndev);
 	if (ret < 0) {
 		dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
