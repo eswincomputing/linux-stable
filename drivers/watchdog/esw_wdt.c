@@ -309,6 +309,7 @@ static int esw_wdt_probe(struct platform_device *pdev) {
         wdt->mbox_channel = eswin_wdt_request_channel(pdev, mbox_channel_name);
         if (wdt->mbox_channel == NULL) {
             dev_err(&pdev->dev, "eswin_wdt_request_channel: %s fail\n", mbox_channel_name);
+            ret = -EBUSY;
             goto err_misc;
         }
     } else {
@@ -354,7 +355,9 @@ err_misc:
 
 static int esw_wdt_remove(struct platform_device *pdev) {
     struct esw_wdt *wdt = platform_get_drvdata(pdev);
-
+    if (wdt == NULL) {
+        return 0;
+    }
     esw_wdt_stop(&wdt->wdd);
 
     dev_info(&pdev->dev, "Eswin watchdog driver removed\n");
@@ -364,6 +367,9 @@ static int esw_wdt_remove(struct platform_device *pdev) {
 static int esw_wdt_suspend(struct device *dev)
 {
     struct esw_wdt *wdt = dev_get_drvdata(dev);
+    if (wdt == NULL) {
+        return 0;
+    }
     dev_info(dev, "Eswin watchdog driver esw_wdt_suspend (timeout=%d sec, max_timeout=%d sec)\n", wdt->timeout, wdt->max_timeout);
     esw_wdt_stop(&wdt->wdd);
     return 0;
@@ -372,6 +378,9 @@ static int esw_wdt_suspend(struct device *dev)
 static int esw_wdt_resume(struct device *dev)
 {
     struct esw_wdt *wdt = dev_get_drvdata(dev);
+    if (wdt == NULL) {
+        return 0;
+    }
     dev_info(dev, "Eswin watchdog driver esw_wdt_resume (timeout=%d sec, max_timeout=%d sec)\n", wdt->timeout, wdt->max_timeout);
 
     esw_wdt_start(&wdt->wdd);
