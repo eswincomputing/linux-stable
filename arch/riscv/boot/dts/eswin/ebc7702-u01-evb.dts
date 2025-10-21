@@ -42,7 +42,7 @@
 / {
 	#address-cells = <2>;
 	#size-cells = <2>;
-	model = "ESWIN U2 EVB";
+	model = "ESWIN EBC7702-U01 EVB";
 	compatible = "eswin,eic7x";
 
 	aliases {
