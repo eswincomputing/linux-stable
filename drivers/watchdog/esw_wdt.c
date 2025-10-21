@@ -25,6 +25,9 @@
 #include <linux/of_platform.h>
 #include <linux/mailbox_client.h>
 #include <linux/mutex.h>
+#include <linux/notifier.h>
+#include <linux/panic_notifier.h>
+#include <linux/mailbox_controller.h>
 
 #define LPCPU_FW_LOAD_UNKNOW 0
 #define LPCPU_FW_LOAD_SUCC   0xacce55
@@ -112,6 +115,21 @@ static void eswin_wdt_tx_done(struct mbox_client *client, void *msg, int r) {
     }
 }
 
+static int wdt_send_message(struct mbox_chan *mbox_channel, u8 *msg)
+{
+	int ret;
+	ret = mbox_send_message(mbox_channel, msg);
+	if (ret < 0){
+		ret = -EAGAIN;
+		printk("Failed to send message via mailbox\r\n");
+		return ret;
+	}
+	if (mbox_channel->txdone_method & BIT(2)/*TXDONE_BY_ACK*/)
+		mbox_client_txdone(mbox_channel, 0);
+
+	return 0;
+}
+
 static int lpcpu_boot_status(struct mbox_chan *mbox_channel) {
     int ret = 0;
     u8 msg[8];
@@ -119,14 +137,8 @@ static int lpcpu_boot_status(struct mbox_chan *mbox_channel) {
     msg[1] = 0xec;
     msg[2] = 0x55;
 
-    ret = mbox_send_message(mbox_channel, msg);
-    if (ret < 0) {
-        ret = -EAGAIN;
-        printk("failed to send message via mailbox\r\n");
-        return ret;
-    }
-
-    return 0;
+    ret = wdt_send_message(mbox_channel, msg);
+    return ret;
 }
 
 static int esw_wdt_call(struct watchdog_device *wdd, enum esw_wdt_cmd call,
@@ -172,11 +184,10 @@ static int esw_wdt_call(struct watchdog_device *wdd, enum esw_wdt_cmd call,
             return -1;
     }
 
-    // printk("esw_wdt_call: mbox_send_message (call = %d)(%s)\n", call, wdt_cmd_str[call - 1]);
-    ret = mbox_send_message(mbox_channel, msg);
+    // printk("esw_wdt_call: wdt_send_message (call = %d)(%s)\n", call, wdt_cmd_str[call - 1]);
+    ret = wdt_send_message(mbox_channel, msg);
     if (ret < 0) {
         ret = -EAGAIN;
-        printk("failed to send message via mailbox\r\n");
         return ret;
     }
 
@@ -185,7 +196,7 @@ static int esw_wdt_call(struct watchdog_device *wdd, enum esw_wdt_cmd call,
 
     if (!event_timeout) {
         ret = -EBUSY;
-        printk("esw_wdt_call: mbox_send_message (call = %d)(%s) reply_event timeout\n", call, wdt_cmd_str[call - 1]);
+        printk("esw_wdt_call: wdt_send_message (call = %d)(%s) reply_event timeout\n", call, wdt_cmd_str[call - 1]);
         // return ret;
     }
     return 0;
@@ -272,6 +283,22 @@ static struct mbox_chan *eswin_wdt_request_channel(struct platform_device *pdev,
     return channel;
 }
 
+static int my_panic_handler(struct notifier_block *this,
+                             unsigned long event, void *ptr)
+{
+    if (esw_wdt_inst == NULL) {
+        return 0;
+    }
+    pr_emerg("Panic! disabling esw_wdt...\n");
+    esw_wdt_stop(&esw_wdt_inst->wdd);
+    return NOTIFY_DONE;
+}
+
+static struct notifier_block my_panic_block = {
+    .notifier_call = my_panic_handler,
+    .priority = INT_MAX,
+};
+
 static int esw_wdt_probe(struct platform_device *pdev) {
     struct esw_wdt *wdt;
     const char *mbox_channel_name;
@@ -309,6 +336,7 @@ static int esw_wdt_probe(struct platform_device *pdev) {
         wdt->mbox_channel = eswin_wdt_request_channel(pdev, mbox_channel_name);
         if (wdt->mbox_channel == NULL) {
             dev_err(&pdev->dev, "eswin_wdt_request_channel: %s fail\n", mbox_channel_name);
+            ret = -EBUSY;
             goto err_misc;
         }
     } else {
@@ -342,6 +370,8 @@ static int esw_wdt_probe(struct platform_device *pdev) {
         goto err_mbox;
     }
 
+    atomic_notifier_chain_register(&panic_notifier_list, &my_panic_block);
+
     dev_info(&pdev->dev, "Eswin watchdog driver initialized (timeout=%d sec, max_timeout=%d sec)\n",
                 wdt->timeout, wdt->max_timeout);
     return 0;
@@ -354,16 +384,33 @@ err_misc:
 
 static int esw_wdt_remove(struct platform_device *pdev) {
     struct esw_wdt *wdt = platform_get_drvdata(pdev);
-
+    if (wdt == NULL) {
+        return 0;
+    }
     esw_wdt_stop(&wdt->wdd);
 
+    atomic_notifier_chain_unregister(&panic_notifier_list, &my_panic_block);
     dev_info(&pdev->dev, "Eswin watchdog driver removed\n");
     return 0;
+}
+
+static void esw_wdt_shutdown(struct platform_device *pdev)
+{
+    struct esw_wdt *wdt = platform_get_drvdata(pdev);
+    if (wdt == NULL) {
+        return;
+    }
+    dev_info(&pdev->dev, "Eswin watchdog driver esw_wdt_shutdown (timeout=%d sec, max_timeout=%d sec)\n", wdt->timeout, wdt->max_timeout);
+    esw_wdt_stop(&wdt->wdd);
+    return;
 }
 
 static int esw_wdt_suspend(struct device *dev)
 {
     struct esw_wdt *wdt = dev_get_drvdata(dev);
+    if (wdt == NULL) {
+        return 0;
+    }
     dev_info(dev, "Eswin watchdog driver esw_wdt_suspend (timeout=%d sec, max_timeout=%d sec)\n", wdt->timeout, wdt->max_timeout);
     esw_wdt_stop(&wdt->wdd);
     return 0;
@@ -372,6 +419,9 @@ static int esw_wdt_suspend(struct device *dev)
 static int esw_wdt_resume(struct device *dev)
 {
     struct esw_wdt *wdt = dev_get_drvdata(dev);
+    if (wdt == NULL) {
+        return 0;
+    }
     dev_info(dev, "Eswin watchdog driver esw_wdt_resume (timeout=%d sec, max_timeout=%d sec)\n", wdt->timeout, wdt->max_timeout);
 
     esw_wdt_start(&wdt->wdd);
@@ -391,6 +441,7 @@ MODULE_DEVICE_TABLE(of, esw_wdt_of_match);
 static struct platform_driver esw_wdt_driver = {
     .probe = esw_wdt_probe,
     .remove = esw_wdt_remove,
+    .shutdown = esw_wdt_shutdown,
     .driver = {
         .name = "win2030-wdt",
         .of_match_table = esw_wdt_of_match,
