@@ -345,9 +345,8 @@ static int es_drm_bind(struct device *dev)
 	}
 	DRM_INFO("drm dev is on die%d\n", id);
 	priv->die_id = id;
-#ifdef CONFIG_ESWIN_MMU
+
 	priv->mmu_constructed = false;
-#endif
 
 	if (drm_dev->unique) {
 		sprintf(drm_dev->unique, "%d", id);
