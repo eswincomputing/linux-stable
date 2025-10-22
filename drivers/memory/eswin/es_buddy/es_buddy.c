@@ -35,6 +35,7 @@ static void es_buddy_system_init(struct mem_block *memblock,
 
 	es_spin_lock_init(&memblock->esLock);
 	buddy_system_init(memblock, start_page, start_addr, page_num);
+	memblock->used_peak_page_num = 0;
 }
 
 struct page *es_alloc_pages(struct mem_block *memblock,
@@ -44,6 +45,7 @@ struct page *es_alloc_pages(struct mem_block *memblock,
 	struct page *kpage;
 	struct mem_zone *zone = &memblock->zone;
 	unsigned long page_idx;
+	s64 cur_used_page_num;
 
 	es_spin_lock(&memblock->esLock);
 	page = buddy_get_pages(zone, order);
@@ -59,6 +61,9 @@ struct page *es_alloc_pages(struct mem_block *memblock,
 		__SetPageHead(kpage);
 		set_compound_order(kpage, order);
 	}
+	cur_used_page_num = memblock->page_num - es_num_free_pages(memblock);
+	if (memblock->used_peak_page_num < cur_used_page_num)
+		memblock->used_peak_page_num = cur_used_page_num;
 	es_spin_unlock(&memblock->esLock);
 
 	buddy_print("%s:input order=%ld, esCompound_order(page)=%ld, kCompound_order(kpage)=%d, page_size(kpage)=0x%lx, phys_addr=0x%llx\n",

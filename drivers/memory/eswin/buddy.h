@@ -97,6 +97,7 @@ struct mem_block {
 #endif
 	struct mem_zone		zone;
 	unsigned long		page_num;
+	unsigned long		used_peak_page_num;
 	struct esPage_s		*esPagesStart;
 	struct page		*kPageStart;
 	char name[BLOCK_MAX_NAME];

@@ -1680,10 +1680,11 @@ static int mmz_vb_proc_show(es_proc_entry_t *s)
 			return -EINVAL;
 		}
 		numFreePages = es_num_free_pages(memblock);
-		es_seq_printf(s, "\tmemblock: %s, total size(0x%lx), free mem size(0x%lx)\n\r",
+		es_seq_printf(s, "\tmemblock: %s, total size(0x%lx), free mem size(0x%lx), peak used size(0x%lx)\n\r",
 				rsvmem_block->name,
 				memblock->page_num << PAGE_SHIFT,
-				numFreePages << PAGE_SHIFT);
+				numFreePages << PAGE_SHIFT,
+				memblock->used_peak_page_num << PAGE_SHIFT);
 	}
 	es_seq_printf(s, "-----POOL CONFIG-----\n\r");
 	ret = idr_for_each(&partitions->pool_idr, mmz_vb_idr_iterate_show, s);
@@ -1695,16 +1696,52 @@ static int mmz_vb_proc_show(es_proc_entry_t *s)
 	return 0;
 }
 
+static int es_refresh_mempeak(struct mem_block *memblock, void *data)
+{
+        size_t cur_used = memblock->page_num - es_num_free_pages(memblock);
+        memblock->used_peak_page_num = cur_used;
+        dev_info(mmz_vb_dev, "memory block %s, refresh peak_page_num as cur_used 0x%lx\n",
+                memblock->name, cur_used);
+        return 0;
+}
+
+static inline void mmz_vb_proc_print_help(void)
+{
+	dev_info(mmz_vb_dev, "Useage:\n");
+	dev_info(mmz_vb_dev, "    'echo 1(or 0) > /proc/eswin/vb' to release all VB block.\n");
+	dev_info(mmz_vb_dev, "    'echo 2 > /proc/eswin/vb' to refresh uesed peak value for all reserved memory zone.\n");
+}
+
 int mmz_vb_proc_store(struct es_proc_dir_entry *entry, const char *buf,
-		int count, long long *ppos)
+		      int count, long long *ppos)
 {
 	int ret;
+	u8 val;
 
-	ret = mmz_vb_pool_exit();
-	if (0 != ret) {
-		dev_err(mmz_vb_dev, "%s %d, failed to release vb pool "
-			"when exit, ret %d\n", __func__,__LINE__, ret);
+	ret = kstrtou8_from_user(buf, count, 0, &val);
+	if (ret < 0) {
+		mmz_vb_proc_print_help();
+		return count;
 	}
+
+	switch (val) {
+	case 0:
+	case 1:
+		ret = mmz_vb_pool_exit();
+		if (0 != ret) {
+			dev_err(mmz_vb_dev,
+				"%s %d, failed to release vb pool when exit, ret %d\n",
+				__func__, __LINE__, ret);
+		}
+		break;
+	case 2:
+		eswin_rsvmem_for_each_block(es_refresh_mempeak, NULL);
+		break;
+	default:
+		mmz_vb_proc_print_help();
+		break;
+	}
+
 	return count;
 }
 
