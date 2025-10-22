@@ -195,7 +195,7 @@ static int npu_stat_show(struct seq_file *m, void *p)
 	emission_node_t *pemission_node;
 	u64 total_hwexec_time = 0;
 	u32 frame_start = 0;
-	u64 gap_adjust = 0 ;
+	u64 gap_adjust = 0, delta_frame = 0;
 	u32 curr_rtc = 0;
 	uint64_t start_stat_time = ktime_get_real_ns();
 	int ret;
@@ -221,10 +221,11 @@ static int npu_stat_show(struct seq_file *m, void *p)
 		{
 			curr_rtc = get_perf_timer_cnt(i);
 			if(curr_rtc > frame_start) {
-				gap_adjust = (curr_rtc - frame_start) * 10000 / 495; // timer3 channel 7 clk 49.5MHz.
+				delta_frame = (curr_rtc - frame_start);
 			} else {
-				gap_adjust = (-1U - frame_start + curr_rtc) * 10000 / 495;
+				delta_frame = (-1U - frame_start + curr_rtc);
 			}
+			gap_adjust = delta_frame * 10000 / 495; // timer3 channel 7 clk 49.5MHz.
 		}
 
 		seq_printf(m, "npu%d %llu %llu %llu %llu\n",i, start_stat_time,
