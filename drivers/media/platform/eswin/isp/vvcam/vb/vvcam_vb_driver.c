@@ -300,7 +300,6 @@ static int vvcam_vb_probe(struct platform_device *pdev)
     {
         while (wait_time < 20000) {
             sensor_dev = bus_find_device_by_of_node(&i2c_bus_type, sensor_np);
-            of_node_put(sensor_np);
             if (sensor_dev) {
                 sd = dev_get_drvdata(sensor_dev);
                 put_device(sensor_dev);
@@ -313,7 +312,9 @@ static int vvcam_vb_probe(struct platform_device *pdev)
             wait_time += 1000;
         }
     }
-
+    of_node_put(sensor_np);
+    sensor_np = NULL;
+    
     vb_dev = devm_kzalloc(&pdev->dev,
                 sizeof(struct vvcam_vb_dev), GFP_KERNEL);
     if (!vb_dev)
