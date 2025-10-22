@@ -431,7 +431,7 @@
 	temperature = <70000>;
 };
 &d0_trip_crit {
-	temperature = <80000>;
+	temperature = <75000>;
 };
 
 &d0_clock {
