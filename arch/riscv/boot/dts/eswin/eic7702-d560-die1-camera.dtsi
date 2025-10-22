@@ -448,7 +448,7 @@
 };
 
 &d1_isp_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &d1_isp_1 {
