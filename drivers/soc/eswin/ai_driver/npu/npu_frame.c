@@ -325,13 +325,16 @@ void npu_frame_done_process(struct host_frame_desc *f)
 	struct win_executor *executor = f->executor;
 	struct win_engine *engine = executor->engine;
 	unsigned long flags;
+	if(f->sync_flag){
+		complete(&f->synctask_comp);
+	} else {
+		spin_lock_irqsave(&engine->complete_lock, flags);
+		list_add_tail(&f->complete_entry, &engine->frame_complete_list);
+		spin_unlock_irqrestore(&engine->complete_lock, flags);
 
-	spin_lock_irqsave(&engine->complete_lock, flags);
-	list_add_tail(&f->complete_entry, &engine->frame_complete_list);
-	spin_unlock_irqrestore(&engine->complete_lock, flags);
-
-	if (!work_pending(&engine->complete_work)) {
-		queue_work(system_highpri_wq, &engine->complete_work);
+		if (!work_pending(&engine->complete_work)) {
+			queue_work(system_highpri_wq, &engine->complete_work);
+		}
 	}
 	npu_frame_schedule(engine);
 }
