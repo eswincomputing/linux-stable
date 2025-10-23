@@ -434,6 +434,16 @@
 	temperature = <75000>;
 };
 
+&d1_trip_threshold {
+	temperature = <60000>;
+};
+&d1_trip_target {
+	temperature = <70000>;
+};
+&d1_trip_crit {
+	temperature = <75000>;
+};
+
 &d0_clock {
 	status = "okay";
 	pinctrl-names = "default";
@@ -1229,6 +1239,11 @@
 &d1_aon_i2c0 {
 	status = "disabled";
 };
+
+&d0_aon_i2c1 {
+	status = "disabled";
+};
+
 &d1_aon_i2c1 {
 	status = "disabled";
 };
