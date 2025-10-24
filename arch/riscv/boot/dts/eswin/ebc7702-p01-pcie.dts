@@ -387,12 +387,17 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die1_gpio68_default>;
+		pinctrl-0 = <&pinctrl_die1_gpio68_default>, <&pinctrl_die0_gpio68_default>;
 
 		gpio-68 {
 			gpios = <&d1_portc 4 GPIO_ACTIVE_LOW>;
 			label = "heartbeat";
 			linux,default-trigger = "heartbeat";
+		};
+		power {
+			label = "Power";
+			gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "default-on";
 		};
 	};
 	reg_vcc1v8: vcc1v8 {
