@@ -622,6 +622,7 @@
 				<&d0_reset NPU_RST_CTRL SW_NPU_LLC_RSTN>;
 			reset-names = "axi", "cfg", "core", "llc";
 			numa-node-id = <0>;
+			tbus = <WIN2030_TBUID_NPU>;
 			spram-region = <&npu0_reserved>;
 		};
 

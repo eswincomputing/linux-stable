@@ -2316,7 +2316,7 @@ static int win2030_noc_remove(struct platform_device *pdev)
 	kfree(noc_device->prof);
 	return 0;
 }
-#ifdef CONFIG_PM
+
 static int noc_resume(struct device *dev)
 {
 	struct win2030_noc_device *noc_device = dev_get_drvdata(dev);
@@ -2347,13 +2347,8 @@ static int noc_suspend(struct device *dev)
 
 	return 0;
 }
-static const struct dev_pm_ops win2030_noc_driver_pm_ops = {
 
-	.suspend = noc_suspend,
-	.resume = noc_resume,
-
-};
-#endif
+static DEFINE_SIMPLE_DEV_PM_OPS(win2030_noc_driver_pm_ops, noc_suspend, noc_resume);
 
 static struct platform_driver win2030_noc_driver = {
 	.probe = win2030_noc_probe,
@@ -2361,9 +2356,7 @@ static struct platform_driver win2030_noc_driver = {
 	.driver = {
 		.name = "win2030-noc",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
-		.pm = &win2030_noc_driver_pm_ops,
-#endif
+		.pm = pm_sleep_ptr(&win2030_noc_driver_pm_ops),
 		.of_match_table = of_match_ptr(win2030_noc_of_match),},
 };
 
