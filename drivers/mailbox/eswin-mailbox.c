@@ -28,6 +28,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/mailbox/eswin-mailbox.h>
+#include <dt-bindings/mailbox/eswin-mailbox.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/pm_runtime.h>
@@ -79,6 +80,28 @@ struct eswin_mbox {
 	bool wakeup_source;
 };
 
+/*
+  0  sucess
+ -1 fail
+*/
+static int eswin_mbox_lock_channel(struct mbox_chan *chan)
+{
+	struct eswin_mbox *mb = dev_get_drvdata(chan->mbox->dev);
+	int ret = 0;
+
+	regmap_clear_bits(mb->map, ESWIN_MBOX_WR_LOCK, 0xfff);
+	regmap_set_bits(mb->map, ESWIN_MBOX_WR_LOCK, mb->lock_bit);
+	if (regmap_test_bits(mb->map, ESWIN_MBOX_WR_LOCK, mb->lock_bit)) {
+		/* Successfully write the occupancy flag bit, indicating successful occupancy */
+		ret = 0;
+		dev_dbg(mb->mbox.dev, "eswin_mbox_lock_channel lock_bit 0x%x, ret: %d\n", mb->lock_bit, ret);
+	} else {
+		ret = -1;
+		dev_err(mb->mbox.dev, "eswin_mbox_lock_channel fail lock_bit 0x%x, ret: %d\n", mb->lock_bit, ret);
+	}
+	return ret;
+}
+
 static int eswin_mbox_send_data(struct mbox_chan *chan, void *data)
 {
 	u32 tmp_data;
@@ -94,14 +117,21 @@ static int eswin_mbox_send_data(struct mbox_chan *chan, void *data)
 	if (regmap_test_bits(mb->map, ESWIN_MBOX_FIFO_STATUS, BIT_ULL(0))) {
 		return -EBUSY;
 	}
+	regmap_clear_bits(mb->map, ESWIN_MBOX_INT_CTRL, ESWIN_MAIBOX_U84_IRQ_BIT);
+	while (1) {
+		// TX FIFO empty?
+		if ((eswin_mbox_lock_channel(chan) == 0)
+			&& (regmap_test_bits(mb->map, ESWIN_MBOX_FIFO_STATUS, BIT_ULL(1)))) {
+			tmp_data = (u32)msg->data;
+			regmap_write(mb->map, ESWIN_MBOX_WR_DATA0, tmp_data);
 
-	tmp_data = (u32)msg->data;
-	regmap_write(mb->map, ESWIN_MBOX_WR_DATA0, tmp_data);
-
-	tmp_data = (u32)(msg->data >> 32) | BIT(31);
-	regmap_write(mb->map, ESWIN_MBOX_WR_DATA1, tmp_data);
-	// Write interrupt enable bit.
-	regmap_set_bits(mb->map, ESWIN_MBOX_INT_CTRL, mb->irq_bit);
+			tmp_data = (u32)(msg->data >> 32) | BIT(31);
+			regmap_write(mb->map, ESWIN_MBOX_WR_DATA1, tmp_data);
+			// Write interrupt enable bit.
+			regmap_set_bits(mb->map, ESWIN_MBOX_INT_CTRL, mb->irq_bit);
+			break;
+		}
+	}
 	return 0;
 }
 
@@ -119,8 +149,7 @@ static int eswin_mbox_startup(struct mbox_chan *chan)
 	ret = regmap_set_bits(mb->map, ESWIN_MBOX_WR_LOCK, mb->lock_bit);
 
 	/* Successfully write the occupancy flag bit, indicating successful occupancy */
-	dev_dbg(mb->mbox.dev, "start, ret %d, lock_bit 0x%x\n", ret,
-		mb->lock_bit);
+	dev_dbg(mb->mbox.dev, "start, regmap_set_bits lock_bit 0x%x, ret: %d\n", mb->lock_bit, ret);
 	return ret;
 }
 
@@ -129,6 +158,7 @@ static void eswin_mbox_shutdown(struct mbox_chan *chan)
 	struct eswin_mbox *mb = dev_get_drvdata(chan->mbox->dev);
 	int ret;
 
+	dev_dbg(mb->mbox.dev, "shutdown, regmap_clear_bits lock_bit 0x%x\n", mb->lock_bit);
 	ret = regmap_clear_bits(mb->map, ESWIN_MBOX_WR_LOCK, mb->lock_bit);
 	if (0 != ret)
 		dev_err(mb->mbox.dev, "failed to shutdown mailbox\n");
@@ -377,14 +407,18 @@ static int eswin_mbox_prepare_clk(struct device *dev, bool enable)
 			dev_err(dev, "failed to enable host mailbox pclk: %d\n", ret);
 			return ret;
 		}
-		ret = clk_prepare_enable(mb->pclk_device);
-		if (ret) {
-			dev_err(dev, "failed to enable device mailbox pclk: %d\n", ret);
-			return ret;
+		if (mb->pclk_device) {
+			ret = clk_prepare_enable(mb->pclk_device);
+			if (ret) {
+				dev_err(dev, "failed to enable device mailbox pclk: %d\n", ret);
+				return ret;
+			}
 		}
 	} else {
 		clk_disable_unprepare(mb->pclk);
-		clk_disable_unprepare(mb->pclk_device);
+		if (mb->pclk_device) {
+			clk_disable_unprepare(mb->pclk_device);
+		}
 	}
 	return ret;
 }
@@ -395,6 +429,7 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	const struct eswin_mbox_data *drv_data;
 	struct resource *res;
+	struct resource *rx_res;
 	int ret, irq, i;
 	bool wakeup_source;
 
@@ -452,13 +487,17 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 	if (IS_ERR(mb->mbox_base))
 		return PTR_ERR(mb->mbox_base);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res)
+	rx_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!rx_res)
 		return -ENODEV;
 
-	mb->mbox_rx_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(mb->mbox_rx_base))
-		return PTR_ERR(mb->mbox_rx_base);
+	if (rx_res->start != res->start) {
+		mb->mbox_rx_base = devm_ioremap_resource(&pdev->dev, rx_res);
+		if (IS_ERR(mb->mbox_rx_base))
+			return PTR_ERR(mb->mbox_rx_base);
+	} else {
+		mb->mbox_rx_base = mb->mbox_base;
+	}
 
 	mb->pclk = devm_clk_get(&pdev->dev, "pclk_mailbox_host");
 	if (IS_ERR(mb->pclk)) {
@@ -468,12 +507,12 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	mb->pclk_device = devm_clk_get(&pdev->dev, "pclk_mailbox_device");
-	if (IS_ERR(mb->pclk_device)) {
-		ret = PTR_ERR(mb->pclk_device);
-		dev_err(&pdev->dev, "failed to get device mailbox clock: %d\n",
-			ret);
-		return ret;
+	mb->pclk_device = devm_clk_get_optional(&pdev->dev, "pclk_mailbox_device");
+	if (IS_ERR_OR_NULL(mb->pclk_device)) {
+		dev_warn(&pdev->dev, "failed to get device mailbox clock: %d\n", mb->pclk_device ? PTR_ERR(mb->pclk_device) : 0);
+		if (mb->pclk_device) {
+			return PTR_ERR(mb->pclk_device);
+		}
 	}
 	eswin_mbox_prepare_clk(&pdev->dev, true);
 
@@ -484,9 +523,14 @@ static int eswin_mbox_probe(struct platform_device *pdev)
 
 	mb->rst_device = devm_reset_control_get_optional_exclusive(
 		&pdev->dev, "rst_device");
-	if (IS_ERR(mb->rst_device))
-		return PTR_ERR(mb->rst_device);
-	reset_control_reset(mb->rst_device);
+	if (IS_ERR_OR_NULL(mb->rst_device)) {
+		dev_warn(&pdev->dev, "failed to get rst_device: %d\n", mb->rst_device ? PTR_ERR(mb->rst_device) : 0);
+		if (mb->rst_device) {
+			return PTR_ERR(mb->rst_device);
+		}
+	} else {
+		reset_control_reset(mb->rst_device);
+	}
 
 	for (i = 0; i < mb->mbox.num_chans; i++) {
 		irq = platform_get_irq(pdev, i);
@@ -537,8 +581,10 @@ static int eswin_mbox_remove(struct platform_device *pdev)
 
 	ret = reset_control_assert(mb->rst);
 	WARN_ON(ret != 0);
-	ret = reset_control_assert(mb->rst_device);
-	WARN_ON(ret != 0);
+	if (mb->rst_device) {
+		ret = reset_control_assert(mb->rst_device);
+		WARN_ON(ret != 0);
+	}
 	return 0;
 }
 
