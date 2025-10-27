@@ -78,6 +78,7 @@ static int vvcam_isp_lsc_s_ctrl(struct v4l2_ctrl *ctrl)
         case VVCAM_ISP_CID_LSC_MANU_X_SIZE_TBL:
         case VVCAM_ISP_CID_LSC_MANU_Y_SIZE_TBL:
         case VVCAM_ISP_CID_LSC_MANU_DATA_TBL:
+        case VVCAM_ISP_CID_LSC_REG:
             ret = vvcam_isp_s_ctrl_event(isp_dev, isp_dev->ctrl_pad, ctrl);
             break;
 
@@ -111,6 +112,7 @@ static int vvcam_isp_lsc_g_ctrl(struct v4l2_ctrl *ctrl)
         case VVCAM_ISP_CID_LSC_STAT_X_SIZE_TBL:
         case VVCAM_ISP_CID_LSC_STAT_Y_SIZE_TBL:
         case VVCAM_ISP_CID_LSC_STAT_DATA_TBL:
+        case VVCAM_ISP_CID_LSC_REG:
             ret = vvcam_isp_g_ctrl_event(isp_dev, isp_dev->ctrl_pad, ctrl);
             break;
 
@@ -287,6 +289,17 @@ const struct v4l2_ctrl_config vvcam_isp_lsc_ctrls[] = {
         .max  = 16383,
         .def  = 1024,
         .dims = {4, 33, 33, 0},
+    },
+    {
+        .ops  = &vvcam_isp_lsc_ctrl_ops,
+        .id   = VVCAM_ISP_CID_LSC_REG,
+        .type = V4L2_CTRL_TYPE_U32,
+        .flags= V4L2_CTRL_FLAG_VOLATILE,
+        .name = "isp_lsc_reg",
+        .step = 1,
+        .min  = 0,
+        .max  = 0xFFFFFFFF,
+        .dims = {1, 0, 0, 0},
     },
 };
 

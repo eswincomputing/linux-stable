@@ -72,6 +72,7 @@
 #define VVCAM_ISP_CID_LSC_STAT_X_SIZE_TBL   (VVCAM_ISP_CID_LSC_BASE + 0x000B)
 #define VVCAM_ISP_CID_LSC_STAT_Y_SIZE_TBL   (VVCAM_ISP_CID_LSC_BASE + 0x000C)
 #define VVCAM_ISP_CID_LSC_STAT_DATA_TBL     (VVCAM_ISP_CID_LSC_BASE + 0x000D)
+#define VVCAM_ISP_CID_LSC_REG               (VVCAM_ISP_CID_LSC_BASE + 0x000E) //zzxx
 
 #ifdef __KERNEL__
 int vvcam_isp_lsc_ctrl_count(void);

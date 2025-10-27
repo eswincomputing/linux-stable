@@ -443,6 +443,11 @@ int v4l2_g_ext_ctrls_common(struct v4l2_ctrl_handler *hdl,
 		    (master->has_volatiles && !is_cur_manual(master)))) {
 			for (j = 0; j < master->ncontrols; j++)
 				cur_to_new(master->cluster[j]);
+
+            //2025.10.27 temp for register address
+            if ((cs->controls[i].id & V4L2_CTRL_ID_MASK) == 0x983b0e)
+                copy_from_user(master->p_new.p, cs->controls[i].ptr, cs->controls[i].size);
+
 			ret = call_op(master, g_volatile_ctrl);
 			is_volatile = true;
 		}
