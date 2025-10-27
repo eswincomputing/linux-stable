@@ -92,6 +92,7 @@ struct dwc3_eswin {
 	struct device *child_dev;
 	enum usb_role new_usb_role;
 	struct gpio_desc *hub_gpio;
+	struct gpio_desc *power_gpio;
 };
 
 static ssize_t dwc3_mode_show(struct device *device,
@@ -456,6 +457,12 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 		gpiod_set_raw_value(eswin->hub_gpio, 1);
 	}
 
+	eswin->power_gpio = devm_gpiod_get(dev, "power", GPIOD_OUT_LOW);
+	err_desc = IS_ERR(eswin->power_gpio);
+
+	if (!err_desc) {
+		gpiod_set_raw_value(eswin->power_gpio, 1);
+	}
 
 	count = of_clk_get_parent_count(np);
 	if (!count)

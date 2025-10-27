@@ -339,13 +339,13 @@
 					function = "i2s2_func";
 				};
 			};
-            pinctrl_die0_usb0_pwren_default: usb0_pwren-default{
+            pinctrl_usb0_pwren_default: pinctrl_die0_usb0_pwren_default: usb0_pwren-default{
 				mux {
 					groups = "usb0_pwren_group";
 					function = "usb0_pwren_func";
 				};
 			};
-            pinctrl_die0_usb1_pwren_default: usb1_pwren-default{
+            pinctrl_usb1_pwren_default: pinctrl_die0_usb1_pwren_default: usb1_pwren-default{
 				mux {
 					groups = "usb1_pwren_group";
 					function = "usb1_pwren_func";
@@ -958,7 +958,7 @@
 					function = "gpio41_func";
 				};
 			};
-            pinctrl_die0_gpio42_default: gpio42-default{
+            pinctrl_gpio42_default: pinctrl_die0_gpio42_default: gpio42-default{
 				mux {
 					groups = "gpio42_group";
 					function = "gpio42_func";
@@ -969,7 +969,7 @@
 					bias-pull-down = <1>;
 				};
 			};
-            pinctrl_die0_gpio43_default: gpio43-default{
+            pinctrl_gpio43_default: pinctrl_die0_gpio43_default: gpio43-default{
 				mux {
 					groups = "gpio43_group";
 					function = "gpio43_func";
