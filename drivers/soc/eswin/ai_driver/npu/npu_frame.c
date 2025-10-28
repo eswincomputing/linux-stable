@@ -325,7 +325,7 @@ void npu_frame_done_process(struct host_frame_desc *f)
 	struct win_executor *executor = f->executor;
 	struct win_engine *engine = executor->engine;
 	unsigned long flags;
-	if(f->sync_flag){
+	if(f->sync_flag && f->sync_event_id != -1){
 		complete(&f->synctask_comp);
 	} else {
 		spin_lock_irqsave(&engine->complete_lock, flags);
