@@ -991,46 +991,10 @@
 };
 
 &d0_i2c1 {
-	/* d0 npu pmic */
-	status = "okay";
-	tps549d22@10 {
-		compatible = "ti,tps549d22";
-		reg = <0x10>;
-		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage";
-		label = "npu_vdd";
-		regulators{
-			d0_npu_vcc:npu_svcc{
-				regulator-name="D0_NPU_SVCC";
-				regulator-min-microvolt=<700000>;
-				regulator-max-microvolt=<1100000>;
-				regulator-min-microamp=<20000000>;
-				regulator-max-microamp=<40000000>;
-				regulator-ov-protection-microvolt=<1100000>;
-			};
-		};
-	};
+	status = "disabled";
 };
 &d1_i2c1 {
-	/* d1 npu pmic */
-	status = "okay";
-	tps549d22@10 {
-		compatible = "ti,tps549d22";
-		reg = <0x10>;
-		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage";
-		label = "d1_npu_vdd";
-		regulators{
-			d1_npu_vcc:npu_svcc{
-				regulator-name="D1_NPU_SVCC";
-				regulator-min-microvolt=<700000>;
-				regulator-max-microvolt=<1100000>;
-				regulator-min-microamp=<20000000>;
-				regulator-max-microamp=<40000000>;
-				regulator-ov-protection-microvolt=<1100000>;
-			};
-		};
-	};
+	status = "disabled";
 };
 
 &d0_i2c2 {
@@ -1102,7 +1066,25 @@
 	status = "disabled";
 };
 &d0_aon_i2c1 {
-        status = "disabled";
+	/* d0 npu pmic */
+	status = "okay";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
+		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage";
+		label = "npu_vdd";
+		regulators{
+			d0_npu_vcc:npu_svcc{
+				regulator-name="D0_NPU_SVCC";
+				regulator-min-microvolt=<700000>;
+				regulator-max-microvolt=<1100000>;
+				regulator-min-microamp=<20000000>;
+				regulator-max-microamp=<40000000>;
+				regulator-ov-protection-microvolt=<1100000>;
+			};
+		};
+	};
 };
 
 
@@ -1110,7 +1092,25 @@
 	status = "disabled";
 };
 &d1_aon_i2c1 {
-	status = "disabled";
+	/* d1 npu pmic */
+	status = "okay";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
+		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "Supply VDD1", "D1 NPU Voltage";
+		label = "d1_npu_vdd";
+		regulators{
+			d1_npu_vcc:npu_svcc{
+				regulator-name="D1_NPU_SVCC";
+				regulator-min-microvolt=<700000>;
+				regulator-max-microvolt=<1100000>;
+				regulator-min-microamp=<20000000>;
+				regulator-max-microamp=<40000000>;
+				regulator-ov-protection-microvolt=<1100000>;
+			};
+		};
+	};
 };
 
 &pwm0 {
