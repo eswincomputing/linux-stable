@@ -1,0 +1,267 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+		target =  <&camera_imx219>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target =  <&camera_imx219_1>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+    fragment@2 {
+		target =  <&d1_camera_imx219>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target =  <&d1_camera_imx219_1>;
+		__overlay__ { 
+			status = "disabled";
+		};
+	};
+
+	fragment@4 { 
+		target = <&mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx415_out0>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@5 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx415_out1>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@6 {
+		target = <&d1_mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&d1_imx415_out0>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@7 {
+		target = <&d1_mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&d1_imx415_out1>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@8 {
+		target = <&csi2_dphy0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@9 {
+		target = <&csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@10 {
+		target = <&d1_csi2_dphy0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@11 {
+		target = <&d1_csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@12 {
+		target = <&d0_i2c3>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx415_0: imx415@37 {
+				compatible = "sony,imx415";
+				reg = <0x37>;
+				clock-names="inck";
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				reset-gpio = <&portc 8 0>;
+                eswin,camera-hdr-mode = <2>;
+				status = "okay";
+				port {
+					imx415_out0: endpoint {
+						remote-endpoint = <&mipidphy0_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <742500000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@13 {
+		target = <&d0_i2c4>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx415_1: imx415@37 {
+				compatible = "sony,imx415";
+				reg = <0x37>;
+				clock-names="inck";
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				reset-gpio = <&portc 14 0>;
+                eswin,camera-hdr-mode = <2>;
+				status = "okay";
+				port {
+					imx415_out1: endpoint {
+						remote-endpoint = <&mipidphy2_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <742500000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@14 {
+		target = <&d1_i2c3>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			d1_imx415_0: imx415@37 {
+				compatible = "sony,imx415";
+				reg = <0x37>;
+				clock-names="inck";
+				clocks = <&d1_clock 0x244>;
+				assigned-clocks = <&d1_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				reset-gpio = <&d1_portc 8 0>;
+                eswin,camera-hdr-mode = <2>;
+				status = "okay";
+				port {
+					d1_imx415_out0: endpoint {
+						remote-endpoint = <&d1_mipidphy0_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <742500000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@15 {
+		target = <&d1_i2c4>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			d1_imx415_1: imx415@37 {
+				compatible = "sony,imx415";
+				reg = <0x37>;
+				clock-names="inck";
+				clocks = <&d1_clock 0x244>;
+				assigned-clocks = <&d1_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				reset-gpio = <&d1_portc 14 0>;
+                eswin,camera-hdr-mode = <2>;
+				status = "okay";
+				port {
+					d1_imx415_out1: endpoint {
+						remote-endpoint = <&d1_mipidphy2_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <742500000>;
+					};
+				};
+			};
+		};
+	};
+
+    fragment@16 {
+		target = <&mipi_csi2_0>;
+		__overlay__ {
+			eswin,csi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@17 {
+		target = <&mipi_csi2_2>;
+		__overlay__ {
+			eswin,csi-hdr-mode = <2>;
+		};
+	};
+
+    fragment@18 {
+		target = <&d1_mipi_csi2_0>;
+		__overlay__ {
+			eswin,csi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@19 {
+		target = <&d1_mipi_csi2_2>;
+		__overlay__ {
+			eswin,csi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@20 {
+		target = <&dvp2axi_mipi_lvds0>;
+		__overlay__ {
+			eswin,dvp2axi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@21 {
+		target = <&dvp2axi_mipi_lvds1>;
+		__overlay__ {
+			eswin,dvp2axi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@22 {
+		target = <&dvp2axi_mipi_lvds2>;
+		__overlay__ {
+			eswin,dvp2axi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@23 {
+		target = <&d1_dvp2axi_mipi_lvds0>;
+		__overlay__ {
+			eswin,dvp2axi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@24 {
+		target = <&d1_dvp2axi_mipi_lvds1>;
+		__overlay__ {
+			eswin,dvp2axi-hdr-mode = <2>;
+		};
+	};
+
+	fragment@25 {
+		target = <&d1_dvp2axi_mipi_lvds2>;
+		__overlay__ {
+			eswin,dvp2axi-hdr-mode = <2>;
+		};
+	};
+};
+

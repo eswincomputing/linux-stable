@@ -98,7 +98,7 @@
 &d0_usbdrd3_1 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio14_default>;
+	pinctrl-0 = <&pinctrl_die0_usb1_pwren_default>, <&pinctrl_die0_gpio14_default>;
 	hub-rst-gpios = <&porta 14 GPIO_ACTIVE_HIGH>;
 };
 
@@ -297,11 +297,10 @@
 
 &fan_control {
 	status = "okay";
+	vcc-gpios = <&porta 18 GPIO_ACTIVE_LOW>;
 };
 
 &d1_fan_control {
-	pinctrl-0 = <&pinctrl_die1_fan_tach_default &pinctrl_die1_pwm0_default
-				&pinctrl_die1_pwm1_default &pinctrl_die1_pwm2_default>;
 	status = "okay";
 	fan-0 {
 		label = "d1_fan";
@@ -382,7 +381,8 @@
 		compatible = "fcs,fusb303b";
 		status = "okay";
 		reg = <0x21>;
-		eswin,syscfg = <&d1_sys_con 0x3C0 12>;
+		// Do not clear gpio_sel bit, gpio0-7 interrupts should be routed to lpcpu
+		// eswin,syscfg = <&d1_sys_con 0x3C0 12>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_die1_gpio30_default>;
@@ -467,7 +467,7 @@
 	/* pin header */
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio6_default &pinctrl_die0_gpio12_default &pinctrl_die0_gpio39_default 
+	pinctrl-0 = <&pinctrl_die0_gpio6_default &pinctrl_die0_gpio12_default &pinctrl_die0_gpio39_default
 				&pinctrl_die0_gpio40_default &pinctrl_die0_gpio41_default &pinctrl_die0_gpio46_default
 				&pinctrl_die0_gpio47_default &pinctrl_die0_gpio73_default &pinctrl_die0_gpio74_default
 				&pinctrl_die0_gpio75_default &pinctrl_die0_gpio81_default>;
