@@ -175,7 +175,6 @@
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
-		pinctrl-0 = <&pinctrl_die0_pwm2_default>;
 		pwms = <&pwm0 2 200000 PWM_POLARITY_INVERTED>;
 		power-supply = <&backlight_regulator>;
 		status = "okay";
