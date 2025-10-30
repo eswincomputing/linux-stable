@@ -301,7 +301,7 @@ void dla_rubik_dump_config(struct dla_processor_group *group)
 }
 
 int dla_rubik_prepare_prog_data(struct win_executor *executor, int rdma,
-				int tensor_idx, u16 op_idx,
+				int tensor_idx, u32 op_idx,
 				union dla_operation_container *operation_desc,
 				union dla_surface_container *surface_desc)
 {

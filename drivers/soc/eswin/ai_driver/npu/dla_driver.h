@@ -36,7 +36,7 @@
 #include "dla_interface.h"
 #include "hetero_common.h"
 
-#define NPU_VERSION "1.0.0"
+#define NPU_VERSION "1.1.0"
 
 struct npu_freq_param {
 	struct clk *npu_clk_parent;

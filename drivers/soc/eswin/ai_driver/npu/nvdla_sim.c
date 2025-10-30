@@ -74,7 +74,7 @@ struct npu_op_done_info {
 };
 
 extern void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
-				       u16 op_index, u32 hw_error);
+				       u32 op_index, u32 hw_error);
 
 static struct npu_op_done_info op_done_info[NUM_OP_TYPE];
 
@@ -393,7 +393,7 @@ static long npu_ioctl_event_sink_done(struct nvdla_device *nvdla_dev, void *arg)
 	// int i;
 	// struct npu_op_done_info *info = NULL;
 	msg_payload_t payload;
-	u16 op_index;
+	u32 op_index;
 	u32 tiktok;
 
 	if (copy_from_user(&payload, (u32 __user *)arg,

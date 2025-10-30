@@ -148,7 +148,7 @@ struct npu_cma_info {
 
 struct npu_op_dump_list {
     u16 size;
-    u16 *op_idx_list;
+    u32 *op_idx_list;
     char path[64];
     u32 prcess_id;
     u16 model_id;
@@ -161,7 +161,7 @@ typedef struct _kmd_dump_info {
     u32 model_id;
     u16 is_dump_enable;
     u16 list_size;
-    u16 *op_idx_list;
+    u32 *op_idx_list;
 } kmd_dump_info_t __attribute__((aligned(sizeof(u32))));
 
 enum kmd_dump_status {

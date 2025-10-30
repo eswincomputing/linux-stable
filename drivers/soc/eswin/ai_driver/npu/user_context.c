@@ -38,8 +38,7 @@
 #include "dla_buffer.h"
 #include "hetero_arch.h"
 #include "hetero_host.h"
-extern void handle_perf_switch(struct nvdla_device *ndev, bool enable);
-extern int get_perf_data(struct nvdla_device *ndev, void *buf);
+#include "nvdla_interface.h"
 
 static int setup_model_task(struct user_model *model)
 {
@@ -49,25 +48,18 @@ static int setup_model_task(struct user_model *model)
 
 	network = model->network;
 	task = &model->task;
-	ret = dla_data_get_vaddr(&model->mem_handles,
-				 network->dependency_graph_index,
-				 (void **)&task->common_desc);
+	ret = dla_data_get_vaddr(&model->mem_handles, get_network_dep_idx(network), (void **)&task->common_desc);
 	if (ret < 0) {
 		dla_error("err:get network vaddr failed!\n");
 		return ret;
 	}
-
-	ret = dla_data_get_vaddr(&model->mem_handles,
-				 network->operation_desc_index,
-				 (void **)&task->op_desc);
+	ret = dla_data_get_vaddr(&model->mem_handles, get_network_opdesc_idx(network), (void **)&task->op_desc);
 	if (ret < 0) {
 		dla_error("err:get op_desc vaddr failed!\n");
 		return ret;
 	}
 
-	ret = dla_data_get_vaddr(&model->mem_handles,
-				 network->surface_desc_index,
-				 (void **)&task->surface_desc);
+	ret = dla_data_get_vaddr(&model->mem_handles, get_network_surf_idx(network), (void **)&task->surface_desc);
 	if (ret < 0) {
 		dla_error("err: surface_desc read failed\n");
 		return ret;
@@ -149,10 +141,11 @@ err_dmabuf_bobj:
 
 static int npu_check_model_version(struct user_model *model)
 {
-	if (model->network->version.major_version != NPU_INTERFACE_MAJOR_VERSION ||
-	    model->network->version.minor_version != NPU_INTERFACE_MINOR_VERSION ||
-	    model->network->version.subminor_version != NPU_INTERFACE_SUBMINOR_VERSION) {
-		dla_error("error:model's version(%d.%d.%d) not equal npu interface version(%d.%d.%d)\n",
+	struct npu_version *pver = &model->network->version;
+	u32 mode_ver = pver->subminor_version | pver->minor_version << 8 | pver->major_version << 16;
+	u32 rt_ver = NPU_INTERFACE_SUBMINOR_VERSION | NPU_INTERFACE_MINOR_VERSION << 8 | NPU_INTERFACE_MAJOR_VERSION << 16;
+	if (mode_ver > rt_ver) {
+		dla_error("error:model's version(%d.%d.%d) more than npu interface version(%d.%d.%d)\n",
 				  model->network->version.major_version, model->network->version.minor_version,
 				  model->network->version.subminor_version, NPU_INTERFACE_MAJOR_VERSION,
 				  NPU_INTERFACE_MINOR_VERSION, NPU_INTERFACE_SUBMINOR_VERSION);
@@ -283,7 +276,7 @@ static DECLARE_WAIT_QUEUE_HEAD(npu_waitq);
 
 int get_event_idx(struct win_executor *executor, int op_index)
 {
-	if (op_index >= executor->network->num_operations) {
+	if (op_index >= executor->total_op_num) {
 		dla_error("error:bad op_index(%d).\n", op_index);
 		return -EFAULT;
 	}
@@ -322,7 +315,7 @@ static int get_event_from_cache(struct user_context *uctx)
 	return event_idx;
 }
 
-void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok, u16 op_index, u32 hw_error)
+void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok, u32 op_index, u32 hw_error)
 {
 	struct host_frame_desc *f;
 	struct user_model *model;
@@ -473,18 +466,28 @@ static int set_dump_info(struct win_executor *executor, void *arg)
 {
 	struct win_ioctl_args *win_arg = arg;
 	kmd_dump_info_t dump_info;
+	u32 dump_info_size;
 
 	if (win_arg->dump_enable) {
 		if (copy_from_user(&dump_info, (void __user *)win_arg->dump_info, sizeof(kmd_dump_info_t))) {
-			dla_error("bad user data address\n");
+			dla_error("bad user data kmd_dump_info address\n");
 			return -EFAULT;
 		}
 
-		if (copy_from_user(executor->dump_info.op_idx_list,
-				   (void __user *)dump_info.op_idx_list, sizeof(u16) * dump_info.list_size)) {
-			dla_error("bad user data address\n");
+		dump_info_size = sizeof(u32) * dump_info.list_size;
+		if(executor->dump_info.op_idx_list == NULL)
+		{
+			executor->dump_info.op_idx_list = vzalloc(dump_info_size);
+			if (executor->dump_info.op_idx_list == NULL) {
+				dla_error("%s %d alloc dump memory size:%d failed\n", __func__, __LINE__, dump_info_size);
+				return EFAULT;
+			}
+		}
+		if (copy_from_user(executor->dump_info.op_idx_list, (void __user *)dump_info.op_idx_list, dump_info_size)) {
+			dla_error("copy user data dump op list  failed\n");
 			return -EFAULT;
 		}
+
 		executor->dump_info.process_id = dump_info.process_id;
 		executor->dump_info.model_id = dump_info.model_id;
 		executor->dump_info.is_dump_enable = kmd_dump_enable;
@@ -671,40 +674,25 @@ static int get_sram_fd(struct nvdla_device *nvdla_dev, struct win_ioctl_args *wi
 
 static int handle_perf(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
-	bool enable;
-
-	enable = win_arg->data ? 1 : 0;
-	handle_perf_switch(nvdla_dev, enable);
-
+	struct win_engine *engine = (struct win_engine *)nvdla_dev->win_engine;
+	engine->perf_switch = win_arg->data ? 1 : 0;
 	return 0;
 }
 
 static int send_perf_data_to_usr(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
 	struct win_engine *engine;
-	void *buf = NULL;
-	int ret;
+	npu_e31_perf_t *perf_data = NULL;
+	int ret = 0;
 
 	engine = (struct win_engine *)nvdla_dev->win_engine;
+	perf_data = engine->host_node->model_stat[engine->tiktok].op_stats;
 
-	buf = vmalloc(sizeof(npu_e31_perf_t) * MAX_OP_NUM);
-	if (NULL == buf) {
-		dla_error("malloc npu perf buf error.\n");
-		return -ENOMEM;
-	}
-
-	ret = get_perf_data(nvdla_dev, buf);
-	if (ret)
-		goto fail;
-
-	if (copy_to_user((void __user *)(win_arg->data), buf, sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
+	if (copy_to_user((void __user *)(win_arg->data), perf_data, sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
 		dla_error("err:bad user data address.\n");
 		ret = -EFAULT;
-		goto fail;
 	}
 
-fail:
-	vfree(buf);
 	return ret;
 }
 

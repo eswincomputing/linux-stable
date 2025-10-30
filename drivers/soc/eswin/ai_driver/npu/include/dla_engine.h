@@ -50,9 +50,6 @@ struct dla_processor_group {
 	struct list_head edma_programed_jobs;
 	struct win_executor *executor;
 
-	struct dla_common_op_desc *op_desc;
-	struct dla_common_op_desc *consumers[HW_OP_NUM];
-	struct dla_common_op_desc *fused_parent;
 	union dla_operation_container *operation_desc;
 	union dla_surface_container *surface_desc;
 };
@@ -66,7 +63,6 @@ struct dla_processor {
 	uint8_t last_group;
 	uint8_t ping_pong;
 
-	struct dla_common_op_desc *tail_op;
 	struct dla_processor_group groups[DLA_NUM_GROUPS];
 
 	int32_t (*enable)(struct dla_processor_group *group);

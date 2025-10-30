@@ -473,7 +473,7 @@ static void dump_dla_sdp_surface_desc(struct dla_sdp_surface_desc *desc)
 
 static int32_t processor_sdp_program(struct win_executor *executor, int rdma, int idx,
 									 union dla_operation_container *operation_desc,
-									 union dla_surface_container *surface_desc, u16 op_idx)
+									 union dla_surface_container *surface_desc, u32 op_idx)
 {
 	int32_t ret = 0;
 	uint32_t not_used;
@@ -835,8 +835,7 @@ static int32_t processor_sdp_program(struct win_executor *executor, int rdma, in
 
 	if (sdp_op->lut_index >= 0) {
 		ret = dla_get_dma_cube_address(
-			executor->driver_context, executor->mem_handles,
-			executor->network->lut_data_index,
+			executor->driver_context, executor->mem_handles, get_network_lut_idx(executor->network),
 			sdp_op->lut_index * sizeof(lut_dev_t),
 			&sdp->npu_info.lut_address, &not_used);
 		if (ret) {
@@ -1111,7 +1110,7 @@ exit:
 }
 
 int dla_sdp_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			      u16 op_idx,
+			      u32 op_idx,
 			      union dla_operation_container *operation_desc,
 			      union dla_surface_container *surface_desc)
 {

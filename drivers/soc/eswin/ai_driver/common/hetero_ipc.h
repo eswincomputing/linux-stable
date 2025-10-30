@@ -171,21 +171,31 @@ typedef struct _emission_node {
      * for convolution operator type, conv_dep is used. CDMA is used to transfer
      * data from DDR to local DTCM.
      */
+
     union {
-        npu_dep_info_t npu_dep[NUM_OP_TYPE - DSP_MAX_CORE_NUM - 1][NUM_DATA_SLOT];
+        npu_dep_info_t dep_transfer[0];
         struct {
-            // make sure the sequence is correct: edma, conv, sdp, pdp, rubik.
-            npu_dep_info_t edma_dep[NUM_DATA_SLOT];
-            npu_dep_info_t sdp_dep[NUM_DATA_SLOT];
+            npu_dep_info_t pdp_dep_transfer;
+            npu_dep_info_t rubik_dep_transfer;
+            npu_dep_info_t event_sink_dep_transfer;
+            npu_dep_info_t event_source_dep_transfer;
+            npu_dep_info_t dsp_dep_transfer;
+        };
+    };
+    npu_dep_info_t edma_dep[NUM_DATA_SLOT];
+    conv_emission_t conv_dep[NUM_DATA_SLOT];
+    npu_dep_info_t sdp_dep[NUM_DATA_SLOT];
+
+    union {
+        npu_dep_info_t npu_dep[DLA_OP_EVENT_SOURCE - IDX_SDP][NUM_DATA_SLOT];
+        struct {
             npu_dep_info_t pdp_dep[NUM_DATA_SLOT];
             npu_dep_info_t rubik_dep[NUM_DATA_SLOT];
+            npu_dep_info_t dsp_dep[DSP_MAX_CORE_NUM][NUM_DATA_SLOT];
             npu_dep_info_t event_sink_dep[NUM_DATA_SLOT];
             npu_dep_info_t event_source_dep[NUM_DATA_SLOT];
         };
-    } __attribute__((aligned(CDMA_DST_BYTE_ALIGN)));
-    npu_dep_info_t dsp_dep_transfer;
-    conv_emission_t conv_dep[NUM_DATA_SLOT];
-    npu_dep_info_t dsp_dep[DSP_MAX_CORE_NUM][NUM_DATA_SLOT];
+    };
     /**
      *  @brief Specifies the IOVA for emission core to access U84.
      */
@@ -430,9 +440,9 @@ static void host_hetero_send(void *channel, void *base_addr, void *npu_ctrl_addr
  *  @param channel:         Specify the channel port pointer.
  *  @param payload:         Specify the message payload to be received.
  */
-static void messagebox_send(u16 channel_id, msg_payload_t payload)
+static void messagebox_send(u16 channel_id, msg_payload_t payload, u32 hi_param)
 {
-    u32 mbox_base, data;
+    u32 mbox_base, data, data1;
 
     ASSERT(channel_id == MBOX_CHN_NPU_TO_U84);
 
@@ -441,8 +451,9 @@ static void messagebox_send(u16 channel_id, msg_payload_t payload)
     }
 
     data = ((u32)payload.type | (u32)payload.param << 8 | (u32)payload.lparam << 16);
+    data1 = hi_param | MBOX_WRITE_FIFO_BIT;
     reg_write((size_t)(mbox_base + MBOX_NPU_WR_DATA0_OFFSET), data);
-    reg_write((size_t)(mbox_base + MBOX_NPU_WR_DATA1_OFFSET), MBOX_WRITE_FIFO_BIT);
+    reg_write((size_t)(mbox_base + MBOX_NPU_WR_DATA1_OFFSET), data1);
 }
 
 #ifndef __KERNEL__

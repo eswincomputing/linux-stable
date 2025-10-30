@@ -43,12 +43,12 @@
 #include <asm/cacheflush.h>
 #include <linux/iommu.h>
 #include <linux/es_iommu_rsv.h>
+#include <llc_spram.h>
 #include "dla_interface.h"
 // TODO(yuzaiqiang) The header files dla_interface.h and llc_spram.h both define the same
 // macro CACHE_LINE_SIZE, resulting in a riscv compilation error.
 // To resolve the compilation issue, we are temporarily using '#undef
 #undef CACHE_LINE_SIZE
-#include <llc_spram.h>
 #include "dla_log.h"
 #include "dla_engine.h"
 #include "dla_engine_internal.h"

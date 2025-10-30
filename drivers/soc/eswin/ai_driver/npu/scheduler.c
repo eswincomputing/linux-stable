@@ -41,7 +41,7 @@ module_param(frame_timeout, int, 0644);
 MODULE_PARM_DESC(frame_timeout, "frame timeout in ms, default 30s");
 
 extern void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
-				       u16 op_index, u32 hw_error);
+				       u32 op_index, u32 hw_error);
 
 static inline void pick_next_frame(struct win_engine *engine, struct host_frame_desc **f)
 {
@@ -215,7 +215,7 @@ bool send_new_frame(struct win_engine *engine, struct win_executor *executor,
 	return true;
 }
 
-void mbx_irq_event_sink_done(struct win_engine *priv, u32 tiktok, u16 op_index, u32 hw_error)
+void mbx_irq_event_sink_done(struct win_engine *priv, u32 tiktok, u32 op_index, u32 hw_error)
 {
 	struct win_engine *engine = priv;
 	dla_debug("receive event sink op done: tiktok %u op_index %u.\n",
@@ -223,7 +223,7 @@ void mbx_irq_event_sink_done(struct win_engine *priv, u32 tiktok, u16 op_index, 
 	handle_event_sink_from_e31(engine, tiktok, op_index, hw_error);
 }
 
-void mbx_irq_op_done(struct win_engine *priv, u32 tiktok, u16 op_index)
+void mbx_irq_op_done(struct win_engine *priv, u32 tiktok, u32 op_index)
 {
 	struct win_engine *engine = priv;
 	struct host_frame_desc *f;
@@ -238,8 +238,8 @@ void mbx_irq_op_done(struct win_engine *priv, u32 tiktok, u16 op_index)
 		return;
 	}
 
-	if (f->executor->network->num_operations > op_index) {
-		op_type = f->executor->task->common_desc[op_index].op_type;
+	if (f->executor->total_op_num > op_index) {
+		op_type = get_op_type(f->executor->network, &f->executor->task->common_desc[op_index]);
 	}
 
 	if (op_type == NUM_OP_TYPE) {
@@ -285,9 +285,6 @@ void mbx_irq_frame_done(struct win_engine *priv, u32 tiktok, u32 stat, u16 hw_er
 	model = f->model;
 	engine = executor->engine;
 	f->hw_error = hw_error;
-	if (unlikely(stat && engine->perf_switch)) {
-		refresh_op_statistic(executor, engine, tiktok);
-	}
 
 	if (!is_frame_model_alive(f)) {
 		model->uctx->event_desc.len = 0;

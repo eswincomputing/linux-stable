@@ -30,9 +30,9 @@
 #include "dla_err.h"
 #include "debug.h"
 
-static int config_sequence_setup(struct win_executor *executor, int op_num, s16 *cfg_seq[])
+static int config_sequence_setup(struct win_executor *executor, int op_num, s32 *cfg_seq[])
 {
-	s16 i, j, pcer, op_type, op_idx;
+	u32 i, j, pcer, op_type, op_idx;
 	struct dla_task *task = executor->task;
 	struct processors_interface *pcer_interface;
 	int ret, total = 0;
@@ -45,8 +45,8 @@ static int config_sequence_setup(struct win_executor *executor, int op_num, s16 
 	memset(executor->op_num, 0, sizeof(executor->op_num));
 	/* head_op setup */
 	for (i = 0; i < op_num; i++) {
-		op_type = executor->task->common_desc[i].op_type;
-		op_idx = executor->task->common_desc[i].index;
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
+		op_idx = get_op_index(executor->network, &executor->task->common_desc[i]);
 		if (op_type > DLA_OP_EVENT_SOURCE) {
 			dla_error("error op_type:%d, ip idx:%d\n", op_type, op_idx);
 			return -DLA_ERR_INVALID_PARAM;
@@ -82,8 +82,8 @@ static int config_sequence_setup(struct win_executor *executor, int op_num, s16 
 	cfg_seq[IDX_EVENT_SOURCE] = cfg_seq[IDX_EVENT_SINK] + executor->op_num[IDX_EVENT_SINK];
 
 	for (i = 0; i < op_num; i++) {
-		op_type = executor->task->common_desc[i].op_type;
-		op_idx = executor->task->common_desc[i].index;
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
+		op_idx = get_op_index(executor->network, &executor->task->common_desc[i]);
 		ASSERT(op_idx != INVALID_OP_IDX && op_type < HW_OP_NUM);
 		pcer = processor_dla_convert[op_type];
 		j = op_type_pos[pcer];
@@ -113,12 +113,12 @@ static int config_sequence_setup(struct win_executor *executor, int op_num, s16 
 	return 0;
 }
 
-static void npu_set_enable_consumer(npu_dep_info_t *npu_info, u16 cons)
+static void npu_set_enable_consumer(npu_dep_info_t *npu_info, u32 cons)
 {
 	npu_info->enable_op_idx = cons;
 }
 
-static void npu_set_completion_consumer(npu_dep_info_t *npu_info, u32 type, u16 consumer_idx, u16 pos)
+static void npu_set_completion_consumer(npu_dep_info_t *npu_info, u32 type, u32 consumer_idx, u16 pos)
 {
 	npu_info->completion_event_bitmap |= 1U << type;
 	npu_info->completion_op_idx[pos] = consumer_idx;
@@ -191,7 +191,7 @@ static void dependency_consumer2producer(struct win_executor *executor,
 {
 	u16 pcer_cnt[NUM_OP_TYPE];
 	u8 pcer, op_type, event;
-	u16 i, j, consumer;
+	u32 i, j, consumer;
 	int k = 0;
 	u16 pos = 0;
 	u16 event_cnt[NUM_OP_TYPE];
@@ -202,8 +202,9 @@ static void dependency_consumer2producer(struct win_executor *executor,
 	memset(event_cnt, 0, sizeof(event_cnt));
 
 	for (i = 0; i < op_num; i++) {
-		pcer = processor_dla_convert[task->common_desc[i].op_type];
-		dla_detail("i:%d op_type:%d\n", i, task->common_desc[i].op_type);
+		op_type = get_op_type(executor->network, &task->common_desc[i]);
+		pcer = processor_dla_convert[op_type];
+		dla_detail("i:%d op_type:%d\n", i, op_type);
 		k = pcer_cnt[pcer];
 		npu_info = npu_get_dep_info(executor, pcer, k);
 		if (npu_info == NULL) {
@@ -228,8 +229,8 @@ static void dependency_consumer2producer(struct win_executor *executor,
 			}
 		}
 
-		consumer = task->common_desc[i].fused_parent.index;
-		event = task->common_desc[i].fused_parent.event;
+		consumer = get_consumer_index(executor->network, &task->common_desc[i].fused_parent);
+		event = get_consumer_event(executor->network, &task->common_desc[i].fused_parent);
 		if (consumer != invalid_op_index &&	event == DLA_EVENT_OP_ENABLED) {
 			npu_set_enable_consumer(npu_info, consumer);
 		}
@@ -237,9 +238,9 @@ static void dependency_consumer2producer(struct win_executor *executor,
 		pos = 0;
 		for (j = IDX_START; j < NUM_OP_TYPE; j++) {
 			op_type = processor_idx_convert[j];
-			consumer = task->common_desc[i].consumers[op_type].index;
-			event = task->common_desc[i].consumers[op_type].event;
-			if (consumer == 0xffff) {
+			consumer = get_consumer_index(executor->network, &task->common_desc[i].consumers[op_type]);
+			event = get_consumer_event(executor->network, &task->common_desc[i].consumers[op_type]);
+			if (consumer == invalid_op_index) {
 				continue;
 			}
 
@@ -279,15 +280,10 @@ int generate_small_program(struct win_executor *executor)
 {
 	int ret = 0, op_num;
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
 	executor->total_op_num = op_num;
 
-	if (op_num >= MAX_OP_NUM) {
-		dla_error("op_num(%d) too large.\n", op_num);
-		return -ENOMEM;
-	}
-
-	executor->cfg_seq[IDX_START] = vzalloc(op_num * sizeof(u16));
+	executor->cfg_seq[IDX_START] = vzalloc(op_num * sizeof(u32));
 	if (executor->cfg_seq[IDX_START] == NULL) {
 		dla_error("alloc cfg seq memory failed.\n");
 		return -ENOMEM;
@@ -302,7 +298,7 @@ int generate_small_program(struct win_executor *executor)
 
 	return 0;
 err_free1:
-	memset(executor->cfg_seq[IDX_START], -1, op_num * sizeof(u16));
+	memset(executor->cfg_seq[IDX_START], -1, op_num * sizeof(u32));
 	vfree(executor->cfg_seq[IDX_START]);
 	executor->cfg_seq[IDX_START] = NULL;
 	return ret;
@@ -310,17 +306,17 @@ err_free1:
 
 int generate_event_map(struct win_executor *executor)
 {
-	s16 i, op_type, op_idx;
+	u32 i, op_type, op_idx;
 	int op_num, event_idx;
 	int ret;
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
 
 	executor->total_event_sink_num = 0;
 	executor->total_event_source_num = 0;
 
 	for (i = 0; i < op_num; i++) {
-		op_type = executor->task->common_desc[i].op_type;
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
 
 		switch (op_type) {
 		case IDX_EVENT_SINK:
@@ -344,8 +340,8 @@ int generate_event_map(struct win_executor *executor)
 	}
 
 	for (i = 0; i < op_num; i++) {
-		op_type = executor->task->common_desc[i].op_type;
-		op_idx = executor->task->common_desc[i].index;
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
+		op_idx = get_op_index(executor->network, &executor->task->common_desc[i]);
 
 		switch (op_type) {
 		case IDX_EVENT_SINK:
@@ -384,18 +380,19 @@ err_free:
 int set_pause_op_done(struct win_executor *executor, kmd_dump_info_t *dump_info)
 {
 	int ret = 0, op_num;
-	u16 pcer_cnt[NUM_OP_TYPE];
-	u8 pcer;
-	u16 op_index, i, j;
+	u32 pcer_cnt[NUM_OP_TYPE];
+	u8 pcer, op_type;
+	u32 op_index, i, j;
 	int k = 0;
 	npu_dep_info_t *npu_info;
 	struct dla_task *task = executor->task;
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
 
 	memset(pcer_cnt, 0, sizeof(pcer_cnt));
 	for (i = 0; i < op_num; i++) {
-		pcer = processor_dla_convert[task->common_desc[i].op_type];
+		op_type = get_op_type(executor->network, &task->common_desc[i]);
+		pcer = processor_dla_convert[op_type];
 		k = pcer_cnt[pcer];
 		npu_info = npu_get_dep_info(executor, pcer, k);
 		if (npu_info == NULL) {
@@ -412,7 +409,7 @@ int set_pause_op_done(struct win_executor *executor, kmd_dump_info_t *dump_info)
 				continue;
 			}
 
-			if (op_index == task->common_desc[i].index) {
+			if (op_index == get_op_index(executor->network, &executor->task->common_desc[i])) {
 				npu_info->notify_op_done = 1;
 				npu_info->pause_op_done = 1;
 				dla_debug("dump op_index:%d\n", op_index);
@@ -430,18 +427,19 @@ int set_pause_op_done(struct win_executor *executor, kmd_dump_info_t *dump_info)
 int reset_pause_op_done(struct win_executor *executor)
 {
 	int ret = 0, op_num;
-	u16 pcer_cnt[NUM_OP_TYPE];
-	u8 pcer;
-	u16 i;
+	u32 pcer_cnt[NUM_OP_TYPE];
+	u8 pcer, op_type;
+	u32 i;
 	int k = 0;
 	npu_dep_info_t *npu_info;
 	struct dla_task *task = executor->task;
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
 
 	memset(pcer_cnt, 0, sizeof(pcer_cnt));
 	for (i = 0; i < op_num; i++) {
-		pcer = processor_dla_convert[task->common_desc[i].op_type];
+		op_type = get_op_type(executor->network, &task->common_desc[i]);
+		pcer = processor_dla_convert[op_type];
 		k = pcer_cnt[pcer];
 		npu_info = npu_get_dep_info(executor, pcer, k);
 		if (npu_info == NULL) {

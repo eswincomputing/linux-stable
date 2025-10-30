@@ -262,7 +262,7 @@ static void conv_dump(const char *label, const char *buf, const u32 len)
 }
 
 static int processor_conv_program(struct win_executor *executor, int rdma,
-				  int tensor_idx, u16 op_idx,
+				  int tensor_idx, u32 op_idx,
 				  union dla_operation_container *operation_desc,
 				  union dla_surface_container *surface_desc)
 {
@@ -272,7 +272,7 @@ static int processor_conv_program(struct win_executor *executor, int rdma,
 	pec_dev_master_inf_t *pec_mst;
 #endif
 	u32 not_used = 0;
-	u16 consumer = invalid_op_index;
+	u32 consumer = invalid_op_index;
 	u32 ifmap_idx = (u32)invalid_tensor_idx;
 	u32 ofmap_idx = (u32)invalid_tensor_idx;
 	int i = 0;
@@ -358,19 +358,18 @@ static int processor_conv_program(struct win_executor *executor, int rdma,
 	dep_info = (npu_dep_info_t *)dst;
 	dep_info->current_op_idx = op_idx;
 
-	comm_desc = (struct dla_common_op_desc *)&executor->task
-			    ->common_desc[op_idx];
+	comm_desc = (struct dla_common_op_desc *)&executor->task->common_desc[op_idx];
 	dep_info->enable_op_idx = invalid_op_index;
-	if (comm_desc->fused_parent.index != invalid_op_index) {
-		dep_info->enable_op_idx = comm_desc->fused_parent.index;
+	if (get_consumer_index(executor->network, &comm_desc->fused_parent) != invalid_op_index) {
+		dep_info->enable_op_idx = get_consumer_index(executor->network, &comm_desc->fused_parent);
 	}
 	dep_info->completion_event_bitmap = 0;
 
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
 		dep_info->completion_op_idx[effect_idx] = invalid_op_index;
-		consumer = comm_desc->consumers[i].index;
+		consumer = get_consumer_index(executor->network, &comm_desc->consumers[i]);
 		if (consumer != invalid_op_index &&
-		    comm_desc->consumers[i].event == DLA_EVENT_OP_COMPLETED) {
+		    get_consumer_event(executor->network, &comm_desc->consumers[i]) == DLA_EVENT_OP_COMPLETED) {
 			if (unlikely(effect_idx >= MAX_KMD_DEPCNT)) {
 				dla_error(
 					"op index:%d dependency count over max\n",
@@ -494,7 +493,7 @@ static int processor_conv_program(struct win_executor *executor, int rdma,
 
 int32_t
 dla_conv_prepare_prog_data(struct win_executor *executor, int rdma,
-			   int tensor_idx, u16 op_idx,
+			   int tensor_idx, u32 op_idx,
 			   union dla_operation_container *operation_desc,
 			   union dla_surface_container *surface_desc)
 {

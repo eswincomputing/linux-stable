@@ -679,24 +679,15 @@ static void free_executor_tensor_data(struct win_executor *executor)
 
 #define alloc_op_tensor_set(op)                                              \
 	({                                                                   \
-		if (cnt[i] < 1) {                                            \
-			continue;                                            \
-		}                                                            \
 		executor->tensor_set[i] = vzalloc(cnt[i] * sizeof(op##_tensor_t)); \
 		size[i] = cnt[i] * sizeof(op##_dev_t);                       \
-		if (executor->tensor_set[i] == NULL) {                       \
-			size[i] = 0;                                         \
-			dla_error("%s %d no mem\n", __func__, __LINE__);     \
-			ret = -ENOMEM;                                       \
-			goto err_tensor;                                     \
-		}                                                            \
 	})
 
 static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
-			       u16 input_num, u16 output_num, u16 op_num)
+			       u16 input_num, u16 output_num, u32 op_num)
 {
 	int ret = 0, i, cnt[NUM_OP_TYPE];
-	u8 pcer;
+	u8 pcer, op_type;
 	struct win_executor *executor = pexecutor;
 	u32 size[NUM_OP_TYPE];
 
@@ -719,17 +710,18 @@ static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
 	memset(size, 0, sizeof(size));
 
 	for (i = 0; i < op_num; i++) {
-		dla_detail("i=%d, op_type=%d.\n", i, task->common_desc[i].op_type);
-		pcer = processor_dla_convert[task->common_desc[i].op_type];
+		op_type = get_op_type(executor->network, &task->common_desc[i]);
+		dla_detail("i=%d, op_type=%d.\n", i, op_type);
+		pcer = processor_dla_convert[op_type];
 		//the same processor have how many op.
 		cnt[pcer]++;
 	}
 
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
 		dla_info("%s, %d, i=%d, cnt=%d.\n", __func__, __LINE__, i, cnt[i]);
-	}
-
-	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
+		if (cnt[i] < 1) {
+			continue;
+		}
 		switch (i) {
 		case IDX_EDMA:
 			alloc_op_tensor_set(edma);
@@ -762,6 +754,13 @@ static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
 			ret = -EINVAL;
 			dla_info("invalid idx, i = %d.\n", i);
 		}
+
+		if (executor->tensor_set[i] == NULL) {
+			size[i] = 0;
+			dla_error("%s %d alloc op_type:%d iotensor no mem\n", __func__, __LINE__, i);
+			ret = -ENOMEM;
+			break;
+		}
 	}
 
 	if (ret) {
@@ -782,7 +781,7 @@ static int pre_setup_op_tensor(void *pexecutor, struct dla_task *task,
 		executor->prog_data_buf_bobj[i] = npu_alloc_dma_addr(
 			executor, size[i], &executor->dma_addr[i], i, GFP_KERNEL);
 		if (executor->prog_data_buf_bobj[i] == NULL) {
-			dla_error("%s, %d, i=%d.\n", __func__, __LINE__, i);
+			dla_error("%s, %d, cannot alloc program dma memory op_type=%d.\n", __func__, __LINE__, i);
 			ret = -ENOMEM;
 			goto dma_err;
 		}
@@ -814,7 +813,7 @@ static int extract_input_output_address(struct win_executor *executor)
 	}
 
 	return pre_setup_op_tensor(executor, executor->task, input_num, output_num,
-				   executor->network->num_operations);
+				   executor->total_op_num);
 }
 
 int create_executor(struct dla_task *task, struct dla_network_desc *network,
@@ -823,32 +822,27 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 {
 	struct win_executor *executor;
 	int ret, i;
+	u32 op_num = get_network_op_num(network);
 
 	executor = vzalloc(sizeof(struct win_executor));
 	if (executor == NULL) {
-		dla_error("%s %d no mem\n", __func__, __LINE__);
+		dla_error("%s %d alloc executor no mem\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
 
 	dla_debug("executor=0x%px executor_size=%ld\n", executor, sizeof(struct win_executor));
+	executor->total_op_num = op_num;
 
-	executor->dependency_count = vzalloc(network->num_operations);
+	executor->dependency_count = vzalloc(op_num);
 	if (executor->dependency_count == NULL) {
-		dla_error("%s %d no mem\n", __func__, __LINE__);
+		dla_error("%s %d alloc dependency_count no mem\n", __func__, __LINE__);
 		ret = -ENOMEM;
 		goto err_free0;
 	}
 
-	executor->dump_info.op_idx_list = vzalloc(MAX_OP_NUM * sizeof(u16));
-	if (executor->dump_info.op_idx_list == NULL) {
-		dla_error("%s %d no mem\n", __func__, __LINE__);
-		ret = -ENOMEM;
-		goto err_free1;
-	}
-
 	executor->task = task;
-	for (i = 0; i < network->num_operations; i++) {
-		executor->dependency_count[i] = task->common_desc[i].dependency_count;
+	for (i = 0; i < op_num; i++) {
+		executor->dependency_count[i] = get_op_depcnt(network, &task->common_desc[i]);;
 		dla_debug("%s,%d, i=%d, cnt=%d.\n", __func__, __LINE__, i,
 				  executor->dependency_count[i]);
 	}
@@ -865,17 +859,17 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 	ret = extract_input_output_address(executor);
 	if (ret < 0) {
 		dla_error("Failed to extract input output\n");
-		goto err_free2;
+		goto err_free1;
 	}
 	ret = resolve_dsp_data(executor);
 	if (ret < 0) {
 		dla_error("Failed to resolve dsp, ret = %d.\n", ret);
-		goto err_free3;
+		goto err_free2;
 	}
 
 	ret = generate_small_program(executor);
 	if (ret < 0) {
-		goto err_free4;
+		goto err_free3;
 	}
 	ret = generate_event_map(executor);
 	if (ret < 0) {
@@ -890,12 +884,10 @@ int create_executor(struct dla_task *task, struct dla_network_desc *network,
 err_event:
 	kfree(executor->cfg_seq[IDX_START]);
 	executor->cfg_seq[IDX_START] = NULL;
-err_free4:
-	dsp_resource_destroy(executor);
 err_free3:
-	free_executor_tensor_data(executor);
+	dsp_resource_destroy(executor);
 err_free2:
-	vfree(executor->dump_info.op_idx_list);
+	free_executor_tensor_data(executor);
 err_free1:
 	vfree(executor->dependency_count);
 err_free0:

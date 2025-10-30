@@ -51,7 +51,6 @@ int prepare_e31_frame_info(struct win_executor *executor,
 	hetero_ipc_frame_t *frame_info =
 		(hetero_ipc_frame_t *)&model->e31_frame_info;
 	int i;
-	u16 op;
 
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
 		if (executor->op_num[i] <= 0) {
@@ -72,11 +71,6 @@ int prepare_e31_frame_info(struct win_executor *executor,
 		frame_info->op_current.program_addr[i] = executor->dma_addr[i];
 
 		frame_info->op_current.num_remain_ops[i] = executor->op_num[i];
-	}
-	for (op = 0; op < executor->total_op_num && op < MAX_DTIM_DEPCNT;
-	     op++) {
-		set_dep_cnt(frame_info->op_dependency.ref_count, op,
-			    executor->dependency_count[op]);
 	}
 
 	frame_info->op_dependency.num_op = executor->total_op_num;

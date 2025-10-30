@@ -262,7 +262,7 @@ int dsp3_tensor_unfold(struct win_executor *executor, int op_idx,
 }
 
 static int processor_dsp_program(struct win_executor *executor, int idx,
-				 u16 op_idx,
+				 u32 op_idx,
 				 union dla_operation_container *op_desc,
 				 union dla_surface_container *surf_desc,
 				 int op_type)
@@ -394,7 +394,7 @@ static int processor_dsp_program(struct win_executor *executor, int idx,
 }
 
 int dsp0_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc)
 {
 	int ret;
@@ -404,7 +404,7 @@ int dsp0_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
 }
 
 int dsp1_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc)
 {
 	int ret;
@@ -414,7 +414,7 @@ int dsp1_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
 }
 
 int dsp2_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc)
 {
 	int ret;
@@ -424,7 +424,7 @@ int dsp2_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
 }
 
 int dsp3_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc)
 {
 	int ret;
@@ -491,6 +491,7 @@ int resolve_dsp_data(struct win_executor *executor)
 	int dsp_tensor_idx[DSP_MAX_CORE_NUM] = { 0 };
 	int op_type, op_idx, size;
 	int dsp_op_cnt = 0;
+	int network_config_idx;
 	struct device *dsp_dev = NULL;
 	int ret;
 	dma_addr_t dma_set, data_dma_set;
@@ -499,14 +500,16 @@ int resolve_dsp_data(struct win_executor *executor)
 
 	ret = npu_acquire_dsp_file(executor);
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
+
 	for (i = 0; i < op_num; i++) {
-		op_type = executor->task->common_desc[i].op_type;
-		op_idx = executor->task->common_desc[i].index;
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
 		if ((op_type == DLA_KMD_OP_DSP_0) ||
-			(op_type == DLA_KMD_OP_DSP_1) ||
-			(op_type == DLA_KMD_OP_DSP_2) ||
-			(op_type == DLA_KMD_OP_DSP_3)) {
+		    (op_type == DLA_KMD_OP_DSP_1) ||
+		    (op_type == DLA_KMD_OP_DSP_2) ||
+		    (op_type == DLA_KMD_OP_DSP_3)) {
+
+			op_idx = get_op_index(executor->network, &executor->task->common_desc[i]);
 			tensor_set = executor->tensor_set[op_type];
 			dsp_tensor = &tensor_set[dsp_tensor_idx[op_type - DLA_KMD_OP_DSP_0]];
 			pcer_interface = executor->engine->processors[op_type];
@@ -557,6 +560,8 @@ int resolve_dsp_data(struct win_executor *executor)
 			}
 		}
 	}
+
+	network_config_idx = get_network_opconfig_idx(executor->network);
 	for (i = 0; i < DSP_MAX_CORE_NUM; i++) {
 		if (dsp_tensor_idx[i] == 0) {
 			continue;
@@ -580,11 +585,9 @@ int resolve_dsp_data(struct win_executor *executor)
 				  executor->dsp_flat1_set_vaddr[i], flat1_total_len[i]);
 		executor->dsp_flat1_set_size[i] = flat1_total_len[i];
 		/*get the fd of dsp param buffer*/
-		fd = dla_data_get_fd(executor->driver_context, executor->mem_handles, NULL,
-							 executor->network->op_config_index);
+		fd = dla_data_get_fd(executor->driver_context, executor->mem_handles, NULL,network_config_idx);
 		if (fd < 0) {
-			dla_error("err:dla_data_get_fd failed,i=%d op_config_index=%d!\n",
-					  i, executor->network->op_config_index);
+			dla_error("err:dla_data_get_fd failed,i=%d op_config_index=%d!\n", i, network_config_idx);
 			goto alloc_err;
 		}
 		executor->model_dsp_dmabuf[i] = npu_get_dsp_dmabuf(executor->dsp_file[i], fd);

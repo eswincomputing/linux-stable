@@ -166,6 +166,7 @@ int dumpMD5(const char *fname, struct win_executor *executor, uint32_t index)
 	char content[512] = { 0 };
 	loff_t pos = 0;
 	struct file *filep = NULL;
+	u8 op_type;
 
 	if (filep == NULL) {
 		filep = filp_open(fname, O_RDWR | O_CREAT | O_APPEND, 0644);
@@ -184,51 +185,43 @@ int dumpMD5(const char *fname, struct win_executor *executor, uint32_t index)
 		if (md5_dump[i].calced_flag == 0) {
 			goto end_dumpMD5;
 		}
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
 
 		if (md5_dump[i].writed_flag == 0) {
 			md5_dump[i].writed_flag = 1;
 			len = snprintf(
 				content, sizeof(content), "%d_%s_INPUT: %s\n",
 				i,
-				pcer2str(
-					executor->task->common_desc[i].op_type),
-				md5_dump[i].src_md5);
+				pcer2str(op_type),md5_dump[i].src_md5);
 			len += snprintf(
 				content + len, sizeof(content) - len,
 				"%d_%s_OUTPUT: %s\n", i,
-				pcer2str(
-					executor->task->common_desc[i].op_type),
+				pcer2str(op_type),
 				md5_dump[i].dst_md5);
 
-			if (executor->task->common_desc[i].op_type ==
-			    DLA_OP_CONV) {
+			if (op_type == DLA_OP_CONV) {
 				len += snprintf(
 					content + len, sizeof(content) - len,
 					"%d_%s_WEIGHT: %s\n", i,
-					pcer2str(executor->task->common_desc[i]
-							 .op_type),
+					pcer2str(op_type),
 					md5_dump[i].md5_spec.conv_md5.wgt_md5);
 			}
 
-			if (executor->task->common_desc[i].op_type ==
-			    DLA_OP_SDP) {
+			if (op_type == DLA_OP_SDP) {
 				len += snprintf(
 					content + len, sizeof(content) - len,
 					"%d_%s_X1: %s\n", i,
-					pcer2str(executor->task->common_desc[i]
-							 .op_type),
+					pcer2str(op_type),
 					md5_dump[i].md5_spec.sdp_md5.x1_md5);
 				len += snprintf(
 					content + len, sizeof(content) - len,
 					"%d_%s_X2: %s\n", i,
-					pcer2str(executor->task->common_desc[i]
-							 .op_type),
+					pcer2str(op_type),
 					md5_dump[i].md5_spec.sdp_md5.x2_md5);
 				len += snprintf(
 					content + len, sizeof(content) - len,
 					"%d_%s_Y: %s\n", i,
-					pcer2str(executor->task->common_desc[i]
-							 .op_type),
+					pcer2str(op_type),
 					md5_dump[i].md5_spec.sdp_md5.y_md5);
 			}
 			kernel_write(filep, content, strlen(content), &pos);
@@ -323,8 +316,8 @@ void dump_data_cube(struct win_executor *executor, struct host_frame_desc *f,
 	uint32_t dump_buf_len = 0;
 	u32 input_is_io_tensor;
 	int32_t ret;
-	int32_t index = op_desc->index;
-	int32_t op_type = op_desc->op_type;
+	int32_t index = get_op_index(executor->network, op_desc);
+	int32_t op_type = get_op_type(executor->network, op_desc);
 	struct user_model *model = executor->model;
 	char *src_dump_buf = NULL;
 	char f_name[F_NAME_LEN] = { 0 };
@@ -462,7 +455,7 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 		return;
 	}
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
 	if (npu_dump_op_num_start >= op_num) {
 		dla_error("error:npu_dump_op_num_start(%d) >= op_num(%d)!\n",
 			  npu_dump_op_num_start, op_num);
@@ -471,8 +464,8 @@ void dla_dump_src_data(struct win_executor *executor, struct host_frame_desc *f,
 
 	for (i = npu_dump_op_num_start; i < op_num; i++) {
 		src_addr_index = -1;
-		index = executor->task->common_desc[i].index;
-		op_type = executor->task->common_desc[i].op_type;
+		index = get_op_index(executor->network, &executor->task->common_desc[i]);
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
 		if (index != op_index)
 			continue;
 		buffer_cnt_input = 1;
@@ -732,7 +725,7 @@ void dla_dump_dst_data(struct win_executor *executor, struct host_frame_desc *f,
 		return;
 	}
 
-	op_num = executor->network->num_operations;
+	op_num = executor->total_op_num;
 	if (npu_dump_op_num_start >= op_num) {
 		dla_error("error:npu_dump_op_num_start(%d) >= op_num(%d)!\n",
 			  npu_dump_op_num_start, op_num);
@@ -741,8 +734,8 @@ void dla_dump_dst_data(struct win_executor *executor, struct host_frame_desc *f,
 
 	for (i = npu_dump_op_num_start; i < op_num; i++) {
 		dst_addr_index = -1;
-		index = executor->task->common_desc[i].index;
-		op_type = executor->task->common_desc[i].op_type;
+		index = get_op_index(executor->network, &executor->task->common_desc[i]);
+		op_type = get_op_type(executor->network, &executor->task->common_desc[i]);
 		if (index != op_index)
 			continue;
 		buffer_cnt_output = 1;
@@ -966,11 +959,11 @@ static char *E31_FRAME_DESC_BIN = "/sim_frame_desc";
 #endif
 
 static void send_op_resume_to_hw(struct win_engine *engine, u8 tiktok,
-				 u16 op_index)
+				 u32 op_index)
 {
 	msg_payload_t payload;
 	payload.type = NOTIFY_OP_RESUME;
-	payload.param = tiktok;
+	payload.param = tiktok | ((op_index >> 16) & 0xf0);
 	payload.lparam = op_index;
 	send_mbx_msg_to_e31(engine, payload);
 }
@@ -982,7 +975,7 @@ void dump_data_to_file(struct work_struct *work)
 		container_of(work, struct dump_op_work_t, work);
 
 	int tiktok = dump_op_work->tiktok;
-	u16 op_index = dump_op_work->op_index;
+	u32 op_index = dump_op_work->op_index;
 	struct host_frame_desc *f = dump_op_work->f;
 	struct win_executor *executor = f->executor;
 	struct win_engine *engine = executor->engine;
@@ -1033,7 +1026,7 @@ void dump_data_to_file(struct work_struct *work)
 	}
 
 	buf_size += sizeof(struct dump_file_header);
-	buf_size += executor->network->num_operations;
+	buf_size += executor->total_op_num;
 	buf_size += sizeof(npu_io_tensor_t);
 	buf_size = ROUND_UP(buf_size, CDMA_TRANSFER_BYTE_ALIGN);
 	for (i = IDX_START; i < NUM_OP_TYPE; i++) {
@@ -1059,7 +1052,7 @@ void dump_data_to_file(struct work_struct *work)
 	}
 	header->magic = 0x20230809;
 
-	header->op_num = executor->network->num_operations;
+	header->op_num = executor->total_op_num;
 	memcpy(&header->first_conv_hdr, &executor->op_prog_addrs.next_conv_hdr,
 	       sizeof(conv_dev_hdr_t));
 	dla_debug("total_len=%u\n", header->first_conv_hdr.total_len);

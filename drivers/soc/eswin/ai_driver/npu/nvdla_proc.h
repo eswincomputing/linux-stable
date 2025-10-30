@@ -26,6 +26,4 @@ struct win_executor;
 struct win_engine;
 int npu_create_procfs(void);
 void npu_remove_procfs(void);
-void refresh_op_statistic(struct win_executor *executor,
-			  struct win_engine *engine, u32 tiktok);
 #endif

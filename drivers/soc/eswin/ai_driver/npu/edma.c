@@ -907,7 +907,7 @@ int edma_tensor_unfold(struct win_executor *executor, int op_idx,
 }
 
 int edma_prepare_prog_data(struct win_executor *executor, int rdma, int seq,
-			   u16 op_idx,
+			   u32 op_idx,
 			   union dla_operation_container *operation_desc,
 			   union dla_surface_container *surface_desc)
 {

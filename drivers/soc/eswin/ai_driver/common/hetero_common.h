@@ -234,7 +234,7 @@ typedef struct _op_current {
     /**
      * @brief The number of remaining operators of a given type.
      */
-    u16 num_remain_ops[NUM_OP_TYPE];
+    u32 num_remain_ops[NUM_OP_TYPE];
 
     /**
      * @brief The program specification for convolution. This determines how to
@@ -278,8 +278,7 @@ typedef struct _dependency {
     /**
      * @brief The actual operators in this inference frame.
      */
-    u16 num_op;
-    u8 ref_count[MAX_DTIM_DEPCNT * NUM_DEPENDENCY_BITS / NUM_BITS_IN_BYTE];
+    u32 num_op;
 } __attribute__((aligned(sizeof(u32)))) dependency_t;
 
 /**
@@ -299,33 +298,26 @@ typedef struct _frame_info {
     u32 tiktok;
 } __attribute__((aligned(sizeof(u32)))) frame_info_t;
 
+//simulator
 typedef struct _resume_info {
     u8 resume_flag;
     u8 tiktok;
     u16 op_index;
 } __attribute__((aligned(sizeof(u32)))) resume_info_t;
 
+//simulator
 typedef struct _event_op_info {
     u8 tiktok;
     u16 op_index;
 } __attribute__((aligned(sizeof(u32)))) event_op_info_t;
 
-static const u16 invalid_op_index = 0xFFFF;
+static const u32 invalid_op_index = -1U;
 
 /**
  * @brief The dependency information for each operator.
  */
 typedef struct _npu_dep_info {
     u16 depcnt;
-
-    u16 current_op_idx;
-
-    /**
-     * @brief This operator has enable dependency on current operator. If
-     * enable_op_idx equals invalid_op_index, then no operator has enable
-     * dependency.
-     */
-    u16 enable_op_idx;
 
     /**
      * @brief This is a bitmap. Each bit specifies if an operator of given type
@@ -345,11 +337,20 @@ typedef struct _npu_dep_info {
      */
     u16 pause_op_done : 1;
 
+    u32 current_op_idx;
+
+    /**
+     * @brief This operator has enable dependency on current operator. If
+     * enable_op_idx equals invalid_op_index, then no operator has enable
+     * dependency.
+     */
+    u32 enable_op_idx;
+
     /**
      * @brief The consumer's op_idx that completed dependency.
      * max consumer is all npu op + dsp op
      */
-    u16 completion_op_idx[MAX_KMD_DEPCNT];
+    u32 completion_op_idx[MAX_KMD_DEPCNT];
 
     /**
      * @brief Provides the LUT IOVA for SDP. If this value is 0, then LUT is not
@@ -736,8 +737,11 @@ typedef struct _major_core_info {
     pec_dev_major_inf_t pec_info;
 } major_core_info_t;
 
+
+
 #define NUM_LINEAR_EXP_TABLE_ENTRIES 65
 #define NUM_LINEAR_ONLY_TABLE_ENTRIES 257
+/*
 typedef struct _lut_dev {
     u8 precision;
     u32 lut_cfg;
@@ -754,7 +758,7 @@ typedef struct _lut_dev {
     u16 linear_exp_table[NUM_LINEAR_EXP_TABLE_ENTRIES];
     u16 linear_only_table[NUM_LINEAR_ONLY_TABLE_ENTRIES];
 } __attribute__((aligned(CDMA_SRC_BYTE_ALIGN))) lut_dev_t;
-
+*/
 /*** sdp ******/
 // 35 regs for sdp, 28 regs for sdp_rdma, 15 regs for post_drp. 78 total
 typedef struct _sdp_program {

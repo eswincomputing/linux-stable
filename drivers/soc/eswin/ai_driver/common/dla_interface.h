@@ -23,14 +23,11 @@
 #ifndef _DLA_INTERFACE_H_
 #define _DLA_INTERFACE_H_
 
-#include "hetero_env.h"
-
 #if defined(__KERNEL__)
-#include <nvdla_interface.h>
+#include <linux/types.h>
 #else
 #include <stdint.h>
 #endif
-#include "es_nn_common.h"
 /*
  * alignment
  */
@@ -73,6 +70,7 @@
 #define DLA_OP_SWITCH 0x11
 #define DLA_OP_MERGE 0x12
 
+#define KMD 1
 #define E31 2
 #define P2P 3
 /**
@@ -169,9 +167,10 @@
 /*
  * version field
  */
-#define NPU_INTERFACE_MAJOR_VERSION 0x00
+#define NPU_INTERFACE_MAJOR_VERSION 0x01
 #define NPU_INTERFACE_MINOR_VERSION 0x00
-#define NPU_INTERFACE_SUBMINOR_VERSION 0x03
+#define NPU_INTERFACE_SUBMINOR_VERSION 0x00
+
 
 struct npu_version {
     uint8_t major_version;
@@ -192,21 +191,33 @@ struct npu_version {
  */
 struct dla_network_desc {
     struct npu_version version;
-    uint32_t reserved;
-    int16_t operation_desc_index;
-    int16_t surface_desc_index;
+    union {
+        struct {
+            uint32_t reserved;
+            int16_t operation_desc_index;
+            int16_t surface_desc_index;
+            int16_t dependency_graph_index;
+            int16_t lut_data_index;
+            int16_t op_config_index;
+            uint16_t num_operations;
+        }v0;
+        struct {
+            uint32_t num_operations;
+            int16_t operation_desc_index;
+            int16_t surface_desc_index;
+            int16_t dependency_graph_index;
+            int16_t lut_data_index;
+            int16_t op_config_index;
+            uint16_t reserved;
+        }v1;
+    };
 
-    int16_t dependency_graph_index;
-    int16_t lut_data_index;
-    int16_t op_config_index;
-
-    uint16_t num_operations;
     uint16_t num_event_ops;
-
     uint16_t num_luts;
     uint16_t num_addresses;
     uint16_t reserved0;
 } __attribute__((packed, aligned(ALIGNMENT)));
+
 
 struct dla_data_cube {
     uint16_t type;   /* dla_mem_type */
@@ -231,26 +242,49 @@ struct dla_data_cube {
     uint32_t plane_stride;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
-struct dla_consumer {
-    int16_t index;
-    uint8_t event;
-    uint8_t res;
+struct  dla_consumer{
+    union {
+        struct {
+            int16_t index;
+            uint8_t event;
+            uint8_t res;
+            uint32_t padding;
+        } v0;
+        struct {
+            uint32_t index;
+            uint8_t event;
+            uint8_t res;
+            uint16_t padding;
+        } v1;
+    };
 } __attribute__((packed, aligned(ALIGNMENT)));
 
-struct dla_common_op_desc {
-    int16_t index; /* set by ucode */
-    int8_t roi_index;
-    uint8_t op_type;
 
-    uint8_t dependency_count;
-    uint8_t reserved0[3]; /* esim_tool uses reserved0[2] to save offset of op_index */
+struct dla_common_op_desc {
+    union {
+        struct {
+            int16_t index; /* set by ucode */
+            int8_t roi_index;
+            uint8_t op_type;
+            uint8_t dependency_count;
+            uint8_t reserved0[3];
+        }v0;
+        struct {
+            uint32_t index; /* set by ucode */
+            int8_t roi_index;
+            uint8_t op_type;
+            uint8_t dependency_count;
+            uint8_t reserved0[1];
+        }v1;
+    };
 
     struct dla_consumer consumers[HW_OP_NUM];
     struct dla_consumer fused_parent;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
+
 struct dla_event_op_desc {
-    int16_t index;         // a unique event op index in loadable
+    int16_t index;         // a unique event op index in loadable, max event id < 65535
     int8_t submodel_type;  // 0-umd; 1-kmd; 2-e31; 3-p2p
     int8_t p2p_src;
     int8_t p2p_dst;
@@ -478,6 +512,63 @@ union dla_slope {
     uint16_t data_f;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
+
+
+#define CDMA_SRC_BYTE_ALIGN 16
+typedef struct _lut_dev {
+  uint8_t precision;
+  uint32_t lut_cfg;
+  uint32_t lut_info;
+  uint32_t le_start;
+  uint32_t le_end;
+  uint32_t lo_start;
+  uint32_t lo_end;
+  uint32_t le_slope_scale;
+  uint32_t lo_slope_scale;
+  uint32_t le_slope_shift;
+  uint32_t lo_slope_shift;
+
+  uint16_t linear_exp_table[(1 << LUT_LINEAR_EXP_TABLE_ENTRY_LOG2) + 1];
+  uint16_t linear_only_table[(1 << LUT_LINEAR_ONLY_TABLE_ENTRY_LOG2) + 1];
+} __attribute__((aligned(CDMA_SRC_BYTE_ALIGN))) lut_dev_t;
+
+struct dla_lut_param {
+  /**
+   * value of expression ((1<<LUT_LINEAR_EXP_TABLE_ENTRY_LOG2)+1) is 65,
+   * ((1<<LUT_LINEAR_ONLY_TABLE_ENTRY_LOG2)+1) is 257, and int16_t is of
+   * 2Byte. And below two statement's combined memory size is 644 Byte.
+   *
+   * NOTE: below two declaration combined size should always be multiple
+   * of 4.
+   */
+  int16_t linear_exp_table[(1 << LUT_LINEAR_EXP_TABLE_ENTRY_LOG2) + 1];
+  int16_t linear_only_table[(1 << LUT_LINEAR_ONLY_TABLE_ENTRY_LOG2) + 1];
+
+  union dla_lut_offset linear_exp_offset;
+  union dla_lut_offset linear_only_offset;
+
+  /* The start and end point of raw table, valid when raw_method=LINEAR only */
+  uint64_t linear_exp_start;
+  uint64_t linear_exp_end;
+  uint64_t linear_only_start;
+  uint64_t linear_only_end;
+
+  union dla_slope linear_exp_underflow_slope;
+  union dla_slope linear_exp_overflow_slope;
+  union dla_slope linear_only_underflow_slope;
+  union dla_slope linear_only_overflow_slope;
+
+  /**
+   * dla_lut_priority, when both lut are hit(or one overflow, the other
+   * underflow), which one should be selected as output
+   */
+  uint8_t hybrid_priority;
+  uint8_t underflow_priority;
+  uint8_t overflow_priority;
+  uint8_t method; /* dla_lut_method */
+} __attribute__((packed, aligned(ALIGNMENT)));;
+
+
 struct dla_sdp_surface_desc {
     /* Data cube */
     /* source input cube, available when SDP working on offline mode */
@@ -686,6 +777,7 @@ struct dsp_op_desc {
     uint32_t dsp_core_id;
     uint32_t mem_id;
     uint32_t offset;
+    double cost;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 #define DSP_KERNEL_MAX_IN_TENSOR_NUM 8
@@ -698,28 +790,28 @@ struct dsp_surface_desc {
 
 struct hae_op_desc {
     /* Source color format*/
-    ES_COLOR_CODE_E srcFormat;
+    uint32_t srcFormat;
 
     /* Interpolation method to be used for resizing */
-    ES_INTER_FLAG_E inter;
+    uint32_t inter;
 
     /* Dest Data precision types */
-    ES_DATA_PRECISION_E dstDataType;
+    uint32_t dstDataType;
 
     /* Normalization mode (e.g., Z-Score or Min-Max scaling) */
-    ES_NORM_MODE_E mode;
+    uint32_t mode;
 
     /* Normalization factors for each channel (r, g, b, x/alpha). Can represent 1/(max-min) or 1/std */
-    ES_FLOAT normFactor[4];
+    float normFactor[4];
 
     /* Bias values for each channel (r, g, b, x/alpha) for normalization. Can represent min or mean */
-    ES_FLOAT bias[4];
+    float bias[4];
 
     /* Scaling factor applied post-normalization(for quant) */
-    ES_FLOAT scale;
+    float scale;
 
     /* Bitwise flag set by the SET_OP_FLAG macro. Each bit represents an operation's enabled status. */
-    ES_S32 flag;
+    int32_t flag;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 struct hae_surface_desc {
@@ -728,13 +820,17 @@ struct hae_surface_desc {
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 struct gpu_op_desc {
+    uint32_t reserved;
 } __attribute__((packed, aligned(ALIGNMENT)));
 struct gpu_surface_desc {
+    uint32_t reserved;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 struct cpu_op_desc {
+    uint32_t reserved;
 } __attribute__((packed, aligned(ALIGNMENT)));
 struct cpu_surface_desc {
+    uint32_t reserved;
 } __attribute__((packed, aligned(ALIGNMENT)));
 
 typedef struct LayerInfo {

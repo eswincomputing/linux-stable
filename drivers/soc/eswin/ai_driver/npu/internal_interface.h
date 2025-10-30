@@ -30,6 +30,7 @@
 #include "eswin-khandle.h"
 #include <linux/timer.h>
 #include <linux/semaphore.h>
+#include <linux/workqueue.h>
 #include "hetero_ioctl.h"
 #include "dla_engine.h"
 #include "dla_log.h"
@@ -38,7 +39,7 @@
 #include "hetero_common.h"
 #include "hetero_ipc.h"
 #include "dla_buffer.h"
-#include <linux/workqueue.h>
+#include "dla_model_if.h"
 
 struct host_frame_desc;
 
@@ -133,7 +134,7 @@ struct processors_interface {
 			     union dla_surface_container *surface_desc,
 			     void *tensor, int idx);
 	int (*prepare_prog_data)(struct win_executor *executor, int rdma,
-				 int tensor_idx, u16 op_idx,
+				 int tensor_idx, u32 op_idx,
 				 union dla_operation_container *op_desc,
 				 union dla_surface_container *surface_desc);
 	int (*rdma_check)(struct dla_processor_group *group,
@@ -149,7 +150,7 @@ struct dump_file_work_t {
 
 struct dump_op_work_t {
 	int tiktok;
-	u16 op_index;
+	u32 op_index;
 	struct host_frame_desc *f;
 	struct work_struct work;
 };
@@ -204,6 +205,8 @@ struct win_engine {
 	host_node_t *host_node;
 	dma_addr_t host_node_iova;
 	struct device *dsp_dev[DSP_MAX_CORE_NUM];
+
+	npu_e31_perf_t *e31_perf_data;
 };
 
 enum frame_state_list {
@@ -382,12 +385,12 @@ struct win_executor {
 	u16 output_num;
 	u32 frame_size;
 	u32 io_mem_handle_size;
-	s16 head_op_idx[NUM_OP_TYPE];
+	u32 head_op_idx[NUM_OP_TYPE];
 
-#define INVALID_OP_IDX (-32768)
-	s16 *cfg_seq[NUM_OP_TYPE];
-	u16 total_op_num;
-	u16 op_num[NUM_OP_TYPE];
+#define INVALID_OP_IDX (-1)
+	s32 *cfg_seq[NUM_OP_TYPE];
+	u32 total_op_num;
+	u32 op_num[NUM_OP_TYPE];
 
 	op_current_t op_prog_addrs;
 
@@ -457,8 +460,8 @@ int set_pause_op_done(struct win_executor *executor,
 int reset_pause_op_done(struct win_executor *executor);
 
 void mbx_irq_frame_done(struct win_engine *engine, u32 tiktok, u32 stat, u16 hw_error);
-void mbx_irq_op_done(struct win_engine *engine, u32 tiktok, u16 op_index);
-void mbx_irq_event_sink_done(struct win_engine *engine, u32 tiktok, u16 op_index, u32 hw_error);
+void mbx_irq_op_done(struct win_engine *engine, u32 tiktok, u32 op_index);
+void mbx_irq_event_sink_done(struct win_engine *engine, u32 tiktok, u32 op_index, u32 hw_error);
 int send_frame_to_npu(struct host_frame_desc *f, int tiktok);
 /**************** frame_scheduler.c ****************/
 int edma_tensor_unfold(struct win_executor *executor, int op_idx,
@@ -466,7 +469,7 @@ int edma_tensor_unfold(struct win_executor *executor, int op_idx,
 		       union dla_surface_container *surface_desc, void *tensor,
 		       int idx);
 int edma_prepare_prog_data(struct win_executor *executor, int rdma,
-			   int tensor_idx, u16 op_idx,
+			   int tensor_idx, u32 op_idx,
 			   union dla_operation_container *operation_desc,
 			   union dla_surface_container *surface_desc);
 
@@ -480,7 +483,7 @@ int conv_tensor_unfold(struct win_executor *executor, int op_idx,
 		       int idx);
 
 int dla_conv_prepare_prog_data(struct win_executor *executor, int rdma,
-			       int tensor_idx, u16 op_idx,
+			       int tensor_idx, u32 op_idx,
 			       union dla_operation_container *operation_desc,
 			       union dla_surface_container *surface_desc);
 
@@ -489,7 +492,7 @@ int sdp_tensor_unfold(struct win_executor *executor, int op_idx,
 		      union dla_surface_container *surface_desc, void *tensor,
 		      int idx);
 int dla_sdp_prepare_prog_data(struct win_executor *executor, int rdma,
-			      int tensor_idx, u16 op_idx,
+			      int tensor_idx, u32 op_idx,
 			      union dla_operation_container *operation_desc,
 			      union dla_surface_container *surface_desc);
 
@@ -498,7 +501,7 @@ int pdp_tensor_unfold(struct win_executor *executor, int op_idx,
 		      union dla_surface_container *surface_desc, void *tensor,
 		      int idx);
 int dla_pdp_prepare_prog_data(struct win_executor *executor, int rdma,
-			      int tensor_idx, u16 op_idx,
+			      int tensor_idx, u32 op_idx,
 			      union dla_operation_container *operation_desc,
 			      union dla_surface_container *surface_desc);
 
@@ -507,7 +510,7 @@ int rubik_tensor_unfold(struct win_executor *executor, int op_idx,
 			union dla_surface_container *surface_desc, void *tensor,
 			int idx);
 int dla_rubik_prepare_prog_data(struct win_executor *executor, int rdma,
-				int tensor_idx, u16 op_idx,
+				int tensor_idx, u32 op_idx,
 				union dla_operation_container *operation_desc,
 				union dla_surface_container *surface_desc);
 
@@ -523,7 +526,7 @@ int event_sink_tensor_unfold(struct win_executor *executor, int op_idx,
 void dla_event_sink_dump_config(struct dla_processor_group *group);
 
 int dla_event_sink_prepare_prog_data(
-	struct win_executor *executor, int rdma, int tensor_idx, u16 op_idx,
+	struct win_executor *executor, int rdma, int tensor_idx, u32 op_idx,
 	union dla_operation_container *operation_desc,
 	union dla_surface_container *surface_desc);
 
@@ -539,7 +542,7 @@ int event_source_tensor_unfold(struct win_executor *executor, int op_idx,
 void dla_event_source_dump_config(struct dla_processor_group *group);
 
 int dla_event_source_prepare_prog_data(
-	struct win_executor *executor, int rdma, int tensor_idx, u16 op_idx,
+	struct win_executor *executor, int rdma, int tensor_idx, u32 op_idx,
 	union dla_operation_container *operation_desc,
 	union dla_surface_container *surface_desc);
 
@@ -566,15 +569,15 @@ int dsp3_tensor_unfold(struct win_executor *executor, int op_idx,
 		       int idx);
 
 int dsp0_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc);
 int dsp1_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc);
 int dsp2_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc);
 int dsp3_prepare_prog_data(struct win_executor *executor, int rdma, int idx,
-			   u16 op_idx, union dla_operation_container *op_desc,
+			   u32 op_idx, union dla_operation_container *op_desc,
 			   union dla_surface_container *surf_desc);
 #endif

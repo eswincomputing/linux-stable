@@ -284,7 +284,7 @@ irqreturn_t npu_mbox_irq(int irq, void *dev_id)
 	struct nvdla_device *nvdla_dev = (struct nvdla_device *)dev_id;
 	msg_payload_t payload;
 	u32 tiktok;
-	u16 op_index;
+	u32 op_index;
 	u32 stat;
 	u32 data1;
 
@@ -295,7 +295,7 @@ irqreturn_t npu_mbox_irq(int irq, void *dev_id)
 			break;
 		}
 		tiktok = payload.param & 0x1;
-		op_index = payload.lparam;
+		op_index = data1 & 0x7fffffff;
 		// notify data is retrieved by bit clear of data[63].
 		writel(0x0, nvdla_dev->mbox_rx_base + MBOX_NPU_RD_DATA1_OFFSET);
 

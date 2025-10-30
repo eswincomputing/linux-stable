@@ -51,7 +51,7 @@ enum processors_list {
     IDX_LUT = NUM_OP_TYPE,
     IDX_LAST_OP = NUM_OP_TYPE - 1,
     IDX_KMD_LAST_OP = NUM_KMD_OP_TYPE - 1,
-    MAX_KMD_DEPCNT = NUM_OP_TYPE - 3,  // In order to align memory and save space
+    MAX_KMD_DEPCNT = NUM_OP_TYPE - 4,  // In order to align memory and save space
     IDX_NONE = 0xFF,
 };
 #endif
