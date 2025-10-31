@@ -1649,13 +1649,6 @@
 	status = "okay";
 };
 
-&d2d {
-	status = "okay";
-};
-
-&d1_d2d {
-	status = "okay";
-};
 
 /* die0 GPIO Function Description
 
