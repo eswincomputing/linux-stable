@@ -2,46 +2,12 @@
 #include <dt-bindings/input/input.h>
 
 &vi_subsys {
-	eswin,isp_dvp0_hor = <1280>;
-	eswin,isp_dvp0_ver = <720>;
 	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
-	status = "disabled";
-};
-
-&d0_i2c8 {
-	/* io extended for mipi csi */
-	status = "disabled";
-	tca6416_0: gpio@20 {
-		compatible = "ti,tca6416";
-		clock-frequency = <100000>;
-		reg = <0x20>;
-		gpio-controller; /* IRQ not connected */
-		#gpio-cells = <2>;
-		gpio-line-names = "MIPI_CSI0_PWDN", "MIPI_CSI0_RESET", "MIPI_CSI1_FBC", "MIPI_CSI1_ENB",
-				"MIPI_CSI1_RESET", "MIPI_CSI1_PWDN", "FREX_GP0", "",
-				"MIPI_CSI0_ENB", "MIPI_CSI0_FBC", "FREX_GP2", "MIPI_CSI2_FBC",
-				"MIPI_CSI2_ENB", "FREX_GP1", "MIPI_CSI2_RESET", "MIPI_CSI2_PWDN";
-		//vcc = <&gpio_vcc0>;
-		status = "disabled";
-	};
-	tca6416_1: gpio@21 {
-		compatible = "ti,tca6416";
-		reg = <0x21>;
-		gpio-controller;
-		#gpio-cells = <2>;
-		/* IRQ not connected */
-		gpio-line-names = "MIPI_CSI3_PWDN", "MIPI_CSI3_RESET", "MIPI_CSI3_ENB", "MIPI_CSI3_FBC",
-				"MIPI_CSI4_PWDN", "MIPI_CSI4_RESET", "MIPI_CSI4_ENB", "MIPI_CSI4_FBC",
-				"MIPI_CSI5_FBC", "MIPI_CSI5_ENB", "MIPI_CSI5_RESET", "MIPI_CSI5_PWDN",
-				"", "", "", "";
-		//vcc = <&gpio_vcc1>;
-		status = "disabled";
-	};
 };
 
 &d0_aon_i2c0 {
 	/* lt6911uxe */
-	status = "disabled";
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c10_default>;
 	i2c-sda-hold-time-ns = <0x40>;
@@ -51,7 +17,6 @@
 		address-cells = <1>;
 		size-cells = <0>;
 		reg = <0x2b>;
-
 		interrupt-parent = <&porta>;
 		interrupts = <9 IRQ_TYPE_EDGE_BOTH>;
 		pinctrl-names = "default";
@@ -64,24 +29,31 @@
 		assigned-clock-rates = <37125000>;
 		clock-names = "xvclk";
 
+		eswin,camera-module-index = <0>;
+		eswin,camera-module-facing = "back";
+		eswin,camera-module-name = "LT";
+		eswin,camera-module-lens-name = "HDMI-IN";
+
+		status = "okay";
+
 		port {
 			hdmiin_out0: endpoint {
 				remote-endpoint = <&mipidphy0_in_ucam0>;
 				data-lanes = <1 2>;
-				link-frequencies = /bits/ 64 <456000000>;
+				link-frequencies = /bits/ 64 <150000000>;
 			};
 		};
 	};
 };
 
-&csi2_dphy_hw {
+&csi2_dphy_hw0 {
 	lanes = <1 2>;
 	lanes-dp-dn = <0 0>;
-	status = "disabled";
+	status = "okay";
 };
 
 &csi2_dphy0 {
-	status = "disabled";
+	status = "okay";
 
 	ports {
 		#address-cells = <1>;
@@ -111,17 +83,16 @@
 };
 
 &mipi_csi2_0 {
-	status = "disabled";
+	status = "okay";
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	ipi_dt = <0x24>; // 0x24: RGB888
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		port@0 {
 			#address-cells = <1>;
-			#size-cells = <0>;	
+			#size-cells = <0>;
 			reg = <0>;
 			mipi_csi2_input: endpoint {
 				remote-endpoint = <&csidphy0_out>;
@@ -143,7 +114,6 @@
 &mipi_csi2_2 {
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	ipi_dt = <0x24>;
 	status = "disabled";
 	ports {
 		#address-cells = <1>;
@@ -171,11 +141,9 @@
 	};
 };
 
-
 &mipi_csi2_4 {
 	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
-	ipi_dt = <0x24>;
 	status = "disabled";
 	ports {
 		#address-cells = <1>;
@@ -203,14 +171,12 @@
 	};
 };
 
-
-
 &dvp2axi {
-	status = "disabled";
+	status = "okay";
 };
 
-&dvp2axi_mipi_lvds {
-	status = "disabled";
+&dvp2axi_mipi_lvds0 {
+	status = "okay";
 	dvp2axi_id = <0>;
 	ports{
 		#address-cells = <1>;
@@ -266,6 +232,7 @@
 	lanes-dp-dn = <0 0>;
 	status = "disabled";
 };
+
 &csi2_dphy2 {
 	status = "disabled";
 	ports {
@@ -290,6 +257,7 @@
 	lanes-dp-dn = <0 0>;
 	status = "disabled";
 };
+
 &csi2_dphy4 {
 	status = "disabled";
 	ports {
@@ -307,12 +275,4 @@
 			};
 		};
 	};
-};
-
-&isp_0 {
-	status = "disabled";
-};
-
-&isp_1 {
-	status = "disabled";
 };

@@ -550,6 +550,7 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 
 	dwc_usb_clk_init(dev);
 	dwc3_rx_equalization_init(dev);
+
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	ret = pm_runtime_get_sync(dev);
