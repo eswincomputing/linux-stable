@@ -146,7 +146,7 @@ int io_tensor_to_io_addr(struct win_executor *executor,
 		}
 
 		addr_list[address[0].bindId] = f->input_bobj[0]->dma_addr +	address[0].devBuf.offset;
-		dla_detail("addr_list[address[0].bind_id=%lld\n", addr_list[address[0].bindId]);
+		dla_detail("addr_list[address[0].bind_id]=0x%llx\n", addr_list[address[0].bindId]);
 
 		return 0;
 	}
@@ -212,7 +212,7 @@ int io_tensor_to_io_addr(struct win_executor *executor,
 			addr_list[address[i].bindId] =
 				f->input_bobj[i]->dma_addr +
 				address[i].devBuf.offset;
-			dla_detail("i=%d addr_list[address[i].bind_id=%lld\n",
+			dla_detail("i=%d addr_list[address[i].bind_id]=0x%llx\n",
 				   i, addr_list[address[i].bindId]);
 
 			input_num++;
@@ -256,7 +256,7 @@ int io_tensor_to_io_addr(struct win_executor *executor,
 			addr_list[address[i].bindId + executor->input_num] =
 				f->output_bobj[i]->dma_addr +
 				address[i].devBuf.offset;
-			dla_detail("i=%d addr_list[address[i].bind_id=%lld\n",
+			dla_detail("i=%d addr_list[address[i].bind_id]=0x%llx\n",
 				   i, addr_list[address[i].bindId]);
 
 			output_num++;
