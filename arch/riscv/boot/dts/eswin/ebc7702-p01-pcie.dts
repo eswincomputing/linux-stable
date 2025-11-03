@@ -117,19 +117,9 @@
 			no-map;
 		};
 
-		g2d_8GB_boundary_reserved_4k {
-			no-map;
-			reg = <0x1 0xfffff000 0x0 0x1000>;
-		};
-
-		g2d_12GB_boundary_reserved_4k {
-			no-map;
-			reg = <0x2 0xfffff000 0x0 0x1000>;
-		};
-
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x3 0x0 0x1 0x0>;
+			reg = <0x1 0x80000000 0x5 0x80000000>;
 			no-map;
 		};
 
@@ -143,14 +133,9 @@
 			reg = <0x20 0xfffff000 0x0 0x1000>;
 		};
 
-		d1_g2d_8GB_boundary_reserved_4k {
-			no-map;
-			reg = <0x21 0xfffff000 0x0 0x1000>;
-		};
-
 		mmz_nid_1_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x22 0x80000000 0x1 0x0>;
+			reg = <0x21 0x80000000 0x5 0x80000000>;
 			no-map;
 		};
 
@@ -1110,7 +1095,14 @@
 
 &d0_i2c0 {
 	/* SOC1 ina226, used by lpcpu */
-	status = "disabled";
+	status = "okay";
+	ina226@44 {
+		compatible = "ti,ina226";
+		#io-channel-cells = <1>;
+		label = "ina226-u80";
+		reg = <0x44>;
+		shunt-resistor = <1000>;
+	};
 };
 
 &d1_i2c0 {
@@ -1328,4 +1320,9 @@
 	status = "okay";
 };
 
-
+&npu_opp_table {
+	opp@1500000000 {
+		opp-hz = /bits/ 64 <1500000000>;
+		opp-microvolt = <1080000>;
+	};
+};
