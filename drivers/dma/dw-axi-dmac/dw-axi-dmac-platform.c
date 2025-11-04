@@ -71,11 +71,12 @@
 	DMA_SLAVE_BUSWIDTH_32_BYTES	| \
 	DMA_SLAVE_BUSWIDTH_64_BYTES)
 
-#define AXI_DMA_FLAG_HAS_APB_REGS	BIT(0)
-#define AXI_DMA_FLAG_HAS_RESETS		BIT(1)
-#define AXI_DMA_FLAG_USE_CFG2		BIT(2)
-#define AXI_DMA_FLAG_HAS_2RESETS	BIT(3)
-#define AXI_DMA_FLAG_HAS_EIC7700	BIT(4)
+#define AXI_DMA_FLAG_HAS_APB_REGS		BIT(0)
+#define AXI_DMA_FLAG_HAS_RESETS			BIT(1)
+#define AXI_DMA_FLAG_USE_CFG2			BIT(2)
+#define AXI_DMA_FLAG_HAS_2RESETS		BIT(3)
+#define AXI_DMA_FLAG_HAS_EIC7700		BIT(4)
+#define AXI_DMA_FLAG_HAS_EIC7700_HSP	BIT(5)
 
 #define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
 #define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
@@ -286,8 +287,6 @@ static void axi_dma_hw_init(struct axi_dma_chip *chip)
 			win2030_aon_sid_cfg(chip->dev);
 		}
 
-		/* TBU power up */
-		win2030_tbu_power(chip->dev, true);
 	}
 
 }
@@ -1342,8 +1341,15 @@ static int axi_dma_suspend(struct axi_dma_chip *chip)
 	axi_dma_irq_disable(chip);
 	axi_dma_disable(chip);
 
+	win2030_tbu_power(chip->dev, false);
+
 	clk_disable_unprepare(chip->core_clk);
 	clk_disable_unprepare(chip->cfgr_clk);
+
+	int flags = (uintptr_t)of_device_get_match_data(chip->dev);
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700_HSP) {
+		clk_disable_unprepare(chip->axi_clk);
+	}
 
 	return 0;
 }
@@ -1359,6 +1365,15 @@ static int axi_dma_resume(struct axi_dma_chip *chip)
 	ret = clk_prepare_enable(chip->core_clk);
 	if (ret < 0)
 		return ret;
+
+	int flags = (uintptr_t)of_device_get_match_data(chip->dev);
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700_HSP) {
+		ret = clk_prepare_enable(chip->axi_clk);
+		if (ret < 0)
+			return ret;
+	}
+
+	win2030_tbu_power(chip->dev, true);
 
 	axi_dma_enable(chip);
 	axi_dma_irq_enable(chip);
@@ -1402,7 +1417,7 @@ int win2030_dma_sel_cfg(struct axi_dma_chan *chan, u32 val)
 		return ret;
 	}
 	regmap_read(regmap, dma_sel_reg, &dma_sel);
-	
+
 	if (of_node_name_prefix(chip->dev->of_node, "dma-controller-hsp")) {
 		if (val < 32)
 			dma_sel &= ~(1 << val);
@@ -1700,10 +1715,16 @@ static int dw_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->core_clk))
 		return PTR_ERR(chip->core_clk);
 
+
 	chip->cfgr_clk = devm_clk_get(chip->dev, "cfgr-clk");
 	if (IS_ERR(chip->cfgr_clk))
 		return PTR_ERR(chip->cfgr_clk);
 
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700_HSP) {
+		chip->axi_clk = devm_clk_get(chip->dev, "axi-clk");
+		if (IS_ERR(chip->axi_clk))
+			return PTR_ERR(chip->axi_clk);
+	}
 	ret = parse_device_properties(chip);
 	if (ret)
 		return ret;
@@ -1780,6 +1801,9 @@ static int dw_probe(struct platform_device *pdev)
 	 * pm_runtime_get_noresume + axi_dma_resume because we need
 	 * driver to work also without Runtime PM.
 	 */
+	pm_runtime_set_autosuspend_delay(chip->dev, 1000);
+	pm_runtime_use_autosuspend(chip->dev);
+	pm_runtime_set_active(chip->dev);
 	pm_runtime_get_noresume(chip->dev);
 	ret = axi_dma_resume(chip);
 	if (ret < 0)
@@ -1820,10 +1844,16 @@ static int dw_remove(struct platform_device *pdev)
 	struct axi_dma_chan *chan, *_chan;
 	u32 i;
 	unsigned int flags;
+	flags = (uintptr_t)of_device_get_match_data(&pdev->dev);
 
 	/* Enable clk before accessing to registers */
 	clk_prepare_enable(chip->cfgr_clk);
 	clk_prepare_enable(chip->core_clk);
+
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700_HSP) {
+		clk_prepare_enable(chip->axi_clk);
+	}
+
 	axi_dma_irq_disable(chip);
 	for (i = 0; i < dw->hdata->nr_channels; i++) {
 		axi_chan_disable(&chip->dw->chan[i]);
@@ -1843,13 +1873,19 @@ static int dw_remove(struct platform_device *pdev)
 		list_del(&chan->vc.chan.device_node);
 		tasklet_kill(&chan->vc.task);
 	}
-	flags = (uintptr_t)of_device_get_match_data(&pdev->dev);
 	if (flags & AXI_DMA_FLAG_HAS_EIC7700) {
 		/* TBU power down before reset */
 		win2030_tbu_power(chip->dev, false);
 	}
 
 	debugfs_remove_recursive(chip->debugfs_dir);
+
+	/* Disable clk after accessing to registers */
+	clk_disable_unprepare(chip->cfgr_clk);
+	clk_disable_unprepare(chip->core_clk);
+	if (flags & AXI_DMA_FLAG_HAS_EIC7700_HSP) {
+		clk_disable_unprepare(chip->axi_clk);
+	}
 
 	return 0;
 }
@@ -1870,6 +1906,9 @@ static const struct of_device_id dw_dma_of_id_table[] = {
 	}, {
 		.compatible = "eswin,eic770x-axi-dma",
 		.data = (void *)(AXI_DMA_FLAG_HAS_2RESETS | AXI_DMA_FLAG_USE_CFG2 | AXI_DMA_FLAG_HAS_EIC7700),
+	}, {
+		.compatible = "eswin,eic770x-axi-dma-hsp",
+		.data = (void *)(AXI_DMA_FLAG_HAS_2RESETS | AXI_DMA_FLAG_USE_CFG2 | AXI_DMA_FLAG_HAS_EIC7700 | AXI_DMA_FLAG_HAS_EIC7700_HSP),
 	},
 	{}
 };
@@ -1881,7 +1920,7 @@ static struct platform_driver dw_driver = {
 	.driver = {
 		.name	= KBUILD_MODNAME,
 		.of_match_table = dw_dma_of_id_table,
-		.pm = &dw_axi_dma_pm_ops,
+		.pm = pm_sleep_ptr(&dw_axi_dma_pm_ops),
 	},
 };
 module_platform_driver(dw_driver);

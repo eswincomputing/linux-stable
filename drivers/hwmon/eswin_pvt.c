@@ -43,7 +43,7 @@
 #include <linux/sysfs.h>
 #include <linux/types.h>
 #include "eswin_pvt.h"
-
+#include <linux/pm_runtime.h>
 
 /*
  * For the sake of the code simplification we created the sensors info table
@@ -742,6 +742,10 @@ static void eswin_pvt_remove(void *data)
 	struct pvt_hwmon *pvt = data;
 	ret = reset_control_assert(pvt->pvt_rst);
 	WARN_ON(0 != ret);
+
+	pm_runtime_dont_use_autosuspend(pvt->dev);
+	pm_runtime_disable(pvt->dev);
+
 	clk_disable_unprepare(pvt->clk);
 
 	list_del(&pvt->entry);
@@ -997,9 +1001,69 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 		dev_err(pvt->dev, "Can't add PVT clocks disable action\n");
 		return ret;
 	}
+
+	/* The code below assumes runtime PM to be disabled. */
+	WARN_ON(pm_runtime_enabled(&pdev->dev));
+
+	pm_runtime_set_autosuspend_delay(&pdev->dev, -1); //runtime suspends are prevented
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+
 	list_add(&pvt->entry, &eswin_pvt_dev);
 	return 0;
 }
+
+static int __maybe_unused eswin_pvt_runtime_suspend(struct device *dev)
+{
+	struct clk *clk = devm_clk_get(dev, "pvt_clk");
+
+	clk_disable_unprepare(clk);
+
+	return 0;
+}
+
+static int __maybe_unused eswin_pvt_runtime_resume(struct device *dev)
+{
+	struct clk *clk = devm_clk_get(dev, "pvt_clk");
+	int ret = 0;
+
+	ret = clk_prepare_enable(clk);
+	return ret;
+}
+
+static int __maybe_unused eswin_pvt_suspend(struct device *dev)
+{
+	struct clk *clk = devm_clk_get(dev, "pvt_clk");
+
+	if (!pm_runtime_suspended(dev)) {
+		clk_disable_unprepare(clk);
+	}
+
+	return 0;
+}
+
+static int __maybe_unused eswin_pvt_resume(struct device *dev)
+{
+	int ret = 0;
+	struct clk *clk = devm_clk_get(dev, "pvt_clk");
+
+	if (!pm_runtime_suspended(dev)) {
+		ret = clk_prepare_enable(clk);
+		if (ret < 0) {
+			dev_err(dev, "failed to enable clk (%d)\n", ret);
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static const struct dev_pm_ops eswin_pvt_pm = {
+	SET_RUNTIME_PM_OPS(eswin_pvt_runtime_suspend,
+				eswin_pvt_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(eswin_pvt_suspend, eswin_pvt_resume)
+};
 
 static const struct of_device_id pvt_of_match[] = {
 	{ .compatible = "eswin,eswin-pvt-cpu"},
@@ -1012,7 +1076,8 @@ static struct platform_driver pvt_driver = {
 	.probe = eswin_pvt_probe,
 	.driver = {
 		.name = "eswin-pvt",
-		.of_match_table = pvt_of_match
+		.of_match_table = pvt_of_match,
+		.pm = pm_sleep_ptr(&eswin_pvt_pm)
 	},
 };
 module_platform_driver(pvt_driver);

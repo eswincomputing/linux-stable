@@ -478,6 +478,13 @@ EXPORT_SYMBOL_GPL(device_wakeup_disable);
  */
 void device_set_wakeup_capable(struct device *dev, bool capable)
 {
+#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	bool eic770x_system_device_is_wakeup_capable(struct device *dev);
+	if (false == eic770x_system_device_is_wakeup_capable(dev)) {
+		return;
+	}
+#endif
+
 	if (!!dev->power.can_wakeup == !!capable)
 		return;
 

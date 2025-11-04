@@ -50,6 +50,9 @@
 #define SPINOR_OP_SRST		0x99	/* Software Reset */
 #define SPINOR_OP_GBULK		0x98    /* Global Block Unlock */
 
+#define SPINOR_OP_POWERDOWN		0xb9	/* POWER DOWN */
+#define SPINOR_OP_RELEASE_POWERDOWN		0xab	/* RELEASE POWER DOWN */
+
 /* 4-byte address opcodes - used on Spansion and some Macronix flashes. */
 #define SPINOR_OP_READ_4B	0x13	/* Read data bytes (low frequency) */
 #define SPINOR_OP_READ_FAST_4B	0x0c	/* Read data bytes (high frequency) */

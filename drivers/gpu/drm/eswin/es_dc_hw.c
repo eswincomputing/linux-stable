@@ -863,6 +863,7 @@ int dc_hw_init(struct dc_hw *hw)
 
 void dc_hw_deinit(struct dc_hw *hw)
 {
+	dc_write(hw, DC_DISPLAY_PANEL_CONFIG, 0x0);
 	if (hw->read_block)
 		kfree(hw->read_block);
 }
@@ -1229,8 +1230,8 @@ static void plane_ex_commit(struct dc_hw *hw)
 						     DC_FRAMEBUFFER_CONFIG_EX,
 						     0, BIT(8));
 				else
-					dc_set_clear(hw, DC_OVERLAY_CONFIG,
-						     0, BIT(30));
+					dc_set_clear(hw, DC_OVERLAY_CONFIG, 0,
+						     BIT(30));
 			} else {
 				if (i == PRIMARY_PLANE)
 					dc_set_clear(hw,
@@ -1501,9 +1502,9 @@ void dc_hw_commit(struct dc_hw *hw)
 			dc_write(hw, DC_CURSOR_LOCATION,
 				 hw->cursor.x | (hw->cursor.y << 16));
 			dc_write(hw, DC_CURSOR_CONFIG,
-				  (hw->cursor.hot_x << 16) |
-				  (hw->cursor.hot_y << 8) |
-				  (hw->cursor.size << 5) | 0x06);
+				 (hw->cursor.hot_x << 16) |
+					 (hw->cursor.hot_y << 8) |
+					 (hw->cursor.size << 5) | 0x06);
 		} else {
 			dc_write(hw, DC_CURSOR_CONFIG, 0x00);
 		}

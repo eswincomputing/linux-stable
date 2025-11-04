@@ -870,7 +870,7 @@ struct platform_driver dw_hdmi_hdcp2_driver = {
 	.driver = {
         .name = "dw-hdmi-hdcp2",
         .owner = THIS_MODULE,
-		.pm = &dw_hdcp2_pm,
+		.pm = pm_sleep_ptr(&dw_hdcp2_pm),
         .of_match_table = of_match_ptr(dw_hdmi_hdcp2_dt_ids),
     },
 };

@@ -393,7 +393,10 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 		if (ret)
 			goto out;
 	}
-
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
 	ret = dw_spi_add_host(&pdev->dev, dws);
@@ -401,6 +404,10 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 		goto out;
 
 	platform_set_drvdata(pdev, dwsmmio);
+
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
+
 	return 0;
 
 out:
@@ -423,6 +430,84 @@ static void dw_spi_mmio_remove(struct platform_device *pdev)
 	clk_disable_unprepare(dwsmmio->clk);
 	reset_control_assert(dwsmmio->rstc);
 }
+
+static int __maybe_unused dw_spi_runtime_resume(struct device *dev)
+{
+	struct dw_spi_mmio *dwsmmio = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(dwsmmio->clk);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(dwsmmio->pclk);
+	if (ret) {
+		clk_disable_unprepare(dwsmmio->clk);
+		return ret;
+	}
+	return 0;
+}
+
+static int __maybe_unused dw_spi_runtime_suspend(struct device *dev)
+{
+	struct dw_spi_mmio *dwsmmio = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(dwsmmio->pclk);
+	clk_disable_unprepare(dwsmmio->clk);
+	return 0;
+}
+
+static int __maybe_unused dw_spi_suspend(struct device *dev)
+{
+
+	int ret;
+	struct dw_spi_mmio *dwsmmio = dev_get_drvdata(dev);
+	struct spi_controller *master = dwsmmio->dws.host;
+
+	ret = spi_master_suspend(master);
+	if (ret)
+		return ret;
+
+	if (!pm_runtime_suspended(dev)) {
+		clk_disable_unprepare(dwsmmio->pclk);
+		clk_disable_unprepare(dwsmmio->clk);
+	}
+	return 0;
+}
+
+static int __maybe_unused dw_spi_resume(struct device *dev)
+{
+	int ret;
+	struct dw_spi_mmio *dwsmmio = dev_get_drvdata(dev);
+	struct spi_controller *master = dwsmmio->dws.host;
+
+	if (!pm_runtime_suspended(dev)) {
+		ret = clk_prepare_enable(dwsmmio->clk);
+		if (ret) {
+			dev_err(dev, "failed to enable cfg_clk (%d)\n", ret);
+			return ret;
+		}
+
+		ret = clk_prepare_enable(dwsmmio->pclk);
+		if (ret) {
+			dev_err(dev, "failed to enable clk (%d)\n", ret);
+			clk_disable_unprepare(dwsmmio->clk);
+			return ret;
+		}
+	}
+	ret = spi_master_resume(master);
+	if (ret < 0) {
+		clk_disable_unprepare(dwsmmio->pclk);
+		clk_disable_unprepare(dwsmmio->clk);
+	}
+	return ret;
+}
+
+static const struct dev_pm_ops dw_spi_pm = {
+	SET_RUNTIME_PM_OPS(dw_spi_runtime_suspend,
+				dw_spi_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(dw_spi_suspend, dw_spi_resume)
+};
 
 static const struct of_device_id dw_spi_mmio_of_match[] = {
 	{ .compatible = "snps,dw-apb-ssi", .data = dw_spi_pssi_init},
@@ -460,6 +545,7 @@ static struct platform_driver dw_spi_mmio_driver = {
 		.name	= DRIVER_NAME,
 		.of_match_table = dw_spi_mmio_of_match,
 		.acpi_match_table = ACPI_PTR(dw_spi_mmio_acpi_match),
+		.pm = pm_sleep_ptr(&dw_spi_pm),
 	},
 };
 module_platform_driver(dw_spi_mmio_driver);

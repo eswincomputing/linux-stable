@@ -175,9 +175,13 @@ int hantrovcmd_mmap(struct file *filp, struct vm_area_struct *vma);
 int hantrovcmd_init(void);
 void hantrovcmd_cleanup(struct platform_device *pdev, int cleanup);
 
+void hantrovcmd_abort(u32 core_id);
 int hantrovcmd_wait_core_idle(u32 core_id, long timeout);
+int hantrovcmd_reset(u32 core_id);
+void hantrovcmd_restart(u32 core_id);
+
 struct platform_device *vdec_get_platform_device(u32 core_id);
-int vdec_pm_runtime_sync(u32 core_id);
+int vdec_pm_runtime_get(u32 core_id);
 int vdec_pm_runtime_put(u32 core_id);
 /** get status statistcs*/
 void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *freq);

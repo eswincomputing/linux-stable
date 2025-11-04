@@ -102,6 +102,7 @@ extern "C" {
 #else
 #define ASIC_VCMD_SWREG_AMOUNT                  27
 #endif
+#define VCMD_REGISTER_EXE_CMDBUF_COUNT          0X0C
 #define VCMD_REGISTER_CONTROL_OFFSET            0X40
 #define VCMD_REGISTER_INT_STATUS_OFFSET         0X44
 #define VCMD_REGISTER_INT_CTL_OFFSET            0X48

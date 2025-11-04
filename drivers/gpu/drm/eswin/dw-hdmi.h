@@ -1286,4 +1286,5 @@ enum supported_eotf_type {
 void dw_hdmi_suspend(struct dw_hdmi *hdmi);
 void dw_hdmi_enable_video(struct dw_hdmi *hdmi);
 void dw_hdmi_disable_video(struct dw_hdmi *hdmi);
+void dw_hdmi_resume_early(struct dw_hdmi *hdmi);
 #endif /* __DW_HDMI_H__ */

@@ -43,6 +43,7 @@
  */
 struct es_drm_private {
 	struct device *dma_dev;
+	struct device *dc_dev;
 	struct iommu_domain *domain;
 #ifdef CONFIG_ESWIN_DW_HDMI
 	struct drm_property *connector_id_prop;

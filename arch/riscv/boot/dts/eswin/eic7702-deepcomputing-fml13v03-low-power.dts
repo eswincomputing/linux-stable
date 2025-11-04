@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7702 SoC.
+ *
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+
+
+#include "eic7702-deepcomputing-fml13v03.dts"
+/* Clock frequency (in Hz) of the PCB crystal for rtcclk */
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	model = "DeepComputing FML13V03";
+	compatible = "deepcomputing,fml13v03", "sifive,hifive-unmatched-a00", "sifive,fu740-c000",
+		     "sifive,fu740", "eswin,eic7700";
+
+};
+
+&d0_sys_noc {
+	status = "disabled";
+};
+
+&d1_sys_noc {
+	status = "disabled";
+};
+
+&d0_npu{
+	status = "disabled";
+};
+
+&d1_npu {
+	status = "disabled";
+};
+
+&d0_dsp_subsys {
+	status = "disabled";
+};
+
+&d1_dsp_subsys {
+	status = "disabled";
+};
+
+&d0_dsp0 {
+	status = "disabled";
+};
+
+&d1_dsp0 {
+	status = "disabled";
+};
+
+&d0_dsp1 {
+	status = "disabled";
+};
+
+&d1_dsp1 {
+	status = "disabled";
+};
+
+&d0_dsp2 {
+	status = "disabled";
+};
+
+&d1_dsp2 {
+	status = "disabled";
+};
+
+&d0_dsp3 {
+	status = "disabled";
+};
+
+&d1_dsp3 {
+	status = "disabled";
+};
+
+&d0_i2c1 {
+	status = "okay";
+	tps549d22@10 {
+		status = "okay";
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
+		eswin,regulator_default-microvolt=<700000>;
+		label = "npu_vdd";
+		regulators {
+			d0_npu_vcc: npu_svcc {
+				regulator-name = "NPU_SVCC";
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <1120000>;
+				regulator-min-microamp = <20000000>;
+				regulator-max-microamp = <40000000>;
+				regulator-ov-protection-microvolt = <1100000>;
+			};
+		};
+	};
+};
+
+&d1_i2c1 {
+	status = "okay";
+	tps549d22@10 {
+		compatible = "ti,tps549d22";
+		reg = <0x10>;
+		eswin,regulator_default-microvolt=<700000>;
+		label = "d1_npu_vdd";
+		regulators {
+			d1_npu_vcc: npu_svcc {
+				regulator-name = "NPU_SVCC2";
+				regulator-min-microvolt = <700000>;
+				regulator-max-microvolt = <1120000>;
+				regulator-min-microamp = <20000000>;
+				regulator-max-microamp = <40000000>;
+				regulator-ov-protection-microvolt = <1100000>;
+			};
+		};
+	};
+};
+
+&dev_llc_d0{
+	/* apply_npu_1G_freq; */
+	status = "disabled";
+};
+
+&d1_llc_dev{
+	/* apply_npu_1G_freq; */
+	status = "disabled";
+};
+

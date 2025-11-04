@@ -2433,7 +2433,7 @@ static struct platform_driver dwc3_driver = {
 		.name	= "dwc3",
 		.of_match_table	= of_match_ptr(of_dwc3_match),
 		.acpi_match_table = ACPI_PTR(dwc3_acpi_match),
-		.pm	= &dwc3_dev_pm_ops,
+		.pm	= pm_sleep_ptr(&dwc3_dev_pm_ops),
 	},
 };
 

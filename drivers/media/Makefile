@@ -7,7 +7,8 @@
 # I2C drivers should come before other drivers, otherwise they'll fail
 # when compiled as builtin drivers
 #
-obj-y += i2c/ tuners/
+obj-$(CONFIG_VIDEO_ESWIN_DVP2AXI) += i2c/
+obj-y += tuners/
 obj-$(CONFIG_DVB_CORE) += dvb-frontends/
 
 #

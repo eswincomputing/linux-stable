@@ -19,6 +19,8 @@
  * Authors: Min Lin <linmin@eswincomputing.com>
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/types.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -1590,6 +1592,7 @@ static int ipc_msg_mbox_tx(struct ipc_session *session, cipher_create_handle_req
 	ret = do_ipc_msg_tx(session, service_req);
 	if (ret == 0) {
 		ret = -ETIMEDOUT;
+		atomic_set(&session->receive_data_ready, true);
 		mutex_unlock(&session->lock);
 		dev_err(dev,"pid[%d],session->num:%d,timeout!!!\n",
 			task_pid_nr(current), session->num);
@@ -2331,6 +2334,24 @@ static int ipc_cipher_destroy_all_handles(struct ipc_session *session)
 	return ret;
 }
 
+static int eswin_ipc_suspend(struct device *dev)
+{
+	struct ipc_session *session = dev_get_drvdata(dev);
+
+	atomic_set(&session->ipc_service_ready, false);
+	return 0;
+}
+
+static int eswin_ipc_resume(struct device *dev)
+{
+	struct ipc_session *session = dev_get_drvdata(dev);
+
+	atomic_set(&session->ipc_service_ready, true);
+	return 0;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(eswin_ipc_pm_ops, eswin_ipc_suspend, eswin_ipc_resume);
+
 static int eswin_ipc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2465,6 +2486,7 @@ static struct platform_driver eswin_ipc_driver = {
 		.name = "win2030-ipc",
 		.of_match_table = eswin_ipc_match,
 		.suppress_bind_attrs	= true,
+		.pm = pm_sleep_ptr(&eswin_ipc_pm_ops),
 	},
 	.probe = eswin_ipc_probe,
 	.remove = eswin_ipc_remove,

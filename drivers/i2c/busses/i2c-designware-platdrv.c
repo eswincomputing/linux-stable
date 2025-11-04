@@ -372,7 +372,14 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 					DPM_FLAG_SMART_SUSPEND);
 	}
 
-	device_enable_async_suspend(&pdev->dev);
+	/*
+	 * When there is a large amount of print information
+	 * with multiple I2c devices suspend simultaneously,
+	 * it might cause the system to crash.
+	 * @TODO we need to find the rootcause in the future.
+	 * [Current workaround]Disable I2C async suspend operation.
+	 * device_enable_async_suspend(&pdev->dev);
+	 */
 
 	/* The code below assumes runtime PM to be disabled. */
 	WARN_ON(pm_runtime_enabled(&pdev->dev));
@@ -489,7 +496,7 @@ static struct platform_driver dw_i2c_driver = {
 		.name	= "i2c_designware",
 		.of_match_table = of_match_ptr(dw_i2c_of_match),
 		.acpi_match_table = ACPI_PTR(dw_i2c_acpi_match),
-		.pm	= pm_ptr(&dw_i2c_dev_pm_ops),
+		.pm	= pm_sleep_ptr(&dw_i2c_dev_pm_ops),
 	},
 };
 

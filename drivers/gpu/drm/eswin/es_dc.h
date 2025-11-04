@@ -34,6 +34,8 @@ struct es_dc_funcs {
 	void (*dump_enable)(struct device *dev, dma_addr_t addr,
 			    unsigned int pitch);
 	void (*dump_disable)(struct device *dev);
+	int (*dc_resume)(struct device *dev, struct drm_device *drm_dev);
+	int (*dc_suspend)(struct device *dev, struct drm_device *drm_dev);
 };
 
 struct es_dc {
@@ -58,6 +60,7 @@ struct es_dc {
 	bool first_frame;
 	bool dc_initialized;
 	bool dc_clkon;
+	int irq;
 
 	const struct es_dc_funcs *funcs;
 };

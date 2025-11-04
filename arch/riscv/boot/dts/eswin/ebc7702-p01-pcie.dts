@@ -719,17 +719,17 @@
 };
 
 &vdec0 {
-	status = "okay";
+	status = "disabled";
 };
 &vdec1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &venc0 {
-	status = "okay";
+	status = "disabled";
 };
 &venc1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &video_output {
@@ -1311,10 +1311,10 @@
 };
 
 &gpio0 {
-	status = "okay";
+	status = "disabled";
 };
 &d1_gpio0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &dev_llc_d0{

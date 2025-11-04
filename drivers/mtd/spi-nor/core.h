@@ -114,6 +114,18 @@
 		   SPI_MEM_OP_NO_ADDR,					\
 		   SPI_MEM_OP_NO_DATA)
 
+#define SPI_NOR_POWERDUWM_OP						\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_POWERDOWN, 0),		\
+		   SPI_MEM_OP_NO_ADDR,					\
+		   SPI_MEM_OP_NO_DUMMY,					\
+		   SPI_MEM_OP_NO_DATA)
+
+#define SPI_NOR_RELEASE_POWERDUWM_OP						\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RELEASE_POWERDOWN, 0),		\
+		   SPI_MEM_OP_NO_ADDR,					\
+		   SPI_MEM_OP_NO_DUMMY,					\
+		   SPI_MEM_OP_NO_DATA)
+
 /* Keep these in sync with the list in debugfs.c */
 enum spi_nor_option_flags {
 	SNOR_F_HAS_SR_TB	= BIT(0),

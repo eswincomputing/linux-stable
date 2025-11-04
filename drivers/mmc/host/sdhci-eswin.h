@@ -208,6 +208,8 @@ struct eswin_sdhci_phy_data {
  */
 struct eswin_sdhci_data {
 	struct sdhci_host *host;
+	struct clk *aclk;
+	struct clk *cfg_clk;
 	struct clk *clk_ahb;
 	bool has_cqe;
 	struct eswin_sdhci_clk_data clk_data;
