@@ -354,6 +354,7 @@
 
 &fan_control {
 	status = "okay";
+	vcc-gpios = <&porta 18 GPIO_ACTIVE_LOW>;
 };
 
 &d1_fan_control {

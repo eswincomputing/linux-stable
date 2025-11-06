@@ -1488,7 +1488,7 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_die0_pwm0_default &pinctrl_die0_pwm2_default>;
 	pinctrl-1 = <&pinctrl_die0_gpio68_default &pinctrl_die0_gpio41_default>;
-	fan-pwm-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
+	pwm-gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &d1_pwm0 {
@@ -1498,7 +1498,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_pwm0_default>;
 	pinctrl-1 = <&pinctrl_die1_gpio68_default>;
-	fan-pwm-gpios = <&d1_portc 4 GPIO_ACTIVE_HIGH>;
+	pwm-gpios = <&d1_portc 4 GPIO_ACTIVE_HIGH>;
 };
 
 &fan_control {
