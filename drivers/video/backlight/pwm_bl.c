@@ -243,6 +243,9 @@ static int pwm_backlight_parse_dt(struct device *dev,
 
 	memset(data, 0, sizeof(*data));
 
+	if (of_property_read_bool(node, "backlight-always-on"))
+		data->bl_alwayson = 1;
+
 	/*
 	 * These values are optional and set as 0 by default, the out values
 	 * are modified only if a valid u32 value can be decoded.
@@ -611,6 +614,10 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
 	bl->props.brightness = data->dft_brightness;
 	bl->props.power = pwm_backlight_initial_power_state(pb);
+
+	if(data->bl_alwayson)
+		backlight_enable(bl);
+
 	backlight_update_status(bl);
 
 	platform_set_drvdata(pdev, bl);
