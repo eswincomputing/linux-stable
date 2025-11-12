@@ -293,43 +293,51 @@ static int dwc3_eswin_assert(struct dwc3_eswin *eswin)
 
 static int dwc3_rx_equalization_init(struct device *dev)
 {
-
 	struct device_node *rx = dev->of_node;
 	void __iomem *phy_base;
 	void __iomem *phy_base_reg;
 	int ret;
 	u32 phy_reg[4];
 	u16 reg_val;
+	u32 fixed_eq = 0;
 
-	if (device_property_read_bool(dev, "rt_equalization")) {
+	ret = of_property_read_u32_index(dev->of_node,
+			"fixed-rx-equalization", 0, &fixed_eq);
+	if (ret)
+		return 0;
 
-		ret = of_property_read_u32_array(rx, "phy_reg", phy_reg, ARRAY_SIZE(phy_reg));
-		if (ret)
-			return ret;
-
-		phy_base = devm_ioremap(dev, phy_reg[1], phy_reg[3]);
-		if (!phy_base) {
-			pr_err("Failed to ioremap phy_reg\n");
-			return -ENOMEM;
-		}
-
-		/* Get rx register */
-		phy_base_reg =  phy_base + RX_REG_OFFSET;
-		reg_val = readw(phy_base_reg);
-
-		reg_val &= ~RX_EQ_EN;
-		writew(reg_val, phy_base_reg);
-
-		reg_val |= RX_EQ_EN_OVRD;
-		writew(reg_val, phy_base_reg);
-
-		reg_val &= ~(0x7 << 8);
-		reg_val |= RX_EQ;
-		writew(reg_val, phy_base_reg);
-
-		reg_val |= RX_EQ_OVRD;
-		writew(reg_val, phy_base_reg);
+	if (fixed_eq != 2 && fixed_eq != 3 && fixed_eq != 4) {
+		dev_info(dev, "fixed rx equalization value:%u not supported\n", fixed_eq);
+		return 0;
 	}
+
+	dev_info(dev, "fixed rx equalization value :%u\n", fixed_eq);
+	ret = of_property_read_u32_array(rx, "phy_reg", phy_reg, ARRAY_SIZE(phy_reg));
+	if (ret)
+		return ret;
+
+	phy_base = devm_ioremap(dev, phy_reg[1], phy_reg[3]);
+	if (!phy_base) {
+		pr_err("Failed to ioremap phy_reg\n");
+		return -ENOMEM;
+	}
+
+	/* Get rx register */
+	phy_base_reg =  phy_base + RX_REG_OFFSET;
+	reg_val = readw(phy_base_reg);
+
+	reg_val &= ~RX_EQ_EN;
+	writew(reg_val, phy_base_reg);
+
+	reg_val |= RX_EQ_EN_OVRD;
+	writew(reg_val, phy_base_reg);
+
+	reg_val &= ~(0x7 << 8);
+	reg_val |= (fixed_eq << 8);
+	writew(reg_val, phy_base_reg);
+
+	reg_val |= RX_EQ_OVRD;
+	writew(reg_val, phy_base_reg);
 
 	return 0;
 }
