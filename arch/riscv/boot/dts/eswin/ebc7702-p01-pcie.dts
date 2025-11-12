@@ -409,7 +409,7 @@
 	temperature = <70000>;
 };
 &d0_trip_crit {
-	temperature = <75000>;
+	temperature = <80000>;
 };
 
 &d1_trip_threshold {
@@ -419,7 +419,7 @@
 	temperature = <70000>;
 };
 &d1_trip_crit {
-	temperature = <75000>;
+	temperature = <80000>;
 };
 
 &d0_clock {
