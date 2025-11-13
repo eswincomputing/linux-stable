@@ -146,4 +146,14 @@
 			};
 		};
 	};
+
+	fragment@13 {
+		target =  <&es_ircut>;
+		__overlay__ {
+			ircut-gpio = <&portb 30 0>;
+			eswin,pulse-width = <200>;
+			eswin,camera-module-index = <0>;
+			status = "okay";
+		};
+	};
 };

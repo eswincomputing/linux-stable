@@ -8,3 +8,4 @@ obj-$(CONFIG_DWC_MIPI_CSI2_HOST) += mipi-csi2/
 obj-$(CONFIG_VIDEO_ESWIN_ISP) += isp/
 obj-$(CONFIG_PHY_ESWIN_CSI2_DPHY) += mipi-cdphy/
 obj-$(CONFIG_VIDEO_ESWIN_VI_TOP) += eswin_vi.o
+obj-$(CONFIG_VIDEO_ESWIN_VI_IRCUT) += es_ircut.o
