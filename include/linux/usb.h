@@ -500,6 +500,12 @@ struct usb_dev_state;
 
 struct usb_tt;
 
+enum usb_link_tunnel_mode {
+	USB_LINK_UNKNOWN = 0,
+	USB_LINK_NATIVE,
+	USB_LINK_TUNNELED,
+};
+
 enum usb_port_connect_type {
 	USB_PORT_CONNECT_TYPE_UNKNOWN = 0,
 	USB_PORT_CONNECT_TYPE_HOT_PLUG,
@@ -1617,6 +1623,7 @@ struct urb {
 	void *transfer_buffer;		/* (in) associated data buffer */
 	dma_addr_t transfer_dma;	/* (in) dma addr for transfer_buffer */
 	struct scatterlist *sg;		/* (in) scatter gather buffer list */
+	struct sg_table *sgt;		/* (in) scatter gather table for noncoherent buffer */
 	int num_mapped_sgs;		/* (internal) mapped sg entries */
 	int num_sgs;			/* (in) number of entries in the sg list */
 	u32 transfer_buffer_length;	/* (in) data buffer length */

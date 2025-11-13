@@ -1073,6 +1073,7 @@ enum {
 	PCI_SCAN_ALL_PCIE_DEVS	= 0x00000040,	/* Scan all, not just dev 0 */
 };
 
+#define PCI_IRQ_INTX		(1 << 0) /* Allow INTx interrupts */
 #define PCI_IRQ_LEGACY		(1 << 0) /* Allow legacy interrupts */
 #define PCI_IRQ_MSI		(1 << 1) /* Allow MSI interrupts */
 #define PCI_IRQ_MSIX		(1 << 2) /* Allow MSI-X interrupts */
@@ -1310,6 +1311,8 @@ int pci_user_read_config_dword(struct pci_dev *dev, int where, u32 *val);
 int pci_user_write_config_byte(struct pci_dev *dev, int where, u8 val);
 int pci_user_write_config_word(struct pci_dev *dev, int where, u16 val);
 int pci_user_write_config_dword(struct pci_dev *dev, int where, u32 val);
+void pci_clear_and_set_config_dword(const struct pci_dev *dev, int pos,
+				    u32 clear, u32 set);
 
 int __must_check pci_enable_device(struct pci_dev *dev);
 int __must_check pci_enable_device_io(struct pci_dev *dev);

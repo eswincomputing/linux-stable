@@ -468,6 +468,53 @@ int phy_reset(struct phy *phy)
 EXPORT_SYMBOL_GPL(phy_reset);
 
 /**
+ * phy_notify_connect() - phy connect notification
+ * @phy: the phy returned by phy_get()
+ * @port: the port index for connect
+ *
+ * If the phy needs to get connection status, the callback can be used.
+ * Returns: %0 if successful, a negative error code otherwise
+ */
+int phy_notify_connect(struct phy *phy, int port)
+{
+	int ret;
+
+	if (!phy || !phy->ops->connect)
+		return 0;
+
+	mutex_lock(&phy->mutex);
+	ret = phy->ops->connect(phy, port);
+	mutex_unlock(&phy->mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(phy_notify_connect);
+
+/**
+ * phy_notify_disconnect() - phy disconnect notification
+ * @phy: the phy returned by phy_get()
+ * @port: the port index for disconnect
+ *
+ * If the phy needs to get connection status, the callback can be used.
+ *
+ * Returns: %0 if successful, a negative error code otherwise
+ */
+int phy_notify_disconnect(struct phy *phy, int port)
+{
+	int ret;
+
+	if (!phy || !phy->ops->disconnect)
+		return 0;
+
+	mutex_lock(&phy->mutex);
+	ret = phy->ops->disconnect(phy, port);
+	mutex_unlock(&phy->mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(phy_notify_disconnect);
+
+/**
  * phy_calibrate() - Tunes the phy hw parameters for current configuration
  * @phy: the phy returned by phy_get()
  *

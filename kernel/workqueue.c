@@ -29,6 +29,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/signal.h>
 #include <linux/completion.h>
 #include <linux/workqueue.h>
@@ -53,6 +54,7 @@
 #include <linux/nmi.h>
 #include <linux/kvm_para.h>
 #include <linux/delay.h>
+#include <linux/irq_work.h>
 
 #include "workqueue_internal.h"
 
@@ -73,8 +75,10 @@ enum {
 	 * wq_pool_attach_mutex to avoid changing binding state while
 	 * worker_attach_to_pool() is in progress.
 	 */
-	POOL_MANAGER_ACTIVE	= 1 << 0,	/* being managed */
+	POOL_BH			= 1 << 0,	/* is a BH pool */
+	POOL_MANAGER_ACTIVE	= 1 << 1,	/* being managed */
 	POOL_DISASSOCIATED	= 1 << 2,	/* cpu can't serve workers */
+	POOL_BH_DRAINING	= 1 << 3,	/* draining after CPU offline */
 
 	/* worker flags */
 	WORKER_DIE		= 1 << 1,	/* die die die */
@@ -110,6 +114,15 @@ enum {
 
 	WQ_NAME_LEN		= 24,
 };
+
+/*
+ * We don't want to trap softirq for too long. See MAX_SOFTIRQ_TIME and
+ * MAX_SOFTIRQ_RESTART in kernel/softirq.c. These are macros because
+ * msecs_to_jiffies() can't be an initializer.
+ */
+#define BH_WORKER_JIFFIES	msecs_to_jiffies(2)
+#define BH_WORKER_RESTARTS	10
+
 
 /*
  * Structure fields follow one of the following exclusion rules.
@@ -399,6 +412,14 @@ static bool wq_debug_force_rr_cpu = false;
 #endif
 module_param_named(debug_force_rr_cpu, wq_debug_force_rr_cpu, bool, 0644);
 
+/* to raise softirq for the BH worker pools on other CPUs */
+static DEFINE_PER_CPU_SHARED_ALIGNED(struct irq_work [NR_STD_WORKER_POOLS],
+				     bh_pool_irq_works);
+
+/* the BH worker pools */
+static DEFINE_PER_CPU_SHARED_ALIGNED(struct worker_pool [NR_STD_WORKER_POOLS],
+				     bh_worker_pools);
+
 /* the per-cpu worker pools */
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct worker_pool [NR_STD_WORKER_POOLS], cpu_worker_pools);
 
@@ -434,7 +455,10 @@ struct workqueue_struct *system_power_efficient_wq __read_mostly;
 EXPORT_SYMBOL_GPL(system_power_efficient_wq);
 struct workqueue_struct *system_freezable_power_efficient_wq __read_mostly;
 EXPORT_SYMBOL_GPL(system_freezable_power_efficient_wq);
-
+struct workqueue_struct *system_bh_wq;
+EXPORT_SYMBOL_GPL(system_bh_wq);
+struct workqueue_struct *system_bh_highpri_wq;
+EXPORT_SYMBOL_GPL(system_bh_highpri_wq);
 static int worker_thread(void *__worker);
 static void workqueue_sysfs_unregister(struct workqueue_struct *wq);
 static void show_pwq(struct pool_workqueue *pwq);
@@ -453,6 +477,11 @@ static void show_one_worker_pool(struct worker_pool *pool);
 			 !lockdep_is_held(&wq->mutex) &&		\
 			 !lockdep_is_held(&wq_pool_mutex),		\
 			 "RCU, wq->mutex or wq_pool_mutex should be held")
+
+#define for_each_bh_worker_pool(pool, cpu)				\
+	for ((pool) = &per_cpu(bh_worker_pools, cpu)[0];		\
+    	(pool) < &per_cpu(bh_worker_pools, cpu)[NR_STD_WORKER_POOLS]; \
+    	(pool)++)
 
 #define for_each_cpu_worker_pool(pool, cpu)				\
 	for ((pool) = &per_cpu(cpu_worker_pools, cpu)[0];		\
@@ -1095,6 +1124,29 @@ static bool assign_work(struct work_struct *work, struct worker *worker,
 	return true;
 }
 
+static struct irq_work *bh_pool_irq_work(struct worker_pool *pool)
+{
+	int high = pool->attrs->nice == HIGHPRI_NICE_LEVEL ? 1 : 0;
+
+	return &per_cpu(bh_pool_irq_works, pool->cpu)[high];
+}
+
+static void kick_bh_pool(struct worker_pool *pool)
+{
+#ifdef CONFIG_SMP
+	/* see drain_dead_softirq_workfn() for BH_DRAINING */
+	if (unlikely(pool->cpu != smp_processor_id() &&
+		     !(pool->flags & POOL_BH_DRAINING))) {
+		irq_work_queue_on(bh_pool_irq_work(pool), pool->cpu);
+		return;
+	}
+#endif
+	if (pool->attrs->nice == HIGHPRI_NICE_LEVEL)
+		raise_softirq_irqoff(HI_SOFTIRQ);
+	else
+		raise_softirq_irqoff(TASKLET_SOFTIRQ);
+}
+
 /**
  * kick_pool - wake up an idle worker if necessary
  * @pool: pool to kick
@@ -1111,6 +1163,11 @@ static bool kick_pool(struct worker_pool *pool)
 
 	if (!need_more_worker(pool) || !worker)
 		return false;
+
+	if (pool->flags & POOL_BH) {
+		kick_bh_pool(pool);
+		return true;
+	}
 
 	p = worker->task;
 
@@ -2107,10 +2164,12 @@ static void worker_attach_to_pool(struct worker *worker,
 	 * stable across this function.  See the comments above the flag
 	 * definition for details.
 	 */
-	if (pool->flags & POOL_DISASSOCIATED)
+	if (pool->flags & POOL_DISASSOCIATED) {
 		worker->flags |= WORKER_UNBOUND;
-	else
+	} else {
+		WARN_ON_ONCE(pool->flags & POOL_BH);
 		kthread_set_per_cpu(worker->task, pool->cpu);
+	}
 
 	if (worker->rescue_wq)
 		set_cpus_allowed_ptr(worker->task, pool_allowed_cpus(pool));
@@ -2185,27 +2244,28 @@ static struct worker *create_worker(struct worker_pool *pool)
 
 	worker->id = id;
 
-	if (pool->cpu >= 0)
-		snprintf(id_buf, sizeof(id_buf), "%d:%d%s", pool->cpu, id,
-			 pool->attrs->nice < 0  ? "H" : "");
-	else
-		snprintf(id_buf, sizeof(id_buf), "u%d:%d", pool->id, id);
+	if (!(pool->flags & POOL_BH)) {
+		if (pool->cpu >= 0)
+			snprintf(id_buf, sizeof(id_buf), "%d:%d%s", pool->cpu, id,
+				 pool->attrs->nice < 0  ? "H" : "");
+		else
+			snprintf(id_buf, sizeof(id_buf), "u%d:%d", pool->id, id);
 
-	worker->task = kthread_create_on_node(worker_thread, worker, pool->node,
-					      "kworker/%s", id_buf);
-	if (IS_ERR(worker->task)) {
-		if (PTR_ERR(worker->task) == -EINTR) {
-			pr_err("workqueue: Interrupted when creating a worker thread \"kworker/%s\"\n",
-			       id_buf);
-		} else {
-			pr_err_once("workqueue: Failed to create a worker thread: %pe",
-				    worker->task);
-		}
-		goto fail;
+		worker->task = kthread_create_on_node(worker_thread, worker,
+					pool->node, "kworker/%s", id_buf);
+		if (IS_ERR(worker->task)) {
+			if (PTR_ERR(worker->task) == -EINTR) {
+				pr_err("workqueue: Interrupted when creating a worker thread \"kworker/%s\"\n",
+				       id_buf);
+			} else {
+				pr_err_once("workqueue: Failed to create a worker thread: %pe",
+					    worker->task);
+			}
+			goto fail;
+ 		}
+		set_user_nice(worker->task, pool->attrs->nice);
+		kthread_bind_mask(worker->task, pool_allowed_cpus(pool));
 	}
-
-	set_user_nice(worker->task, pool->attrs->nice);
-	kthread_bind_mask(worker->task, pool_allowed_cpus(pool));
 
 	/* successful, attach the worker to the pool */
 	worker_attach_to_pool(worker, pool);
@@ -2222,7 +2282,8 @@ static struct worker *create_worker(struct worker_pool *pool)
 	 * check if not woken up soon. As kick_pool() might not have waken it
 	 * up, wake it up explicitly once more.
 	 */
-	wake_up_process(worker->task);
+	if (worker->task)
+		wake_up_process(worker->task);
 
 	raw_spin_unlock_irq(&pool->lock);
 
@@ -2542,6 +2603,7 @@ __acquires(&pool->lock)
 	struct worker_pool *pool = worker->pool;
 	unsigned long work_data;
 	int lockdep_start_depth, rcu_start_depth;
+	bool bh_draining = pool->flags & POOL_BH_DRAINING;
 #ifdef CONFIG_LOCKDEP
 	/*
 	 * It is permissible to free the struct work_struct from
@@ -2564,7 +2626,8 @@ __acquires(&pool->lock)
 	worker->current_work = work;
 	worker->current_func = work->func;
 	worker->current_pwq = pwq;
-	worker->current_at = worker->task->se.sum_exec_runtime;
+	if (worker->task)
+		worker->current_at = worker->task->se.sum_exec_runtime;
 	work_data = *work_data_bits(work);
 	worker->current_color = get_work_color(work_data);
 
@@ -2606,7 +2669,9 @@ __acquires(&pool->lock)
 
 	rcu_start_depth = rcu_preempt_depth();
 	lockdep_start_depth = lockdep_depth(current);
-	lock_map_acquire(&pwq->wq->lockdep_map);
+	/* see drain_dead_softirq_workfn() */
+	if (!bh_draining)
+		lock_map_acquire(&pwq->wq->lockdep_map);
 	lock_map_acquire(&lockdep_map);
 	/*
 	 * Strictly speaking we should mark the invariant state without holding
@@ -2639,7 +2704,8 @@ __acquires(&pool->lock)
 	trace_workqueue_execute_end(work, worker->current_func);
 	pwq->stats[PWQ_STAT_COMPLETED]++;
 	lock_map_release(&lockdep_map);
-	lock_map_release(&pwq->wq->lockdep_map);
+	if (!bh_draining)
+		lock_map_release(&pwq->wq->lockdep_map);
 
 	if (unlikely((worker->task && in_atomic()) ||
 		     lockdep_depth(current) != lockdep_start_depth ||
@@ -2662,7 +2728,8 @@ __acquires(&pool->lock)
 	 * stop_machine. At the same time, report a quiescent RCU state so
 	 * the same condition doesn't freeze RCU.
 	 */
-	cond_resched();
+	if (worker->task)
+		cond_resched();
 
 	raw_spin_lock_irq(&pool->lock);
 
@@ -2943,6 +3010,138 @@ repeat:
 	goto repeat;
 }
 
+static void bh_worker(struct worker *worker)
+{
+	struct worker_pool *pool = worker->pool;
+	int nr_restarts = BH_WORKER_RESTARTS;
+	unsigned long end = jiffies + BH_WORKER_JIFFIES;
+
+	raw_spin_lock_irq(&pool->lock);
+	worker_leave_idle(worker);
+
+	/*
+	 * This function follows the structure of worker_thread(). See there for
+	 * explanations on each step.
+	 */
+	if (!need_more_worker(pool))
+		goto done;
+
+	WARN_ON_ONCE(!list_empty(&worker->scheduled));
+	worker_clr_flags(worker, WORKER_PREP | WORKER_REBOUND);
+
+	do {
+		struct work_struct *work =
+			list_first_entry(&pool->worklist,
+					 struct work_struct, entry);
+
+		if (assign_work(work, worker, NULL))
+			process_scheduled_works(worker);
+	} while (keep_working(pool) &&
+		 --nr_restarts && time_before(jiffies, end));
+
+	worker_set_flags(worker, WORKER_PREP);
+done:
+	worker_enter_idle(worker);
+	kick_pool(pool);
+	raw_spin_unlock_irq(&pool->lock);
+}
+
+/*
+ * TODO: Convert all tasklet users to workqueue and use softirq directly.
+ *
+ * This is currently called from tasklet[_hi]action() and thus is also called
+ * whenever there are tasklets to run. Let's do an early exit if there's nothing
+ * queued. Once conversion from tasklet is complete, the need_more_worker() test
+ * can be dropped.
+ *
+ * After full conversion, we'll add worker->softirq_action, directly use the
+ * softirq action and obtain the worker pointer from the softirq_action pointer.
+ */
+void workqueue_softirq_action(bool highpri)
+{
+	struct worker_pool *pool =
+		&per_cpu(bh_worker_pools, smp_processor_id())[highpri];
+	if (need_more_worker(pool))
+		bh_worker(list_first_entry(&pool->workers, struct worker, node));
+}
+struct wq_drain_dead_softirq_work {
+	struct work_struct	work;
+	struct worker_pool	*pool;
+	struct completion	done;
+};
+
+static void drain_dead_softirq_workfn(struct work_struct *work)
+{
+	struct wq_drain_dead_softirq_work *dead_work =
+		container_of(work, struct wq_drain_dead_softirq_work, work);
+	struct worker_pool *pool = dead_work->pool;
+	bool repeat;
+
+	/*
+	 * @pool's CPU is dead and we want to execute its still pending work
+	 * items from this BH work item which is running on a different CPU. As
+	 * its CPU is dead, @pool can't be kicked and, as work execution path
+	 * will be nested, a lockdep annotation needs to be suppressed. Mark
+	 * @pool with %POOL_BH_DRAINING for the special treatments.
+	 */
+	raw_spin_lock_irq(&pool->lock);
+	pool->flags |= POOL_BH_DRAINING;
+	raw_spin_unlock_irq(&pool->lock);
+
+	bh_worker(list_first_entry(&pool->workers, struct worker, node));
+
+	raw_spin_lock_irq(&pool->lock);
+	pool->flags &= ~POOL_BH_DRAINING;
+	repeat = need_more_worker(pool);
+	raw_spin_unlock_irq(&pool->lock);
+
+	/*
+	 * bh_worker() might hit consecutive execution limit and bail. If there
+	 * still are pending work items, reschedule self and return so that we
+	 * don't hog this CPU's BH.
+	 */
+	if (repeat) {
+		if (pool->attrs->nice == HIGHPRI_NICE_LEVEL)
+			queue_work(system_bh_highpri_wq, work);
+		else
+			queue_work(system_bh_wq, work);
+	} else {
+		complete(&dead_work->done);
+	}
+}
+
+/*
+ * @cpu is dead. Drain the remaining BH work items on the current CPU. It's
+ * possible to allocate dead_work per CPU and avoid flushing. However, then we
+ * have to worry about draining overlapping with CPU coming back online or
+ * nesting (one CPU's dead_work queued on another CPU which is also dead and so
+ * on). Let's keep it simple and drain them synchronously. These are BH work
+ * items which shouldn't be requeued on the same pool. Shouldn't take long.
+ */
+void workqueue_softirq_dead(unsigned int cpu)
+{
+	int i;
+
+	for (i = 0; i < NR_STD_WORKER_POOLS; i++) {
+		struct worker_pool *pool = &per_cpu(bh_worker_pools, cpu)[i];
+		struct wq_drain_dead_softirq_work dead_work;
+
+		if (!need_more_worker(pool))
+			continue;
+
+		INIT_WORK(&dead_work.work, drain_dead_softirq_workfn);
+		dead_work.pool = pool;
+		init_completion(&dead_work.done);
+
+		if (pool->attrs->nice == HIGHPRI_NICE_LEVEL)
+			queue_work(system_bh_highpri_wq, &dead_work.work);
+		else
+			queue_work(system_bh_wq, &dead_work.work);
+
+		wait_for_completion(&dead_work.done);
+	}
+}
+
 /**
  * check_flush_dependency - check for flush dependency sanity
  * @target_wq: workqueue being flushed
@@ -3019,6 +3218,7 @@ static void insert_wq_barrier(struct pool_workqueue *pwq,
 			      struct wq_barrier *barr,
 			      struct work_struct *target, struct worker *worker)
 {
+	static __maybe_unused struct lock_class_key bh_key, thr_key;
 	unsigned int work_flags = 0;
 	unsigned int work_color;
 	struct list_head *head;
@@ -3029,7 +3229,8 @@ static void insert_wq_barrier(struct pool_workqueue *pwq,
 	 * checks and call back into the fixup functions where we
 	 * might deadlock.
 	 */
-	INIT_WORK_ONSTACK(&barr->work, wq_barrier_func);
+	INIT_WORK_ONSTACK_KEY(&barr->work, wq_barrier_func,
+			      (pwq->wq->flags & WQ_BH) ? &bh_key : &thr_key);
 	__set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(&barr->work));
 
 	init_completion_map(&barr->done, &target->lockdep_map);
@@ -3135,15 +3336,31 @@ static bool flush_workqueue_prep_pwqs(struct workqueue_struct *wq,
 
 static void touch_wq_lockdep_map(struct workqueue_struct *wq)
 {
+#ifdef CONFIG_LOCKDEP
+	if (wq->flags & WQ_BH)
+		local_bh_disable();
+
 	lock_map_acquire(&wq->lockdep_map);
 	lock_map_release(&wq->lockdep_map);
+
+	if (wq->flags & WQ_BH)
+		local_bh_enable();
+#endif
 }
 
 static void touch_work_lockdep_map(struct work_struct *work,
 				   struct workqueue_struct *wq)
 {
+#ifdef CONFIG_LOCKDEP
+	if (wq->flags & WQ_BH)
+		local_bh_disable();
+
 	lock_map_acquire(&work->lockdep_map);
 	lock_map_release(&work->lockdep_map);
+
+	if (wq->flags & WQ_BH)
+		local_bh_enable();
+#endif
 }
 
 /**
@@ -4592,10 +4809,17 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 
 	if (!(wq->flags & WQ_UNBOUND)) {
 		for_each_possible_cpu(cpu) {
-			struct pool_workqueue **pwq_p =
-				per_cpu_ptr(wq->cpu_pwq, cpu);
-			struct worker_pool *pool =
-				&(per_cpu_ptr(cpu_worker_pools, cpu)[highpri]);
+			struct pool_workqueue **pwq_p;
+			struct worker_pool __percpu *pools;
+			struct worker_pool *pool;
+
+			if (wq->flags & WQ_BH)
+				pools = bh_worker_pools;
+			else
+				pools = cpu_worker_pools;
+
+			pool = &(per_cpu_ptr(pools, cpu)[highpri]);
+			pwq_p = per_cpu_ptr(wq->cpu_pwq, cpu);
 
 			*pwq_p = kmem_cache_alloc_node(pwq_cache, GFP_KERNEL,
 						       pool->node);
@@ -4700,6 +4924,13 @@ struct workqueue_struct *alloc_workqueue(const char *fmt,
 	struct workqueue_struct *wq;
 	struct pool_workqueue *pwq;
 
+	if (flags & WQ_BH) {
+		if (WARN_ON_ONCE(flags & ~__WQ_BH_ALLOWS))
+			return NULL;
+		if (WARN_ON_ONCE(max_active))
+			return NULL;
+	}
+
 	/*
 	 * Unbound && max_active == 1 used to imply ordered, which is no longer
 	 * the case on many machines due to per-pod pools. While
@@ -4728,8 +4959,16 @@ struct workqueue_struct *alloc_workqueue(const char *fmt,
 	vsnprintf(wq->name, sizeof(wq->name), fmt, args);
 	va_end(args);
 
-	max_active = max_active ?: WQ_DFL_ACTIVE;
-	max_active = wq_clamp_max_active(max_active, flags, wq->name);
+	if (flags & WQ_BH) {
+		/*
+		 * BH workqueues always share a single execution context per CPU
+		 * and don't impose any max_active limit.
+		 */
+		max_active = INT_MAX;
+	} else {
+		max_active = max_active ?: WQ_DFL_ACTIVE;
+		max_active = wq_clamp_max_active(max_active, flags, wq->name);
+	}
 
 	/* init wq */
 	wq->flags = flags;
@@ -4901,6 +5140,10 @@ EXPORT_SYMBOL_GPL(destroy_workqueue);
 void workqueue_set_max_active(struct workqueue_struct *wq, int max_active)
 {
 	struct pool_workqueue *pwq;
+
+	/* max_active doesn't mean anything for BH workqueues */
+	if (WARN_ON(wq->flags & WQ_BH))
+		return;
 
 	/* disallow meddling with max_active for ordered workqueues */
 	if (WARN_ON(wq->flags & __WQ_ORDERED_EXPLICIT))
@@ -5102,7 +5345,25 @@ static void pr_cont_pool_info(struct worker_pool *pool)
 	pr_cont(" cpus=%*pbl", nr_cpumask_bits, pool->attrs->cpumask);
 	if (pool->node != NUMA_NO_NODE)
 		pr_cont(" node=%d", pool->node);
-	pr_cont(" flags=0x%x nice=%d", pool->flags, pool->attrs->nice);
+
+	pr_cont(" flags=0x%x", pool->flags);
+	if (pool->flags & POOL_BH)
+		pr_cont(" bh%s",
+			pool->attrs->nice == HIGHPRI_NICE_LEVEL ? "-hi" : "");
+	else
+		pr_cont(" nice=%d", pool->attrs->nice);
+}
+
+static void pr_cont_worker_id(struct worker *worker)
+{
+	struct worker_pool *pool = worker->pool;
+
+	if (pool->flags & WQ_BH)
+		pr_cont("bh%s",
+			pool->attrs->nice == HIGHPRI_NICE_LEVEL ? "-hi" : "");
+	else
+		pr_cont("%d%s", task_pid_nr(worker->task),
+			worker->rescue_wq ? "(RESCUER)" : "");
 }
 
 struct pr_cont_work_struct {
@@ -5179,10 +5440,9 @@ static void show_pwq(struct pool_workqueue *pwq)
 			if (worker->current_pwq != pwq)
 				continue;
 
-			pr_cont("%s %d%s:%ps", comma ? "," : "",
-				task_pid_nr(worker->task),
-				worker->rescue_wq ? "(RESCUER)" : "",
-				worker->current_func);
+			pr_cont(" %s", comma ? "," : "");
+			pr_cont_worker_id(worker);
+			pr_cont(":%ps", worker->current_func);
 			list_for_each_entry(work, &worker->scheduled, entry)
 				pr_cont_work(false, work, &pcws);
 			pr_cont_work_flush(comma, (work_func_t)-1L, &pcws);
@@ -5301,8 +5561,8 @@ static void show_one_worker_pool(struct worker_pool *pool)
 		pr_cont(" manager: %d",
 			task_pid_nr(pool->manager->task));
 	list_for_each_entry(worker, &pool->idle_list, entry) {
-		pr_cont(" %s%d", first ? "idle: " : "",
-			task_pid_nr(worker->task));
+		pr_cont(" %s", first ? "idle: " : "");
+		pr_cont_worker_id(worker);
 		first = false;
 	}
 	pr_cont("\n");
@@ -5575,6 +5835,9 @@ int workqueue_online_cpu(unsigned int cpu)
 	mutex_lock(&wq_pool_mutex);
 
 	for_each_pool(pool, pi) {
+		/* BH pools aren't affected by hotplug */
+		if (pool->flags & POOL_BH)
+			continue;
 		mutex_lock(&wq_pool_attach_mutex);
 
 		if (pool->cpu == cpu)
@@ -6451,7 +6714,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 		/* did we stall? */
 		if (time_after(now, ts + thresh)) {
 			lockup_detected = true;
-			if (pool->cpu >= 0) {
+			if (pool->cpu >= 0 && !(pool->flags & POOL_BH)) {
 				pool->cpu_stall = true;
 				cpu_pool_stall = true;
 			}
@@ -6542,6 +6805,16 @@ static inline void wq_watchdog_init(void) { }
 
 #endif	/* CONFIG_WQ_WATCHDOG */
 
+static void bh_pool_kick_normal(struct irq_work *irq_work)
+{
+	raise_softirq_irqoff(TASKLET_SOFTIRQ);
+}
+
+static void bh_pool_kick_highpri(struct irq_work *irq_work)
+{
+	raise_softirq_irqoff(HI_SOFTIRQ);
+}
+
 static void __init restrict_unbound_cpumask(const char *name, const struct cpumask *mask)
 {
 	if (!cpumask_intersects(wq_unbound_cpumask, mask)) {
@@ -6551,6 +6824,22 @@ static void __init restrict_unbound_cpumask(const char *name, const struct cpuma
 	}
 
 	cpumask_and(wq_unbound_cpumask, wq_unbound_cpumask, mask);
+}
+
+static void __init init_cpu_worker_pool(struct worker_pool *pool, int cpu, int nice)
+{
+	BUG_ON(init_worker_pool(pool));
+	pool->cpu = cpu;
+	cpumask_copy(pool->attrs->cpumask, cpumask_of(cpu));
+	cpumask_copy(pool->attrs->__pod_cpumask, cpumask_of(cpu));
+	pool->attrs->nice = nice;
+	pool->attrs->affn_strict = true;
+	pool->node = cpu_to_node(cpu);
+
+	/* alloc pool ID */
+	mutex_lock(&wq_pool_mutex);
+	BUG_ON(worker_pool_assign_id(pool));
+	mutex_unlock(&wq_pool_mutex);
 }
 
 /**
@@ -6567,6 +6856,8 @@ void __init workqueue_init_early(void)
 {
 	struct wq_pod_type *pt = &wq_pod_types[WQ_AFFN_SYSTEM];
 	int std_nice[NR_STD_WORKER_POOLS] = { 0, HIGHPRI_NICE_LEVEL };
+	void (*irq_work_fns[2])(struct irq_work *) = { bh_pool_kick_normal,
+						       bh_pool_kick_highpri };
 	int i, cpu;
 
 	BUILD_BUG_ON(__alignof__(struct pool_workqueue) < __alignof__(long long));
@@ -6596,9 +6887,17 @@ void __init workqueue_init_early(void)
 	pt->pod_node[0] = NUMA_NO_NODE;
 	pt->cpu_pod[0] = 0;
 
-	/* initialize CPU pools */
+	/* initialize BH and CPU pools */
 	for_each_possible_cpu(cpu) {
 		struct worker_pool *pool;
+
+		i = 0;
+		for_each_bh_worker_pool(pool, cpu) {
+			init_cpu_worker_pool(pool, cpu, std_nice[i]);
+ 			pool->flags |= POOL_BH;
+			init_irq_work(bh_pool_irq_work(pool), irq_work_fns[i]);
+			i++;
+		}
 
 		i = 0;
 		for_each_cpu_worker_pool(pool, cpu) {
@@ -6647,10 +6946,15 @@ void __init workqueue_init_early(void)
 	system_freezable_power_efficient_wq = alloc_workqueue("events_freezable_power_efficient",
 					      WQ_FREEZABLE | WQ_POWER_EFFICIENT,
 					      0);
+	system_bh_wq = alloc_workqueue("events_bh", WQ_BH, 0);
+	system_bh_highpri_wq = alloc_workqueue("events_bh_highpri",
+					       WQ_BH | WQ_HIGHPRI, 0);
 	BUG_ON(!system_wq || !system_highpri_wq || !system_long_wq ||
 	       !system_unbound_wq || !system_freezable_wq ||
 	       !system_power_efficient_wq ||
-	       !system_freezable_power_efficient_wq);
+	       !system_freezable_power_efficient_wq ||
+	       !system_freezable_power_efficient_wq ||
+	       !system_bh_wq || !system_bh_highpri_wq);
 }
 
 static void __init wq_cpu_intensive_thresh_init(void)
@@ -6716,8 +7020,12 @@ void __init workqueue_init(void)
 	 * up. Also, create a rescuer for workqueues that requested it.
 	 */
 	for_each_possible_cpu(cpu) {
-		for_each_cpu_worker_pool(pool, cpu) {
+		for_each_bh_worker_pool(pool, cpu) {
 			pool->node = cpu_to_node(cpu);
+		}
+
+		for_each_cpu_worker_pool(pool, cpu) {
+ 			pool->node = cpu_to_node(cpu);
 		}
 	}
 
@@ -6728,6 +7036,16 @@ void __init workqueue_init(void)
 	}
 
 	mutex_unlock(&wq_pool_mutex);
+
+	/*
+	 * Create the initial workers. A BH pool has one pseudo worker that
+	 * represents the shared BH execution context and thus doesn't get
+	 * affected by hotplug events. Create the BH pseudo workers for all
+	 * possible CPUs here.
+	 */
+	for_each_possible_cpu(cpu)
+		for_each_bh_worker_pool(pool, cpu)
+			BUG_ON(!create_worker(pool));
 
 	/* create the initial workers */
 	for_each_online_cpu(cpu) {
