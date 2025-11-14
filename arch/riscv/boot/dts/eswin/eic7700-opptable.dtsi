@@ -154,7 +154,6 @@
 			opp-hz = /bits/ 64 <1500000000>;
 			opp-microvolt = <1050000>;
 		};
-
 	};
 
 	g2d_opp_table: opp-table@g2d {
