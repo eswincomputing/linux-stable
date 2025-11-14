@@ -451,6 +451,8 @@ static int eswin_vi_probe(struct platform_device *pdev)
 	__maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
 
 	es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
+	if (!es_vi_dev)
+		return -ENOMEM;
 
 	//TODO: next step is to get the vi clk and rst from the device tree
 	//and remove clk and rst in dewarp driver
@@ -490,11 +492,10 @@ static int eswin_vi_probe(struct platform_device *pdev)
 	es_vi_dev->media_dev =
 		devm_kzalloc(dev, sizeof(*media_dev), GFP_KERNEL);
 
-	media_dev = es_vi_dev->media_dev;
-	if (!es_vi_dev) {
-		pr_err(DRIVER_NAME ": Failed to allocate device\n");
+	if(!es_vi_dev->media_dev)
 		return -ENOMEM;
-	}
+
+	media_dev = es_vi_dev->media_dev;
 	es_vi_dev->dev = dev;
 	dev_set_drvdata(dev, es_vi_dev);
 
@@ -545,6 +546,21 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		class_destroy(es_vi_dev->es_vi_class);
 		unregister_chrdev(major_number, DEVICE_NAME);
 		pr_err(DRIVER_NAME ": Failed to register media device\n");
+		return ret;
+	}
+
+	es_vi_dev->v4l2_dev.mdev = media_dev;
+	strlcpy(es_vi_dev->v4l2_dev.name, dev_name(dev), sizeof(es_vi_dev->v4l2_dev.name));
+	ret = v4l2_device_register(es_vi_dev->dev, &es_vi_dev->v4l2_dev);
+	if(ret < 0) {
+		media_device_unregister(media_dev);
+		media_device_cleanup(media_dev);
+		kfree(media_dev);
+		cdev_del(&es_vi_dev->es_vi_cdev);
+		device_destroy(es_vi_dev->es_vi_class, MKDEV(major_number, 0));
+		class_destroy(es_vi_dev->es_vi_class);
+		unregister_chrdev(major_number, DEVICE_NAME);
+		pr_err(DRIVER_NAME ": Failed to register v4l2_dev\n");
 		return ret;
 	}
 	of_platform_populate(np, NULL, NULL, &pdev->dev);
