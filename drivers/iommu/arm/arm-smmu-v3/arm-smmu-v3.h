@@ -647,9 +647,6 @@ struct arm_smmu_device {
 	struct device			*dev;
 	void __iomem			*base;
 	void __iomem			*page1;
-	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-	void __iomem			*s_base;
-	#endif
 
 #define ARM_SMMU_FEAT_2_LVL_STRTAB	(1 << 0)
 #define ARM_SMMU_FEAT_2_LVL_CDTAB	(1 << 1)

@@ -21,6 +21,7 @@
 #define PROC_ENTRY_VENC		"venc"
 #define PROC_ENTRY_HAE		"hae"
 #define PROC_ENTRY_DEWARP 	"dewarp"
+#define PROC_ENTRY_PCIE		"pcie_aclk"
 
 // proc
 typedef struct es_proc_dir_entry {

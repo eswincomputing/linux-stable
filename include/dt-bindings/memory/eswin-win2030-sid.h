@@ -113,6 +113,8 @@
 
 #define	WIN2030_TBUID_0x5	0x5
 
+#define	WIN2030_TBUID_0x6	0x6 // placeholder, do NOT use this ID
+
 #define	WIN2030_TBUID_0x70	0x70
 #define	WIN2030_TBUID_0x71	0x71
 #define	WIN2030_TBUID_0x72	0x72

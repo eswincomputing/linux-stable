@@ -28,6 +28,7 @@ int win2030_dma_sid_cfg(struct device *dev);
 int win2030_tbu_power(struct device *dev, bool is_powerUp);
 int win2030_tbu_power_by_dev_and_node(struct device *dev, struct device_node *node, bool is_powerUp);
 int win2030_tbu_force_power_by_dev_and_node(struct device *dev, struct device_node *node, bool is_powerUp);
+void eic7700_tbu_status_check(int nid, unsigned long *org_status, unsigned long *veri_status, unsigned long *sideband);
 
 void trigger_waveform_start(void);
 void trigger_waveform_stop(void);

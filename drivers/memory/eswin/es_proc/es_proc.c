@@ -34,9 +34,10 @@ static int es_seq_show(struct seq_file *s, void *p)
 		return -1;
 	}
 	memset(&sentry, 0, sizeof(es_proc_entry_t));
-	/* only these two parameters are used */
+	/* only these three parameters are used */
 	sentry.seqfile = s;
 	sentry.private = oldsentry->private;
+	strncpy(sentry.name, oldsentry->name, sizeof(sentry.name) - 1);
 	oldsentry->read(&sentry);
 	return 0;
 }

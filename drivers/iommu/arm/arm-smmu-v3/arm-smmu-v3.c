@@ -31,7 +31,7 @@
 #include "../../dma-iommu.h"
 #include "../../iommu-sva.h"
 #if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-#include <dt-bindings/memory/eswin-win2030-sid.h>
+#include <linux/eswin-win2030-sid-cfg.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 
@@ -90,21 +90,6 @@ struct arm_smmu_option_prop {
 
 DEFINE_XARRAY_ALLOC1(arm_smmu_asid_xa);
 DEFINE_MUTEX(arm_smmu_asid_lock);
-
-#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-static unsigned long get_tcu_node_status(struct arm_smmu_device *smmu)
-{
-	unsigned long reg_val;
-	unsigned long tcu_node_status = 0;
-	int i;
-
-	for (i = 0; i < 62; i++) {
-		reg_val = readl_relaxed(smmu->s_base + ARM_SMMU_TCU_NODE_STATUSn_OFFSET + (4*i));
-		tcu_node_status |= (reg_val & 0x1) << i;
-	}
-	return tcu_node_status;
-}
-#endif
 
 /*
  * Special value used by SVA when a process dies, to quiesce a CD without
@@ -783,6 +768,9 @@ static int arm_smmu_cmdq_issue_cmdlist(struct arm_smmu_device *smmu,
 	struct arm_smmu_cmdq *cmdq = arm_smmu_get_cmdq(smmu);
 	struct arm_smmu_ll_queue llq, head;
 	int ret = 0;
+	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+	unsigned long org_tbus_status, ver_tbus_status, sideband= 0;
+	#endif
 
 	llq.max_n_shift = cmdq->q.llq.max_n_shift;
 
@@ -873,12 +861,13 @@ static int arm_smmu_cmdq_issue_cmdlist(struct arm_smmu_device *smmu,
 		ret = arm_smmu_cmdq_poll_until_sync(smmu, &llq);
 		if (ret) {
 			#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
+			eic7700_tbu_status_check(dev_to_node(smmu->dev), &org_tbus_status, &ver_tbus_status, &sideband);
 			dev_err_ratelimited(smmu->dev,
-					    "CMD_SYNC timeout at 0x%08x [hwprod 0x%08x, hwcons 0x%08x], TCU_NODE_STATUS=0x%016lx\n",
+					    "CMD_SYNC timeout at 0x%08x [hwprod 0x%08x, hwcons 0x%08x], TBUS=0x%08lx(AllOff:0x%08lx), sideband 0x%08lx\n",
 					    llq.prod,
 					    readl_relaxed(cmdq->q.prod_reg),
 					    readl_relaxed(cmdq->q.cons_reg),
-					    get_tcu_node_status(smmu));
+					    org_tbus_status, ver_tbus_status, sideband);
 			#else
 			dev_err_ratelimited(smmu->dev,
 					    "CMD_SYNC timeout at 0x%08x [hwprod 0x%08x, hwcons 0x%08x]\n",
@@ -1699,9 +1688,9 @@ static irqreturn_t arm_smmu_evtq_thread(int irq, void *dev)
 			if (!ret || !__ratelimit(&rs))
 				continue;
 
-			dev_dbg(smmu->dev, "event 0x%02x received:\n", id);
+			dev_info(smmu->dev, "event 0x%02x received:\n", id);
 			for (i = 0; i < ARRAY_SIZE(evt); ++i)
-				dev_dbg(smmu->dev, "\t0x%016llx\n",
+				dev_info(smmu->dev, "\t0x%016llx\n",
 					 (unsigned long long)evt[i]);
 
 			cond_resched();
@@ -4205,11 +4194,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	}
 
 	#if IS_ENABLED(CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY)
-	/* eswin, map the tcu microarchitectural register region */
-	smmu->s_base = arm_smmu_ioremap(dev, ioaddr + ARM_SMMU_S_BASE, ARM_SMMU_S_AND_TCU_MICRO_REG_SZ);
-	if (IS_ERR(smmu->s_base))
-		return PTR_ERR(smmu->s_base);
-
 	/* eswin, syscon devie is used for clearing the smmu interrupt */
 	smmu->regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,syscfg");
 	if (IS_ERR(smmu->regmap)) {
