@@ -704,17 +704,17 @@
 };
 
 &vdec0 {
-	status = "disabled";
+	status = "okay";
 };
 &vdec1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &venc0 {
-	status = "disabled";
+	status = "okay";
 };
 &venc1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &video_output {
@@ -1170,9 +1170,42 @@
 };
 
 &d0_i2c4 {
-	/* SOC1 ADS1115, accessed by lpcpu */
-	status = "disabled";
+	/* SOC1 ADS1115 */
+	clock-frequency = <400000>;
+	status = "okay";
+
+	adc@48 {
+		compatible = "ti,ads1115";
+		reg = <0x48>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@4 { /* DC12V 4-div */
+			reg = <4>;
+			ti,gain = <0>;
+			ti,datarate = <7>;
+		};
+
+		channel@5 { /* NPUVDD */
+			reg = <5>;
+			ti,gain = <2>;
+			ti,datarate = <7>;
+		};
+
+		channel@6 { /* CPUVDD */
+			reg = <6>;
+			ti,gain = <2>;
+			ti,datarate = <7>;
+		};
+
+		channel@7 { /* SOCVDD */
+			reg = <7>;
+			ti,gain = <2>;
+			ti,datarate = <7>;
+		};
+	};
 };
+
 &d1_i2c4 {
 	status = "disabled";
 };
@@ -1303,10 +1336,10 @@
 };
 
 &gpio0 {
-	status = "disabled";
+	status = "okay";
 };
 &d1_gpio0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dev_llc_d0{
@@ -1325,4 +1358,8 @@
 		opp-hz = /bits/ 64 <1500000000>;
 		opp-microvolt = <1080000>;
 	};
+};
+
+&d0_watchdog {
+	status = "disabled";
 };
