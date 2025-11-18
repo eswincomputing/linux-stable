@@ -1,54 +1,54 @@
 /****************************************************************************
 *
-*    The MIT License (MIT)
+*	The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2024 Vivante Corporation
+*	Copyright (c) 2014 - 2024 Vivante Corporation
 *
-*    Permission is hereby granted, free of charge, to any person obtaining a
-*    copy of this software and associated documentation files (the "Software"),
-*    to deal in the Software without restriction, including without limitation
-*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-*    and/or sell copies of the Software, and to permit persons to whom the
-*    Software is furnished to do so, subject to the following conditions:
+*	Permission is hereby granted, free of charge, to any person obtaining a
+*	copy of this software and associated documentation files (the "Software"),
+*	to deal in the Software without restriction, including without limitation
+*	the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*	and/or sell copies of the Software, and to permit persons to whom the
+*	Software is furnished to do so, subject to the following conditions:
 *
-*    The above copyright notice and this permission notice shall be included in
-*    all copies or substantial portions of the Software.
+*	The above copyright notice and this permission notice shall be included in
+*	all copies or substantial portions of the Software.
 *
-*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-*    DEALINGS IN THE SOFTWARE.
-*
-*****************************************************************************
-*
-*    The GPL License (GPL)
-*
-*    Copyright (C) 2014 - 2024 Vivante Corporation
-*
-*    This program is free software; you can redistribute it and/or
-*    modify it under the terms of the GNU General Public License
-*    as published by the Free Software Foundation; either version 2
-*    of the License, or (at your option) any later version.
-*
-*    This program is distributed in the hope that it will be useful,
-*    but WITHOUT ANY WARRANTY; without even the implied warranty of
-*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*    GNU General Public License for more details.
-*
-*    You should have received a copy of the GNU General Public License
-*    along with this program; if not, write to the Free Software Foundation,
-*    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+*	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*	DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************
 *
-*    Note: This software is released under dual MIT and GPL licenses. A
-*    recipient may use this file under the terms of either the MIT license or
-*    GPL License. If you wish to use only one license not the other, you can
-*    indicate your decision by deleting one of the above license notices in your
-*    version of this file.
+*	The GPL License (GPL)
+*
+*	Copyright (C) 2014 - 2024 Vivante Corporation
+*
+*	This program is free software; you can redistribute it and/or
+*	modify it under the terms of the GNU General Public License
+*	as published by the Free Software Foundation; either version 2
+*	of the License, or (at your option) any later version.
+*
+*	This program is distributed in the hope that it will be useful,
+*	but WITHOUT ANY WARRANTY; without even the implied warranty of
+*	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*	GNU General Public License for more details.
+*
+*	You should have received a copy of the GNU General Public License
+*	along with this program; if not, write to the Free Software Foundation,
+*	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+*
+*****************************************************************************
+*
+*	Note: This software is released under dual MIT and GPL licenses. A
+*	recipient may use this file under the terms of either the MIT license or
+*	GPL License. If you wish to use only one license not the other, you can
+*	indicate your decision by deleting one of the above license notices in your
+*	version of this file.
 *
 *****************************************************************************/
 
@@ -63,51 +63,51 @@ struct vvcam_video_plane {
 };
 
 struct vvcam_vb2_buffer {
-    struct vb2_v4l2_buffer vb;
+	struct vb2_v4l2_buffer vb;
 	unsigned int num_planes;
 	struct vvcam_video_plane planes[VIDEO_MAX_PLANES];
-    struct list_head list;
-    uint32_t sequence;
+	struct list_head list;
+	uint32_t sequence;
 };
 
 struct vvcam_pad_reqbufs {
-    int pad;
-    uint32_t num_buffers;
+	int pad;
+	uint32_t num_buffers;
 };
 
 struct vvcam_pad_buf {
-    uint32_t pad;
-    struct vvcam_vb2_buffer *buf;
+	uint32_t pad;
+	struct vvcam_vb2_buffer *buf;
 };
 
 struct vvcam_pad_stream_status {
-    uint32_t pad;
-    uint32_t status;
+	uint32_t pad;
+	uint32_t status;
 };
 
 struct vvcam_pad_queryctrl {
-    uint32_t pad;
-    struct v4l2_queryctrl *query_ctrl;
+	uint32_t pad;
+	struct v4l2_queryctrl *query_ctrl;
 };
 
 struct vvcam_pad_query_ext_ctrl {
-    uint32_t pad;
-    struct v4l2_query_ext_ctrl *query_ext_ctrl;
+	uint32_t pad;
+	struct v4l2_query_ext_ctrl *query_ext_ctrl;
 };
 
 struct vvcam_pad_control {
-    uint32_t pad;
-    struct v4l2_control *control;
+	uint32_t pad;
+	struct v4l2_control *control;
 };
 
 struct vvcam_pad_ext_controls {
-    uint32_t pad;
-    struct v4l2_ext_controls *ext_controls;
+	uint32_t pad;
+	struct v4l2_ext_controls *ext_controls;
 };
 
 struct vvcam_pad_querymenu {
-    uint32_t pad;
-    struct v4l2_querymenu *querymenu;
+	uint32_t pad;
+	struct v4l2_querymenu *querymenu;
 };
 
 #define MBUS_CSI2_MAX_DATA_LANES		8
@@ -121,19 +121,19 @@ struct mbus_config_mipi_csi2 {
 };
 
 enum mbus_type {
-    MBUS_UNKNOWN,
+	MBUS_UNKNOWN,
 	MBUS_PARALLEL,
 	MBUS_BT656,
 	MBUS_CSI1,
 	MBUS_CCP2,
 	MBUS_CSI2_DPHY,
 	MBUS_CSI2_CPHY,
-    MBUS_DPI,
+	MBUS_DPI,
 	MBUS_INVALID,
 };
 
 typedef struct {
-    enum mbus_type type;
+	enum mbus_type type;
 	union {
 		// struct v4l2_mbus_config_parallel parallel;
 		// struct v4l2_mbus_config_mipi_csi1 mipi_csi1;
@@ -141,19 +141,19 @@ typedef struct {
 	} bus;
 } sensor_mbus_config;
 
-#define VVCAM_PAD_REQUBUFS       _IOWR('V',  BASE_VIDIOC_PRIVATE + 0, struct vvcam_pad_reqbufs)
-#define VVCAM_PAD_BUF_DONE       _IOWR('V',  BASE_VIDIOC_PRIVATE + 1, struct vvcam_pad_buf)
-#define VVCAM_PAD_BUF_QUEUE      _IOWR('V',  BASE_VIDIOC_PRIVATE + 2, struct vvcam_pad_buf)
-#define VVCAM_PAD_S_STREAM       _IOWR('V',  BASE_VIDIOC_PRIVATE + 3, struct vvcam_pad_stream_status)
+#define VVCAM_PAD_REQUBUFS			_IOWR('V',  BASE_VIDIOC_PRIVATE + 0, struct vvcam_pad_reqbufs)
+#define VVCAM_PAD_BUF_DONE			_IOWR('V',  BASE_VIDIOC_PRIVATE + 1, struct vvcam_pad_buf)
+#define VVCAM_PAD_BUF_QUEUE			_IOWR('V',  BASE_VIDIOC_PRIVATE + 2, struct vvcam_pad_buf)
+#define VVCAM_PAD_S_STREAM			_IOWR('V',  BASE_VIDIOC_PRIVATE + 3, struct vvcam_pad_stream_status)
 
-#define VVCAM_PAD_QUERYCTRL      _IOWR('V',  BASE_VIDIOC_PRIVATE + 4, struct vvcam_pad_queryctrl)
-#define VVCAM_PAD_QUERY_EXT_CTRL _IOWR('V',  BASE_VIDIOC_PRIVATE + 5, struct vvcam_pad_query_ext_ctrl)
-#define VVCAM_PAD_G_CTRL         _IOWR('V',  BASE_VIDIOC_PRIVATE + 6, struct vvcam_pad_control)
-#define VVCAM_PAD_S_CTRL         _IOWR('V',  BASE_VIDIOC_PRIVATE + 7, struct vvcam_pad_control)
-#define VVCAM_PAD_G_EXT_CTRLS    _IOWR('V',  BASE_VIDIOC_PRIVATE + 8, struct vvcam_pad_ext_controls)
-#define VVCAM_PAD_S_EXT_CTRLS    _IOWR('V',  BASE_VIDIOC_PRIVATE + 9, struct vvcam_pad_ext_controls)
-#define VVCAM_PAD_TRY_EXT_CTRLS  _IOWR('V',  BASE_VIDIOC_PRIVATE + 10, struct vvcam_pad_ext_controls)
-#define VVCAM_PAD_QUERYMENU      _IOWR('V',  BASE_VIDIOC_PRIVATE + 11, struct vvcam_pad_querymenu)
+#define VVCAM_PAD_QUERYCTRL			_IOWR('V',  BASE_VIDIOC_PRIVATE + 4, struct vvcam_pad_queryctrl)
+#define VVCAM_PAD_QUERY_EXT_CTRL	_IOWR('V',  BASE_VIDIOC_PRIVATE + 5, struct vvcam_pad_query_ext_ctrl)
+#define VVCAM_PAD_G_CTRL			_IOWR('V',  BASE_VIDIOC_PRIVATE + 6, struct vvcam_pad_control)
+#define VVCAM_PAD_S_CTRL			_IOWR('V',  BASE_VIDIOC_PRIVATE + 7, struct vvcam_pad_control)
+#define VVCAM_PAD_G_EXT_CTRLS		_IOWR('V',  BASE_VIDIOC_PRIVATE + 8, struct vvcam_pad_ext_controls)
+#define VVCAM_PAD_S_EXT_CTRLS		_IOWR('V',  BASE_VIDIOC_PRIVATE + 9, struct vvcam_pad_ext_controls)
+#define VVCAM_PAD_TRY_EXT_CTRLS		_IOWR('V',  BASE_VIDIOC_PRIVATE + 10, struct vvcam_pad_ext_controls)
+#define VVCAM_PAD_QUERYMENU			_IOWR('V',  BASE_VIDIOC_PRIVATE + 11, struct vvcam_pad_querymenu)
 
 #define VVAM_CMD_GET_SENSOR_MBUS_CONFIG _IOR('V', BASE_VIDIOC_PRIVATE + 12, sensor_mbus_config)
 

@@ -12,80 +12,80 @@
 #ifdef __KERNEL__
 #define VICAP_DEV_MAXCNT 6
 
-#define BIT_WIDTH_1                1
-#define BIT_WIDTH_2                2
-#define BIT_WIDTH_3                3
+#define BIT_WIDTH_1				1
+#define BIT_WIDTH_2				2
+#define BIT_WIDTH_3				3
 
-#define VICAP_COMMON_SET           0x00
-#define LANE_NUM_LSB               8
-#define PHY_NUM_LSB                10
-#define COMBO_MODE_LSB             12
-#define CROP_EN_LSB                13
-#define AIL_ENDIAN_LSB             19
-#define BIT_REORDER_LSB            20
-#define L_BIT_LSB                  21
-#define CAP_EN_LSB                 25
+#define VICAP_COMMON_SET		0x00
+#define LANE_NUM_LSB			8
+#define PHY_NUM_LSB				10
+#define COMBO_MODE_LSB			12
+#define CROP_EN_LSB				13
+#define AIL_ENDIAN_LSB			19
+#define BIT_REORDER_LSB			20
+#define L_BIT_LSB				21
+#define CAP_EN_LSB				25
 
-#define VICAP_PIC_RES              0x04
-#define VICAP_HDR_ARG1             0x08
-#define FRAME_HEIGHT_LSB           16
-#define FRAME_HEIGHT_BITS          16
+#define VICAP_PIC_RES			0x04
+#define VICAP_HDR_ARG1			0x08
+#define FRAME_HEIGHT_LSB		16
+#define FRAME_HEIGHT_BITS		16
 
-#define VICAP_CROP_X               0x10
-#define VICAP_CROP_Y               0x14
+#define VICAP_CROP_X			0x10
+#define VICAP_CROP_Y			0x14
 
-#define VICAP_REG_SC1              0x18
-#define SC_W1_LSB                  16
-#define SC_W2_LSB                  0
-#define VICAP_REG_SC2              0x1c
-#define SC_W3_LSB                  16
-#define SC_W4_LSB                  0
-#define VICAP_REG_SC3              0x20
-#define SC_W5_LSB                  16
-#define SC_W6_LSB                  0
-#define VICAP_REG_SC4              0x24
-#define SC_W7_LSB                  16
-#define SC_W8_LSB                  0
-#define VICAP_REG_SC5              0x28
-#define SC_W9_LSB                  16
-#define SC_W10_LSB                 0
-#define VICAP_REG_SC6              0x2c
-#define SC_W11_LSB                 16
-#define SC_W12_LSB                 0
-#define VICAP_REG_SC7              0x30
-#define SC_W13_LSB                 16
-#define SC_W14_LSB                 0
-#define VICAP_REG_SC8              0x34
-#define SC_W15_LSB                 16
-#define SC_W16_LSB                 0
-#define SYNC_CODE_BITS             16
+#define VICAP_REG_SC1			0x18
+#define SC_W1_LSB				16
+#define SC_W2_LSB				0
+#define VICAP_REG_SC2			0x1c
+#define SC_W3_LSB				16
+#define SC_W4_LSB				0
+#define VICAP_REG_SC3			0x20
+#define SC_W5_LSB				16
+#define SC_W6_LSB				0
+#define VICAP_REG_SC4			0x24
+#define SC_W7_LSB				16
+#define SC_W8_LSB				0
+#define VICAP_REG_SC5			0x28
+#define SC_W9_LSB				16
+#define SC_W10_LSB				0
+#define VICAP_REG_SC6			0x2c
+#define SC_W11_LSB				16
+#define SC_W12_LSB				0
+#define VICAP_REG_SC7			0x30
+#define SC_W13_LSB				16
+#define SC_W14_LSB				0
+#define VICAP_REG_SC8			0x34
+#define SC_W15_LSB				16
+#define SC_W16_LSB				0
+#define SYNC_CODE_BITS			16
 
-#define VICAP_SLVS_ARG             0x3c
-#define OB_LINE_NUM_LSB            0
-#define INFO_LINE_NUM_LSB          8
-#define OB_LINE_EN_LSB             16
-#define INFO_LINE_EN_LSB           20
-#define SLVS_MODE_LSB              24
-#define SLVS_5WORD_LSB             25
-#define SLVS_MAP_LSB               26
-#define LINE_NUM_BITS              8
-#define LINE_EN_BITS               3
+#define VICAP_SLVS_ARG			0x3c
+#define OB_LINE_NUM_LSB			0
+#define INFO_LINE_NUM_LSB		8
+#define OB_LINE_EN_LSB			16
+#define INFO_LINE_EN_LSB		20
+#define SLVS_MODE_LSB			24
+#define SLVS_5WORD_LSB			25
+#define SLVS_MAP_LSB			26
+#define LINE_NUM_BITS			8
+#define LINE_EN_BITS			3
 
-#define VICAP_HISPI_ARG            0x40
-#define CRC_EN_LSB                 4
-#define FLR_EN_LSB                 5 
-#define HISPI_MODE_LSB             0
-#define HISPI_MODE_BITS            4
+#define VICAP_HISPI_ARG			0x40
+#define CRC_EN_LSB				4
+#define FLR_EN_LSB				5
+#define HISPI_MODE_LSB			0
+#define HISPI_MODE_BITS			4
 
 
-#define VICAP_PHY_CTRL_CFG8        0xa0
-#define VIN_SOFT_RST_LSB           25
-#define VIN_UNLOCK_RST_FIFO_LSB    24
-#define VIN_LANE_ENABLE_LSB        16
-#define VIN_SC_BYTE_ORDOR_LSB      15
-#define VIN_LANE_EN_BITS           8
+#define VICAP_PHY_CTRL_CFG8		0xa0
+#define VIN_SOFT_RST_LSB		25
+#define VIN_UNLOCK_RST_FIFO_LSB	24
+#define VIN_LANE_ENABLE_LSB		16
+#define VIN_SC_BYTE_ORDOR_LSB	15
+#define VIN_LANE_EN_BITS		8
 
-#define VICAP_SW_RESET             0xc4
+#define VICAP_SW_RESET			0xc4
 #endif
 
 #define SLVS_SYNC_CODE_WORD 4

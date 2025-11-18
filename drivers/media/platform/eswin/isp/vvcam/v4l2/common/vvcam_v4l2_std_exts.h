@@ -1,54 +1,54 @@
 /****************************************************************************
 *
-*    The MIT License (MIT)
+*	The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2024 Vivante Corporation
+*	Copyright (c) 2014 - 2024 Vivante Corporation
 *
-*    Permission is hereby granted, free of charge, to any person obtaining a
-*    copy of this software and associated documentation files (the "Software"),
-*    to deal in the Software without restriction, including without limitation
-*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-*    and/or sell copies of the Software, and to permit persons to whom the
-*    Software is furnished to do so, subject to the following conditions:
+*	Permission is hereby granted, free of charge, to any person obtaining a
+*	copy of this software and associated documentation files (the "Software"),
+*	to deal in the Software without restriction, including without limitation
+*	the rights to use, copy, modify, merge, publish, distribute, sublicense,
+*	and/or sell copies of the Software, and to permit persons to whom the
+*	Software is furnished to do so, subject to the following conditions:
 *
-*    The above copyright notice and this permission notice shall be included in
-*    all copies or substantial portions of the Software.
+*	The above copyright notice and this permission notice shall be included in
+*	all copies or substantial portions of the Software.
 *
-*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-*    DEALINGS IN THE SOFTWARE.
-*
-*****************************************************************************
-*
-*    The GPL License (GPL)
-*
-*    Copyright (C) 2014 - 2024 Vivante Corporation
-*
-*    This program is free software; you can redistribute it and/or
-*    modify it under the terms of the GNU General Public License
-*    as published by the Free Software Foundation; either version 2
-*    of the License, or (at your option) any later version.
-*
-*    This program is distributed in the hope that it will be useful,
-*    but WITHOUT ANY WARRANTY; without even the implied warranty of
-*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*    GNU General Public License for more details.
-*
-*    You should have received a copy of the GNU General Public License
-*    along with this program; if not, write to the Free Software Foundation,
-*    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+*	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+*	FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+*	DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************
 *
-*    Note: This software is released under dual MIT and GPL licenses. A
-*    recipient may use this file under the terms of either the MIT license or
-*    GPL License. If you wish to use only one license not the other, you can
-*    indicate your decision by deleting one of the above license notices in your
-*    version of this file.
+*	The GPL License (GPL)
+*
+*	Copyright (C) 2014 - 2024 Vivante Corporation
+*
+*	This program is free software; you can redistribute it and/or
+*	modify it under the terms of the GNU General Public License
+*	as published by the Free Software Foundation; either version 2
+*	of the License, or (at your option) any later version.
+*
+*	This program is distributed in the hope that it will be useful,
+*	but WITHOUT ANY WARRANTY; without even the implied warranty of
+*	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*	GNU General Public License for more details.
+*
+*	You should have received a copy of the GNU General Public License
+*	along with this program; if not, write to the Free Software Foundation,
+*	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+*
+*****************************************************************************
+*
+*	Note: This software is released under dual MIT and GPL licenses. A
+*	recipient may use this file under the terms of either the MIT license or
+*	GPL License. If you wish to use only one license not the other, you can
+*	indicate your decision by deleting one of the above license notices in your
+*	version of this file.
 *
 *****************************************************************************/
 
@@ -60,17 +60,17 @@
 
 
 
-// 400-8bit 
+// 400-8bit
 #ifndef V4L2_PIX_FMT_GREY
 #define V4L2_PIX_FMT_GREY v4l2_fourcc('G', 'R', 'E', 'Y')
 #endif
 
-// 400-10bit unalign 
+// 400-10bit unalign
 #ifndef V4L2_PIX_FMT_Y10BPACK
 #define V4L2_PIX_FMT_Y10BPACK v4l2_fourcc('Y', '1', '0', 'B')
 #endif
 
-// 400-10bit align mode0 
+// 400-10bit align mode0
 #ifndef V4L2_PIX_FMT_Y10DWA
 #define V4L2_PIX_FMT_Y10DWA v4l2_fourcc('Y', '1', '0', 'D')
 #endif
@@ -144,12 +144,12 @@
 #define V4L2_PIX_FMT_I48BPACK v4l2_fourcc('I', '4', '8', 'B')
 #endif
 
-// 444I 8bit align mode 0 
+// 444I 8bit align mode 0
 #ifndef V4L2_PIX_FMT_I48DWA
 #define V4L2_PIX_FMT_I48DWA v4l2_fourcc('I', '4', '8', 'D')
 #endif
 
-// 444I 10bit mode0 
+// 444I 10bit mode0
 #ifndef V4L2_PIX_FMT_I40DWA
 #define V4L2_PIX_FMT_I40DWA v4l2_fourcc('I', '4', '0', 'D')
 #endif
@@ -330,55 +330,55 @@
 
 /* media bus format */
 #ifndef MEDIA_BUS_FMT_RGB888_3X8
-#define MEDIA_BUS_FMT_RGB888_3X8        0x101c
+#define MEDIA_BUS_FMT_RGB888_3X8		0x101c
 #endif
 
 #ifndef MEDIA_BUS_FMT_SBGGR14_1X14
-#define MEDIA_BUS_FMT_SBGGR14_1X14      0x3019
+#define MEDIA_BUS_FMT_SBGGR14_1X14		0x3019
 #endif
 
 #ifndef MEDIA_BUS_FMT_SGBRG14_1X14
-#define MEDIA_BUS_FMT_SGBRG14_1X14      0x301a
+#define MEDIA_BUS_FMT_SGBRG14_1X14		0x301a
 #endif
 
 #ifndef MEDIA_BUS_FMT_SGRBG14_1X14
-#define MEDIA_BUS_FMT_SGRBG14_1X14      0x301b
+#define MEDIA_BUS_FMT_SGRBG14_1X14		0x301b
 #endif
 
 #ifndef MEDIA_BUS_FMT_SRGGB14_1X14
-#define MEDIA_BUS_FMT_SRGGB14_1X14      0x301c
+#define MEDIA_BUS_FMT_SRGGB14_1X14		0x301c
 #endif
 
 #ifndef MEDIA_BUS_FMT_SBGGR16_1X16
-#define MEDIA_BUS_FMT_SBGGR16_1X16       0x301d
+#define MEDIA_BUS_FMT_SBGGR16_1X16		0x301d
 #endif
 
 #ifndef MEDIA_BUS_FMT_SGBRG16_1X16
-#define MEDIA_BUS_FMT_SGBRG16_1X16       0x301e
+#define MEDIA_BUS_FMT_SGBRG16_1X16		0x301e
 #endif
 
 #ifndef MEDIA_BUS_FMT_SGRBG16_1X16
-#define MEDIA_BUS_FMT_SGRBG16_1X16       0x301f
+#define MEDIA_BUS_FMT_SGRBG16_1X16		0x301f
 #endif
 
 #ifndef MEDIA_BUS_FMT_SRGGB16_1X16
-#define MEDIA_BUS_FMT_SRGGB16_1X16       0x3020
+#define MEDIA_BUS_FMT_SRGGB16_1X16		0x3020
 #endif
 
 #ifndef MEDIA_BUS_FMT_SBGGR24_1X24
-#define MEDIA_BUS_FMT_SBGGR24_1X24       0x3021
+#define MEDIA_BUS_FMT_SBGGR24_1X24		0x3021
 #endif
 
 #ifndef MEDIA_BUS_FMT_SGBRG24_1X24
-#define MEDIA_BUS_FMT_SGBRG24_1X24       0x3022
+#define MEDIA_BUS_FMT_SGBRG24_1X24		0x3022
 #endif
 
 #ifndef MEDIA_BUS_FMT_SGRBG24_1X24
-#define MEDIA_BUS_FMT_SGRBG24_1X24       0x3023
+#define MEDIA_BUS_FMT_SGRBG24_1X24		0x3023
 #endif
 
 #ifndef MEDIA_BUS_FMT_SRGGB24_1X24
-#define MEDIA_BUS_FMT_SRGGB24_1X24       0x3024
+#define MEDIA_BUS_FMT_SRGGB24_1X24		0x3024
 #endif
 
 #endif

@@ -8,19 +8,19 @@ extern vicap_dev_info_t *vicap_dev_info[VICAP_DEV_MAXCNT];
 
 static int vicap_reg_write_part(struct vicap_device *dev, uint32_t addr, uint32_t data, uint8_t shift, uint8_t width)
 {
-    uint32_t temp = 0;
-    uint32_t mask = (1 << width) - 1;
+	uint32_t temp = 0;
+	uint32_t mask = (1 << width) - 1;
 
-    // TODO: Remove 2 times reading on soc
-    readl(dev->base + addr);
-    temp = readl(dev->base + addr);
+	// TODO: Remove 2 times reading on soc
+	readl(dev->base + addr);
+	temp = readl(dev->base + addr);
 
-    temp &= ~(mask << shift);
-    temp |= (data & mask) << shift;
+	temp &= ~(mask << shift);
+	temp |= (data & mask) << shift;
 
-    writel(temp, dev->base + addr);
+	writel(temp, dev->base + addr);
 
-    return 0;
+	return 0;
 }
 
 static long vicap_sw_reset_ctrl(struct vicap_device *dev)
@@ -49,7 +49,7 @@ static long check_phy_mode_4_lane(struct vicap_device *dev)
 {
 	vicap_dev_info[dev->id]->phy_num = 2;
 
-	if (!vicap_dev_info[dev->id + 1]) { 
+	if (!vicap_dev_info[dev->id + 1]) {
 		pr_err("%s: vicap dev info not allocated\n", __func__);
 		return -ENODEV;
 	} else {
@@ -64,9 +64,9 @@ static long check_phy_mode_8_lane(struct vicap_device *dev)
 {
 	vicap_dev_info[dev->id]->phy_num = 4;
 
-	if (!vicap_dev_info[dev->id + 1] || 
-		    !vicap_dev_info[dev->id + 2] ||
-		    !vicap_dev_info[dev->id + 3]) {
+	if (!vicap_dev_info[dev->id + 1] ||
+			!vicap_dev_info[dev->id + 2] ||
+			!vicap_dev_info[dev->id + 3]) {
 		pr_err("vicap dev info not allocated\n");
 		return -ENODEV;
 	} else {
@@ -172,12 +172,12 @@ static void vicap_set_common_attr(struct vicap_device *dev)
 	vicap_reg_write_part(dev, VICAP_COMMON_SET, dev_attr->combo_mode, COMBO_MODE_LSB, BIT_WIDTH_1);
 	vicap_reg_write_part(dev, VICAP_COMMON_SET, dev_attr->data_type, L_BIT_LSB, BIT_WIDTH_3);
 	vicap_reg_write_part(dev, VICAP_COMMON_SET, dev_attr->data_endian, BIT_REORDER_LSB, BIT_WIDTH_1);
-	
+
 	pic_res = ((dev_attr->frame_info.width + dev_attr->frame_info.h_pad) << 16) | (dev_attr->frame_info.height + dev_attr->frame_info.v_pad);
 //	pic_res = (dev_attr->frame_info.width << 16) | dev_attr->frame_info.height;
 	writel(pic_res, dev->base + VICAP_PIC_RES);
 	vicap_reg_write_part(dev, VICAP_HDR_ARG1,
-		    (dev_attr->frame_info.height + dev_attr->frame_info.v_pad), FRAME_HEIGHT_LSB, FRAME_HEIGHT_BITS);
+			(dev_attr->frame_info.height + dev_attr->frame_info.v_pad), FRAME_HEIGHT_LSB, FRAME_HEIGHT_BITS);
 
 	if (dev_attr->crop_info.crop_en) {
 		uint32_t crop_x = (dev_attr->crop_info.crop_x1 << 16) | dev_attr->crop_info.crop_x2;
@@ -188,7 +188,7 @@ static void vicap_set_common_attr(struct vicap_device *dev)
 		writel(crop_y, dev->base + VICAP_CROP_Y);
 	}
 
-    // 2 lane per phy
+	// 2 lane per phy
 	lane_en = (1 << (vicap_dev_info[dev->id]->phy_num * 2)) - 1;
 	vicap_reg_write_part(dev, VICAP_PHY_CTRL_CFG8, lane_en, VIN_LANE_ENABLE_LSB, VIN_LANE_EN_BITS);
 
