@@ -2,28 +2,28 @@
 /plugin/;
 
 / {
-    fragment@0 {
-		target =  <&imx219_0>;
-		__overlay__ { 
+	fragment@0 {
+		target = <&imx219_0>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
 	fragment@1 {
-		target =  <&imx219_1>;
-		__overlay__ { 
+		target = <&imx219_1>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-    fragment@2 {
-		target =  <&imx219_2>;
-		__overlay__ { 
+	fragment@2 {
+		target = <&imx219_2>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-	fragment@3 { 
+	fragment@3 {
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&imx586_out0>;
@@ -122,7 +122,7 @@
 		};
 	};
 
-    fragment@11 {
+	fragment@11 {
 		target = <&d0_i2c5>;
 		__overlay__ {
 			#address-cells = <1>;

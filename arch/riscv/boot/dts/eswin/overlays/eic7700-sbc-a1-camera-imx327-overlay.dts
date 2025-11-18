@@ -3,21 +3,21 @@
 
 / {
 	fragment@0 {
-		target =  <&vi_subsys>;
+		target = <&vi_subsys>;
 		__overlay__ {
 			phy_mode = <5>;
 		};
 	};
 
 	fragment@1 {
-		target =  <&imx219_0>;
+		target = <&imx219_0>;
 		__overlay__ {
 			status = "disabled";
 		};
 	};
 
 	fragment@2 {
-		target =  <&imx219_1>;
+		target = <&imx219_1>;
 		__overlay__ {
 			status = "disabled";
 		};
@@ -58,7 +58,7 @@
 	fragment@7 {
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
-			remote-endpoint = <&imx708_out0>;
+			remote-endpoint = <&imx327_out0>;
 			data-lanes = <1 2>;
 		};
 	};
@@ -66,7 +66,7 @@
 	fragment@8 {
 		target = <&mipidphy2_in_ucam0>;
 		__overlay__ {
-			remote-endpoint = <&imx708_out1>;
+			remote-endpoint = <&imx327_out1>;
 			data-lanes = <1 2>;
 		};
 	};
@@ -86,26 +86,29 @@
 	};
 
 	fragment@11 {
-		target =  <&d0_i2c3>;
+		target = <&d0_i2c3>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx708_0:imx708_0@1a {
-				compatible = "sony,imx708";
-				reg = <0x1a>;
-				clock-names="inclk";
+			imx327_0: imx327_0@36 {
+				compatible = "sony,imx327lqr";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x36>;
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <24000000>;
+				assigned-clock-rates = <37125000>;
+				clock-names = "xclk";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio72_default>;
-				reset-gpio = <&portc 14 0x0>;
-				status = "okay";
+				reset-gpio = <&portc 8 0>;
+
 				port {
-					imx708_out0: endpoint {
+					imx327_out0: endpoint {
 						remote-endpoint = <&mipidphy0_in_ucam0>;
 						data-lanes = <1 2>;
-						link-frequencies = /bits/ 64 <450000000>;
+						link-frequencies = /bits/ 64 <445500000>;
 					};
 				};
 			};
@@ -113,26 +116,29 @@
 	};
 
 	fragment@12 {
-		target =  <&d0_i2c2>;
+		target = <&d0_i2c2>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx708_1:imx708_1@1a {
-				compatible = "sony,imx708";
-				reg = <0x1a>;
-				clock-names="inclk";
+			imx327_1: imx327_1@36 {
+				compatible = "sony,imx327lqr";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x36>;
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <24000000>;
+				assigned-clock-rates = <37125000>;
+				clock-names = "xclk";
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio78_default>;
-				reset-gpio = <&portc 14 0x0>;
-				status = "okay";
+				reset-gpio = <&portc 14 0>;
+
 				port {
-					imx708_out1: endpoint {
+					imx327_out1: endpoint {
 						remote-endpoint = <&mipidphy2_in_ucam0>;
 						data-lanes = <1 2>;
-						link-frequencies = /bits/ 64 <450000000>;
+						link-frequencies = /bits/ 64 <445500000>;
 					};
 				};
 			};

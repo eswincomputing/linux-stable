@@ -3,7 +3,7 @@
 
 / {
 	fragment@0 {
-		target =  <&vi_subsys>;
+		target = <&vi_subsys>;
 		__overlay__ {
 			phy_mode = <5>;
 		};

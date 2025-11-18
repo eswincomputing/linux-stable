@@ -2,35 +2,35 @@
 /plugin/;
 
 / {
-    fragment@0 {
-		target =  <&camera_imx219>;
-		__overlay__ { 
+	fragment@0 {
+		target = <&camera_imx219>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
 	fragment@1 {
-		target =  <&camera_imx219_1>;
-		__overlay__ { 
+		target = <&camera_imx219_1>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-    fragment@2 {
-		target =  <&d1_camera_imx219>;
-		__overlay__ { 
+	fragment@2 {
+		target = <&d1_camera_imx219>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
 	fragment@3 {
-		target =  <&d1_camera_imx219_1>;
-		__overlay__ { 
+		target = <&d1_camera_imx219_1>;
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-	fragment@4 { 
+	fragment@4 {
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&imx586_out0>;
@@ -190,4 +190,3 @@
 		};
 	};
 };
-

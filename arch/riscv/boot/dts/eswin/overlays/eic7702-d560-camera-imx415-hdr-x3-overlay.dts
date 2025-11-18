@@ -2,35 +2,35 @@
 /plugin/;
 
 / {
-    fragment@0 {
+	fragment@0 {
 		target =  <&camera_imx219>;
-		__overlay__ { 
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
 	fragment@1 {
 		target =  <&camera_imx219_1>;
-		__overlay__ { 
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-    fragment@2 {
+	fragment@2 {
 		target =  <&d1_camera_imx219>;
-		__overlay__ { 
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
 	fragment@3 {
 		target =  <&d1_camera_imx219_1>;
-		__overlay__ { 
+		__overlay__ {
 			status = "disabled";
 		};
 	};
 
-	fragment@4 { 
+	fragment@4 {
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&imx415_out0>;
@@ -103,7 +103,7 @@
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <37125000>;
 				reset-gpio = <&portc 8 0>;
-                eswin,camera-hdr-mode = <2>;
+				eswin,camera-hdr-mode = <2>;
 				status = "okay";
 				port {
 					imx415_out0: endpoint {
@@ -129,7 +129,7 @@
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <37125000>;
 				reset-gpio = <&portc 14 0>;
-                eswin,camera-hdr-mode = <2>;
+				eswin,camera-hdr-mode = <2>;
 				status = "okay";
 				port {
 					imx415_out1: endpoint {
@@ -155,7 +155,7 @@
 				assigned-clocks = <&d1_clock 0x244>;
 				assigned-clock-rates = <37125000>;
 				reset-gpio = <&d1_portc 8 0>;
-                eswin,camera-hdr-mode = <2>;
+				eswin,camera-hdr-mode = <2>;
 				status = "okay";
 				port {
 					d1_imx415_out0: endpoint {
@@ -181,7 +181,7 @@
 				assigned-clocks = <&d1_clock 0x244>;
 				assigned-clock-rates = <37125000>;
 				reset-gpio = <&d1_portc 14 0>;
-                eswin,camera-hdr-mode = <2>;
+				eswin,camera-hdr-mode = <2>;
 				status = "okay";
 				port {
 					d1_imx415_out1: endpoint {
@@ -194,7 +194,7 @@
 		};
 	};
 
-    fragment@16 {
+	fragment@16 {
 		target = <&mipi_csi2_0>;
 		__overlay__ {
 			eswin,csi-hdr-mode = <2>;
@@ -208,7 +208,7 @@
 		};
 	};
 
-    fragment@18 {
+	fragment@18 {
 		target = <&d1_mipi_csi2_0>;
 		__overlay__ {
 			eswin,csi-hdr-mode = <2>;
@@ -264,4 +264,3 @@
 		};
 	};
 };
-
