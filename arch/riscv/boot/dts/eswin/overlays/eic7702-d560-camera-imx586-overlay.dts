@@ -95,13 +95,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx586_0: imx586@37 {
+			imx586_0: imx586@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				reset-gpio = <&portc 8 0>;
 				status = "okay";
 				port {
@@ -120,13 +120,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx586_1: imx586@37 {
+			imx586_1: imx586@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				reset-gpio = <&portc 14 0>;
 				status = "okay";
 				port {
@@ -145,13 +145,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			d1_imx586_0: imx586@37 {
+			d1_imx586_0: imx586@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d1_clock 0x244>;
 				assigned-clocks = <&d1_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				reset-gpio = <&d1_portc 8 0>;
 				status = "okay";
 				port {
@@ -170,13 +170,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			d1_imx586_1: imx586@37 {
+			d1_imx586_1: imx586@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d1_clock 0x244>;
 				assigned-clocks = <&d1_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				reset-gpio = <&d1_portc 14 0>;
 				status = "okay";
 				port {

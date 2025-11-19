@@ -73,13 +73,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx586_0:imx586_0@37 {
+			imx586_0:imx586_0@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio71_default>;
 				reset-gpio = <&portc 7 0>;
@@ -100,13 +100,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx586_1:imx586_1@37 {
+			imx586_1:imx586_1@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio77_default>;
 				reset-gpio = <&portc 13 0>;
@@ -127,13 +127,13 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			imx586_2:imx586_2@37 {
+			imx586_2:imx586_2@1a {
 				compatible = "sony,imx586";
-				reg = <0x37>;
+				reg = <0x1a>;
 				clock-names="xvclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
-				assigned-clock-rates = <37125000>;
+				assigned-clock-rates = <24000000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio83_default>;
 				reset-gpio = <&portc 19 0>;

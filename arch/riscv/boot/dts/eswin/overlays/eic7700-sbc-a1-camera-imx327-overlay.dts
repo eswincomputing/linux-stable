@@ -96,10 +96,11 @@
 				address-cells = <1>;
 				size-cells = <0>;
 				reg = <0x36>;
+				clock-names = "xclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <37125000>;
-				clock-names = "xclk";
+				clock-frequency = <37125000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio72_default>;
 				reset-gpio = <&portc 8 0>;
@@ -108,7 +109,7 @@
 					imx327_out0: endpoint {
 						remote-endpoint = <&mipidphy0_in_ucam0>;
 						data-lanes = <1 2>;
-						link-frequencies = /bits/ 64 <445500000>;
+						link-frequencies = /bits/ 64 <445500000 297000000>;
 					};
 				};
 			};
@@ -126,10 +127,11 @@
 				address-cells = <1>;
 				size-cells = <0>;
 				reg = <0x36>;
+				clock-names = "xclk";
 				clocks = <&d0_clock 0x244>;
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <37125000>;
-				clock-names = "xclk";
+				clock-frequency = <37125000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio78_default>;
 				reset-gpio = <&portc 14 0>;
@@ -138,7 +140,7 @@
 					imx327_out1: endpoint {
 						remote-endpoint = <&mipidphy2_in_ucam0>;
 						data-lanes = <1 2>;
-						link-frequencies = /bits/ 64 <445500000>;
+						link-frequencies = /bits/ 64 <445500000 297000000>;
 					};
 				};
 			};
