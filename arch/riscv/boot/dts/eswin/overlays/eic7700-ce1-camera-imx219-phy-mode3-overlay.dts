@@ -1,0 +1,35 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <3>;
+		};
+	};
+
+	fragment@1 {
+		target = <&mipi_csi2_4>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@2 {
+		target = <&csi2_dphy_hw4>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>;
+		};
+	};
+
+	fragment@3 {
+		target = <&imx219_out2>;
+		__overlay__ {
+			data-lanes = <1 2>;
+			link-frequencies = /bits/ 64 <456000000>;
+		};
+	};
+
+};
