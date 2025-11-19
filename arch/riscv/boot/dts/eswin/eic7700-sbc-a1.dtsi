@@ -649,6 +649,7 @@
 	d0_es8388_0: es8388-0@10 {
 		compatible = "eswin,es8388";
 		reg = <0x10>;
+		eswin-plat = <4>;
 		#sound-dai-cells = <0>;
 		port {
 			d0_codec0_endpoint: endpoint {

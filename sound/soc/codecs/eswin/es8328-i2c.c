@@ -45,37 +45,8 @@ MODULE_DEVICE_TABLE(of, es8328_of_match);
 
 static int es8328_i2c_probe(struct i2c_client *i2c)
 {
-	int ret;
-	unsigned int val = 0;
-	struct regmap *map;
-
-	map = devm_regmap_init_i2c(i2c, &es8328_regmap_config);
-	if (IS_ERR(map)) {
-		dev_err(&i2c->dev, "failed to init regmap %ld\n", PTR_ERR(map));
-		return PTR_ERR(map);
-	}
-
-	ret = regmap_read(map, ES8328_CONTROL1, &val);
-	if (ret != 0) {
-		dev_info(&i2c->dev, "read control1 register failed\n");
-		return -EIO;
-	}
-	if (val != 0x06) {
-		dev_info(&i2c->dev, "control1 val mismatching %d\n", val);
-		return -EINVAL;
-	}
-
-	ret = regmap_read(map, ES8328_CONTROL2, &val);
-	if (ret != 0) {
-		dev_warn(&i2c->dev, "read control2 register failed\n");
-		return -EIO;
-	}
-	if ((val&0x0f) != 0x0C) {
-		dev_warn(&i2c->dev, "control2 val mismatching %d\n", val);
-		return -EINVAL;
-	}
-
-	return es8328_probe(&i2c->dev, map);
+	return es8328_probe(&i2c->dev,
+			devm_regmap_init_i2c(i2c, &es8328_regmap_config));
 }
 
 static struct i2c_driver es8328_i2c_driver = {
