@@ -83,6 +83,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio71_default>;
 				reset-gpio = <&portc 7 0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx586_out0: endpoint {
@@ -110,6 +111,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio77_default>;
 				reset-gpio = <&portc 13 0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx586_out1: endpoint {
@@ -137,6 +139,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio83_default>;
 				reset-gpio = <&portc 19 0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx586_out2: endpoint {
