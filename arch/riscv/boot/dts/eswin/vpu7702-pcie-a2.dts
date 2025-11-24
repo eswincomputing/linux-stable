@@ -228,7 +228,7 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_gpio107_default &pinctrl_gpio108_default &pinctrl_gpio109_default>;
+		pinctrl-0 = <&pinctrl_gpio107_default &pinctrl_gpio68_default &pinctrl_gpio109_default>;
 
 		gpio-107 {
 			gpios = <&portd 11 GPIO_ACTIVE_HIGH>;
@@ -236,8 +236,8 @@
 			linux,default-trigger = "default-on";
 		};
 
-		gpio-108 {
-			gpios = <&portd 12 GPIO_ACTIVE_LOW>;
+		gpio-68 {
+			gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 			label = "heartbeat";
 			linux,default-trigger = "heartbeat";
 		};

@@ -372,17 +372,11 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die1_gpio68_default>, <&pinctrl_die0_gpio68_default>;
-
+		pinctrl-0 = <&pinctrl_die0_gpio68_default>;
 		gpio-68 {
-			gpios = <&d1_portc 4 GPIO_ACTIVE_LOW>;
 			label = "heartbeat";
+			gpios = <&portc 4 GPIO_ACTIVE_LOW>;
 			linux,default-trigger = "heartbeat";
-		};
-		power {
-			label = "Power";
-			gpios = <&portc 4 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "default-on";
 		};
 	};
 	reg_vcc1v8: vcc1v8 {
@@ -1086,9 +1080,9 @@
 	status = "okay";
 };
 
-&fan_control {
-	status = "disabled";
-};
+//&fan_control {
+//	status = "disabled";
+//};
 &d1_fan_control {
 	status = "disabled";
 };
@@ -1266,10 +1260,10 @@
 	status = "disabled";
 };
 
-&pwm0 {
-	/* fan */
-	status = "disabled";
-};
+//&pwm0 {
+//	/* fan */
+//	status = "disabled";
+//};
 &d1_pwm0 {
 	status = "disabled";
 };
