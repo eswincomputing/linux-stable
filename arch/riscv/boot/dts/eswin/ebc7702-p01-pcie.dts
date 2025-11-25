@@ -1368,3 +1368,36 @@
 &d0_watchdog {
 	status = "disabled";
 };
+
+/delete-node/ &d0_map_cpu;
+/delete-node/ &d1_map_cpu;
+
+&d0_cpu_opp_table {
+	opp-700000000 {
+		opp-microvolt = <800000>;
+	};
+	opp-800000000 {
+		opp-microvolt = <800000>;
+	};
+	opp-900000000 {
+		opp-microvolt = <800000>;
+	};
+	opp-1400000000 {
+		opp-microvolt = <800000>;
+	};
+};
+
+&d1_cpu_opp_table {
+	opp-700000000 {
+		opp-microvolt = <800000>;
+	};
+	opp-800000000 {
+		opp-microvolt = <800000>;
+	};
+	opp-900000000 {
+		opp-microvolt = <800000>;
+	};
+	opp-1400000000 {
+		opp-microvolt = <800000>;
+	};
+};
