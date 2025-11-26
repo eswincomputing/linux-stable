@@ -95,11 +95,15 @@ static int class_assign_chn(struct _class_chn_mgr_t *inst, channel_t *chn) {
         atomic_set(&inst->chn[chn->group][chn->channel]->wakeup_count, 1);
         init_waitqueue_head(&inst->chn[chn->group][chn->channel]->wait_queue);
     }
-    mutex_unlock(&inst->mtx);
 
     count = atomic_add_return(1, &inst->chn[chn->group][chn->channel]->ref);
+    mutex_unlock(&inst->mtx);
+    if (count > 1) {
+        pr_info("assign chn[%u, %u] count: %d, minor %d\n", chn->group, chn->channel, count, inst->minor);
+    } else {
+        pr_debug("assign chn[%u, %u] count: %d, minor %d\n", chn->group, chn->channel, count, inst->minor);
+    }
 
-    pr_debug("assign chn[%u, %u] count: %d, minor %d\n", chn->group, chn->channel, count, inst->minor);
     return count;
 }
 
@@ -107,15 +111,21 @@ static int class_unassign_chn(struct _class_chn_mgr_t *inst, channel_t *chn) {
     int count = 0;
     CHECK_CHN(chn, -1, "unassign chn - invalid parameters")
     CHECK_CHN_P(chn, -1, "unassign chn")
-
+    mutex_lock(&inst->mtx);
     count = atomic_sub_return(1, &inst->chn[chn->group][chn->channel]->ref);
     if (0 == count) {
         atomic_set(&inst->chn[chn->group][chn->channel]->data_count, 0);
         atomic_set(&inst->chn[chn->group][chn->channel]->wakeup_count, 1);
         pr_debug("reset channel[%u, %u] count, minor %d\n", chn->group, chn->channel, inst->minor);
     }
+    mutex_unlock(&inst->mtx);
 
-    pr_debug("unassign chn[%u, %u] count: %d, minor %d\n", chn->group, chn->channel, count, inst->minor);
+    if (count > 0) {
+        pr_info("unassign chn[%u, %u] count: %d, minor %d\n", chn->group, chn->channel, count, inst->minor);
+    } else {
+        pr_debug("unassign chn[%u, %u] count: %d, minor %d\n", chn->group, chn->channel, count, inst->minor);
+    }
+
     return count;
 }
 

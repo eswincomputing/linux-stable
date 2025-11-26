@@ -100,7 +100,7 @@ static long dev_channel_ioctl(struct file *filp, unsigned int cmd, unsigned long
                 return -EFAULT;
             }
 
-            if (chn_data->pmgr && chn_data->pmgr->unassign_chnl(chn_data->pmgr, &chn) > 0) {
+            if (chn_data->pmgr && chn_data->pmgr->unassign_chnl(chn_data->pmgr, &chn) >= 0) {
                 chn_data->chn.group = INVALID_GROUP;
                 chn_data->chn.channel = -1;
             } else {
