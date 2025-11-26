@@ -156,5 +156,5 @@ typedef struct {
 #define VVCAM_PAD_QUERYMENU			_IOWR('V',  BASE_VIDIOC_PRIVATE + 11, struct vvcam_pad_querymenu)
 
 #define VVAM_CMD_GET_SENSOR_MBUS_CONFIG _IOR('V', BASE_VIDIOC_PRIVATE + 12, sensor_mbus_config)
-
+#define VVAM_CMD_GET_MIPI_ID 		_IOR('V', BASE_VIDIOC_PRIVATE + 13, int)
 #endif

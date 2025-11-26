@@ -411,7 +411,7 @@
 };
 
 &isp_1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dewarp {

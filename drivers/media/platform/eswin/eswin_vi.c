@@ -114,57 +114,105 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 	vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE, phy_val);
 	vi_top_register_write(es_vi_dev, VI_TOP_CONTROLLER_SELECT, 0);
 
-	val = (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP0_SEL_OFFSET) |
-	      (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP1_SEL_OFFSET);
-	val |= (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP2_SEL_OFFSET) |
-	       (CSI_CONTROLLER_ID << VI_TOP_ISP0_DVP3_SEL_OFFSET);
-	val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP0_SEL_OFFSET) |
-	       (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP1_SEL_OFFSET);
-	val |= (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP2_SEL_OFFSET) |
-	       (CSI_CONTROLLER_ID << VI_TOP_ISP1_DVP3_SEL_OFFSET);
-
+	switch(es_vi_dev->isp_connect_mode) {
+		case ISP_CONNECT_MODE_0_2:
+			val = (CSI_CONTROLLER_ID0 << VI_TOP_ISP0_DVP0_SEL_OFFSET) |
+				(CSI_CONTROLLER_ID2 << VI_TOP_ISP1_DVP0_SEL_OFFSET);
+			break;
+		case ISP_CONNECT_MODE_0_2_4:
+			val = (CSI_CONTROLLER_ID0 << VI_TOP_ISP0_DVP0_SEL_OFFSET) |
+				(CSI_CONTROLLER_ID2 << VI_TOP_ISP0_DVP1_SEL_OFFSET);
+			val |= (CSI_CONTROLLER_ID4 << VI_TOP_ISP1_DVP0_SEL_OFFSET);
+			break;
+		case ISP_CONNECT_MODE_0_1_2_3:
+			val = (CSI_CONTROLLER_ID0 << VI_TOP_ISP0_DVP0_SEL_OFFSET) |
+				(CSI_CONTROLLER_ID1 << VI_TOP_ISP0_DVP1_SEL_OFFSET);
+			val |= (CSI_CONTROLLER_ID2 << VI_TOP_ISP1_DVP0_SEL_OFFSET) |
+				(CSI_CONTROLLER_ID3 << VI_TOP_ISP1_DVP1_SEL_OFFSET);
+			break;
+		default:
+			pr_warn(DRIVER_NAME ": isp_connect_mode matching failed use default 0\n");
+			val = (CSI_CONTROLLER_ID0 << VI_TOP_ISP0_DVP0_SEL_OFFSET) |
+				(CSI_CONTROLLER_ID2 << VI_TOP_ISP0_DVP1_SEL_OFFSET);
+			val |= (CSI_CONTROLLER_ID4 << VI_TOP_ISP1_DVP0_SEL_OFFSET);
+			break;
+	}
+    
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP_DVP_SEL, val);
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE,
-			      (es_vi_dev->isp_dvp0_ver << 16) |
-				      es_vi_dev->isp_dvp0_hor);
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE,
-			      (es_vi_dev->isp_dvp0_ver << 16) |
-				      es_vi_dev->isp_dvp0_hor);
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE,
-			      (es_vi_dev->isp_dvp0_ver << 16) |
-				      es_vi_dev->isp_dvp0_hor);
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE,
-			      (es_vi_dev->isp_dvp0_ver << 16) |
-				      es_vi_dev->isp_dvp0_hor);
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE,
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE,
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE,
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
+	vi_top_register_write(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE,
+		(es_vi_dev->isp_dvp0_ver << 16) |
+		es_vi_dev->isp_dvp0_hor);
+
 	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP_BLANK,
 			      (0xff << 8) | 0xff);
 	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0, (4 << 9));
 	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP2, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP0_DVP3, (4 << 9));
 	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0, (4 << 9));
 	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP2, (4 << 9));
+	vi_top_register_write(es_vi_dev, VI_TOP_MULTI2ISP1_DVP3, (4 << 9));
 
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_PHY_CONNECT_MODE);
 	pr_debug("t2 VI_TOP_PHY_CONNECT_MODE[0x51030000] = %x\n", reg_value);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP_DVP_SEL);
 	pr_debug("ISP0_DVP_SEL[0x51030008] = %x\n", reg_value);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE);
-	pr_debug("ISP0_DVP0 size[0x5103000c] = %x\n", reg_value);
+	pr_debug("ISP0_DVP0 size[0x510300%x] = %x\n", reg_value,VI_TOP_ISP0_DVP0_SIZE);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP1_SIZE);
-	pr_debug("ISP0_DVP1 size[0x51030010] = %x\n", reg_value);
+	pr_debug("ISP0_DVP0 size[0x510300%x] = %x\n", reg_value,VI_TOP_ISP0_DVP1_SIZE);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP2_SIZE);
+	pr_debug("ISP0_DVP0 size[0x510300%x] = %x\n", reg_value,VI_TOP_ISP0_DVP2_SIZE);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP0_DVP3_SIZE);
+	pr_debug("ISP0_DVP1 size[0x510300%x] = %x\n", reg_value,VI_TOP_ISP0_DVP3_SIZE);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP0_SIZE);
-	pr_debug("ISP1_DVP0 size[0x51030014] = %x\n", reg_value);
+	pr_debug("ISP1_DVP0 size[0x510300%x] = %x\n", reg_value, VI_TOP_ISP1_DVP0_SIZE);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP1_SIZE);
-	pr_debug("ISP1_DVP1 size[0x51030018] = %x\n", reg_value);
+	pr_debug("ISP1_DVP1 size[0x510300%x] = %x\n", reg_value, VI_TOP_ISP1_DVP1_SIZE);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP2_SIZE);
+	pr_debug("ISP1_DVP2 size[0x510300%x] = %x\n", reg_value, VI_TOP_ISP1_DVP2_SIZE);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_ISP1_DVP3_SIZE);
+	pr_debug("ISP1_DVP3 size[0x510300%x] = %x\n", reg_value, VI_TOP_ISP1_DVP3_SIZE);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP_BLANK);
 	pr_debug("ISP_MUL2ISP_BLANK[0x5103001c] = %x\n", reg_value);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP0);
-	pr_debug("ISP0_DVP0 multi[0x51030020] = %x\n", reg_value);
+	pr_debug("ISP0_DVP0 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP0_DVP0);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP1);
-	pr_debug("ISP0_DVP1 multi[0x51030024] = %x\n", reg_value);
+	pr_debug("ISP0_DVP1 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP0_DVP1);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP2);
+	pr_debug("ISP0_DVP0 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP0_DVP2);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP0_DVP3);
+	pr_debug("ISP0_DVP1 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP0_DVP3);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP0);
-	pr_debug("ISP1_DVP0 multi[0x51030028] = %x\n", reg_value);
+	pr_debug("ISP1_DVP0 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP1_DVP0);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP1);
-	pr_debug("ISP1_DVP1 multi[0x5103002c] = %x\n", reg_value);
+	pr_debug("ISP1_DVP1 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP1_DVP1);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP2);
+	pr_debug("ISP1_DVP0 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP1_DVP2);
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_MULTI2ISP1_DVP3);
+	pr_debug("ISP1_DVP1 multi[0x510300%x] = %x\n", reg_value, VI_TOP_MULTI2ISP1_DVP3);
 
 	return 0;
 }
@@ -594,6 +642,12 @@ static int eswin_vi_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_warn(&pdev->dev, "Failed to read phy_mode property! Use Default 5!\n");
 		es_vi_dev->phy_mode = 5;
+	}
+
+	ret = of_property_read_u32(np, "isp_connect_mode", &es_vi_dev->isp_connect_mode);
+	if (ret) {
+		dev_warn(&pdev->dev, "Failed to read isp_connect_mode property! Use Default ISP_CONNECT_MODE_0_2_4!\n");
+		es_vi_dev->isp_connect_mode = ISP_CONNECT_MODE_0_2_4;
 	}
 
 	/* imx327 wdr enabled or not */

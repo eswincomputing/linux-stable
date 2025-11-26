@@ -57,7 +57,17 @@
 #define __VVCAM_VIDEO_REGISTER_H__
 #include "vvcam_video_driver.h"
 
+//data path SENSOR->CSI->PHY->ISP
+enum remote_source {
+	VVCAM_ISP = 0,
+	VVCAM_CSI,
+	VVCAM_PHY,
+	VVCAM_SENSOR,
+	VVCAM_DATA_PATH_MAX
+};
+
 int vvcam_video_register(struct vvcam_media_dev *vvcam_mdev, int port);
 int vvcam_video_unregister(struct vvcam_media_dev *vvcam_mdev, int port);
+
 
 #endif
