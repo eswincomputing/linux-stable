@@ -41,7 +41,7 @@ CONFIG_HOTPLUG_CPU=y
 CONFIG_NUMA=y
 CONFIG_RISCV_SBI_V01=y
 # CONFIG_RISCV_BOOT_SPINWAIT is not set
-CONFIG_CMDLINE="earlycon=sbi console=ttyS0,115200n8 clk_ignore_unused cma_pernuma=0x20000000 disable_bypass=false firmware_class.path=/lib/firmware/eic7x/"
+CONFIG_CMDLINE="earlycon=sbi console=ttyS0,115200n8 usb_storage.quirks=0781:55ab:u clk_ignore_unused cma_pernuma=0x20000000 disable_bypass=false firmware_class.path=/lib/firmware/eic7x/"
 CONFIG_CMDLINE_EXTEND=y
 CONFIG_PM_DEBUG=y
 CONFIG_PM_ADVANCED_DEBUG=y
@@ -331,6 +331,7 @@ CONFIG_BLK_DEV_SD=y
 CONFIG_SCSI_DH=y
 CONFIG_SCSI_DH_RDAC=m
 CONFIG_SCSI_DH_EMC=m
+CONFIG_SCSI_LOGGING=y
 CONFIG_ATA=y
 CONFIG_SATA_AHCI=y
 CONFIG_AHCI_ESWIN=y
