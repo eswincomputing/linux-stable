@@ -71,7 +71,7 @@
 		};
 		opp-900000000 {
 			opp-hz = /bits/ 64 <CLK_FREQ_900M>;
-			opp-microvolt = <800000>;
+			opp-microvolt = <900000>;
 			clock-latency-ns = <70000>;
 		};
 		opp-1000000000 {
