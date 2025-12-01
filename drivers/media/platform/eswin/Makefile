@@ -9,3 +9,4 @@ obj-$(CONFIG_VIDEO_ESWIN_ISP) += isp/
 obj-$(CONFIG_PHY_ESWIN_CSI2_DPHY) += mipi-cdphy/
 obj-$(CONFIG_VIDEO_ESWIN_VI_TOP) += eswin_vi.o
 obj-$(CONFIG_VIDEO_ESWIN_VI_IRCUT) += es_ircut.o
+obj-y += isp/vvcam/common/vvcam_procfs.o
