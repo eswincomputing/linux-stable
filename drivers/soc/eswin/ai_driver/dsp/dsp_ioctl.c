@@ -973,32 +973,7 @@ static long dsp_ioctl_enable_perf(struct file *flip, u32 *arg)
 	return 0;
 }
 
-static long dsp_ioctl_get_perf_data(struct file *flip, dsp_kmd_perf_t *data)
-{
-	int ret = 0;
-
-	if (copy_to_user(data, 0, sizeof(dsp_kmd_perf_t) * MAX_DSP_TASKS)) {
-		dsp_err("copy perf data to user err.\n");
-		ret = -EINVAL;
-	}
-	dsp_debug("get dsp kmd perf data done.\n");
-
-	return ret;
-}
-
 extern void get_dsp_perf_info(es_dsp_perf_info *perf_info, int die_num, int dsp_num);
-
-static long dsp_ioctl_get_fw_perf_data(struct file *flip, dsp_fw_perf_t *data)
-{
-	int ret = 0;
-
-	if (copy_to_user(data, 0, sizeof(dsp_fw_perf_t) * MAX_DSP_TASKS)) {
-		dsp_err("copy perf data to user err.\n");
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
 
 static long dsp_ioctl_get_cur_op_perf_data(struct file *flip, dsp_fw_perf_t *data)
 {
@@ -1007,7 +982,6 @@ static long dsp_ioctl_get_cur_op_perf_data(struct file *flip, dsp_fw_perf_t *dat
 	struct dsp_file *dsp_file = flip->private_data;
 	struct es_dsp *dsp = dsp_file->dsp;
 	es_dsp_perf_info perf_info;
-
 	get_dsp_perf_info(&perf_info, dsp->numa_id, dsp->process_id);
 
 	dsp->op_cur_perf.Die = dsp->numa_id;
@@ -1159,14 +1133,6 @@ static long dsp_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		break;
 	case DSP_IOCTL_ENABLE_PERF:
 		retval = dsp_ioctl_enable_perf(flip, (u32 __user *)arg);
-		break;
-	case DSP_IOCTL_GET_PERF_DATA:
-		retval = dsp_ioctl_get_perf_data(flip,
-						 (dsp_kmd_perf_t __user *)arg);
-		break;
-	case DSP_IOCTL_GET_FW_PERF_DATA:
-		retval = dsp_ioctl_get_fw_perf_data(
-			flip, (dsp_fw_perf_t __user *)arg);
 		break;
 	case DSP_IOCTL_GET_CUR_OP_PERF_DATA:
 		retval = dsp_ioctl_get_cur_op_perf_data(

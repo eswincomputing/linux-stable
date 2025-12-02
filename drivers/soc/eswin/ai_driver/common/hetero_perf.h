@@ -79,17 +79,6 @@ typedef struct _npu_e31_perf {
     u32 EvtEvalDoneEndCycle;
 } npu_e31_perf_t;
 
-typedef struct _dsp_kmd_perf {
-    u32 Die;
-    u32 CoreId;
-    u32 OpIndex;
-    u32 OpType;
-    char OpName[OPERATOR_NAME_MAXLEN];
-    u32 OpStartCycle;
-    u32 OpSendTaskCycle;
-    u32 OpEndCycle;
-} dsp_kmd_perf_t;
-
 typedef struct _dsp_fw_perf {
     u32 Die;
     u32 CoreId;
