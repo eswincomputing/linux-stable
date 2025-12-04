@@ -1,5 +1,7 @@
 config PHY_ESWIN_CSI2_DPHY
-	tristate "Eswin CSI2 D-PHY Driver"
+	bool "Eswin CSI2 D-PHY Driver"
+	def_bool n
+	depends on !PM_SLEEP
 	select GENERIC_PHY
 	select VIDEO_V4L2_SUBDEV_API
 	select V4L2_FWNODE

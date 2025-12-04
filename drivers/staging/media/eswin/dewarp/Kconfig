@@ -1,5 +1,6 @@
 config VIDEO_ESWIN_DEWARP
-	tristate "Eswin dewarp Acceleration Unit"
-	depends on VIDEO_ESWIN
+	bool "Eswin dewarp Acceleration Unit"
+	def_bool n
+	depends on VIDEO_ESWIN && !PM_SLEEP
 	help
 	  This is video dewarp && scale accelerator.
