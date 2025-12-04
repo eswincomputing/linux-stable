@@ -1035,6 +1035,7 @@ static void gamma_ex_commit(struct dc_hw *hw)
 
 	if (hw->gamma.dirty) {
 		if (hw->gamma.enable) {
+			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, 0, BIT(4)); //close timing befor set table
 			dc_write(hw, DC_DISPLAY_GAMMA_EX_INDEX, 0x00);
 			for (i = 0; i < GAMMA_EX_SIZE; i++) {
 				value = hw->gamma.gamma[i][2] |
