@@ -355,7 +355,7 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 	if (ret)
 		return ret;
 
-#if CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY
+#ifndef CONFIG_ARCH_ESWIN_EIC770X_SOC_FAMILY
 	if (num_pages == 1 && ttm->caching == ttm_cached &&
 	    !(man->use_tt && (ttm->page_flags & TTM_TT_FLAG_DECRYPTED))) {
 		/*
