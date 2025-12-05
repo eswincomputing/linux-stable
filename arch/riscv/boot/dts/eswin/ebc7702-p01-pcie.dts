@@ -1089,7 +1089,7 @@
 
 &d0_i2c0 {
 	/* SOC1 ina226, used by lpcpu */
-	status = "okay";
+	status = "disabled";
 	ina226@44 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;
