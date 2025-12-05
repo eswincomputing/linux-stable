@@ -99,8 +99,8 @@
 				compatible = "sony,imx415";
 				reg = <0x37>;
 				clock-names="inck";
-				clocks = <&clock 0x244>;
-				assigned-clocks = <&clock 0x244>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <37125000>;
 				reset-gpio = <&portc 8 0>;
 				eswin,camera-hdr-mode = <0>;
@@ -125,11 +125,9 @@
 				compatible = "sony,imx415";
 				reg = <0x37>;
 				clock-names="inck";
-				clocks = <&clock 0x244>;
-				assigned-clocks = <&clock 0x244>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <37125000>;
-				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl_gpio78_default>;
 				reset-gpio = <&portc 14 0>;
 				eswin,camera-hdr-mode = <0>;
 				status = "okay";
@@ -182,8 +180,6 @@
 				clocks = <&d1_clock 0x244>;
 				assigned-clocks = <&d1_clock 0x244>;
 				assigned-clock-rates = <37125000>;
-				pinctrl-names = "default";
-				pinctrl-0 = <&d1_pinctrl_gpio78_default>;
 				reset-gpio = <&d1_portc 14 0>;
 				eswin,camera-hdr-mode = <0>;
 				status = "okay";

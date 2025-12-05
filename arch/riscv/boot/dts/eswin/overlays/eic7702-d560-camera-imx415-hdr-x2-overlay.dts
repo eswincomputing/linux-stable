@@ -2,7 +2,7 @@
 /plugin/;
 
 / {
-    fragment@0 {
+	fragment@0 {
 		target = <&camera_imx219>;
 		__overlay__ {
 			status = "disabled";
@@ -16,7 +16,7 @@
 		};
 	};
 
-    fragment@2 {
+	fragment@2 {
 		target = <&d1_camera_imx219>;
 		__overlay__ {
 			status = "disabled";
