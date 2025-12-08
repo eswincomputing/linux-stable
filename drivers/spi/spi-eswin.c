@@ -1131,6 +1131,13 @@ static const struct of_device_id eswin_spi_mmio_of_match[] = {
 MODULE_DEVICE_TABLE(of, eswin_spi_mmio_of_match);
 
 
+static const struct acpi_device_id eswin_spi_mmio_acpi_match[] = {
+	{"eswin,bootspi", 0},
+	{}
+};
+MODULE_DEVICE_TABLE(acpi, eswin_spi_mmio_acpi_match);
+
+
 static struct platform_driver eswin_spi_mmio_driver = {
 	.probe		= eswin_spi_mmio_probe,
 	.remove_new	= eswin_spi_mmio_remove,
