@@ -861,6 +861,7 @@ static const struct of_device_id dw_hdmi_hdcp2_dt_ids[] = {
 	{
 		.compatible = "eswin,dw-hdmi-hdcp2",
 	},
+	{ /* end of table */ }
 };
 MODULE_DEVICE_TABLE(of, dw_hdmi_hdcp2_dt_ids);
 
