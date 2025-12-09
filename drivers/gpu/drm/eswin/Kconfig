@@ -20,14 +20,6 @@ config ESWIN_VIRTUAL_DISPLAY
 	  The content format is ARGB which Alpha is 0 for 8bits.
 	  Disabled in default.
 
-config ESWIN_MMU
-	bool "MMU support for Eswin display controller"
-	depends on DRM_ESWIN
-	help
-	  This is a memory management function which translate virtual address
-	  to physical address. DPU MMU only do address translate, doesn't
-	  support security and shareable.
-
 config ESWIN_DW_HDMI
     bool "ESWIN specific extensions for Synopsys DW HDMI"
     depends on DRM_ESWIN
