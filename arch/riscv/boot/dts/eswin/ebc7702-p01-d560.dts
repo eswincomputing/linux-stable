@@ -683,6 +683,19 @@
 				&pinctrl_die1_gpio18_default>;
 };
 
+&d0_pmu {
+	status = "okay";
+	d0_pmu_pcie: win2030-pmu-controller-port@0 {
+		power_status = <2>;
+	};
+};
+&d1_pmu {
+	status = "okay";
+	d1_pmu_pcie: win2030-pmu-controller-port@0 {
+		power_status = <2>;
+	};
+};
+
 /******** pin headers *********
      pin : function
        3 : D0 I2C5 SDA

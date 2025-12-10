@@ -317,6 +317,9 @@
 
 &d0_pmu {
 	status = "okay";
+	d0_pmu_pcie: win2030-pmu-controller-port@0 {
+		power_status = <2>;
+	};
 	d0_pmu_vi: win2030-pmu-controller-port@80 {
 		power_status = <0>;
 	};
@@ -327,6 +330,9 @@
 };
 &d1_pmu {
 	status = "okay";
+	d1_pmu_pcie: win2030-pmu-controller-port@0 {
+		power_status = <2>;
+	};
 	d1_pmu_vi: win2030-pmu-controller-port@80 {
 		power_status = <0>;
 	};
