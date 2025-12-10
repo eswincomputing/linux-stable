@@ -36,9 +36,9 @@
 #include "debug.h"
 #include "nvdla_proc.h"
 
-static int frame_timeout = 1000000;
+int frame_timeout = 30000;
 module_param(frame_timeout, int, 0644);
-MODULE_PARM_DESC(frame_timeout, "frame timeout in ms, default 1000s");
+MODULE_PARM_DESC(frame_timeout, "frame timeout in ms, default 30s");
 
 extern void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok,
 				       u16 op_index, u32 hw_error);

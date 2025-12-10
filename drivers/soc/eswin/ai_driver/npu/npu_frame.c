@@ -425,17 +425,19 @@ static void npu_process_timeout(struct win_engine *engine, u32 tiktok)
 
 void npu_frame_timeout_tok(struct timer_list *t)
 {
-	struct win_engine *engine =
-		container_of(t, struct win_engine, timer[1]);
-	dla_error("%s, npu frame timeout.\n", __func__);
+	struct win_engine *engine = container_of(t, struct win_engine, timer[1]);
+	struct nvdla_device *ndev = engine->nvdla_dev;
+
+	dev_err(&ndev->pdev->dev, "npu tok frame timeout.\n");
 	npu_process_timeout(engine, 1);
 }
 
 void npu_frame_timeout_tik(struct timer_list *t)
 {
-	struct win_engine *engine =
-		container_of(t, struct win_engine, timer[0]);
-	dla_error("%s, npu frame timeout.\n", __func__);
+	struct win_engine *engine = container_of(t, struct win_engine, timer[0]);
+	struct nvdla_device *ndev = engine->nvdla_dev;
+
+	dev_err(&ndev->pdev->dev, "npu tik frame timeout.\n");
 	npu_process_timeout(engine, 0);
 }
 
