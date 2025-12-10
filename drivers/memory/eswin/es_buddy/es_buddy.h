@@ -21,6 +21,8 @@
 #include <linux/numa.h>
 #include "../buddy.h"
 
+#define ESWIN_BUDDY_MAX_ORDER	BUDDY_MAX_ORDER
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,6,0)
 static inline void folio_set_order(struct folio *folio, unsigned int order)
 {

@@ -57,7 +57,7 @@ enum esPageflags_e{
 
 #define BUDDY_PAGE_SHIFT    PAGE_SHIFT//(12UL)
 #define BUDDY_PAGE_SIZE     (1UL << BUDDY_PAGE_SHIFT)
-#define BUDDY_MAX_ORDER     MAX_ORDER // (10UL)//(9UL)
+#define BUDDY_MAX_ORDER     19//the Max order can be allocated is (BUDDY_MAX_ORDER-1), i.e. 1GB size
 
 struct esPage_s
 {

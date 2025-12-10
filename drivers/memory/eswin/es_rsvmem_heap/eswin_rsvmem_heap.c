@@ -31,7 +31,7 @@
 #include "include/uapi/linux/eswin_rsvmem_common.h"
 
 static const unsigned int orders[] =
-	{MAX_ORDER - 1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+	{ESWIN_BUDDY_MAX_ORDER - 1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 #define NUM_ORDERS ARRAY_SIZE(orders)
 static DEFINE_XARRAY_FLAGS(xa_heap_names, XA_FLAGS_ALLOC);
 
