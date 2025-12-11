@@ -695,7 +695,7 @@
  *       timeout in milliseconds.
  */
 #ifndef gcdPOWEROFF_TIMEOUT
-#define gcdPOWEROFF_TIMEOUT                     3000
+#define gcdPOWEROFF_TIMEOUT                     5000
 #endif
 
 /*
