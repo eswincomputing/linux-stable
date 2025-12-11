@@ -99,7 +99,7 @@ UNUSED_FUNC static u32 syscrg_register_read(struct eswin_vi_device *es_vi_dev,
 	return reg_value;
 }
 
-static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
+int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 {
 	u32 val = 0;
 	u32 phy_val = 0;
@@ -216,8 +216,9 @@ static int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(vitop_intf_cfg);
 
-static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
+int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 {
 	struct eswin_vi_device *regmap = es_vi_dev;
 	unsigned int reg_value;
@@ -255,6 +256,7 @@ static int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 	vitop_intf_cfg(es_vi_dev); ///(vi_top_cfg)
 	return 0;
 }
+EXPORT_SYMBOL(eic770x_vi_init);
 
 UNUSED_FUNC static int eswin_vi_sys_reset_init(struct platform_device *pdev,
 				struct eswin_vi_clk_rst *vi_crg)
@@ -466,12 +468,9 @@ static int eswin_vi_of_notifier(struct notifier_block *nb,
 			es_vi_dev->phy_mode = 5;
 		}
 		dev_dbg(es_vi_dev->dev, "phy_mode=%d\n", es_vi_dev->phy_mode);
-		vi_top_register_write(es_vi_dev, VI_TOP_PHY_CONNECT_MODE,
-			es_vi_dev->phy_mode);
 	}
 	return NOTIFY_DONE;
 }
-
 
 static const struct media_device_ops es_mdev_ops = {
 	.link_notify = v4l2_pipeline_link_notify,

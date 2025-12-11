@@ -5,62 +5,6 @@
 	eswin,isp_dvp0_ver = <1080>;
 	imx327,hdr-en-2;
 	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
-	vvcam_isp_0: vvcam_isp@0 {
-		compatible = "verisilicon,isp-v4l2";
-		id = <0>;
-		status = "okay";
-		dma-noncoherent;
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0>;
-				vvcam_isp_input_port: endpoint@0 {
-					reg = <0>;
-					remote-endpoint = <&mipi_csi2_output1>;
-				};
-			};
-
-			port@1 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <1>;
-				vvcam_isp_port0_mp: endpoint {
-					remote-endpoint = <&vvcam_video0>;
-				};
-			};
-
-			port@2 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <2>;
-				vvcam_isp_port0_sp1: endpoint {
-					remote-endpoint = <&vvcam_video1>;
-				};
-			};
-
-			port@3 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <3>;
-				vvcam_isp_port0_sp2: endpoint {
-					remote-endpoint = <&vvcam_video2>;
-				};
-			};
-
-			port@4 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <4>;
-				vvcam_isp_port0_raw: endpoint {
-					remote-endpoint = <&vvcam_video3>;
-				};
-			};
-		};
-	};
 
 	vvcam_vb: vvcam-vb@0 {
 		compatible = "verisilicon,vb";
@@ -139,6 +83,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_gpio72_default>;
 			reset-gpio = <&portc 8 GPIO_ACTIVE_HIGH>;
+			power-domains = <&d0_pmu EIC770X_PD_VI>;
 			port {
 				imx327_out0: endpoint {
 					remote-endpoint = <&mipidphy0_in_ucam0>;
@@ -238,6 +183,59 @@
 			reg = <0>;
 			axi2dvp_mipi2_in0: endpoint {
 				remote-endpoint = <&mipi_csi2_output>;
+			};
+		};
+	};
+};
+
+&vvcam_isp_0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			vvcam_isp_input_port: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi_csi2_output1>;
+			};
+		};
+
+		port@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			vvcam_isp_port0_mp: endpoint {
+				remote-endpoint = <&vvcam_video0>;
+			};
+		};
+
+		port@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			vvcam_isp_port0_sp1: endpoint {
+				remote-endpoint = <&vvcam_video1>;
+			};
+		};
+
+		port@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+			vvcam_isp_port0_sp2: endpoint {
+				remote-endpoint = <&vvcam_video2>;
+			};
+		};
+
+		port@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+			vvcam_isp_port0_raw: endpoint {
+				remote-endpoint = <&vvcam_video3>;
 			};
 		};
 	};
