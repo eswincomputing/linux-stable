@@ -808,10 +808,3 @@
 &dvp2axi {
 	memory-region = <&dvp2axi_mem>;
 };
-
-&SOC {
-       rasp_panel: rasp_panel {
-             compatible = "raspberrypi,7inch-dsi";
-	     status = "disabled";
-       };
-};

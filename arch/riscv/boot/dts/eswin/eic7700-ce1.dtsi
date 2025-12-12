@@ -183,13 +183,6 @@
 	};
 };
 
-&SOC {
-       rasp_panel: rasp_panel {
-             compatible = "raspberrypi,7inch-dsi";
-	     status = "disabled";
-       };
-};
-
 &d0_clock {
 	status = "okay";
 	pinctrl-names = "default";

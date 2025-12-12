@@ -1,0 +1,109 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+/ {
+	fragment@0 {
+		target =  <&d1_dc_out>;
+		__overlay__ {
+			d1_dc_out_dsi: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&d1_dsi_input>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target =  <&d1_video_output>;
+		__overlay__ {
+			power-supply = <&d1_reg_display>;
+		};
+	};
+
+	fragment@2 {
+		target =  <&SOC>;
+		__overlay__ {
+			d1_panel_disp:d1_panel_disp {
+				compatible = "raspberrypi,7inch-dsi";
+				status = "okay";
+				backlight = <&d1_reg_display>;
+				power-supply = <&d1_reg_display>;
+				port {
+					d1_panel_in: endpoint {
+						remote-endpoint = <&d1_bridge_out>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target =  <&d1_i2c2>;
+		__overlay__ {
+			status = "okay";
+			d1_reg_display: regulator@45 {
+				compatible = "raspberrypi,7inch-touchscreen-panel-regulator";
+				reg = <0x45>;
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+		};
+	};
+
+    fragment@4 {
+		target =  <&d1_dsi_controller>;
+		__overlay__ {
+			status = "okay";
+			dependencies = <&d1_panel_disp>;
+			dsi-power-gpio = <&d1_portc 7 GPIO_ACTIVE_HIGH>;
+			dsi-led-gpio = <&d1_portc 13 GPIO_ACTIVE_HIGH>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+					d1_dsi_input: endpoint {
+						remote-endpoint = <&d1_dc_out_dsi>;
+					};
+				};
+
+				port@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <1>;
+
+					d1_mipi_dsi_out: endpoint {
+						remote-endpoint = <&d1_bridge_in>;
+					};
+				};
+			};
+
+			d1_toshiba_bridge: bridge@0 {
+				reg = <0>;
+				compatible = "toshiba,tc358762";
+				status = "okay";
+				vddc-supply = <&d1_reg_display>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						d1_bridge_in: endpoint {
+							remote-endpoint = <&d1_mipi_dsi_out>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+						d1_bridge_out: endpoint {
+							remote-endpoint = <&d1_panel_in>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
