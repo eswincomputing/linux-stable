@@ -1127,7 +1127,7 @@
 };
 
 &d1_uart0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &d0_uart1 {
