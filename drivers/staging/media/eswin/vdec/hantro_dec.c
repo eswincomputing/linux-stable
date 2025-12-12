@@ -3898,16 +3898,18 @@ static int dec_stat_proc_show(es_proc_entry_t *s)
 	for (core_id = 0; core_id < total_vcmd_core_num; core_id ++) {
 		u32 module_type = MAX_VCMD_TYPE;
 		u64 tot_cycles = 0;
+		u64 tot_exetime = 0;
 		u64 core_freq = 0;
 
-		hantrodec_dev_stat(core_id, &module_type, &tot_cycles, &core_freq);
-		es_seq_printf(s, "dec%d %s(%u) %llu %llu %llu\n"
+		hantrodec_dev_stat(core_id, &module_type, &tot_cycles, &tot_exetime, &core_freq);
+		es_seq_printf(s, "dec%d %s(%u) %llu %llu %llu %llu\n"
 			, core_id
 			, module_type_str[module_type]
 			, module_type
 			, tot_cycles
 			, core_freq
-			, ktm);
+			, ktm
+			, tot_exetime);
 	}
 	return 0;
 }

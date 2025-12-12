@@ -118,7 +118,7 @@ extern void vc8000e_vcmd_abort(u32 core_id);
 extern int vc8000e_vcmd_reset(u32 core_id);
 extern void vc8000e_vcmd_restart(u32 core_id);
 /* proc functions*/
-extern void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *core_freq);
+extern void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *tot_exetime, u64 *core_freq);
 
 static int venc_dev_open(struct device *dev);
 static int venc_dev_close(struct device *dev);
@@ -912,16 +912,18 @@ static int enc_stat_proc_show(es_proc_entry_t *s)
 	for (core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
 		u32 module_type = MAX_VCMD_TYPE;
 		u64 tot_cycles = 0;
+		u64 tot_exetime = 0;
 		u64 core_freq = 0;
 
-		hantroenc_dev_stat(core_id, &module_type, &tot_cycles, &core_freq);
-		es_seq_printf(s, "enc%d %s(%u) %llu %llu %llu\n"
+		hantroenc_dev_stat(core_id, &module_type, &tot_cycles, &tot_exetime, &core_freq);
+		es_seq_printf(s, "enc%d %s(%u) %llu %llu %llu %llu\n"
 			, core_id
 			, module_type_str[module_type]
 			, module_type
 			, tot_cycles
 			, core_freq
-			, ktm);
+			, ktm
+			, tot_exetime);
 	}
 	return 0;
 }

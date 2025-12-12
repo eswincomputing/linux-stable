@@ -752,6 +752,7 @@ struct hantrovcmd_dev {
 
 	/* status statistics*/
 	atomic64_t core_tot_cycles;
+	atomic64_t core_tot_exetime;
 };
 
 /*
@@ -2117,6 +2118,7 @@ static long wait_cmdbuf_ready(struct file *filp, u16 cmdbuf_id,
 		*/
 		u32 cycles = status_base_virt_addr[5];
 		atomic64_add(cycles, &dev->core_tot_cycles);
+		atomic64_add(cmdbuf_obj->executing_time, &dev->core_tot_exetime);
 		// LOG_DBG("cmdbuf_id = %u, status_base_virt_addr=0x%llx, cycles = %u, tot_cycles=%llu, hwid = 0x%x\n"
 		// 	, cmdbuf_id, (unsigned long long)status_base_virt_addr
 		// 	, cycles, atomic64_read(&dev->core_tot_cycles), status_base_virt_addr[0]);
@@ -4175,6 +4177,7 @@ int hantrovcmd_init(void)
 		memset(hantrovcmd_data[i].vcmd_reg_mem_virtual_address, 0,
 		       VCMD_REGISTER_SIZE);
 		atomic64_set(&hantrovcmd_data[i].core_tot_cycles, 0);
+		atomic64_set(&hantrovcmd_data[i].core_tot_exetime, 0);
 	}
 	init_waitqueue_head(&mc_wait_queue);
 
@@ -5205,7 +5208,7 @@ static void printk_vcmd_register_debug(const void *hwregs, char *info)
 }
 
 /** get status statistcs*/
-void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *freq)
+void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *tot_exetime, u64 *freq)
 {
 	if (core_id >= total_vcmd_core_num) {
 		LOG_ERR("hantrodec_dev_stat, unknown core_id = %u\n", core_id);
@@ -5216,6 +5219,9 @@ void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *fre
 	}
 	if (tot_cycles) {
 		*tot_cycles = atomic64_read(&hantrovcmd_data[core_id].core_tot_cycles);
+	}
+	if (tot_exetime) {
+		*tot_exetime = atomic64_read(&hantrovcmd_data[core_id].core_tot_exetime);
 	}
 	if (freq) {
 		*freq = hantrovcmd_data[core_id].vcmd_core_cfg.freq;

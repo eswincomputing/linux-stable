@@ -184,7 +184,7 @@ struct platform_device *vdec_get_platform_device(u32 core_id);
 int vdec_pm_runtime_get(u32 core_id);
 int vdec_pm_runtime_put(u32 core_id);
 /** get status statistcs*/
-void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *freq);
+void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *tot_exetime, u64 *freq);
 /******************************************************************************/
 /* MMU */
 /******************************************************************************/
