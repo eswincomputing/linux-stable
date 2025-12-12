@@ -48,6 +48,9 @@ static void gc_hal_kernel_esw_print_usage(es_proc_entry_t *s, gckDEVICE device)
         es_seq_printf(s, "dev_core    : %d\n", i);
         es_seq_printf(s, "pooling_ms  : %d\n", HARDWARE_USAGE_MEASURE_TIME_MS);
         es_seq_printf(s, "curr_load   : %u%%\n", Hardware->load);
+        es_seq_printf(s, "clk         : %llu\n", Hardware->threadMcClk);
+        es_seq_printf(s, "total_cycle : %u\n", Hardware->totalCycle);
+        es_seq_printf(s, "run_cycle   : %u\n", Hardware->totalCycle - Hardware->totalIdleCycle);
         es_seq_printf(s, "\n");
     }
 
