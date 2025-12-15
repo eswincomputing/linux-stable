@@ -103,14 +103,9 @@
 			no-map;
 		};
 
-		g2d_8GB_boundary_reserved_4k {
-			no-map;
-			reg = <0x1 0xfffff000 0x0 0x1000>;
-		};
-
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x2 0x80000000 0x1 0x80000000>;
+			reg = <0x1 0x80000000 0x2 0x80000000>;
 			no-map;
 		};
 
@@ -359,7 +354,6 @@
 
 &d0_npu{
 	status = "okay";
-	apply_npu_1G_freq;
 	npu-supply=<&npu_vcc1>;
 };
 
@@ -808,25 +802,7 @@
 };
 
 &d0_i2c1 {
-	/* NPU Power Control */
-	status = "okay";
-	tps549d22@10 {
-		compatible = "ti,tps549d22";
-		reg = <0x10>;
-		eswin,regulator_default-microvolt=<1000000>;
-		eswin,regulator_label = "Supply VDD", "NPU Voltage";
-		label = "npu_vdd";
-		regulators{
-			npu_vcc1:npu_svcc{
-				regulator-name="NPU_SVCC";
-				regulator-min-microvolt=<700000>;
-				regulator-max-microvolt=<1120000>;
-				regulator-min-microamp=<20000000>;
-				regulator-max-microamp=<40000000>;
-				regulator-ov-protection-microvolt=<1100000>;
-			};
-		};
-	};
+	status = "disabled";
 };
 
 &d0_i2c2 {
@@ -837,6 +813,24 @@
 		reg = <0x48>;
 		label = "d0_board_tmp";
 		#thermal-sensor-cells = <1>;
+	};
+	es501x@40 {
+		compatible = "einno,es501x";
+		reg = <0x40>;
+		status = "okay";
+		eswin,regulator_default-microvolt=<800000>;
+		eswin,regulator_label = "Supply VDD1", "soc_vdd";
+		label = "vdd_soc_cpu";
+		regulators {
+			vdd_soc_cpu_reg:vdd_soc_cpu{
+				regulator-name="vdd_soc_cpu";
+				regulator-min-microvolt=<800000>;
+				regulator-max-microvolt=<800000>;
+				regulator-init-microvolt=<800000>;
+				regulator-boot-on;
+				regulator-always-on;
+			};
+		};
 	};
 };
 
@@ -920,7 +914,26 @@
 };
 
 &d0_aon_i2c1 {
-	status = "disabled";
+	status = "okay";
+	es5035@46 {
+		compatible = "einno,es5035";
+		reg = <0x46>;
+		status = "okay";
+		eswin,regulator_default-microvolt=<1000000>;
+		eswin,regulator_label = "Supply VDD1", "npu_vdd";
+		label = "npu_vdd";
+		regulators{
+			npu_vcc1:npu_svcc{
+				regulator-name="NPU_SVCC";
+				regulator-min-microvolt=<700000>;
+				regulator-max-microvolt=<1100000>;
+				regulator-init-microvolt=<1000000>;
+				regulator-min-microamp=<20000000>;
+				regulator-max-microamp=<40000000>;
+				regulator-ov-protection-microvolt=<1100000>;
+			};
+		};
+	};
 };
 
 &pwm0 {
@@ -965,7 +978,11 @@
 };
 
 &dev_llc_d0{
-	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
+};
+
+&npu_opp_table {
+	/delete-node/ opp@1188000000;
+	/delete-node/ opp@1500000000;
 };
