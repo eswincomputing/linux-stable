@@ -7,28 +7,15 @@
  * Author: Sean Cross <xobs@kosagi.com>
  */
 
-/*
- * Copyright (C) 2021 ESWIN, Inc. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- */
-
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
-
+#include <linux/pm_runtime.h>
 #include <sound/soc.h>
 
 #include "es8328.h"
+
+extern const struct dev_pm_ops es8328_pm_ops;
 
 static const struct i2c_device_id es8328_id[] = {
 	{ "es8328", 0 },
@@ -45,16 +32,38 @@ MODULE_DEVICE_TABLE(of, es8328_of_match);
 
 static int es8328_i2c_probe(struct i2c_client *i2c)
 {
-	return es8328_probe(&i2c->dev,
-			devm_regmap_init_i2c(i2c, &es8328_regmap_config));
+	int ret;
+
+	ret = es8328_probe(&i2c->dev,
+			   devm_regmap_init_i2c(i2c, &es8328_regmap_config));
+	if (ret) {
+		dev_err(&i2c->dev, "es8328_probe failed, ret=%d\n", ret);
+		return ret;
+	}
+
+	pm_runtime_set_autosuspend_delay(&i2c->dev, 2000);
+	pm_runtime_use_autosuspend(&i2c->dev);
+	pm_runtime_set_active(&i2c->dev);
+	pm_runtime_enable(&i2c->dev);
+	pm_runtime_mark_last_busy(&i2c->dev);
+
+	return 0;
 }
+
+static void es8328_i2c_remove(struct i2c_client *i2c)
+{
+	pm_runtime_disable(&i2c->dev);
+}
+
 
 static struct i2c_driver es8328_i2c_driver = {
 	.driver = {
 		.name		= "es8328",
 		.of_match_table = es8328_of_match,
+		.pm	= pm_sleep_ptr(&es8328_pm_ops),
 	},
 	.probe    = es8328_i2c_probe,
+	.remove   = es8328_i2c_remove,
 	.id_table = es8328_id,
 };
 

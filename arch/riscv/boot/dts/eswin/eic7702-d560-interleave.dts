@@ -143,6 +143,8 @@
 		compatible = "eswin,es8388";
 		reg = <0x11>;
 		#sound-dai-cells = <0>;
+		clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>;
+		clock-names = "mclk";
 		port {
 			d0_codec0_endpoint: endpoint {
 				system-clock-frequency = <12288000>;

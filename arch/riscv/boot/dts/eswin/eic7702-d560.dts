@@ -263,6 +263,8 @@
 		reg = <0x11>;
 		#sound-dai-cells = <0>;
 		eswin-plat = <2>;
+		clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>;
+		clock-names = "mclk";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_die0_gpio25_default &pinctrl_die0_gpio26_default>;
 		front-jack-gpios = <&porta 25 GPIO_ACTIVE_HIGH>;

@@ -42,6 +42,7 @@
 #include <sound/soc.h>
 #include <sound/tlv.h>
 #include <linux/gpio/consumer.h>
+#include <linux/pm_runtime.h>
 #include "es8328.h"
 
 #define MIN_CHANNEL_NUM		2
@@ -117,6 +118,7 @@ struct es8328_priv {
 	bool provider;
 	struct regulator_bulk_data supplies[ES8328_SUPPLY_NUM];
 
+	struct clk *mclk;
 	u32 eswin_plat;
 	struct snd_soc_component *component;
 	struct gpio_desc *front_jack_gpio;
@@ -180,8 +182,7 @@ static int es8328_set_deemph(struct snd_soc_component *component)
 			ES8328_DACCONTROL6_DEEMPH_MASK, val);
 }
 
-static int es8328_get_deemph(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
+static int es8328_get_deemph(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
 	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
@@ -190,8 +191,7 @@ static int es8328_get_deemph(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int es8328_put_deemph(struct snd_kcontrol *kcontrol,
-			     struct snd_ctl_elem_value *ucontrol)
+static int es8328_put_deemph(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
 	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
@@ -217,15 +217,13 @@ static u32 g_reg = 1;
 static u32 g_get_cnt = 0;
 static u32 g_put_cnt = 0;
 
-int esw_codec_dump_get(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_dump_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	ucontrol->value.integer.value[0] = dump_flag;
 	return 0;
 }
 
-int esw_codec_dump_info(struct snd_kcontrol *kcontrol,
-					    struct snd_ctl_elem_info *uinfo)
+static int esw_codec_dump_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
 	uinfo->count = 1;
@@ -234,8 +232,7 @@ int esw_codec_dump_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_dump_put(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_dump_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	int dump_onoff	= ucontrol->value.integer.value[0];
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
@@ -256,8 +253,7 @@ int esw_codec_dump_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_reg_get(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_reg_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	u32 val;
@@ -279,8 +275,7 @@ int esw_codec_reg_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_reg_info(struct snd_kcontrol *kcontrol,
-					    struct snd_ctl_elem_info *uinfo)
+static int esw_codec_reg_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 2;
@@ -289,8 +284,7 @@ int esw_codec_reg_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_reg_put(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_reg_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	int ret;
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
@@ -311,8 +305,7 @@ int esw_codec_reg_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_LR1vol_info(struct snd_kcontrol *kcontrol,
-					    struct snd_ctl_elem_info *uinfo)
+static int esw_codec_LR1vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 2;
@@ -321,8 +314,7 @@ int esw_codec_LR1vol_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_LR1vol_get(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_LR1vol_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	u32 reg;
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
@@ -335,8 +327,7 @@ int esw_codec_LR1vol_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_LR1vol_put(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_LR1vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
@@ -351,8 +342,7 @@ int esw_codec_LR1vol_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_LR2vol_info(struct snd_kcontrol *kcontrol,
-					    struct snd_ctl_elem_info *uinfo)
+static int esw_codec_LR2vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 2;
@@ -361,8 +351,7 @@ int esw_codec_LR2vol_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_LR2vol_get(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_LR2vol_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	u32 reg;
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
@@ -375,8 +364,7 @@ int esw_codec_LR2vol_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int esw_codec_LR2vol_put(struct snd_kcontrol *kcontrol,
-					   struct snd_ctl_elem_value *ucontrol)
+static int esw_codec_LR2vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
@@ -1070,13 +1058,26 @@ static struct snd_soc_dai_driver es8328_dai[3] = {
 
 static int es8328_suspend(struct snd_soc_component *component)
 {
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
+
+	dev_dbg(component->dev, "%s\n", __func__);
+
+	if (!pm_runtime_status_suspended(component->dev)) {
+		dev_dbg(component->dev, "%s disable mclk\n", __func__);
+		clk_disable(es8328->mclk);
+	}
+
 	return 0;
 }
 
 static int es8328_resume(struct snd_soc_component *component)
 {
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
 	struct regmap *regmap = dev_get_regmap(component->dev, NULL);
 	int ret;
+
+	dev_dbg(component->dev, "%s\n", __func__);
+	clk_enable(es8328->mclk);
 
 	regcache_mark_dirty(regmap);
 	ret = regcache_sync(regmap);
@@ -1085,8 +1086,40 @@ static int es8328_resume(struct snd_soc_component *component)
 		return ret;
 	}
 
+	if (pm_runtime_status_suspended(component->dev)) {
+		dev_dbg(component->dev, "%s disable mclk\n", __func__);
+		clk_disable(es8328->mclk);
+	}
+
 	return 0;
 }
+
+static int es8328_runtime_suspend(struct device *dev)
+{
+	struct es8328_priv *es8328 = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	clk_disable(es8328->mclk);
+
+	return 0;
+}
+
+static int es8328_runtime_resume(struct device *dev)
+{
+	struct es8328_priv *es8328 = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+	clk_enable(es8328->mclk);
+
+	return 0;
+}
+
+const struct dev_pm_ops es8328_pm_ops = {
+	SET_RUNTIME_PM_OPS(es8328_runtime_suspend,
+			   es8328_runtime_resume,
+			   NULL)
+};
+EXPORT_SYMBOL_GPL(es8328_pm_ops);
 
 static int es8328_component_probe(struct snd_soc_component *component)
 {
@@ -1099,6 +1132,8 @@ static int es8328_component_probe(struct snd_soc_component *component)
 
 static void es8328_remove(struct snd_soc_component *component)
 {
+	struct es8328_priv *es8328 = snd_soc_component_get_drvdata(component);
+	clk_disable_unprepare(es8328->mclk);
 }
 
 const struct regmap_config es8328_regmap_config = {
@@ -1159,7 +1194,7 @@ static const struct snd_soc_component_driver es8328_component_driver = {
 	.dapm_routes		= es8328_dapm_routes,
 	.num_dapm_routes	= ARRAY_SIZE(es8328_dapm_routes),
 	.suspend_bias_off	= 1,
-	.idle_bias_on		= 1,
+	.idle_bias_on		= 0,
 	.use_pmdown_time	= 1,
 	.endianness		= 1,
 	.open			= es8328_open,
@@ -1208,24 +1243,40 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 	es8328->regmap = regmap;
 
 	dev_set_drvdata(dev, es8328);
-
 	ret = device_property_read_u32(dev, "eswin-plat", &es8328->eswin_plat);
-    if (0 != ret) {
-        es8328->eswin_plat = 0;
-    }
-	dev_info(dev, "eswin platform: %d\n", es8328->eswin_plat);
+	if (0 != ret) {
+		es8328->eswin_plat = 0;
+	}
+	dev_info(dev, "eswin platform:%d\n", es8328->eswin_plat);
+
+	es8328->mclk = devm_clk_get(dev, "mclk");
+	if (IS_ERR(es8328->mclk)) {
+		dev_err(dev, "Failed to get mclk: %ld\n",
+			PTR_ERR(es8328->mclk));
+		return PTR_ERR(es8328->mclk);
+	}
+
+	ret = clk_prepare_enable(es8328->mclk);
+	if (ret) {
+		dev_err(dev, "Failed to prepare/enable mclk: %d\n", ret);
+		return ret;
+	}
 
 	if (es8328->eswin_plat == DVB_BOARD) {
 		es8328->front_jack_gpio = devm_gpiod_get(dev, "front-jack", GPIOD_IN);
 		ret = IS_ERR(es8328->front_jack_gpio);
 		if(ret) {
+			ret = PTR_ERR(es8328->front_jack_gpio);
 			dev_err(dev, "can not get front jack gpio\n");
+			goto err_mclk;
 		}
 
 		es8328->back_jack_gpio = devm_gpiod_get(dev, "back-jack", GPIOD_IN);
 		ret = IS_ERR(es8328->back_jack_gpio);
 		if(ret) {
+			ret = PTR_ERR(es8328->back_jack_gpio);
 			dev_err(dev, "can not get back jack gpio\n");
+			goto err_mclk;
 		}
 
 		ret = devm_request_threaded_irq(dev, gpiod_to_irq(es8328->front_jack_gpio), NULL, es8328_jack_irq,
@@ -1233,6 +1284,7 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 					"front jack", es8328);
 		if (ret) {
 			dev_err(dev, "Failed to request front irq[%d], ret:%d\n", gpiod_to_irq(es8328->back_jack_gpio), ret);
+			goto err_mclk;
 		}
 
 		ret = devm_request_threaded_irq(dev, gpiod_to_irq(es8328->back_jack_gpio), NULL, es8328_jack_irq,
@@ -1240,26 +1292,31 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 					"back jack", es8328);
 		if (ret) {
 			dev_err(dev, "Failed to request back irq[%d], ret:%d\n", gpiod_to_irq(es8328->back_jack_gpio), ret);
+			goto err_mclk;
 		}
 	} else if (es8328->eswin_plat == SBC_BOARD) {
 		ret = regmap_read(regmap, ES8328_CONTROL1, &val);
 		if (ret != 0) {
 			dev_info(dev, "read control1 register failed\n");
-			return -EIO;
+			ret = -EIO;
+			goto err_mclk;
 		}
 		if (val != 0x06) {
 			dev_info(dev, "control1 val mismatching %d\n", val);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_mclk;
 		}
 
 		ret = regmap_read(regmap, ES8328_CONTROL2, &val);
 		if (ret != 0) {
 			dev_warn(dev, "read control2 register failed\n");
-			return -EIO;
+			ret = -EIO;
+			goto err_mclk;
 		}
 		if ((val&0x0f) != 0x0C) {
 			dev_warn(dev, "control2 val mismatching %d\n", val);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_mclk;
 		}
 	}
 
@@ -1273,11 +1330,18 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 		ret = devm_snd_soc_register_component(dev,
 					&es8328_component_driver, &es8328_dai[2], 1);
 	}
+	if (ret) {
+		goto err_mclk;
+	}
 
 	mutex_init(&es8328->vol_mutex);
 	es8328->vol_thread_flag = false;
 	es8328->vol_set_flag = false;
 
+	return 0;
+
+err_mclk:
+	clk_disable_unprepare(es8328->mclk);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(es8328_probe);

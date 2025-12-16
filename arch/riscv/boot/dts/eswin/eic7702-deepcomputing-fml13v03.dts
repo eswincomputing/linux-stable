@@ -831,8 +831,8 @@
 	status = "okay";
 	numa-node-id = <0>;
 	#sound-dai-cells = <0>;
-	clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>, <&d0_clock EIC7700_APLL_FOUT1>;
-	clock-names = "mclk", "apll";
+	clocks = <&d0_clock EIC7700_CLK_VO_I2S_MCLK>;
+	clock-names = "mclk";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_i2s1_default>;
 	d0_i2s1_port: port {
