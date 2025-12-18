@@ -365,7 +365,7 @@ static int info_show(struct seq_file *m, void *p)
 	return 0;
 }
 
-static int proc_stats_release(struct inode *inode, struct file *file)
+static int proc_release(struct inode *inode, struct file *file)
 {
 	const int die_cnt = 2;
 	const int dsp_cnt = 4;
@@ -381,7 +381,8 @@ static int proc_stats_release(struct inode *inode, struct file *file)
 			es_dsp_pm_put_sync(dsp);
 		}
 	}
-	return 0;
+
+	return single_release(inode, file);
 }
 
 static int proc_info_open(struct inode *inode, struct file *file)
@@ -621,19 +622,19 @@ static ssize_t perf_write(struct file *flip, const char __user *buf,
 static struct proc_ops proc_info_fops = {
 	.proc_open = proc_info_open,
 	.proc_read = seq_read,
-	.proc_release = proc_stats_release,
+	.proc_release = proc_release,
 };
 
 static struct proc_ops proc_hw_info_fops = {
 	.proc_open = proc_hw_info_open,
 	.proc_read = seq_read,
-	.proc_release = proc_stats_release,
+	.proc_release = proc_release,
 };
 
 static struct proc_ops proc_stats_fops = {
 	.proc_open = proc_stats_open,
 	.proc_read = seq_read,
-	.proc_release = proc_stats_release,
+	.proc_release = proc_release,
 };
 
 static struct proc_ops proc_debug_fops = {
