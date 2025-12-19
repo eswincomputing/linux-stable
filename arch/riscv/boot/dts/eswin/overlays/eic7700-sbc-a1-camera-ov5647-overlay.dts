@@ -103,6 +103,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio72_default>;
 				reset-gpio = <&portc 8 0>;
+				power-domains = <&d0_pmu 2>;
 
 				port {
 					ov5647_out0: endpoint {
@@ -133,6 +134,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio78_default>;
 				reset-gpio = <&portc 14 0>;
+				power-domains = <&d0_pmu 2>;
 
 				port {
 					ov5647_out1: endpoint {

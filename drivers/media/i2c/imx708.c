@@ -2027,8 +2027,8 @@ static int imx708_probe(struct i2c_client *client)
 
 	/* Enable runtime PM and turn off the device */
 	pm_runtime_set_active(dev);
+	pm_runtime_get_noresume(dev);
 	pm_runtime_enable(dev);
-	pm_runtime_idle(dev);
 
 	/* This needs the pm runtime to be registered. */
 	ret = imx708_init_controls(imx708);
@@ -2056,6 +2056,8 @@ static int imx708_probe(struct i2c_client *client)
 		dev_err(dev, "failed to register sensor sub-device: %d\n", ret);
 		goto error_media_entity;
 	}
+
+	pm_runtime_put(dev);
 
 	return 0;
 

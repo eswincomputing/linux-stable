@@ -459,7 +459,6 @@ static int eswin_vi_of_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	if (action == OF_OVERLAY_POST_APPLY) {
-		msleep(200);
 		ret = of_property_read_u32(es_vi_dev->dev->of_node, "phy_mode",
 			&es_vi_dev->phy_mode);
 		if (ret) {

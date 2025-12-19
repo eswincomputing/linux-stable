@@ -62,6 +62,7 @@
 				pinctrl-0 = <&pinctrl_gpio72_default>;
 				reset-gpio = <&portc 8 0>;
 				eswin,camera-hdr-mode = <0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx415_out0:endpoint {
@@ -90,6 +91,7 @@
 				pinctrl-0 = <&pinctrl_gpio78_default>;
 				reset-gpio = <&portc 14 0>;
 				eswin,camera-hdr-mode = <0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx415_out1: endpoint {

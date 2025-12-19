@@ -103,6 +103,7 @@
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <24000000>;
 				reset-gpio = <&portc 8 0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx586_out0: endpoint {
@@ -128,6 +129,7 @@
 				assigned-clocks = <&d0_clock 0x244>;
 				assigned-clock-rates = <24000000>;
 				reset-gpio = <&portc 14 0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx586_out1: endpoint {
@@ -153,6 +155,7 @@
 				assigned-clocks = <&d1_clock 0x244>;
 				assigned-clock-rates = <24000000>;
 				reset-gpio = <&d1_portc 8 0>;
+				power-domains = <&d1_pmu 2>;
 				status = "okay";
 				port {
 					d1_imx586_out0: endpoint {
@@ -178,6 +181,7 @@
 				assigned-clocks = <&d1_clock 0x244>;
 				assigned-clock-rates = <24000000>;
 				reset-gpio = <&d1_portc 14 0>;
+				power-domains = <&d1_pmu 2>;
 				status = "okay";
 				port {
 					d1_imx586_out1: endpoint {

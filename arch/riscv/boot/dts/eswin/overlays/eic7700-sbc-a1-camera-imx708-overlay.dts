@@ -100,6 +100,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio72_default>;
 				reset-gpio = <&portc 14 0x0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx708_out0: endpoint {
@@ -127,6 +128,7 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio78_default>;
 				reset-gpio = <&portc 14 0x0>;
+				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
 					imx708_out1: endpoint {
