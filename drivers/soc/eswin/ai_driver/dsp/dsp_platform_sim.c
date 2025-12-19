@@ -91,7 +91,7 @@ void es_dsp_send_irq(struct es_dsp_hw *hw, dsp_request_t *req)
 
 int es_dsp_reboot_core(struct es_dsp_hw *hw)
 {
-	struct task_struct *task;
+	struct task_struct *task = NULL;
 	struct es_dsp *dsp = hw->es_dsp;
 
 	hw->emu_irq_task = NULL;
@@ -510,11 +510,6 @@ int dsp_alloc_hw(struct platform_device *pdev, struct es_dsp *dsp)
 	dsp->hw_arg = hw;
 	hw->pdev = pdev;
 	hw->es_dsp = dsp;
-	return 0;
-}
-
-int wait_for_current_tsk_done(struct es_dsp *dsp)
-{
 	return 0;
 }
 

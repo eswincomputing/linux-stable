@@ -1126,7 +1126,11 @@
 };
 
 &dev_llc_d0{
-	/* apply_npu_1G_freq; */
 	npu-supply=<&npu_vcc1>;
 	status = "okay";
+};
+
+&npu_opp_table {
+	/delete-node/ opp@1188000000;
+	/delete-node/ opp@1500000000;
 };
