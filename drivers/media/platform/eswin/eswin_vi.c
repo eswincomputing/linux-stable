@@ -248,8 +248,8 @@ int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 	syscrg_register_write(regmap, 0x1ac, 0x3); ///vi_phy_clk_ctl
 
 	// Enable Clocks from TOP CSR
-	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, 0xffffffff);
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
+	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, reg_value | 0x1fff8);
 	udelay(1000);
 
 	viscu_cfg(es_vi_dev); ///isp_rst(sys_crg)
