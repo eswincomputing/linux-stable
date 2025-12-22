@@ -996,7 +996,11 @@ static int eswin_spi_mmio_probe(struct platform_device *pdev)
 			goto out;
 	}
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 500);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
 
 	ret = eswin_spi_add_host(&pdev->dev, esws);
 	if (ret)
@@ -1009,6 +1013,9 @@ static int eswin_spi_mmio_probe(struct platform_device *pdev)
 	ret = device_create_file(&pdev->dev, &dev_attr_wp);
 	if (ret)
 		goto out;
+
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return 0;
 
@@ -1029,12 +1036,17 @@ static void eswin_spi_mmio_remove(struct platform_device *pdev)
 
 	device_remove_file(&pdev->dev, &dev_attr_wp);
 	spi_unregister_controller(esws->host);
+	pm_runtime_get_sync(&pdev->dev);
+
 	esw_spi_dma_exit(esws);
 
-	pm_runtime_disable(&pdev->dev);
 	reset_control_assert(eswmmio->rstc);
 	clk_disable_unprepare(eswmmio->cfg_clk);
 	clk_disable_unprepare(eswmmio->clk);
+
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 }
 
 static int __maybe_unused eswin_spi_runtime_resume(struct device *dev)
@@ -1078,11 +1090,7 @@ static int __maybe_unused eswin_spi_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	pm_runtime_mark_last_busy(dev);
-	pm_runtime_force_suspend(dev);
-
-	clk_disable_unprepare(eswmmio->clk);
-	clk_disable_unprepare(eswmmio->cfg_clk);
+	pm_runtime_put_sync(dev);
 	return 0;
 }
 
@@ -1092,16 +1100,9 @@ static int __maybe_unused eswin_spi_resume(struct device *dev)
 	struct eswin_spi_mmio *eswmmio = dev_get_drvdata(dev);
 	struct spi_controller *host = eswmmio->esws.host;
 
-	ret = clk_prepare_enable(eswmmio->cfg_clk);
+	ret = pm_runtime_resume_and_get(dev);
 	if (ret < 0) {
-		dev_err(dev, "failed to enable cfg_clk (%d)\n", ret);
-		return ret;
-	}
-
-	ret = clk_prepare_enable(eswmmio->clk);
-	if (ret < 0) {
-		dev_err(dev, "failed to enable clk (%d)\n", ret);
-		clk_disable_unprepare(eswmmio->cfg_clk);
+		dev_err(dev, "Unable to power device:%d\n", ret);
 		return ret;
 	}
 
@@ -1138,6 +1139,7 @@ static struct platform_driver eswin_spi_mmio_driver = {
 		.name	= DRIVER_NAME,
 		.of_match_table = eswin_spi_mmio_of_match,
 		.acpi_match_table = ACPI_PTR(eswin_spi_mmio_acpi_match),
+		.pm = pm_sleep_ptr(&eswin_bootspi_pm),
 	},
 };
 static int __init eswin_spi_init(void)
