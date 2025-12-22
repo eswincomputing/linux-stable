@@ -1359,18 +1359,12 @@ static int axi_dma_resume(struct axi_dma_chip *chip)
 	int ret;
 
 	ret = clk_prepare_enable(chip->cfgr_clk);
-	if (ret < 0)
-		return ret;
 
 	ret = clk_prepare_enable(chip->core_clk);
-	if (ret < 0)
-		return ret;
 
 	int flags = (uintptr_t)of_device_get_match_data(chip->dev);
 	if (flags & AXI_DMA_FLAG_HAS_EIC7700_HSP) {
 		ret = clk_prepare_enable(chip->axi_clk);
-		if (ret < 0)
-			return ret;
 	}
 
 	win2030_tbu_power(chip->dev, true);
@@ -1378,7 +1372,7 @@ static int axi_dma_resume(struct axi_dma_chip *chip)
 	axi_dma_enable(chip);
 	axi_dma_irq_enable(chip);
 
-	return 0;
+	return ret;
 }
 
 static int __maybe_unused axi_dma_runtime_suspend(struct device *dev)
@@ -1794,8 +1788,6 @@ static int dw_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, MAX_BLOCK_SIZE);
 	platform_set_drvdata(pdev, chip);
 
-	pm_runtime_enable(chip->dev);
-
 	/*
 	 * We can't just call pm_runtime_get here instead of
 	 * pm_runtime_get_noresume + axi_dma_resume because we need
@@ -1804,14 +1796,14 @@ static int dw_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(chip->dev, 1000);
 	pm_runtime_use_autosuspend(chip->dev);
 	pm_runtime_set_active(chip->dev);
+	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_noresume(chip->dev);
+
 	ret = axi_dma_resume(chip);
 	if (ret < 0)
 		goto err_pm_disable;
 
 	axi_dma_hw_init(chip);
-
-	pm_runtime_put(chip->dev);
 
 	ret = dmaenginem_async_device_register(&dw->dma);
 	if (ret)
@@ -1828,6 +1820,9 @@ static int dw_probe(struct platform_device *pdev)
 		 dw->hdata->nr_channels);
 
 	dw_axi_dma_register_debugfs(chip);
+
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return 0;
 
