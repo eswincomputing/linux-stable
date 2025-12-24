@@ -1045,6 +1045,7 @@ static void gamma_ex_commit(struct dc_hw *hw)
 					 hw->gamma.gamma[i][0]);
 			}
 			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, BIT(2), 0);
+			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, BIT(4), 0);
 		} else {
 			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, 0, BIT(2));
 		}
