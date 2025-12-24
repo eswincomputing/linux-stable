@@ -135,6 +135,7 @@ static int __init eic7700_tbu_debug_init(int nid);
 static int g_nodes_cnt = 0;
 static int win2030_tbu_power_all(int nid, bool is_powerUp);
 static void get_reset_clkd_val_of_tbu(int nid, const struct win2030_tbu_client *tbu_client_p, unsigned int *rst_val, unsigned int *clk_val);
+static void eic7700_set_tcu_clk_rate(int nodes_cnt);
 
 int win2030_dynm_sid_enable(int nid)
 {
@@ -436,6 +437,7 @@ static int __init win2030_init_streamID(void)
 	of_node_put(root);
 
 	eic7700_tbu_debug_init(g_nodes_cnt);
+	eic7700_set_tcu_clk_rate(g_nodes_cnt);
 
 	return ret;
 }
@@ -1344,4 +1346,35 @@ static int __init eic7700_tbu_debug_init(int nodes_cnt)
 	}
 
 	return 0;
+}
+
+#define DDR0_CLK_CTRL			0x124
+
+#define DDR_ACLKSRC_SEL_MASK	BIT(16)
+#define DDR_ACLK_DIV_MASK		GENMASK(23, 20)
+
+#define clk_spll2_fout1			0 // 2080MHz
+#define clk_spll0_fout1			1 // 1600MHz
+static void eic7700_set_tcu_clk_rate(int nodes_cnt)
+{
+	u32 val;
+	u64 reg;
+	struct win2030_sid *mc;
+
+	for (int i = 0; i < nodes_cnt; i++) {
+		mc = syscon_sid_cfg[i];
+		regmap_read(mc->sys_crg_regmap, DDR0_CLK_CTRL, &val);
+		pr_debug("%s, nid %d, original DDR0_CLK_CTRL val 0x%x\n", __func__,
+					i, val);
+
+		reg = FIELD_PREP(DDR_ACLKSRC_SEL_MASK, clk_spll2_fout1);
+		regmap_write_bits(mc->sys_crg_regmap, DDR0_CLK_CTRL, DDR_ACLKSRC_SEL_MASK, reg);
+
+		reg = FIELD_PREP(DDR_ACLK_DIV_MASK, 3);
+		regmap_write_bits(mc->sys_crg_regmap, DDR0_CLK_CTRL, DDR_ACLK_DIV_MASK, reg);
+
+		regmap_read(mc->sys_crg_regmap, DDR0_CLK_CTRL, &val);
+		pr_info("%s, nid[%d], set DDR0_CLK_CTRL val:0x%x\n", __func__,
+					i, val);
+	}
 }
