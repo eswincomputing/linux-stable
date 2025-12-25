@@ -78,7 +78,6 @@ static int esw_spi_tx_dma_wait(struct eswin_spi  *esws, unsigned int len, u32 sp
 					 msecs_to_jiffies(1000));
 	if (!ms) {
 		dev_err(&esws->host->dev,"TX DMA transaction timed out\n");
-		dump_stack();
 		dmaengine_terminate_sync(esws->txchan);
 		return -ETIMEDOUT;
 	}
@@ -91,7 +90,6 @@ static int esw_spi_rx_dma_wait(struct eswin_spi  *esws, unsigned int len, u32 sp
 					 msecs_to_jiffies(1000));
 	if (!ms) {
 		dev_err(&esws->host->dev,"RX DMA transaction timed out\n");
-		dump_stack();
 		dmaengine_terminate_sync(esws->rxchan);
 		return -ETIMEDOUT;
 	}
@@ -421,17 +419,21 @@ static ssize_t wp_store(struct device *dev,
         return -EINVAL;
 
     mutex_lock(&wp_lock);
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0)
+		goto out;
 
     if (enable != eswmmio->wp_status) {
         ret = spi_nor_set_write_protect(esws, nor, enable);
         if (ret) {
             dev_err(&esws->host->dev,"Failed to set WP to %d\n", enable);
             mutex_unlock(&wp_lock);
-            return ret;
+            goto out;
         }
         eswmmio->wp_status = enable;
     }
-
+out:
+	pm_runtime_put_autosuspend(dev);
     mutex_unlock(&wp_lock);
     return count;
 }
@@ -996,9 +998,9 @@ static int eswin_spi_mmio_probe(struct platform_device *pdev)
 			goto out;
 	}
 
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 500);
-	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 500);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_noresume(&pdev->dev);
 
