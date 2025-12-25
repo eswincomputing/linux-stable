@@ -223,37 +223,18 @@ int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 	struct eswin_vi_device *regmap = es_vi_dev;
 	unsigned int reg_value;
 
-	// syscrg_register_write(regmap, 0x200, 0xffffffff);///lsp_clk_en0 enable(sys_crg)
-	// syscrg_register_write(regmap, 0x424, 0x3ff);///i2c_rst_ctl(sys_crg)
-	// udelay(1000);
-
-	syscrg_register_write(regmap, 0x470, 0x7); ///vi_rst_ctl
-	syscrg_register_write(regmap, 0x474, 0x1); ///dvp_rst_ctl
-	syscrg_register_write(regmap, 0x478, 0x1); ///isp0_rst_ctl
-	syscrg_register_write(regmap, 0x47c, 0x1); ///isp1_rst_ctl
-	syscrg_register_write(regmap, 0x480, 0x1); ///shutter_rst_ctl
+	syscrg_register_write(regmap, 0x470, 0x7);
 	udelay(1000);
 
-	syscrg_register_write(regmap, 0x184, 0x80000020); ///vi_dwclk_ctl
-	syscrg_register_write(regmap, 0x188, 0xc0000020); ///vi_aclk_ctl
-	syscrg_register_write(regmap, 0x18c, 0x80000020); ///vi_dig_isp_clk_ctl
-	syscrg_register_write(regmap, 0x190, 0x80000020); ///vi_dvp_clk_ctl
-
-	syscrg_register_write(regmap, 0x194, 0x80000180); ///vi_shutter0
-	syscrg_register_write(regmap, 0x198, 0x80000180); ///vi_shutter1
-	syscrg_register_write(regmap, 0x19c, 0x80000100); ///vi_shutter2
-	syscrg_register_write(regmap, 0x1a0, 0x80000100); ///vi_shutter3
-	syscrg_register_write(regmap, 0x1a4, 0x80000100); ///vi_shutter4
-	syscrg_register_write(regmap, 0x1a8, 0x80000100); ///vi_shutter5
-	syscrg_register_write(regmap, 0x1ac, 0x3); ///vi_phy_clk_ctl
+	syscrg_register_write(regmap, 0x188, 0xc0000020);
 
 	// Enable Clocks from TOP CSR
 	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
 	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, reg_value | 0x1fff8);
 	udelay(1000);
 
-	viscu_cfg(es_vi_dev); ///isp_rst(sys_crg)
-	vitop_intf_cfg(es_vi_dev); ///(vi_top_cfg)
+	viscu_cfg(es_vi_dev);
+	vitop_intf_cfg(es_vi_dev);
 	return 0;
 }
 EXPORT_SYMBOL(eic770x_vi_init);
