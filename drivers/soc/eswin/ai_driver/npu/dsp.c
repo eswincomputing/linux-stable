@@ -23,6 +23,7 @@
 #include <opendla.h>
 #include <dla_err.h>
 #include <dla_interface.h>
+#include <linux/delay.h>
 #include "common.h"
 #include "dla_engine_internal.h"
 #include "dla_log.h"
@@ -133,9 +134,9 @@ static void npu_put_dsp_ddr(struct win_executor *executor, int devid)
 }
 
 static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
-			     union dla_operation_container *operation_desc,
-			     union dla_surface_container *surface_desc,
-			     void *tensor, int idx, int op_type)
+				 union dla_operation_container *operation_desc,
+				 union dla_surface_container *surface_desc,
+				 void *tensor, int idx, int op_type)
 {
 	struct dsp_op_desc *dsp_op = NULL;
 	dsp_tensor_t *tensor_set = (dsp_tensor_t *)tensor;
@@ -153,8 +154,7 @@ static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
 	dsp_tensor = &tensor_set[idx];
 	dla_debug("op_idx=%d, op_type:%d, idx=%d, dsp_tensor=0x%px.\n", op_idx, op_type, idx, dsp_tensor);
 
-	if (tensor_set != NULL && dsp_tensor != NULL &&
-	    dsp_tensor->have_unfold) {
+	if (tensor_set != NULL && dsp_tensor != NULL && dsp_tensor->have_unfold) {
 		dsp->npu_info.current_op_idx = op_idx;
 		ret = load_operator(executor->engine->dsp_dev[dsp_dev_idx], NULL,
 							dsp_op->operator_name, &dsp_tensor->handle);
@@ -226,36 +226,36 @@ static int dsp_tensor_unfold(struct win_executor *executor, int op_idx,
 }
 
 int dsp0_tensor_unfold(struct win_executor *executor, int op_idx,
-		       union dla_operation_container *operation_desc,
-		       union dla_surface_container *surface_desc, void *tensor,
-		       int idx)
+			   union dla_operation_container *operation_desc,
+			   union dla_surface_container *surface_desc, void *tensor,
+			   int idx)
 {
 	return dsp_tensor_unfold(executor, op_idx, operation_desc, surface_desc,
 				 tensor, idx, DLA_KMD_OP_DSP_0);
 }
 
 int dsp1_tensor_unfold(struct win_executor *executor, int op_idx,
-		       union dla_operation_container *operation_desc,
-		       union dla_surface_container *surface_desc, void *tensor,
-		       int idx)
+			   union dla_operation_container *operation_desc,
+			   union dla_surface_container *surface_desc, void *tensor,
+			   int idx)
 {
 	return dsp_tensor_unfold(executor, op_idx, operation_desc, surface_desc,
 				 tensor, idx, DLA_KMD_OP_DSP_1);
 }
 
 int dsp2_tensor_unfold(struct win_executor *executor, int op_idx,
-		       union dla_operation_container *operation_desc,
-		       union dla_surface_container *surface_desc, void *tensor,
-		       int idx)
+			   union dla_operation_container *operation_desc,
+			   union dla_surface_container *surface_desc, void *tensor,
+			   int idx)
 {
 	return dsp_tensor_unfold(executor, op_idx, operation_desc, surface_desc,
 				 tensor, idx, DLA_KMD_OP_DSP_2);
 }
 
 int dsp3_tensor_unfold(struct win_executor *executor, int op_idx,
-		       union dla_operation_container *operation_desc,
-		       union dla_surface_container *surface_desc, void *tensor,
-		       int idx)
+			   union dla_operation_container *operation_desc,
+			   union dla_surface_container *surface_desc, void *tensor,
+			   int idx)
 {
 	return dsp_tensor_unfold(executor, op_idx, operation_desc, surface_desc,
 				 tensor, idx, DLA_KMD_OP_DSP_3);
@@ -504,9 +504,9 @@ int resolve_dsp_data(struct win_executor *executor)
 		op_type = executor->task->common_desc[i].op_type;
 		op_idx = executor->task->common_desc[i].index;
 		if ((op_type == DLA_KMD_OP_DSP_0) ||
-		    (op_type == DLA_KMD_OP_DSP_1) ||
-		    (op_type == DLA_KMD_OP_DSP_2) ||
-		    (op_type == DLA_KMD_OP_DSP_3)) {
+			(op_type == DLA_KMD_OP_DSP_1) ||
+			(op_type == DLA_KMD_OP_DSP_2) ||
+			(op_type == DLA_KMD_OP_DSP_3)) {
 			tensor_set = executor->tensor_set[op_type];
 			dsp_tensor = &tensor_set[dsp_tensor_idx[op_type - DLA_KMD_OP_DSP_0]];
 			pcer_interface = executor->engine->processors[op_type];
@@ -568,6 +568,7 @@ int resolve_dsp_data(struct win_executor *executor)
 			goto err_dev;
 		}
 
+		flat1_total_len[i] = ALIGN(flat1_total_len[i], 0x200000); //DSP need 2M align
 		executor->dsp_flat1_set_vaddr[i] = dma_alloc_coherent(
 								dsp_dev, flat1_total_len[i],
 								&executor->dsp_flat1_set_dma[i], GFP_KERNEL);
@@ -639,46 +640,122 @@ err_dev:
 	return -EINVAL;
 }
 
-int npu_set_dsp_iobuf(struct win_executor *executor, struct host_frame_desc *f)
+static void cleanup_all_dmabufs(struct win_executor *executor, struct host_frame_desc *f, int core_id)
 {
-	int i, j, k;
-	int fd;
-	addrDesc_t *address = f->io_tensor_list;
-	u32 *tmp;
-	u32 offset = 0;
+	struct file *file = executor->dsp_file[core_id];
+	struct dsp_file *dsp_file = file->private_data;
+
+	for (int j = 0; j < DSP_KERNEL_MAX_INOUT_TENSOR_NUM; j++) {
+		if (f->dsp_io_dmabuf[core_id][j]) {
+			npu_put_dsp_dmabuf(file, &f->dsp_io_dmabuf[core_id][j]);
+			f->dsp_io_dmabuf[core_id][j] = NULL;
+		}
+	}
+
+	dsp_flush_iova_cache(dsp_file);
+}
+
+static bool attempt_get_all_dmabufs(struct win_executor *executor,
+								   struct host_frame_desc *f,
+								   addrDesc_t *address)
+{
+	int i, j;
 
 	for (i = 0; i < DSP_MAX_CORE_NUM; i++) {
 		if (executor->dsp_iobuf_cnt[i] == 0) {
 			continue;
 		}
+
 		for (j = 0; j < DSP_KERNEL_MAX_INOUT_TENSOR_NUM; j++) {
 			if (executor->dsp_all_inout[i][j] == 0) {
 				continue;
 			}
-			fd = address[j].devBuf.memFd;
 
-			f->dsp_io_dmabuf[i][j] = npu_get_dsp_dmabuf(executor->dsp_file[i], fd);
-			if (f->dsp_io_dmabuf[i][j] == NULL) {
-				dla_error("npu get dsp%d dmabuf-%d error.\n ", i, j);
-				return -EINVAL;
+			if (f->dsp_io_dmabuf[i][j]) {
+				npu_put_dsp_dmabuf(executor->dsp_file[i], &f->dsp_io_dmabuf[i][j]);
+				f->dsp_io_dmabuf[i][j] = NULL;
 			}
-			dla_debug("dspio=%d.\n", executor->dsp_io[i][j].io_cnt);
-			for (k = 0; k < executor->dsp_io[i][j].io_cnt; k++) {
-				dla_debug("virt=0x%llx.\n", executor->dsp_io[i][j].virt[k]);
-				tmp = (u32 *)executor->dsp_io[i][j].virt[k];
-				offset = executor->dsp_io[i][j].offset[k];
-				dla_debug("offset=0x%x, dma addr=0x%x.\n", offset, f->dsp_io_dmabuf[i][j]->dma_addr);
-				*tmp = offset + address[j].devBuf.offset + f->dsp_io_dmabuf[i][j]->dma_addr;
 
-				dla_debug("tmp content=0x%x.\n", *tmp);
+			f->dsp_io_dmabuf[i][j] = npu_get_dsp_dmabuf(executor->dsp_file[i], address[j].devBuf.memFd);
+			if (!f->dsp_io_dmabuf[i][j]) {
+				dla_error("Failed to get dsp%d dmabuf-%d\n", i, j);
+				cleanup_all_dmabufs(executor, f, i);
+				return false;
 			}
 		}
 	}
+
+	return true;
+}
+
+static int setup_dmabuf_addresses(struct win_executor *executor,
+								  struct host_frame_desc *f, addrDesc_t *address)
+{
+	int i, j, k;
+	u32 *tmp;
+	u32 offset;
+
+	for (i = 0; i < DSP_MAX_CORE_NUM; i++) {
+		if (executor->dsp_iobuf_cnt[i] == 0) {
+			continue;
+		}
+
+		for (j = 0; j < DSP_KERNEL_MAX_INOUT_TENSOR_NUM; j++) {
+			if (executor->dsp_all_inout[i][j] == 0 || !f->dsp_io_dmabuf[i][j]) {
+				continue;
+			}
+
+			dla_debug("dsp%d tensor%d: iova=0x%x, io_cnt=%d\n",
+					  i, j, f->dsp_io_dmabuf[i][j]->dma_addr, executor->dsp_io[i][j].io_cnt);
+
+			for (k = 0; k < executor->dsp_io[i][j].io_cnt; k++) {
+				tmp = (u32 *)executor->dsp_io[i][j].virt[k];
+				offset = executor->dsp_io[i][j].offset[k];
+				*tmp = offset + address[j].devBuf.offset + f->dsp_io_dmabuf[i][j]->dma_addr;
+				dla_debug("Set addr[%d][%d][%d]: virt=0x%llx, offset=0x%x, "
+						  "result=0x%x\n", i, j, k, executor->dsp_io[i][j].virt[k], offset, *tmp);
+			}
+		}
+	}
+
 	return 0;
 }
 
-static int npu_unload_dsp_op(struct win_executor *executor, int idx,
-			     int op_type)
+int npu_set_dsp_iobuf(struct win_executor *executor, struct host_frame_desc *f)
+{
+	int i, j, attempt;
+	int retry_max = 3;
+	addrDesc_t *address = f->io_tensor_list;
+	bool all_success = false;
+	struct nvdla_device *ndev = (struct nvdla_device *)executor->driver_context;
+
+	for (i = 0; i < DSP_MAX_CORE_NUM; i++) {
+		for (j = 0; j < DSP_KERNEL_MAX_INOUT_TENSOR_NUM; j++) {
+			f->dsp_io_dmabuf[i][j] = NULL;
+		}
+	}
+
+	for (attempt = 0; attempt < retry_max; attempt++) {
+		dla_debug("Attempt %d/%d to get dsp dmabufs\n", attempt + 1, retry_max);
+		if (attempt_get_all_dmabufs(executor, f, address)) {
+			all_success = true;
+			break;
+		}
+
+		if (attempt < retry_max - 1) {
+			msleep(10);
+		}
+	}
+
+	if (!all_success) {
+		dev_err(&ndev->pdev->dev, "Failed to get dsp dmabufs after %d attempts\n", retry_max);
+		return -EINVAL;
+	}
+
+	return setup_dmabuf_addresses(executor, f, address);
+}
+
+static int npu_unload_dsp_op(struct win_executor *executor, int idx, int op_type)
 {
 	dsp_tensor_t *tensor_set = executor->tensor_set[op_type];
 	dsp_tensor_t *dsp_tensor = NULL;
@@ -702,8 +779,7 @@ static int npu_unload_dsp_op(struct win_executor *executor, int idx,
 	return ret;
 }
 
-void destroy_frame_dsp_info(struct win_executor *executor,
-			    struct host_frame_desc *f)
+void destroy_frame_dsp_info(struct win_executor *executor, struct host_frame_desc *f)
 {
 	int i, j;
 

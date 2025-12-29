@@ -198,4 +198,10 @@ int subscribe_dsp_device(u32 die_id, u32 dspId, struct device *subscrib,
  */
 int unsubscribe_dsp_device(struct device *subscrib, struct device *dsp_dev);
 
+/**
+ * @brief flush the dsp iova cache.
+ * @param dsp_file The process open dsp node file.
+ */
+void dsp_flush_iova_cache(struct dsp_file *dsp_file);
+
 #endif

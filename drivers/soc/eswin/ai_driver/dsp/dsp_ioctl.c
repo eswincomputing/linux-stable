@@ -154,6 +154,76 @@ err:
 	return ret;
 }
 
+void dsp_flush_iova_cache(struct dsp_file *dsp_file)
+{
+	struct iommu_domain *domain;
+	dma_addr_t dma_addr;
+	phys_addr_t phys_addr;
+	u32 remain_size;
+	void *vaddr;
+	struct es_dsp *dsp = dsp_file->dsp;
+
+	domain = iommu_get_domain_for_dev(dsp->dev);
+	if (!domain) {
+		dev_err(dsp->dev, "can't find dsp IOMMU domain\n");
+		return;
+	}
+
+	for (dma_addr = 0; dma_addr < 0xffffffff; dma_addr += PAGE_SIZE) {
+		phys_addr = iommu_iova_to_phys(domain, dma_addr);
+		if (phys_addr !=0 ) {
+			break;
+		}
+	}
+
+	remain_size = dma_addr - 0x30000000; //0x30000000 is the internal address of DSP
+	remain_size = rounddown(remain_size, 0x1000000); //16M align
+	dev_info(dsp->dev, "dsp%d iova remain size:0x%x\n", remain_size);
+
+	/* To clear the DSP IOVA RCACHE*/
+	vaddr = dma_alloc_coherent(dsp->dev, remain_size, &dma_addr, GFP_KERNEL);
+	if (vaddr == NULL) {
+		dev_warn(dsp->dev, "dma alloc for dsp, size:0x%x error.\n", remain_size);
+		return;
+	}
+
+	dma_free_coherent(dsp->dev, remain_size, vaddr, dma_addr);
+}
+EXPORT_SYMBOL(dsp_flush_iova_cache);
+
+static void dump_dma_mapping_info(struct es_dsp *dsp)
+{
+	struct iommu_domain *domain;
+	dma_addr_t dma_addr,pre_dma_addr;
+	phys_addr_t phys_addr,pre_phys_addr;
+	u32 continue_size = 0;
+	pre_phys_addr = 0;
+
+	domain = iommu_get_domain_for_dev(dsp->dev);
+	if (!domain) {
+		dev_err(dsp->dev, "can't find dsp IOMMU domain\n");
+		return;
+	}
+	dev_info(dsp->dev, "core id:%d mapped_cnt :%d\n", dsp->process_id, atomic_read(&dsp->dmabuf_mapped_cnt));
+	for (dma_addr = 0; dma_addr < 0xffffffff; dma_addr += PAGE_SIZE) {
+		phys_addr = iommu_iova_to_phys(domain, dma_addr);
+		if (phys_addr !=0 &&  pre_phys_addr == 0) { //begin of map
+			pre_dma_addr = dma_addr;
+		}
+		if(phys_addr == 0 && pre_phys_addr !=0) { // end of map
+			continue_size = dma_addr - pre_dma_addr;
+			pr_info("die:%d IOVA %pa -> %pa, size:0x%x\n", dsp->numa_id,
+					&pre_dma_addr, &pre_phys_addr, continue_size);
+		}
+		if(phys_addr && (dma_addr += PAGE_SIZE) > 0xffffffff) {
+			continue_size = dma_addr - pre_dma_addr;
+			pr_info("die:%d end IOVA %pa -> %pa, size:0x%x\n", dsp->numa_id,
+					 &pre_dma_addr, &pre_phys_addr, continue_size);
+		}
+		pre_phys_addr = phys_addr;
+	}
+}
+
 static u32 dsp_get_dma_addr(struct es_dsp *dsp, int fd, struct dsp_dma_buf *map_buf)
 {
 	struct dma_buf *dmabuf;
@@ -167,13 +237,17 @@ static u32 dsp_get_dma_addr(struct es_dsp *dsp, int fd, struct dsp_dma_buf *map_
 
 	dma_addr = dev_mem_attach(dmabuf, dsp->dev, DMA_BIDIRECTIONAL, &map_buf->attach);
 	if (!dma_addr) {
-		dsp_err("dev mem attach fd=%d failed.\n", fd);
+		dsp_err("dev mem attach fd=%d failed, size:0x%lx.\n", fd, dmabuf->size);
 		map_buf->attach = NULL;
+		dump_dma_mapping_info(dsp);
 		goto err_attach;
 	}
 	map_buf->dma_addr = dma_addr;
 	map_buf->dmabuf = dmabuf;
 	atomic_add(1, &dsp->dmabuf_mapped_cnt);
+	dsp_debug("fd=%d, iova:0x%x, attach size:0x%lx, map cnt:%d\n",
+			  fd, dma_addr, dmabuf->size, dsp->dmabuf_mapped_cnt);
+
 	return dma_addr;
 
 err_attach:
