@@ -99,7 +99,7 @@
 				assigned-clock-rates = <24000000>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_gpio72_default>;
-				reset-gpio = <&portc 14 0x0>;
+				reset-gpio = <&portc 8 0x0>;
 				power-domains = <&d0_pmu 2>;
 				status = "okay";
 				port {
