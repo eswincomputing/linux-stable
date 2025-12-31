@@ -219,6 +219,7 @@ struct _gckHARDWARE {
     gcsSTATETIMER               powerStateCounter;
     gctUINT32                   executeCount;
     gctADDRESS                  lastExecuteAddress;
+    gctBOOL                     gpuStuckDumpedFlag;
 
     /* Head for hardware list in gckMMU. */
     gcsLISTHEAD                 mmuHead;

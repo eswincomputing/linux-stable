@@ -1067,9 +1067,12 @@ static void dumpCurrentState(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32
     gctPOINTER entryDump;
     gctUINT32_PTR data;
     gctSIZE_T bytes;
+    gctPHYS_ADDR_T node_cpu_addr = 0;
+    gctPHYS_ADDR_T node_gpu_addr = 0;
 
-    gcmkPRINT("Maybe gpu-%d stuck when execute command, Address=0x%llx Bytes=0x%x", Hardware->core - gcvCORE_2D,
-            Address, Bytes);
+    gcmkPRINT("Maybe gpu-%d stuck when execute command, Address=0x%llx Bytes=0x%x Power: %d", Hardware->core - gcvCORE_2D,
+            Address, Bytes, Hardware->powerState);
+
     for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
         ker = gcvNULL;
         gckOS_QueryKernel(Hardware->kernel, i, &ker);
@@ -1086,7 +1089,12 @@ static void dumpCurrentState(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32
                 if (gckVIDMEM_NODE_LockCPU(ker, nodeObject, gcvFALSE, gcvFALSE, &entryDump)) {
                     continue;
                 }
+
+                gcmkVERIFY_OK(gckVIDMEM_NODE_GetCPUPhysical(ker, nodeObject, 0, &node_cpu_addr));
+                gcmkVERIFY_OK(gckVIDMEM_NODE_GetGPUPhysical(ker, nodeObject, 0, &node_gpu_addr));
                 gcmkVERIFY_OK(gckVIDMEM_NODE_GetSize(ker, nodeObject, &bytes));
+
+                gcmkPRINT("cur addr in vidmem node addr: 0x%llx(0x%llx), bytes: 0x%x\n", node_cpu_addr, node_gpu_addr, bytes);
                 /* Align to 16. */
                 offset -= curr & ((1ULL << 4) - 1);
                 curr &= ~((1ULL << 4) - 1);
@@ -1099,11 +1107,10 @@ static void dumpCurrentState(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32
                                   data[2], data[3], data[4], data[5], data[6], data[7]);
                 gcmkVERIFY_OK(gckVIDMEM_NODE_UnlockCPU(ker, nodeObject, 0, gcvFALSE, gcvFALSE));
             }
+
+            _DumpState(ker);
         }
     }
-
-
-
 }
 
 gceSTATUS
@@ -1132,14 +1139,17 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
             gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                                0x00004, &idle));
             if (idle != 0x7FFFFFFF) {
-                ret = gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvTRUE, gcdGPU_2D_TIMEOUT);
+                ret = gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvFALSE, gcdGPU_2D_TIMEOUT);
                 if (ret != gcvSTATUS_OK) {
                     if (try_cnt++ < 5) {
-                        hae_print("core: %d, addr:(0x%llx)0x%llx ret: %d, try: %d",
-                            Hardware->core, Hardware->lastExecuteAddress, Address, ret, try_cnt);
+                        hae_print("core: %d, addr: 0x%llx(0x%llx) ret: %d, try: %d",
+                            Hardware->core, Address, Hardware->lastExecuteAddress, ret, try_cnt);
                     } else {
-                        hae_print("core: %d, addr:(0x%llx)0x%llx ret: %d, wait sig timeout!", Hardware->core, Hardware->lastExecuteAddress, Address, ret);
-                        return ret;
+                        hae_print("core: %d, addr: 0x%llx(0x%llx) power: %d, ret: %d, wait sig timeout!",
+                            Hardware->core, Address, Hardware->lastExecuteAddress, Hardware->powerState, ret);
+
+                        status = gcvSTATUS_TIMEOUT;
+                        goto OnError;
                     }
                 }
             }
@@ -1223,7 +1233,10 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
 OnError:
     /* Return the status. */
     if (status == gcvSTATUS_TIMEOUT) {
-        dumpCurrentState(Hardware, Address, Bytes);
+        if (!Hardware->gpuStuckDumpedFlag) {
+            dumpCurrentState(Hardware, Address, Bytes);
+            Hardware->gpuStuckDumpedFlag = gcvTRUE;
+        }
     }
 
     gcmkFOOTER();

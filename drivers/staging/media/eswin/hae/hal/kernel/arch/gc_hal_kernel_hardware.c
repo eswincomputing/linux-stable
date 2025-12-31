@@ -2168,6 +2168,7 @@ gckHARDWARE_Construct(gckOS Os, gckKERNEL Kernel, gckHARDWARE *Hardware)
 #if gcdPOWEROFF_TIMEOUT
     hardware->powerOffTimeout = gcdPOWEROFF_TIMEOUT;
 #endif
+    hardware->gpuStuckDumpedFlag = gcvFALSE;
 
     gcmkONERROR(gckOS_CreateMutex(Os, &hardware->powerMutex));
     gcmkONERROR(gckOS_CreateSemaphore(Os, &hardware->globalSemaphore));

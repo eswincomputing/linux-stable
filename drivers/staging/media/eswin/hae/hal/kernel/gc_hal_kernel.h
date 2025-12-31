@@ -2029,6 +2029,9 @@ gckDEVICE_SetCommandQueue(gckDEVICE Device,
                           gceHARDWARE_TYPE Type,
                           gckCOMMAND Command);
 
+void
+_DumpState(gckKERNEL Kernel);
+
 #if gcdENABLE_TRUST_APPLICATION
 gceSTATUS
 gckKERNEL_MapInTrustApplicaiton(gckKERNEL Kernel,
