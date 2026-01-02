@@ -345,7 +345,7 @@ static xtmld_result_code_t relocate_relative(xtmld_state_t *lib_info,
 	if (a_ofs == 0) {
 		xtmld_ptr raddr;
 		status = reloc_addr_value(lib_info, load_32(addr) + rela->r_addend,
-				    &raddr);
+				    (unsigned int *)&raddr);
 		if (status != xtmld_success)
 			return status;
 		store_32(addr, (uint32_t)raddr);
@@ -356,7 +356,7 @@ static xtmld_result_code_t relocate_relative(xtmld_state_t *lib_info,
 		hi = load_32((uint32_t *)a_ptr + 1);
 		val = extract(lo, hi, a_ofs);
 		status = reloc_addr_value(lib_info, val + rela->r_addend,
-				    ((xtmld_ptr *)&val));
+				    (unsigned int *)&val);
 		if (status != xtmld_success)
 			return status;
 		combine(&lo, &hi, val, a_ofs);
@@ -380,7 +380,7 @@ static xtmld_result_code_t relocate_32_pcrel(xtmld_state_t *lib_info,
 	Elf32_Word a_ofs = (Elf32_Word)addr % 4;
 	// r_addend is the location of target in PIL
 	// get loaded address of target
-	status = reloc_addr_value(lib_info, rela->r_addend, &raddr);
+	status = reloc_addr_value(lib_info, rela->r_addend, (unsigned int *)&raddr);
 	if (status != xtmld_success)
 		return status;
 	// check if it's 4 byte aligned, C++ exception tables may have
