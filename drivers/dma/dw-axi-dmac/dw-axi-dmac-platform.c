@@ -532,10 +532,12 @@ static int dma_chan_alloc_chan_resources(struct dma_chan *dchan)
 {
 	struct axi_dma_chan *chan = dchan_to_axi_dma_chan(dchan);
 
+	pm_runtime_get_sync(chan->chip->dev);
 	/* ASSERT: channel is idle */
 	if (axi_chan_is_hw_enable(chan)) {
 		dev_err(chan2dev(chan), "%s is non-idle!\n",
 			axi_chan_name(chan));
+		pm_runtime_put_autosuspend(chan->chip->dev);
 		return -EBUSY;
 	}
 
@@ -546,11 +548,11 @@ static int dma_chan_alloc_chan_resources(struct dma_chan *dchan)
 					  64, 0);
 	if (!chan->desc_pool) {
 		dev_err(chan2dev(chan), "No memory for descriptors\n");
+		pm_runtime_put_autosuspend(chan->chip->dev);
 		return -ENOMEM;
 	}
 	dev_vdbg(dchan2dev(dchan), "%s: allocating\n", axi_chan_name(chan));
 
-	pm_runtime_get(chan->chip->dev);
 
 	return 0;
 }
@@ -575,7 +577,7 @@ static void dma_chan_free_chan_resources(struct dma_chan *dchan)
 		 "%s: free resources, descriptor still allocated: %u\n",
 		 axi_chan_name(chan), atomic_read(&chan->descs_allocated));
 
-	pm_runtime_put(chan->chip->dev);
+	pm_runtime_put_autosuspend(chan->chip->dev);
 }
 
 static void dw_axi_dma_set_hw_channel(struct axi_dma_chan *chan, bool set)
@@ -1796,7 +1798,7 @@ static int dw_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(chip->dev, 1000);
 	pm_runtime_use_autosuspend(chip->dev);
 	pm_runtime_set_active(chip->dev);
-	pm_runtime_enable(&pdev->dev);
+	pm_runtime_enable(chip->dev);
 	pm_runtime_get_noresume(chip->dev);
 
 	ret = axi_dma_resume(chip);
