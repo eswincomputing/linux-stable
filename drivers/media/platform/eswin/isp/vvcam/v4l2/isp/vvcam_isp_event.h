@@ -114,6 +114,8 @@ struct vvcam_isp_event_pkg_head {
 struct vvcam_isp_event_pkg {
 	struct vvcam_isp_event_pkg_head head;
 	uint8_t  ack;
+	uint32_t seq;
+	uint32_t ack_seq;
 	int32_t  result;
 	uint8_t data[2048];
 };
