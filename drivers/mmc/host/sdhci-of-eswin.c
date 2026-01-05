@@ -57,6 +57,9 @@
 #define HIWORD_UPDATE(val, mask, shift) \
 	((val) << (shift) | (mask) << ((shift) + 16))
 
+#define BOUNDARY_OK(addr, len) \
+	((addr | (SZ_128M - 1)) == ((addr + len - 1) | (SZ_128M - 1)))
+
 static void eswin_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -437,6 +440,29 @@ void eswin_sdhci_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 	}
 }
 
+/*
+ * If DMA addr spans 128MB boundary, we split the DMA transfer into two
+ * so that each DMA transfer doesn't exceed the boundary.
+ */
+static void dwcmshc_adma_write_desc(struct sdhci_host *host, void **desc,
+				    dma_addr_t addr, int len, unsigned int cmd)
+{
+	int tmplen, offset;
+
+	if (likely(!len || BOUNDARY_OK(addr, len))) {
+		sdhci_adma_write_desc(host, desc, addr, len, cmd);
+		return;
+	}
+
+	offset = addr & (SZ_128M - 1);
+	tmplen = SZ_128M - offset;
+	sdhci_adma_write_desc(host, desc, addr, tmplen, cmd);
+
+	addr += tmplen;
+	len -= tmplen;
+	sdhci_adma_write_desc(host, desc, addr, len, cmd);
+}
+
 static const struct cqhci_host_ops eswin_sdhci_cqhci_ops = {
 	.enable = eswin_sdhci_cqe_enable,
 	.disable = sdhci_cqe_disable,
@@ -454,6 +480,7 @@ static const struct sdhci_ops eswin_sdhci_cqe_ops = {
 	.irq = eswin_sdhci_cqhci_irq,
 	.platform_execute_tuning = eswin_sdhci_executing_tuning,
 	.dump_vendor_regs = eswin_sdhci_dump_vendor_regs,
+	.adma_write_desc	= dwcmshc_adma_write_desc,
 };
 
 static const struct sdhci_pltfm_data eswin_sdhci_cqe_pdata = {
