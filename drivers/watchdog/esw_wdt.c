@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025-2026 Eswin, Inc. All Rights Reserved.
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
  * This software is the confidential and proprietary information of
  * Eswin, Inc. ("Confidential Information"). You shall not
@@ -53,9 +53,10 @@ enum esw_wdt_cmd {
     WDT_ENABLE = 2,
     WDT_PING = 3,
     WDT_DISABLE = 4,
+    WDT_CLOSE_NOACK = 5,
 };
 
-static char* wdt_cmd_str[4] = {"WDT_INIT", "WDT_ENABLE", "WDT_PING", "WDT_DISABLE"};
+static char* wdt_cmd_str[5] = {"WDT_INIT", "WDT_ENABLE", "WDT_PING", "WDT_DISABLE", "WDT_CLOSE_NOACK"};
 
 struct mbox_msg {
     u32 data_l;
@@ -180,6 +181,11 @@ static int esw_wdt_call(struct watchdog_device *wdd, enum esw_wdt_cmd call,
             msg[2] = 0x83;
             reply_event = LPCPU_FW_WDT_DISABLE;
             break;
+        case WDT_CLOSE_NOACK: // CLS
+            msg[0] = 0x43;
+            msg[1] = 0x4c;
+            msg[2] = 0x53;
+            break;
         default:
             return -1;
     }
@@ -191,14 +197,17 @@ static int esw_wdt_call(struct watchdog_device *wdd, enum esw_wdt_cmd call,
         return ret;
     }
 
-    long event_timeout = wait_event_timeout(wdt->waitq, load_event == reply_event,
-                                        usecs_to_jiffies(200000));
+    if (reply_event != LPCPU_FW_LOAD_UNKNOW) {
+        long event_timeout = wait_event_timeout(wdt->waitq, load_event == reply_event,
+                                            usecs_to_jiffies(200000));
 
-    if (!event_timeout) {
-        ret = -EBUSY;
-        printk("esw_wdt_call: wdt_send_message (call = %d)(%s) reply_event timeout\n", call, wdt_cmd_str[call - 1]);
-        // return ret;
+        if (!event_timeout) {
+            ret = -EBUSY;
+            printk("esw_wdt_call: wdt_send_message (call = %d)(%s) reply_event timeout\n", call, wdt_cmd_str[call - 1]);
+            // return ret;
+        }
     }
+
     return 0;
 }
 
@@ -241,6 +250,12 @@ static int esw_wdt_ping(struct watchdog_device *wdd) {
     // struct esw_wdt *wdt = to_esw_wdt(wdd);
     // printk("esw_wdt_ping\n");
     ret = esw_wdt_call(wdd, WDT_PING, 0);
+    return ret;
+}
+
+static int esw_wdt_close_noack(struct watchdog_device *wdd) {
+    int ret = 0;
+    ret = esw_wdt_call(wdd, WDT_CLOSE_NOACK, 0);
     return ret;
 }
 
@@ -289,8 +304,8 @@ static int my_panic_handler(struct notifier_block *this,
     if (esw_wdt_inst == NULL) {
         return 0;
     }
-    pr_emerg("Panic! disabling esw_wdt...\n");
-    esw_wdt_stop(&esw_wdt_inst->wdd);
+    pr_emerg("Panic! close esw_wdt...\n");
+    esw_wdt_close_noack(&esw_wdt_inst->wdd);
     return NOTIFY_DONE;
 }
 
