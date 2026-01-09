@@ -510,6 +510,10 @@
 	pinctrl-0 = <&pinctrl_sata_act_led_default>;
 };
 
+&d0_sata_phy {
+	status = "okay";
+};
+
 &d0_usbdrd3_0 {
 	status = "okay";
 	pinctrl-names = "default";

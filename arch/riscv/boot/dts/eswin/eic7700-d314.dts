@@ -142,6 +142,10 @@
 	pinctrl-0 = <&pinctrl_sata_act_led_default>;
 };
 
+&d0_sata_phy {
+	status = "okay";
+};
+
 &d0_uart1 {
 	/* M.2 KEY E */
 	status = "okay";

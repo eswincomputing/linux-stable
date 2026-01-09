@@ -437,6 +437,10 @@
 	status = "okay";
 };
 
+&d0_sata_phy {
+	status = "okay";
+};
+
 &d0_usbdrd3_0 {
 	status = "okay";
 	fixed-rx-equalization = <4>;

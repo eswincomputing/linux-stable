@@ -765,6 +765,10 @@
 	status = "disabled";
 };
 
+&d0_sata_phy {
+	status = "disabled";
+};
+
 &d0_cfg_noc {
 	status = "okay";
 };
@@ -1190,6 +1194,10 @@
 };
 
 &d1_sata {
+	status = "disabled";
+};
+
+&d1_sata_phy {
 	status = "disabled";
 };
 

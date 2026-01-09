@@ -10,6 +10,8 @@
 #include <linux/bits.h>
 #include <linux/clk.h>
 #include <linux/device.h>
+#include <linux/eswin-win2030-sid-cfg.h>
+#include <linux/iommu.h>
 #include <linux/kernel.h>
 #include <linux/libata.h>
 #include <linux/log2.h>
@@ -105,6 +107,11 @@
 #define AHCI_BT1_HOST_PHYSR		AHCI_DWC_HOST_GPSR
 #define AHCI_BT1_HOST_CRA		BIT(16)
 #define AHCI_BT1_HOST_CRDO_MASK		GENMASK(15, 0)
+	
+#define AWSMMUSID                     GENMASK(31, 24) // The sid of write operation
+#define AWSMMUSSID                    GENMASK(23, 16) // The ssid of write operation
+#define ARSMMUSID                     GENMASK(15, 8)  // The sid of read operation
+#define ARSMMUSSID                    GENMASK(7, 0)   // The ssid of read operation
 
 struct ahci_dwc_plat_data {
 	unsigned int pflags;
@@ -121,6 +128,50 @@ struct ahci_dwc_host_priv {
 	u32 timv;
 	u32 dmacr[AHCI_MAX_PORTS];
 };
+
+static int eswin_sata_sid_cfg(struct device *dev)
+{
+    int ret;
+    struct regmap *regmap;
+    int hsp_mmu_sata_reg;
+    u32 rdwr_sid_ssid;
+    u32 sid;
+    struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+
+    /* not behind smmu, use the default reset value(0x0) of the reg as streamID*/
+    if (fwspec == NULL) {
+        dev_dbg(dev, "dev is not behind smmu, skip configuration of sid\n");
+        return 0;
+    }
+    sid = fwspec->ids[0];
+    regmap = syscon_regmap_lookup_by_phandle(dev->of_node, "eswin,hsp_sp_csr");
+    if (IS_ERR(regmap)) {
+        dev_dbg(dev, "No hsp_sp_csr phandle specified\n");
+        return 0;
+    }
+    ret = of_property_read_u32_index(dev->of_node, "eswin,hsp_sp_csr", 1,
+            &hsp_mmu_sata_reg);
+    if (ret) {
+        dev_err(dev, "can't get sata sid cfg reg offset (%d)\n", ret);
+        return ret;
+    }
+
+    /* make the reading sid the same as writing sid, ssid is fixed to zero */
+    rdwr_sid_ssid  = FIELD_PREP(AWSMMUSID, sid);
+    rdwr_sid_ssid |= FIELD_PREP(ARSMMUSID, sid);
+    rdwr_sid_ssid |= FIELD_PREP(AWSMMUSSID, 0);
+    rdwr_sid_ssid |= FIELD_PREP(ARSMMUSSID, 0);
+    regmap_write(regmap, hsp_mmu_sata_reg, rdwr_sid_ssid);
+
+    ret = win2030_dynm_sid_enable(dev_to_node(dev));
+    if (ret < 0)
+        dev_err(dev, "failed to config sata streamID(%d)!\n", sid);
+     else
+        dev_dbg(dev, "success to config sata streamID(%d)!\n", sid);
+    pr_err("eswin_sata_sid_cfg success\n");
+
+    return ret;
+}
 
 static int ahci_bt1_init(struct ahci_host_priv *hpriv)
 {
@@ -382,6 +433,10 @@ static void ahci_dwc_clear_host(struct ahci_host_priv *hpriv)
 static void ahci_dwc_stop_host(struct ata_host *host)
 {
 	struct ahci_host_priv *hpriv = host->private_data;
+	struct ahci_dwc_host_priv *dpriv = hpriv->plat_data;
+	struct platform_device *pdev = dpriv->pdev;
+
+	win2030_tbu_power(&pdev->dev, false);
 
 	ahci_dwc_clear_host(hpriv);
 }
@@ -411,6 +466,10 @@ static int ahci_dwc_probe(struct platform_device *pdev)
 	if (IS_ERR(hpriv))
 		return PTR_ERR(hpriv);
 
+	eswin_sata_sid_cfg(&pdev->dev);
+
+	win2030_tbu_power(&pdev->dev, true);
+
 	rc = ahci_dwc_init_host(hpriv);
 	if (rc)
 		return rc;
@@ -434,6 +493,8 @@ static int ahci_dwc_suspend(struct device *dev)
 	struct ahci_host_priv *hpriv = host->private_data;
 	int rc;
 
+	win2030_tbu_power(dev, false);
+
 	rc = ahci_platform_suspend_host(dev);
 	if (rc)
 		return rc;
@@ -453,7 +514,13 @@ static int ahci_dwc_resume(struct device *dev)
 	if (rc)
 		return rc;
 
-	return ahci_platform_resume_host(dev);
+	rc = ahci_platform_resume_host(dev);
+	if (rc)
+		return rc;
+
+	win2030_tbu_power(dev, true);
+
+	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(ahci_dwc_pm_ops, ahci_dwc_suspend,

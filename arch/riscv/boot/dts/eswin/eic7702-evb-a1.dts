@@ -881,7 +881,15 @@
 	status = "okay";
 };
 
+&d0_sata_phy {
+	status = "okay";
+};
+
 &d1_sata {
+	status = "okay";
+};
+
+&d1_sata_phy {
 	status = "okay";
 };
 

@@ -863,7 +863,7 @@
 		};
 
 		d0_sata: sata@0x50420000{
-			compatible = "snps,eswin-ahci";
+			compatible = "snps,dwc-ahci";
 			reg = <0x0 0x50420000 0x0 0x10000>;
 			interrupt-parent = <&plic0>;
 			interrupt-names = "intrq", "msi", "pme";
@@ -871,17 +871,26 @@
 			ports-implemented = <0x1>;
 			clocks = <&d0_clock EIC7700_CLK_HSP_ACLK>,
 					<&d0_clock EIC7700_CLK_HSP_CFG_CLK>;
-			clock-names = "aclk", "cfg_clk";
+			clock-names = "aclk", "pclk";
 			resets = <&d0_reset HSPDMA_RST_CTRL SW_HSP_SATA_ARSTN>;
-			reset-names = "apb";
+			reset-names = "arst";
 			#size-cells = <2>;
+			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1050>;
 			iommus = <&smmu0 WIN2030_SID_SATA>;
 			tbus = <WIN2030_TBUID_SATA>;
 			dma-ranges = <0x0 0x0 0x0 0xc0000000 0x200 0x0>;
-			eswin,hsp_sp_csr = <&d0_hsp_sp_csr 0x1050>;
-			eswin,syscrg_csr = <&d0_sys_crg 0x41c>;
+			phys = <&d0_sata_phy>;
+			phy-names = "sata-phy";
 			numa-node-id = <0>;
 			dma-noncoherent;
+			status = "disabled";
+		};
+
+		d0_sata_phy: sata-phy@50440300 {
+			compatible = "eswin,eic7700-sata-phy";
+			reg = <0x0 0x50440300 0x0 0x40>;
+			#phy-cells = <0>;
+			status = "disabled";
 		};
 
 		pcie: pcie@0x54000000 {

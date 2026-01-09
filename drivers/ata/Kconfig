@@ -153,15 +153,6 @@ config SATA_MOBILE_LPM_POLICY
 	  Excluding the value 0, higher values represent policies with higher
 	  power savings.
 
-config AHCI_ESWIN
-	tristate "Eswin AHCI SATA support"
-	select SATA_HOST
-	help
-	  This option enables support for Eswin AHCI Serial ATA
-	  controllers.
-
-	  If unsure, say N.
-
 config SATA_AHCI_PLATFORM
 	tristate "Platform AHCI SATA support"
 	select SATA_HOST
