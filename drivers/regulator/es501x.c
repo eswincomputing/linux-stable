@@ -19,7 +19,7 @@
  *
  * Authors: Wang Jinlong <wangjinlong@eswincomputing.com>
  */
-
+#include <linux/debugfs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -58,16 +58,16 @@
 
 #define es501x_LABEL_CNT 2
 
-#define ES501X_SWEN_BIT           (1 << 5)    // BIT5: DC/DC开关使能
-/* ES501x寄存器定义 - 严格根据VSET表格 */
-#define ES501X_VSET_REG          0x00    /* 输出电压设置寄存器 */
-#define ES501X_CONTROL1_REG      0x01    /* 控制寄存器1 - 包含DC/DC switch位 */
-#define ES501X_CONTROL2_REG      0x02    /* 控制寄存器2 - 包含VRANGE位 */
-#define ES501X_VRANGE_MASK       0x03    /* VRANGE位掩码 */
-#define ES501X_STATUS_REG        0x02    /* 状态寄存器 */
-#define ES501X_ID_REG            0x0F    /* 芯片ID寄存器 */
+#define ES501X_SWEN_BIT           (1 << 5)    // BIT5: DC/DC switch
+/* ES501x register definition - according to the VSET table */
+#define ES501X_VSET_REG          0x00    /* Output voltage setting register */
+#define ES501X_CONTROL1_REG      0x01    /* Control Register 1 - Includes DC/DC Switch Bit */
+#define ES501X_CONTROL2_REG      0x02    /* Control Register 2 - Includes VRANGE bit */
+#define ES501X_VRANGE_MASK       0x03    /* VRANGE bit mask */
+#define ES501X_STATUS_REG        0x02    /* Status register */
+#define ES501X_ID_REG            0x0F    /* Chip ID Register */
 
-/* VRANGE模式定义 - 完全按照表格 */
+/* VRANGE mode definition - according to the vrange table */
 enum es501x_vrange {
     VRANGE_00 = 0,  /* VOUT = 400mV + VSET × 1.25mV */
     VRANGE_01 = 1,  /* VOUT = 400mV + VSET × 2.5mV */
@@ -75,12 +75,12 @@ enum es501x_vrange {
     VRANGE_11 = 3   /* VOUT = 800mV + VSET × 10mV */
 };
 
-/* 电压配置结构 - 基于VSET表格公式 */
+/* Voltage configuration structure - based on VSET table formula */
 struct es501x_voltage_config {
-    unsigned int base_uv;        /* 基础电压 (400mV或800mV) */
-    unsigned int step_uv;         /* 步进电压 (1.25mV, 2.5mV, 5mV, 10mV) */
-    unsigned int max_vset;        /* 最大VSET值 (255) */
-    const char *description;      /* 模式描述 */
+    unsigned int base_uv;         /* Base voltage (400mV or 800mV) */
+    unsigned int step_uv;         /* Step voltage (1.25mV, 2.5mV, 5mV, 10mV) */
+    unsigned int max_vset;        /* Maximum VSET value (255) */
+    const char *description;      /* Pattern description */
 };
 
 static const struct es501x_voltage_config es5035_voltage_cfg[] = {
@@ -96,10 +96,6 @@ static const struct es501x_voltage_config es501x_voltage_cfg[] = {
     [VRANGE_10] = {400000, 5000,  255, "400mV + VSET × 5mV"},
     [VRANGE_11] = {800000, 10000, 255, "800mV + VSET × 10mV"},
 };
-
-/* 目标电压设置 */
-#define CPU_VOLTAGE_TARGET      875000   /* CPU: 0.875V */
-#define SOC_VOLTAGE_TARGET      800000   /* SOC: 0.8V */
 
 enum es501x_chip_type {
     ES501X,
@@ -127,6 +123,10 @@ struct es501x_DRIVER_DATA {
     const struct es501x_voltage_config *vconfig;
 
 	char es501x_label[es501x_LABEL_CNT][20];
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debug_root;
+	u32 force_uV;
+#endif
 };
 
 #define es501x_MASK_OPERATION_ENABLE 0X80
@@ -144,12 +144,12 @@ static int es501x_regulator_enable(struct regulator_dev *rdev);
 static int es501x_regulator_disable(struct regulator_dev *rdev);
 static u8 es501x_volt2reg(struct es501x_DRIVER_DATA *data, u32 volt_mv);
 static int es501x_regulator_is_enabled(struct regulator_dev *rdev);
-/* 设置VRANGE模式 */
+/* Set VRANGE mode */
 static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrange)
 {
     int ret, current_ctrl2;
     struct es501x_DRIVER_DATA *data = i2c_get_clientdata(client);
-    /* 读取当前CONTROL2寄存器值 */
+    /* Read the current value of the CONTROL2 register */
     current_ctrl2 = i2c_smbus_read_byte_data(client, ES501X_CONTROL2_REG);
     if (current_ctrl2 < 0) {
         dev_err(&client->dev, "Failed to read CONTROL2 register\n");
@@ -157,7 +157,7 @@ static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrang
     }
     u8 value = (u8)current_ctrl2;
     dev_dbg(&client->dev, "Eswin:%s read CONTROL2 value=%d\n",__func__, value);
-    /* 清除VRANGE位并设置新值 */
+    /* Clear the VRANGE bit and set a new value */
     current_ctrl2 &= ~ES501X_VRANGE_MASK;
     current_ctrl2 |= (vrange & ES501X_VRANGE_MASK);
 
@@ -170,7 +170,7 @@ static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrang
     dev_dbg(&client->dev, "VRANGE mode set to %d: %s\n", 
              vrange, data->vconfig->description);
 
-    /* 读取当前CONTROL2寄存器值 */
+    /* Read the current value of the CONTROL2 register */
     current_ctrl2 = i2c_smbus_read_byte_data(client, ES501X_CONTROL2_REG);
     if (current_ctrl2 < 0) {
         dev_err(&client->dev, "Failed to read CONTROL2 register\n");
@@ -181,8 +181,7 @@ static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrang
     return 0;
 }
 
-
-/* 根据电压计算VSET值 - 精确实现表格公式 */
+/* Calculate VSET value based on voltage - accurately implement the table formula */
 static int es501x_uv_to_vset(unsigned int uV, const struct es501x_voltage_config *config)
 {
     int vset;
@@ -192,7 +191,7 @@ static int es501x_uv_to_vset(unsigned int uV, const struct es501x_voltage_config
         return 0;
     }
 
-    /* 精确计算：VOUT = base + VSET × step */
+    /* VOUT = base + VSET × step */
     vset = (uV - config->base_uv) / config->step_uv;
 
     if (vset > config->max_vset) {
@@ -203,7 +202,6 @@ static int es501x_uv_to_vset(unsigned int uV, const struct es501x_voltage_config
 
     return vset;
 }
-
 
 static struct of_regulator_match es501x_matches[] = {
     { .name = "vdd_soc_cpu" },
@@ -335,7 +333,7 @@ static int es501x_get_enable(struct es501x_DRIVER_DATA *data)
 }
 */
 static const struct hwmon_channel_info *es501x_info[] = {
-	HWMON_CHANNEL_INFO(in,  // 电压监测
+	HWMON_CHANNEL_INFO(in,  // Voltage monitor
         HWMON_I_INPUT | HWMON_I_LABEL | HWMON_I_ENABLE),
 	NULL
 };
@@ -470,7 +468,7 @@ static s32 es501x_set_vout(struct es501x_DRIVER_DATA *data, u32 volt_uv)
     int ret;
     unsigned int current_ctrl2;
 
-    /* 读取当前CONTROL2寄存器值 */
+    /* Read the current value of the CONTROL2 register */
     current_ctrl2 = i2c_smbus_read_byte_data(data->client, ES501X_CONTROL2_REG);
     if (current_ctrl2 < 0) {
         dev_err(&data->rdev->dev, "Failed to read CONTROL2 register\n");
@@ -478,7 +476,7 @@ static s32 es501x_set_vout(struct es501x_DRIVER_DATA *data, u32 volt_uv)
     u8 value = (u8)current_ctrl2;
 	dev_err(&data->rdev->dev, "Eswin:%s read CONTROL2 value=%d\n",__func__, value);
 
-    /* 写入VSET寄存器 */
+    /* Write to VSET register */
     ret = i2c_smbus_write_byte_data(data->client, ES501X_VSET_REG, new_value);
     if (ret < 0) {
         dev_err(&data->rdev->dev, "Failed to set VSET register to 0x%02x\n", new_value);
@@ -547,7 +545,6 @@ static struct attribute *es501x_attrs[] = {
 
 ATTRIBUTE_GROUPS(es501x);
 
-
 static u8 es501x_volt2reg(struct es501x_DRIVER_DATA *data, u32 uV)
 {
     const struct es501x_voltage_config *cfg = data->vconfig;
@@ -570,7 +567,7 @@ static u32 es501x_get_vout(struct es501x_DRIVER_DATA *data)
 	return es501x_reg2volt(data, (u8)vset_value);
 }
 
-/* 读取当前VSET值 */
+/* Read the current VSET value */
 static int es501x_get_vset(struct i2c_client *client)
 {
     int vset;
@@ -584,7 +581,7 @@ static int es501x_get_vset(struct i2c_client *client)
     return vset;
 }
 
-/* 读取当前VRANGE配置 */
+/* Read the current VRANGE configuration */
 static int es501x_get_vrange(struct i2c_client *client)
 {
     int ctrl2;
@@ -598,7 +595,7 @@ static int es501x_get_vrange(struct i2c_client *client)
     return ctrl2 & ES501X_VRANGE_MASK;
 }
 
-/* Regulator操作函数 */
+/* Regulator operation function */
 static int es501x_get_voltage_sel(struct regulator_dev *rdev)
 {
     struct i2c_client *client = to_i2c_client(rdev->dev.parent);
@@ -618,7 +615,6 @@ static int es501x_set_voltage_sel(struct regulator_dev *rdev, unsigned selector)
     ret = i2c_smbus_write_byte_data(client, ES501X_VSET_REG, selector);
     if (ret < 0)
         return ret;
-
     return 0;
 }
 /*
@@ -679,13 +675,12 @@ out:
     return ret;
 }
 
-
 static int es501x_regulator_enable(struct regulator_dev *rdev)
 {
     int ret;
     struct i2c_client *client = to_i2c_client(rdev->dev.parent);
 
-    /* 读取当前CONTROL1寄存器值 */
+    /* Read the current value of the CONTROL1 register */
     int current_ctrl1 = i2c_smbus_read_byte_data(client, ES501X_CONTROL1_REG);
     if (current_ctrl1 < 0) {
         dev_err(&rdev->dev, "Failed to read CONTROL1 register\n");
@@ -693,7 +688,7 @@ static int es501x_regulator_enable(struct regulator_dev *rdev)
     u8 value = (u8)current_ctrl1;
     dev_dbg(&rdev->dev, "Eswin:%s read CONTROL1 value=%d\n",__func__, value);
 
-    /* 设置SWEN=1（使能DC/DC开关） */
+    /* Set SWEN=1 (enable DC/DC switch) */
     value |= ES501X_SWEN_BIT;
     ret = i2c_smbus_write_byte_data(client, ES501X_CONTROL1_REG, value);
     if (ret < 0) {
@@ -710,7 +705,7 @@ static int es501x_regulator_disable(struct regulator_dev *rdev)
     int ret;
     struct i2c_client *client = to_i2c_client(rdev->dev.parent);
 
-    /* 读取当前CONTROL1寄存器值 */
+    /* Read the current value of the CONTROL1 register */
     int current_ctrl1 = i2c_smbus_read_byte_data(client, ES501X_CONTROL1_REG);
     if (current_ctrl1 < 0) {
         dev_err(&rdev->dev, "Failed to read CONTROL1 register\n");
@@ -718,7 +713,7 @@ static int es501x_regulator_disable(struct regulator_dev *rdev)
     u8 value = (u8)current_ctrl1;
     dev_dbg(&rdev->dev, "Eswin:%s read CONTROL1 value=%d\n", __func__, value);
 
-    /* 设置SWEN=0（禁用DC/DC开关） */
+    /* Set SWEN=0 (disable DC/DC switch) */
     value &= ~ES501X_SWEN_BIT;
 
     ret = i2c_smbus_write_byte_data(client, ES501X_CONTROL1_REG, value);
@@ -730,19 +725,20 @@ static int es501x_regulator_disable(struct regulator_dev *rdev)
     dev_dbg(&rdev->dev, "Regulator disabled (SWEN=0)\n");
     return 0;
 }
+
 static int es501x_regulator_is_enabled(struct regulator_dev *rdev)
 {
     struct i2c_client *client = to_i2c_client(rdev->dev.parent);
     int reg_val;
 
-    /* 读取CONTROL1寄存器，检查SWEN位状态 */
+    /* Read the CONTROL1 register and check the status of the SWEN bit */
     reg_val = i2c_smbus_read_byte_data(client, ES501X_CONTROL1_REG);
     if (reg_val < 0) {
         dev_err(&rdev->dev, "Failed to read CONTROL1 register\n");
         return reg_val;
     }
     dev_dbg(&rdev->dev, "Eswin:%s reg_val=%d\n", __func__, reg_val);
-    return !!(reg_val & ES501X_SWEN_BIT);  // 返回1（使能）或0（禁用）
+    return !!(reg_val & ES501X_SWEN_BIT);  // Return 1 (enabled) or 0 (disabled)
 }
 
 static struct regulator_ops es501x_core_ops = {
@@ -770,15 +766,8 @@ static s32 es501x_init_data(struct es501x_DRIVER_DATA *data,
     s32 ret = 0;
     struct device *dev = &data->client->dev;
 
-    dev_info(dev,
-        "input_uV :%d,min_uV:%d,max_uV:%d,uV_offset:%d,min_uA:%d,max_uA:%d,"
-        "over_voltage_limits:%d,%d,%d\n",
-        constraints->input_uV, 
-        constraints->min_uV, constraints->max_uV, constraints->uV_offset,
-        constraints->min_uA, constraints->max_uA,
-        constraints->over_voltage_limits.err,
-        constraints->over_voltage_limits.prot,
-        constraints->over_voltage_limits.warn);
+    dev_info(dev, "input_uV :%d,min_uV:%d,max_uV:%d,uV_offset:%d\n",
+        constraints->input_uV, constraints->min_uV, constraints->max_uV, constraints->uV_offset);
     const struct es501x_voltage_config *cfg = data->vconfig;
     //unsigned int min_uv = max(constraints->min_uV, cfg->base_uv);
     unsigned int min_uv = max_t(int, constraints->min_uV, cfg->base_uv);
@@ -804,6 +793,114 @@ static const struct of_device_id es501x_of_match[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, es501x_of_match);
+
+static int es501x_of_parse_cb(struct device_node *np,
+                             const struct regulator_desc *desc,
+                             struct regulator_config *config)
+{
+    struct regulator_init_data *init_data = config->init_data;
+    struct regulation_constraints *c;
+
+    if (!init_data)
+        return 0;
+
+    c = &init_data->constraints;
+
+    /* ES501x does NOT support current limit */
+    c->min_uA = 0;
+    c->max_uA = 0;
+
+    /* ES501x does NOT support OVP / UVP */
+    c->over_voltage_detection = false;
+    c->under_voltage_detection = false;
+
+    return 0;
+}
+
+#ifdef CONFIG_DEBUG_FS
+static int es501x_debug_set_voltage(struct es501x_DRIVER_DATA *data, u32 uV)
+{
+	struct regulator_dev *rdev = data->rdev;
+	const struct es501x_voltage_config *cfg = data->vconfig;
+	int sel, ret;
+	u32 min_uV, max_uV;
+	if (!cfg)
+		return -EINVAL;
+	u32 min_limit, max_limit;
+
+	min_limit = (u32)data->constraints->min_uV;
+	max_limit = (u32)data->constraints->max_uV;
+	min_uV = max(cfg->base_uv, min_limit);
+	max_uV = min(cfg->base_uv + cfg->step_uv * cfg->max_vset,
+	     max_limit);
+
+	if (uV < min_uV || uV > max_uV) {
+		dev_warn(data->dev,
+			 "debug voltage %u uV out of current VRANGE [%u, %u]\n",
+			 uV, min_uV, max_uV);
+		return -EINVAL;
+	}
+
+	sel = regulator_map_voltage_linear_range(rdev, uV, uV);
+	if (sel < 0)
+		return sel;
+
+	if (!es501x_regulator_is_enabled(rdev))
+		dev_warn(data->dev,
+			 "regulator disabled, voltage applies after enable\n");
+
+	mutex_lock(&data->config_lock);
+	ret = es501x_set_voltage_sel(rdev, sel);
+	mutex_unlock(&data->config_lock);
+
+	if (!ret)
+		dev_info(data->dev,
+			 "debug set voltage %u uV (sel=%d, description=%s)\n",
+			 uV, sel, cfg->description);
+
+	return ret;
+}
+
+static ssize_t es501x_force_voltage_write(struct file *file,
+					  const char __user *buf,
+					  size_t count,
+					  loff_t *ppos)
+{
+	struct es501x_DRIVER_DATA *data = file->private_data;
+	u32 uV;
+	int ret;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (kstrtou32_from_user(buf, count, 0, &uV))
+		return -EINVAL;
+
+	ret = es501x_debug_set_voltage(data, uV);
+	if (ret)
+		dev_err(data->dev, "Eswin force voltage failed: %d\n", ret);
+
+	return count;
+}
+
+static ssize_t es501x_force_voltage_read(struct file *file,
+        char __user *buf, size_t count, loff_t *ppos)
+{
+	struct es501x_DRIVER_DATA *data = file->private_data;
+	char tmp[32];
+	int len;
+	u32 uV;
+	uV = es501x_get_vout(data);
+	len = snprintf(tmp, sizeof(tmp), "%u\n", uV);
+	return simple_read_from_buffer(buf, count, ppos, tmp, len);
+}
+
+static const struct file_operations es501x_force_voltage_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read  = es501x_force_voltage_read,
+	.write = es501x_force_voltage_write,
+};
+#endif
 
 static s32 es501x_probe(struct i2c_client *client)
 {
@@ -859,7 +956,7 @@ static s32 es501x_probe(struct i2c_client *client)
         break;
 	}
     //data->vconfig = &vrange_configs[data->vrange];
-    /* 设置VRANGE模式 */
+    /* Set VRANGE mode */
     ret = es501x_set_vrange(client, data->vrange);
     if (ret < 0) {
         return ret;
@@ -935,13 +1032,14 @@ static s32 es501x_probe(struct i2c_client *client)
         .linear_ranges = data->ranges,
         .n_linear_ranges = 1,
         .n_voltages = data->ranges[0].max_sel + 1,
+		.of_parse_cb = es501x_of_parse_cb,
     };
     data->rdev = devm_regulator_register(dev, &data->desc, &config);
     if (IS_ERR(data->rdev))
     {
         dev_err(dev, "failed to register %s\n", data->desc.name);
 		return IS_ERR(data->rdev);
-    }	
+    }
     ret = es501x_regulator_initvolt(data->rdev);
     if (ret) {
         dev_err(dev, "Error regulator enable failed, because init voltage failed ret=%d\n", ret);
@@ -954,6 +1052,15 @@ static s32 es501x_probe(struct i2c_client *client)
         dev_err(dev, "Eswin failed to register hwmon device %d\n", PTR_ERR(hwmon_dev));
         return PTR_ERR(hwmon_dev);
     }
+
+#ifdef CONFIG_DEBUG_FS
+    data->debug_root = debugfs_create_dir("es5035", NULL);
+    if (data->debug_root) {
+        debugfs_create_file("force_microvolt", 0644, data->debug_root,
+							data, &es501x_force_voltage_fops);
+    }
+#endif
+
     dev_dbg(dev, "Eswin es501x_probe\n");
     return 0;
 }
