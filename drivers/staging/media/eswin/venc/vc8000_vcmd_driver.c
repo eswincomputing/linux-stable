@@ -1751,8 +1751,8 @@ static long link_and_run_cmdbuf(struct file *filp,
 			       ((struct cmdbuf_obj *)last_cmdbuf_node->data)->cmdbuf_id,
 			       ((struct cmdbuf_obj *)last_cmdbuf_node->data)->cmdbuf_run_done);
 		}
-		LOG_INFO("link_and_run_cmdbuf, restart vcmd, cmdbuf_id = %u, restart_cmdbuf_id = %u\n"
-			, cmdbuf_id, dev->restart_cmdbuf_id);
+		LOG_INFO("link_and_run_cmdbuf, restart vcmd, core_id = %u, cmdbuf_id = %u, restart_cmdbuf_id = %u\n"
+			, dev->core_id, cmdbuf_id, dev->restart_cmdbuf_id);
 		if (dev->restart_cmdbuf_id == 0XFFFF)
 			vcmd_start(dev, last_cmdbuf_node);
 	} else {
@@ -4731,8 +4731,6 @@ int vc8000e_vcmd_reset(u32 core_id)
 	unsigned long flags;
 	struct hantrovcmd_dev *dev = NULL;
 
-	LOG_DBG("vc8000e_vcmd_reset\n");
-
 	if (core_id >= venc_vcmd_core_num) {
 		LOG_ERR("vc8000e_vcmd_reset, invalid core_id = %u, venc_vcmd_core_num = %u\n"
 			, core_id, venc_vcmd_core_num);
@@ -4750,7 +4748,7 @@ int vc8000e_vcmd_reset(u32 core_id)
     u32 rdy_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT);
     u32 exe_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_EXE_CMDBUF_COUNT);
 
-	LOG_INFO("vc8000e_vcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
+	LOG_DBG("vc8000e_vcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
         , core_id, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
     dev->working_state = working_state;
     dev->sw_cmdbuf_rdy_num = rdy_cmdbuf_count;

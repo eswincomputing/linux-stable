@@ -4110,7 +4110,7 @@ static int check_dev_idle(struct hantrovcmd_dev *dev) {
 		// LOG_WARN("check_dev_idle, vcmd_state = %u\n", vcmd_state);
 	}
 	spin_unlock_irqrestore(dev->spinlock, flags);
-	LOG_INFO("check_dev_idle for core %u, vcmd_state = %u, exe_cnt = 0x%x, rdy_cnt = 0x%x\n"
+	LOG_DBG("check_dev_idle for core %u, vcmd_state = %u, exe_cnt = 0x%x, rdy_cnt = 0x%x\n"
 		, dev->core_id, vcmd_state, exe_cmdbuf_cnt, rdy_cmdbuf_cnt);
 	return idle;
 }
@@ -4430,7 +4430,7 @@ void hantrovcmd_abort(u32 core_id) {
 			, core_id, total_vcmd_core_num);
 		return;
 	}
-	LOG_INFO("hantrovcmd_abort for core_id %u\n", core_id);
+	LOG_DBG("hantrovcmd_abort for core_id %u\n", core_id);
 
 	dev = &hantrovcmd_data[core_id];
 	spin_lock_irqsave(dev->spinlock, flags);
@@ -4483,7 +4483,7 @@ int hantrovcmd_reset(u32 core_id) {
 	u32 rdy_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT);
 	u32 exe_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_EXE_CMDBUF_COUNT);
 
-	LOG_INFO("hantrovcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
+	LOG_DBG("hantrovcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
 		, core_id, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
 	dev->working_state = working_state;
 	dev->sw_cmdbuf_rdy_num = rdy_cmdbuf_count;
