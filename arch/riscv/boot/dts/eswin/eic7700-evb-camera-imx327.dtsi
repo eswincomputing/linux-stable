@@ -205,8 +205,8 @@
 			address-cells = <1>;
 			size-cells = <0>;
 			reg = <0x36>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
 			assigned-clock-rates = <37125000>;
 			clock-names = "xclk";
 			/* Reset and power down GPIOs controlled by tca6416_0 */
@@ -235,8 +235,8 @@
 			address-cells = <1>;
 			size-cells = <0>;
 			reg = <0x36>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
+			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
 			assigned-clock-rates = <37125000>;
 			clock-names = "xclk";
 			/* Reset and power down GPIOs controlled by tca6416_0 */
