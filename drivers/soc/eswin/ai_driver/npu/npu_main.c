@@ -393,7 +393,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(dev);
 	struct dev_pm_opp *opp;
 	unsigned long target_volt, target_rate;
-	int ret;
+	int ret = 0;
 	struct npu_freq_param *tbl = NULL;
 	int highset_idx = nvdla_dev->freq_count - 1;
 	int tbl_idx = 0;
@@ -411,10 +411,10 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	target_volt = dev_pm_opp_get_voltage(opp);
 	dev_pm_opp_put(opp);
 
-	if (target_rate == nvdla_dev->rate) {
-		return 0;
-	}
 	mutex_lock(&nvdla_dev->devfreq_lock);
+	if (target_rate == nvdla_dev->rate) {
+		goto out;
+	}
 
 	for (int i = 0; i < nvdla_dev->freq_count; i++) {
 		if (nvdla_dev->freq_tbl[i].npu_rate == target_rate && nvdla_dev->freq_tbl[i].valid == 1) {
@@ -978,6 +978,8 @@ int __maybe_unused npu_runtime_suspend(struct device *dev)
 		return -EIO;
 	}
 
+	dev_pm_qos_update_request(&ndev->req_max_freq, DIV_ROUND_UP(ndev->freq_tbl[0].npu_rate, HZ_PER_KHZ));
+
 	mutex_lock(&ndev->devfreq_lock);
 	for (u32 i = 0; i < ndev->freq_count; i++) {
 		if (ndev->freq_tbl[i].npu_rate == ndev->rate) {
@@ -1004,9 +1006,6 @@ int __maybe_unused npu_runtime_suspend(struct device *dev)
 	npu_tbu_power(dev, false);
 	npu_disable_clock(ndev);
 	mutex_unlock(&ndev->devfreq_lock);
-
-	dev_pm_qos_update_request(&ndev->req_max_freq, DIV_ROUND_UP(ndev->freq_tbl[0].npu_rate, HZ_PER_KHZ));
-
 	return 0;
 }
 
