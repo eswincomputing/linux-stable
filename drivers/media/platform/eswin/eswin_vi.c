@@ -137,7 +137,7 @@ int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 			val |= (CSI_CONTROLLER_ID4 << VI_TOP_ISP1_DVP0_SEL_OFFSET);
 			break;
 	}
-    
+
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP_DVP_SEL, val);
 	vi_top_register_write(es_vi_dev, VI_TOP_ISP0_DVP0_SIZE,
 		(es_vi_dev->isp_dvp0_ver << 16) |
