@@ -47,7 +47,7 @@
 #include <uapi/linux/mmz_vb.h>
 #include "include/linux/mmz_vb.h"
 #include <asm/dma-noncoherent.h>
-
+#include "../eswin_debug_dmabuf_info.h"
 
 MODULE_IMPORT_NS(DMA_BUF);
 
@@ -1041,7 +1041,9 @@ static int mmz_vb_do_create_pool(struct esVB_POOL_CONFIG_S *pool_cfg,
 			while (--i >= 0) {
 				vb_blk_pages_release(memblock, &pool->blocks[i]);
 			}
-			dev_err(mmz_vb_dev, "%s %d, faild to alloc block page!\n", __func__,__LINE__);
+                        eswin_dmabuf_dump_info();
+			dev_err_ratelimited(mmz_vb_dev, "%s out of memory! try alloc 0x%llxbytes failed",
+				            memBlkName, pool_cfg->blkSize);
 			ret = -ENOMEM;
 			goto out_free_bitmap;
 		}

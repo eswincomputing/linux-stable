@@ -6,10 +6,11 @@ obj-$(CONFIG_ESWIN_BUDDY)			+= es_buddy/
 obj-$(CONFIG_ESWIN_PROC)			+= es_proc/
 obj-$(CONFIG_ESWIN_RSVMEM_HEAP)			+= es_rsvmem_heap/
 obj-$(CONFIG_ESWIN_RSVMEM_HEAP)			+= es_mmz_vb/
+obj-$(CONFIG_ESWIN_RSVMEM_HEAP)			+= eswin_debug_dmabuf_info.o
 obj-$(CONFIG_ESWIN_DEV_DMA_BUF)			+= es_dev_buf/
 obj-$(CONFIG_ESWIN_IOMMU_RSV)			+= es_iommu_rsv/
-obj-$(CONFIG_ESWIN_DMA_MEMCP)           += es_dma_memcp/
-obj-$(CONFIG_ESWIN_MALLOC_DMABUF)       += es_malloc_dmabuf/
+obj-$(CONFIG_ESWIN_DMA_MEMCP)			+= es_dma_memcp/
+obj-$(CONFIG_ESWIN_MALLOC_DMABUF)		+= es_malloc_dmabuf/
 
 ES_MEM_HEADER := drivers/memory/eswin/
 

@@ -1626,7 +1626,6 @@ static int dma_buf_debug_show(struct seq_file *s, void *unused)
 		if (ret)
 			goto error_unlock;
 
-
 		spin_lock(&buf_obj->name_lock);
 		seq_printf(s, "%08zu\t%08x\t%08x\t%08ld\t%s\t%08lu\t%s\n",
 				buf_obj->size,
@@ -1705,6 +1704,12 @@ static inline void dma_buf_uninit_debugfs(void)
 {
 }
 #endif
+
+void dma_buf_call_show(struct seq_file *s)
+{
+	dma_buf_debug_show(s, NULL);
+}
+EXPORT_SYMBOL_NS_GPL(dma_buf_call_show, DMA_BUF);
 
 static int __init dma_buf_init(void)
 {
