@@ -655,7 +655,7 @@ static int dw_hdmi_i2c_xfer(struct i2c_adapter *adap,
 		}
 		if (ret < 0) {
 			dev_info(hdmi->dev, "i2c transfer fail\n");
-			udelay(200 * 1000);
+			udelay(20 * 1000);
 			break;
 		}
 	}

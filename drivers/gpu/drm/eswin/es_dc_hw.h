@@ -22,6 +22,7 @@
 #ifndef __ES_DC_HW_H__
 #define __ES_DC_HW_H__
 
+#include <linux/spinlock.h>
 #include "es_dc_mmu.h"
 
 #define DC_HW_REVISION 0x24
@@ -457,6 +458,7 @@ struct dc_hw {
 	struct dc_hw_cursor cursor;
 	struct dc_hw_funcs *func;
 	struct es_dc_info *info;
+	spinlock_t lock;
 };
 
 int dc_hw_init(struct dc_hw *hw);

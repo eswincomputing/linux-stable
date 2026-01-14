@@ -23,6 +23,7 @@
 #include <linux/bits.h>
 #include <linux/media-bus-format.h>
 #include <linux/delay.h>
+#include <linux/kernel.h>
 
 #include <drm/drm_fourcc.h>
 #include <drm/drm_blend.h>
@@ -798,6 +799,7 @@ int dc_hw_init(struct dc_hw *hw)
 	u32 revision = hi_read(hw, DC_HW_REVISION);
 	u32 cid = hi_read(hw, DC_HW_CHIP_CID);
 
+	spin_lock_init(&hw->lock);
 	switch (revision) {
 	case 0x5551:
 		if (cid < 0x306)
@@ -1032,10 +1034,15 @@ static void gamma_ex_commit(struct dc_hw *hw)
 {
 	u16 i;
 	u32 value;
+	unsigned long flags;
 
+	spin_lock_irqsave(&hw->lock, flags);
 	if (hw->gamma.dirty) {
 		if (hw->gamma.enable) {
 			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, 0, BIT(4)); //close timing befor set table
+			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, BIT(4), 0); //open timing befor set table
+			if ((dc_read(hw, DC_FRAMEBUFFER_CONFIG) & BIT(2)))
+				dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, 0, BIT(2));
 			dc_write(hw, DC_DISPLAY_GAMMA_EX_INDEX, 0x00);
 			for (i = 0; i < GAMMA_EX_SIZE; i++) {
 				value = hw->gamma.gamma[i][2] |
@@ -1045,12 +1052,12 @@ static void gamma_ex_commit(struct dc_hw *hw)
 					 hw->gamma.gamma[i][0]);
 			}
 			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, BIT(2), 0);
-			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, BIT(4), 0);
 		} else {
 			dc_set_clear(hw, DC_FRAMEBUFFER_CONFIG, 0, BIT(2));
 		}
 		hw->gamma.dirty = false;
 	}
+	spin_unlock_irqrestore(&hw->lock, flags);
 }
 
 static void plane_commit(struct dc_hw *hw)
