@@ -466,13 +466,13 @@ static int ahci_dwc_probe(struct platform_device *pdev)
 	if (IS_ERR(hpriv))
 		return PTR_ERR(hpriv);
 
-	eswin_sata_sid_cfg(&pdev->dev);
-
-	win2030_tbu_power(&pdev->dev, true);
-
 	rc = ahci_dwc_init_host(hpriv);
 	if (rc)
 		return rc;
+
+	eswin_sata_sid_cfg(&pdev->dev);
+
+	win2030_tbu_power(&pdev->dev, true);
 
 	rc = ahci_platform_init_host(pdev, hpriv, &ahci_dwc_port_info,
 				     &ahci_dwc_scsi_info);
