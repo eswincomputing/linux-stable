@@ -677,6 +677,7 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 		return -1;
 	}
 
+	LOG_INFO("venc_smmu_dynm_sid_init\n");
 	venc_csr_reg = ioremap(vccsr_addr[1], vccsr_addr[3]);
 	if (!venc_csr_reg) {
 		LOG_ERR("venc_csr_reg not initialized\n");
@@ -684,11 +685,11 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 	}
 
 	if (VCMD_TYPE_ENCODER == module_type) {
-		LOG_DBG("write VENC_MMU_AWSSID_OFF=%x, value=%x\n", VENC_MMU_AWSSID_OFF, WIN2030_SID_VENC);
+		LOG_INFO("write VENC_MMU_AWSSID_OFF=%x, value=%x\n", VENC_MMU_AWSSID_OFF, WIN2030_SID_VENC);
 		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_AWSSID_OFF));
-		LOG_DBG("write VENC_MMU_ARSSID_OFF=%x, value=%x\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
+		LOG_INFO("write VENC_MMU_ARSSID_OFF=%x, value=%x\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
 		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_ARSSID_OFF));
-		LOG_DBG("write VENC_MMU_ARSSID_OFF=%x, value=%x completed\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
+		LOG_INFO("write VENC_MMU_ARSSID_OFF=%x, value=%x completed\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
 	} else {
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_AWSSID_OFF));
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_ARSSID_OFF));
@@ -799,19 +800,16 @@ static int venc_dev_open(struct device *dev)
 		goto end;
 	}
 #ifdef SUPPORT_DMA_HEAP
-	LOG_DBG("venc_smmu_dynm_sid_init, mod_type = %u\n", VCMD_TYPE_ENCODER);
 	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_ENCODER);
 	if (ret < 0) {
 		LOG_ERR("ve: dynamic smmu sid set failed");
 		return -1;
 	}
-	LOG_DBG("venc_smmu_dynm_sid_init, mod_type = %u\n", VCMD_TYPE_JPEG_ENCODER);
 	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_JPEG_ENCODER);
 	if (ret < 0) {
 		LOG_ERR("je: dynamic smmu sid set failed");
 		return -1;
 	}
-	LOG_DBG("venc_smmu_dynm_sid_init completed, mod_type = %u\n", VCMD_TYPE_JPEG_ENCODER);
 #endif
 
 	venc_reset_device(pdev);
