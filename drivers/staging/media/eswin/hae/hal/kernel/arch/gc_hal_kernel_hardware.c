@@ -6229,22 +6229,13 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
         goto OnError;
     }
 
-#if gcdPOWEROFF_TIMEOUT
-    if (state == gcvPOWER_ON) {
-        Hardware->nextPowerState = gcvPOWER_INVALID;
-    }
-
-    if (broadcast && !timeout && state == gcvPOWER_OFF) {
+    if (Hardware->powerOffTimeout && !timeout && broadcast && (state == gcvPOWER_OFF)) {
+        Hardware->nextPowerState = gcvPOWER_OFF_TIMEOUT;
+        gcmkVERIFY_OK(gckOS_StartTimer(os, Hardware->powerStateTimer,
+                                       Hardware->powerOffTimeout));
         status = gcvSTATUS_OK;
         goto OnError;
     }
-
-    if (timeout && Hardware->nextPowerState == gcvPOWER_INVALID) {
-        /* Delayed power state change is canceled. */
-        status = gcvSTATUS_OK;
-        goto OnError;
-    }
-#endif
 
     if (global) {
         if (state != gcvPOWER_ON) {
@@ -6391,17 +6382,27 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
         gckDVFS_Start(Hardware->kernel->dvfs);
 #endif
 
-#if gcdPOWEROFF_TIMEOUT
-    if (Hardware->powerOffTimeout &&
-        (state == gcvPOWER_IDLE || state == gcvPOWER_SUSPEND)) {
-        /* Delayed power off. */
-        Hardware->nextPowerState = gcvPOWER_OFF_TIMEOUT;
-
-        /* Start a timer to power off GPU when GPU enters IDLE or SUSPEND. */
-        gcmkVERIFY_OK(gckOS_StartTimer(os, Hardware->powerStateTimer,
-                                       Hardware->powerOffTimeout));
+    if (state != gcvPOWER_OFF) {
+        Hardware->nextPowerState = gcvPOWER_INVALID;
     }
-#endif
+
+    switch (Hardware->chipPowerState) {
+        case gcvPOWER_ON:
+            Hardware->chipPowerOnCnt++;
+            break;
+        case gcvPOWER_IDLE:
+            Hardware->chipPowerIdleCnt++;
+            break;
+        case gcvPOWER_SUSPEND:
+            Hardware->chipPowerSuspendCnt++;
+            break;
+        case gcvPOWER_OFF:
+            Hardware->chipPowerOffCnt++;
+            break;
+        default:
+            break;
+    }
+    Hardware->chipPowerChangeCnt++;
 
     /* Release the power mutex. */
     gcmkONERROR(gckOS_ReleaseMutex(os, Hardware->powerMutex));

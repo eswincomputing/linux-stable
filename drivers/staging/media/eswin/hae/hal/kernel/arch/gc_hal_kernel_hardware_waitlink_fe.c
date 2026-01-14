@@ -1138,19 +1138,23 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
         do {
             gcmkVERIFY_OK(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                                0x00004, &idle));
-            if (idle != 0x7FFFFFFF) {
-                ret = gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvFALSE, gcdGPU_2D_TIMEOUT);
-                if (ret != gcvSTATUS_OK) {
-                    if (try_cnt++ < 5) {
-                        hae_print("core: %d, addr: 0x%llx(0x%llx) ret: %d, try: %d",
-                            Hardware->core, Address, Hardware->lastExecuteAddress, ret, try_cnt);
-                    } else {
-                        hae_print("core: %d, addr: 0x%llx(0x%llx) power: %d, ret: %d, wait sig timeout!",
-                            Hardware->core, Address, Hardware->lastExecuteAddress, Hardware->powerState, ret);
+            if (idle == 0x7FFFFFFF) {
+                break;
+            }
 
-                        status = gcvSTATUS_TIMEOUT;
-                        goto OnError;
-                    }
+            ret = gckOS_WaitSignal(Hardware->os, Hardware->feIdleSignal, gcvFALSE, 100);
+            if (ret != gcvSTATUS_OK) {
+                if ((try_cnt % 10) == 0) {
+                    hae_print("core: %d, addr: 0x%llx(0x%llx) ret: %d, try: %d",
+                        Hardware->core, Address, Hardware->lastExecuteAddress, ret, try_cnt);
+                }
+
+                if (try_cnt++ > 50) {
+                    hae_print("core: %d, addr: 0x%llx(0x%llx) power: %d, ret: %d, wait sig timeout!",
+                        Hardware->core, Address, Hardware->lastExecuteAddress, Hardware->powerState, ret);
+
+                    status = gcvSTATUS_TIMEOUT;
+                    goto OnError;
                 }
             }
         } while (idle != 0x7FFFFFFF);

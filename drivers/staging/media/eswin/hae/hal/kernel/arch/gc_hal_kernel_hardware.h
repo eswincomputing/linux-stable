@@ -261,6 +261,13 @@ struct _gckHARDWARE {
     gctUINT64                   shStart;
     gctUINT64                   threadMcClk;
     gctUINT64                   threadShClk;
+    gctUINT64                   firstProcessCnt;
+    gctUINT64                   lastProcessCnt;
+    gctUINT64                   chipPowerOffCnt;
+    gctUINT64                   chipPowerOnCnt;
+    gctUINT64                   chipPowerIdleCnt;
+    gctUINT64                   chipPowerSuspendCnt;
+    gctUINT64                   chipPowerChangeCnt;
 };
 
 gceSTATUS

@@ -242,6 +242,9 @@ _TryToIdleGPU(gckEVENT Event)
 
     gcmkVERIFY_OBJECT(hardware, gcvOBJ_HARDWARE);
 
+    // not use idle gpu method to simple power mangement state
+    return status;
+
     if (!hardware->options.powerManagement) {
         gcmkFOOTER();
         return status;

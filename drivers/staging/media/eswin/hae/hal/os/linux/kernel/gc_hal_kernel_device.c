@@ -65,10 +65,10 @@
 
 #include "gc_hal_kernel_debug_esw.h"
 
-#define MAX_ISR_NOT_HANDLED_CNT 1000
+#define MAX_ISR_NOT_HANDLED_CNT 2000
 
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
-#define ESWIN_HAE_VERSION "2026010500"
+#define ESWIN_HAE_VERSION "2026012200"
 
 static gckGALDEVICE     galDevice;
 
@@ -955,7 +955,9 @@ static int gc_idle_show_clk_state(void *m, gckDEVICE device)
         len += fs_printf(ptr + len, "dev_core         : %d\n", i);
         len += fs_printf(ptr + len, "delay_time_ms    : %d\n", device->kernels[i]->hardware->powerOffTimeout);
         len += fs_printf(ptr + len, "next_power_stat  : 0x%x\n", device->kernels[i]->hardware->nextPowerState);
-        len += fs_printf(ptr + len, "curr_powet_stat  : 0x%x\n", device->kernels[i]->hardware->chipPowerState);
+        len += fs_printf(ptr + len, "chip_powet_stat  : 0x%x\n", device->kernels[i]->hardware->chipPowerState);
+        len += fs_printf(ptr + len, "power_stat  : 0x%x\n", device->kernels[i]->hardware->powerState);
+        len += fs_printf(ptr + len, "clock_stat  : 0x%x\n", device->kernels[i]->hardware->clockState);
 
         /* Idle time since last call */
         print_ull(str, on);
@@ -1005,6 +1007,94 @@ gc_idle_show(void *m, void *data)
         }
 
         len += gc_idle_show_clk_state(m, device);
+    }
+
+    return len;
+}
+
+static int gc_run_state_show_dev(void *m, gckDEVICE device)
+{
+    gctUINT32 i;
+    gctINT32 len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+    gckKERNEL kernel = gcvNULL;
+
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        if (!device->kernels[i]) {
+            continue;
+        }
+
+        if (!device->kernels[i]->hardware) {
+            continue;
+        }
+
+        kernel = device->kernels[i];
+
+        len = fs_printf(ptr, "---- kernel ----\n");
+        len += fs_printf(ptr + len, "dev_id           : %d\n", device->id);
+        len += fs_printf(ptr + len, "dev_core         : %d\n", i);
+        len += fs_printf(ptr + len, "os_clock_stat    : %d\n", kernel->os->clockStates[kernel->device->id][kernel->core]);
+        len += fs_printf(ptr + len, "os_power_stat    : %d\n", kernel->os->powerStates[kernel->device->id][kernel->core]);
+        len += fs_printf(ptr + len, "os_process_id    : %d\n", kernel->os->kernelProcessID);
+        len += fs_printf(ptr + len, "isr_wakeup_cnt   : %llu\n", kernel->isrWakeupCnt);
+
+        len += fs_printf(ptr + len, "--- event ---\n");
+        len += fs_printf(ptr + len, "total_queue_cnt  : %d\n", kernel->eventObj->totalQueueCount);
+        len += fs_printf(ptr + len, "free_queue_cnt   : %d\n", kernel->eventObj->freeQueueCount);
+        len += fs_printf(ptr + len, "queue_head       : %p\n", kernel->eventObj->queueHead);
+        len += fs_printf(ptr + len, "event_last_id    : %d\n", kernel->eventObj->lastID);
+        len += fs_printf(ptr + len, "notify_stat      : %d\n", kernel->eventObj->notifyState);
+        len += fs_printf(ptr + len, "event_stamp      : %llu\n", kernel->eventObj->stamp);
+        len += fs_printf(ptr + len, "--- command ---\n");
+        len += fs_printf(ptr + len, "run_state        : %d\n", kernel->command->running);
+        len += fs_printf(ptr + len, "idle_state       : %d\n", kernel->command->idle);
+        len += fs_printf(ptr + len, "index            : %d\n", kernel->command->index);
+        len += fs_printf(ptr + len, "process_id       : %u\n", kernel->command->kernelProcessID);
+        len += fs_printf(ptr + len, "commit_stamp     : %llu\n", kernel->command->commitStamp);
+        len += fs_printf(ptr + len, "addr             : 0x%llx\n", kernel->command->address);
+        len += fs_printf(ptr + len, "--- hardware ---\n");
+        len += fs_printf(ptr + len, "chip_power_stat  : %d\n", kernel->hardware->chipPowerState);
+        len += fs_printf(ptr + len, "next_power_stat  : %d\n", kernel->hardware->nextPowerState);
+        len += fs_printf(ptr + len, "power_stat       : %d\n", kernel->hardware->powerState);
+        len += fs_printf(ptr + len, "clock_stat       : %d\n", kernel->hardware->clockState);
+        len += fs_printf(ptr + len, "execute_cnt      : %u\n", kernel->hardware->executeCount);
+        len += fs_printf(ptr + len, "first_proc_cnt   : %u\n", kernel->hardware->firstProcessCnt);
+        len += fs_printf(ptr + len, "last_proc_cnt    : %u\n", kernel->hardware->lastProcessCnt);
+        len += fs_printf(ptr + len, "wait_cnt         : %u\n", kernel->hardware->waitCount);
+        len += fs_printf(ptr + len, "pw_on_cnt        : %u\n", kernel->hardware->chipPowerOnCnt);
+        len += fs_printf(ptr + len, "pw_idle_cnt      : %u\n", kernel->hardware->chipPowerIdleCnt);
+        len += fs_printf(ptr + len, "pw_suspend_cnt   : %u\n", kernel->hardware->chipPowerSuspendCnt);
+        len += fs_printf(ptr + len, "pw_off_cnt       : %u\n", kernel->hardware->chipPowerOffCnt);
+        len += fs_printf(ptr + len, "pw_change_cnt    : %u\n", kernel->hardware->chipPowerChangeCnt);
+        len += fs_printf(ptr + len, "last_exe_addr    : 0x%llx\n", kernel->hardware->lastExecuteAddress);
+    }
+
+    return len;
+}
+
+static int
+gc_run_state_show(void *m, void *data)
+{
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE device = gcvNULL;
+    gctUINT32 i;
+    int len = 0;
+
+    if (!gal_device) {
+        return 0;
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
+        }
+
+        len += gc_run_state_show_dev(m, device);
     }
 
     return len;
@@ -1694,6 +1784,12 @@ gc_idle_show_debugfs(struct seq_file *m, void *data)
 }
 
 int
+gc_run_state_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_run_state_show((void *)m, data);
+}
+
+int
 gc_db_old_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_db_old_show((void *)m, data, gcvTRUE);
@@ -1806,6 +1902,7 @@ static gcsINFO InfoList[] = {
     { "load", gc_load_show_debugfs },
 # endif
     { "recovery", gc_recovery_trigger_debugfs },
+    { "run_state", gc_run_state_show_debugfs },
 };
 
 #else
@@ -2366,7 +2463,8 @@ void hae_routine_work_func(struct work_struct *work)
             }
 
             gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_ON_AUTO);
-            hae_print("hae dev: %u, hard: %p force power on.\n", i, device->kernels[i]->hardware);
+            hae_print("hae dev: %u, core: %d, hard: %p force power on.\n",
+                i, device->kernels[i]->core, device->kernels[i]->hardware);
         }
     }
 
@@ -2380,23 +2478,31 @@ isrRoutine(int irq, void *ctxt)
 {
     gceSTATUS status;
     gckKERNEL kernel = (gckKERNEL)ctxt;
+    gceCORE core_id = kernel->core;
+    gctUINT dev_id = kernel->device->id;
+
     static gctUINT32 invalid_io_cnt = 0;
 
     /* Call kernel interrupt notification. */
     status = gckHARDWARE_Interrupt(kernel->hardware);
 
     if (gcmIS_SUCCESS(status)) {
+        kernel->isrWakeupCnt++;
         up(kernel->sema);
         return IRQ_HANDLED;
     }
 
     if(status == gcvSTATUS_GENERIC_IO){
-        if (invalid_io_cnt++ > MAX_ISR_NOT_HANDLED_CNT) {
-            hae_print("hae irq: %d, core: %d, addr: %llx clock close.\n",
-                irq, kernel->core, kernel->hardware->lastExecuteAddress);
+        if ((invalid_io_cnt % MAX_ISR_NOT_HANDLED_CNT) == 0) {
             schedule_work(&hae_routine_wq);
-            invalid_io_cnt = 0;
+
+            hae_print("hae irq: %d, core: %d, addr: %llx, os(clock: %d, power: %d), hard(clock: %d, power: %d, chip_power: %d), cnt: %u, invalid!\n",
+                irq, kernel->core, kernel->hardware->lastExecuteAddress,
+                kernel->os->clockStates[dev_id][core_id], kernel->os->powerStates[dev_id][core_id],
+                kernel->hardware->clockState, kernel->hardware->powerState, kernel->hardware->chipPowerState,
+                invalid_io_cnt);
         }
+        invalid_io_cnt++;
     }
 
     return IRQ_NONE;

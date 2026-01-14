@@ -4309,14 +4309,18 @@ gckOS_Broadcast(gckOS Os, gckHARDWARE Hardware, gceBROADCAST Reason)
     switch (Reason) {
     case gcvBROADCAST_FIRST_PROCESS:
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "First process has attached");
+        Hardware->firstProcessCnt++;
+        /* if last process report, but in delay time, first process time come, power on to cacel power off */
+        gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
         break;
 
     case gcvBROADCAST_LAST_PROCESS:
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "Last process has detached");
+        Hardware->lastProcessCnt++;
 
         /* Put GPU OFF. */
         /* With PM, Clock will power off by powerStateTimer*/
-#if !gcdENABLE_PER_DEVICE_PM
+#if gcdENABLE_PER_DEVICE_PM
         gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_OFF_BROADCAST));
 #endif
         break;

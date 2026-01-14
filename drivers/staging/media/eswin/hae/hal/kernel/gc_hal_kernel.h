@@ -500,7 +500,7 @@ struct _gckKERNEL {
     gctUINT32                   nextMmuDescId;
     gctUINT32                   *mmuDescMap;
     gctPOINTER                  mmuDescMutex;
-
+    gctUINT64                   isrWakeupCnt;
 #if gcdENABLE_SW_PREEMPTION
     gctPOINTER                  priorityQueueMutex[gcdMAX_PRIORITY_QUEUE_NUM];
     gcsPRIORITY_QUEUE_PTR       priorityQueues[gcdMAX_PRIORITY_QUEUE_NUM];
