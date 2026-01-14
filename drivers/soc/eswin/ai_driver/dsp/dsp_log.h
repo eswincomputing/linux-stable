@@ -42,6 +42,6 @@ extern int dsp_log_level;
 	} while (0)
 
 #define dsp_err(fmt, ...) dsp_log(LOG_ERROR, fmt, ##__VA_ARGS__)
-#define dsp_warning(fmt, ...) dsp_log(LOG_WARNING, fmt, ##__VA_ARGS__)
+#define dsp_warn(fmt, ...) dsp_log(LOG_WARNING, fmt, ##__VA_ARGS__)
 #define dsp_info(fmt, ...) dsp_log(LOG_INFO, fmt, ##__VA_ARGS__)
 #define dsp_debug(fmt, ...) dsp_log(LOG_DEBUG, fmt, ##__VA_ARGS__)

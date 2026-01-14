@@ -432,32 +432,32 @@ static ssize_t store_reg_val(struct device *d, struct device_attribute *attr,
 
 int npu_clk_reset_print(struct platform_device *pdev, int numa_id);
 
-int dla_noc_sideband_query(struct nvdla_device *nvdla_dev)
+int dla_noc_sideband_query(void)
 {
 	int ret = 0;
 	int noc_falut = 0;
 
 	ret = win2030_noc_sideband_mgr_query(SBM_NPU_SNOC_SP0);
 	if (ret != 1) {
-		dev_info(&nvdla_dev->pdev->dev, "warning:SBM_NPU_SNOC_SP0 state:%d\n", ret);
+		dla_warn("warning:SBM_NPU_SNOC_SP0 state:%d\n", ret);
 		noc_falut = -1;
 	}
 
 	ret = win2030_noc_sideband_mgr_query(SBM_NPU_SNOC_SP1);
 	if (ret != 1) {
-		dev_info(&nvdla_dev->pdev->dev, "warning:SBM_NPU_SNOC_SP1 state:%d\n", ret);
+		dla_warn("warning:SBM_NPU_SNOC_SP1 state:%d\n", ret);
 		noc_falut = -1;
 	}
 
 	ret = win2030_noc_sideband_mgr_query(SBM_SNOC_NPU);
 	if (ret != 1) {
-		dev_info(&nvdla_dev->pdev->dev, "warning:SBM_SNOC_NPU state:%d\n", ret);
+		dla_warn("warning:SBM_SNOC_NPU state:%d\n", ret);
 		noc_falut = -1;
 	}
 
 	ret = win2030_noc_sideband_mgr_query(SBM_CNOC_NPU);
 	if (ret != 1) {
-		dev_info(&nvdla_dev->pdev->dev, "warning:SBM_CNOC_NPU state:%d\n", ret);
+		dla_warn("warning:SBM_CNOC_NPU state:%d\n", ret);
 		noc_falut = -1;
 	}
 	return noc_falut;
@@ -474,13 +474,14 @@ static int npu_restart_init(struct nvdla_device *nvdla_dev)
 	return ret;
 }
 
+/* If (nvdla_dev == NULL) means no reset is required */
 int npu_hardware_reset(struct nvdla_device *nvdla_dev)
 {
 	int try_cnt = 10;
 	int ret = 0;
 
 	while (--try_cnt) {
-		ret = dla_noc_sideband_query(nvdla_dev);
+		ret = dla_noc_sideband_query();
 		if (ret) {
 			msleep(200);
 			continue;
@@ -490,7 +491,7 @@ int npu_hardware_reset(struct nvdla_device *nvdla_dev)
 	}
 
 	if ((try_cnt == 0) && (ret != 0)) {
-		dev_err(&nvdla_dev->pdev->dev, "err:npu noc is busy,reset failed.\n");
+		dla_error("err:npu noc is busy,reset failed.\n");
 		return -1;
 	}
 	if(nvdla_dev != NULL)

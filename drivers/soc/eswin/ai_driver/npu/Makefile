@@ -1,5 +1,5 @@
 ﻿
-LOG_LEVEL ?= 0
+LOG_LEVEL ?= 1
 NPU_DEV_SIM ?= 0
 SMALL_PEC_MAT ?= 0
 
