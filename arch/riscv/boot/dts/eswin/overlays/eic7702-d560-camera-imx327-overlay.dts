@@ -1,0 +1,252 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <5>;
+		};
+	};
+
+	fragment@1 {
+		target = <&d1_vi_subsys>;
+		__overlay__ {
+			phy_mode = <5>;
+		};
+	};
+
+	fragment@2 {
+		target = <&mipi_csi2_0>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@3 {
+		target = <&mipi_csi2_2>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@4 {
+		target = <&d1_mipi_csi2_0>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@5 {
+		target = <&d1_mipi_csi2_2>;
+		__overlay__ {
+			num_lanes = <2>;
+		};
+	};
+
+	fragment@6 {
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>;
+		};
+	};
+
+	fragment@7 {
+		target = <&csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>;
+		};
+	};
+
+	fragment@8 {
+		target = <&d1_csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>;
+		};
+	};
+
+	fragment@9 {
+		target = <&d1_csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2>;
+			lanes-dp-dn = <0 0>;
+		};
+	};
+
+	fragment@10 { 
+		target = <&mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx327_out0>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@11 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx327_out1>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@12 {
+		target = <&d1_mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&d1_imx327_out0>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@13 {
+		target = <&d1_mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&d1_imx327_out1>;
+			data-lanes = <1 2>;
+		};
+	};
+
+	fragment@14 {
+		target = <&csi2_dphy0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@15 {
+		target = <&csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@16 {
+		target = <&d1_csi2_dphy0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@17 {
+		target = <&d1_csi2_dphy2>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@18 {
+		target = <&d0_i2c3>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx327_0:imx327@36 {
+				compatible = "sony,imx327lqr";
+				reg = <0x36>;
+				clock-names="xclk";
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				clock-frequency = <37125000>;
+				reset-gpio = <&portc 8 0>;
+				power-domains = <&d0_pmu 2>;
+				status = "okay";
+				port {
+					imx327_out0: endpoint {
+						remote-endpoint = <&mipidphy0_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <445500000 297000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@19 {
+		target = <&d0_i2c4>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx327_1:imx327@36 {
+				compatible = "sony,imx327lqr";
+				reg = <0x36>;
+				clock-names="xclk";
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				clock-frequency = <37125000>;
+				reset-gpio = <&portc 14 0>;
+				power-domains = <&d0_pmu 2>;
+				status = "okay";
+				port {
+					imx327_out1: endpoint {
+						remote-endpoint = <&mipidphy2_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <445500000 297000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@20 {
+		target = <&d1_i2c3>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			d1_imx327_0: imx327@36 {
+				compatible = "sony,imx327lqr";
+				reg = <0x36>;
+				clock-names="xclk";
+				clocks = <&d1_clock 0x244>;
+				assigned-clocks = <&d1_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				clock-frequency = <37125000>;
+				reset-gpio = <&d1_portc 8 0>;
+				power-domains = <&d1_pmu 2>;
+				status = "okay";
+				port {
+					d1_imx327_out0: endpoint {
+						remote-endpoint = <&d1_mipidphy0_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <445500000 297000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@21 {
+		target = <&d1_i2c4>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			d1_imx327_1: imx327@36 {
+				compatible = "sony,imx327lqr";
+				reg = <0x36>;
+				clock-names="xclk";
+				clocks = <&d1_clock 0x244>;
+				assigned-clocks = <&d1_clock 0x244>;
+				assigned-clock-rates = <37125000>;
+				clock-frequency = <37125000>;
+				reset-gpio = <&d1_portc 14 0>;
+				power-domains = <&d1_pmu 2>;
+				status = "okay";
+				port {
+					d1_imx327_out1: endpoint {
+						remote-endpoint = <&d1_mipidphy2_in_ucam0>;
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <445500000 297000000>;
+					};
+				};
+			};
+		};
+	};
+};
