@@ -257,58 +257,23 @@
 	};
 };
 
-/ {
-	thermal-zones {
-		thermal0 {
-			trips {
-				threshold: trip-point0 {
-					temperature = <65000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-				target: trip-point1 {
-					temperature = <75000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-				crit: trip-point2 {
-					temperature     = <95000>;
-					hysteresis      = <0>;
-					type            = "critical";
-				};
-			};
-
-			cooling-maps {
-				/*
-				map0 {
-					trip = <&target>;
-					contribution = <1024>;
-					cooling-device =
-						<&cpu_0 0 10>,
-						<&cpu_1 0 10>,
-						<&cpu_2 0 10>,
-						<&cpu_3 0 10>;
-				};
-				map1 {
-					trip = <&target>;
-					contribution = <4096>;
-					cooling-device = <&g2d_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-				map2 {
-					trip = <&target>;
-					contribution = <1024>;
-					cooling-device = <&venc_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-				map3 {
-					trip = <&target>;
-					contribution = <1024>;
-					cooling-device = <&vdec_opp_table THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-				};
-				*/
-			};
-		};
-	};
+&d0_trip_threshold {
+	temperature = <65000>;
 };
+&d0_trip_target {
+	temperature = <75000>;
+};
+&d0_trip_crit {
+	temperature = <95000>;
+};
+
+/delete-node/ &d0_map_cpu;
+/delete-node/ &d0_map_npu;
+/delete-node/ &d0_map_dsp;
+/delete-node/ &d0_map_gpu;
+/delete-node/ &d0_map_venc;
+/delete-node/ &d0_map_vdec;
+/delete-node/ &d0_map_hae;
 
 &d0_clock {
 	status = "okay";
