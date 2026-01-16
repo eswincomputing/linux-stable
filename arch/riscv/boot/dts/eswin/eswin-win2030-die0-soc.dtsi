@@ -380,6 +380,15 @@
 			};
 		};
 
+		d0_dmc:dmc@0 {
+			compatible = "eswin,eic770x-dmc-freq";
+			numa-node-id = <0>;
+			dma-noncoherent;
+			operating-points-v2 = <&dmc_opp_table>;
+			lpcpu = <&d0_lpcpu>;
+			status = "disabled";
+		};
+
 		do_aon_subsys_bus: aon-subsys-bus@0{
 			compatible = "eswin,eic7700-aon-subsys-bus","simple-bus";
 			dma-ranges = <0x0 0x80000000 0x0 0x80000000 0x3FF 0x80000000>;

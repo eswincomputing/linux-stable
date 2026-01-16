@@ -526,6 +526,7 @@
 &d0_lpcpu {
 	status = "okay";
 };
+
 &d1_lpcpu {
 	status = "disabled";
 };

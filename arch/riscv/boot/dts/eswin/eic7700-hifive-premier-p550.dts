@@ -24,8 +24,8 @@
 #define LSPCLK_FREQ		200000000
 
 /* If wanna enable ECC capability of DDR, should reserve highest zone of 1/8 all space for it */
-#define MEMORY_SIZE_H		0x4
-#define MEMORY_SIZE_L		0x0
+#define MEMORY_SIZE_H		0x1
+#define MEMORY_SIZE_L		0xC0000000
 #define CMA_SIZE		0x20000000
 
 #include "eswin-win2030-die0-soc.dtsi"
@@ -113,7 +113,7 @@
 
 		mmz_nid_0_part_0 {
 			compatible = "eswin-reserve-memory";
-			reg = <0x3 0x0 0x1 0x80000000>;
+			reg = <0x2 0x0 0x0 0x40000000>;
 			no-map;
 		};
 	};
@@ -247,10 +247,6 @@
 	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 };
 
-&pcie {
-	/* GPIO12 PCIE PRSNT input */
-	status = "okay";
-};
 
 &d0_npu{
 	status = "okay";
@@ -879,3 +875,6 @@ GPIO USED ON CarrierBoard:
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 };
 
+&d0_dmc {
+	status = "okay";
+};

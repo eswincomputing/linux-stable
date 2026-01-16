@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2021 ESWIN
+ * Copyright 2024, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  *
  * Implementation of the WIN2030 lpcpu (client side).
  *
@@ -169,7 +169,18 @@ static struct mbox_chan *eswin_lpcpu_request_channel(struct platform_device *pde
 	return channel;
 }
 
-static int lpcpu_send_message(struct mbox_chan *mbox_channel, u8 *msg)
+struct mbox_chan *lpcpu_get_mboxchan(struct platform_device *pdev)
+{
+	struct lpcpu_dev *lpcpu = platform_get_drvdata(pdev);
+
+	if (lpcpu == NULL) {
+		return NULL;
+	}
+	return lpcpu->mbox_channel;
+}
+EXPORT_SYMBOL(lpcpu_get_mboxchan);
+
+int lpcpu_send_message(struct mbox_chan *mbox_channel, u8 *msg)
 {
 	int ret;
 	ret = mbox_send_message(mbox_channel, msg);
@@ -183,6 +194,7 @@ static int lpcpu_send_message(struct mbox_chan *mbox_channel, u8 *msg)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpcpu_send_message);
 
 static int eswin_lpcpu_open(struct inode *inode, struct file *filp)
 {

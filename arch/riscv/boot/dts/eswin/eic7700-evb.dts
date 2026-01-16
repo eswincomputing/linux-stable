@@ -243,7 +243,9 @@
 	pinctrl-0 = <&pinctrl_gpio6_default>;
 	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 };
-
+&d0_dmc {
+        status = "okay";
+};
 &pcie {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio106_default>;

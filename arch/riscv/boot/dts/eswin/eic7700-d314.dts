@@ -339,6 +339,10 @@
 	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 };
 
+&d0_dmc {
+	status = "okay";
+};
+
 /*
 GPIO USED ON CarrierBoard:
 	gpio0   : FP Audio Jack Sense(I), active low

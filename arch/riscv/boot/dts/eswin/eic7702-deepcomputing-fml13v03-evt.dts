@@ -481,6 +481,9 @@
 	pinctrl-0 = <&pinctrl_die0_gpio0_default>;
 	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
 };
+&d0_dmc {
+        status = "okay";
+};
 
 &d1_lpcpu {
 	status = "okay";
@@ -490,7 +493,9 @@
 	control-gpio-names = "socvdd";
 	control-gpio-ports = <104 GPIO_ACTIVE_HIGH>;
 };
-
+&d1_dmc {
+        status = "okay";
+};
 &pinctrl_die0_gpio27_default {
 	mux {
 		groups = "gpio27_group";

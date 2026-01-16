@@ -132,6 +132,18 @@
 			opp-microvolt = <800000>;
 		};
 	};
+	dmc_opp_table: opp_table@dmc {
+		compatible = "operating-points-v2";
+		opp@320000000 {
+			opp-hz = /bits/ 64 <3200>;
+			opp-microvolt = <800000>;
+		};
+		opp@640000000 {
+			opp-hz = /bits/ 64 <6400>;
+			opp-microvolt = <800000>;
+		};
+
+	};
 	npu_opp_table: opp-table@npu {
 		compatible = "operating-points-v2";
 		opp@520000000 {

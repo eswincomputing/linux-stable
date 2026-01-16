@@ -129,6 +129,15 @@ config ARM_MEDIATEK_CCI_DEVFREQ
 	  buck voltages and update a proper CCI frequency. Use the notification
 	  to get the regulator status.
 
+config  EIC770X_DMC_DEVFREQ
+	tristate "Eswin EIC770X DMC DEVFREQ Driver"
+	depends on ESWIN_MBOX && SOC_ESWIN && ESWIN_LPCPU
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	default m
+	help
+	  This adds the DEVFREQ driver for the ESWIN EIC770X DMC(Dynamic Memory Controller).
+	  It sets the frequency for the memory controller from hardware.
+
 config ARM_RK3399_DMC_DEVFREQ
 	tristate "ARM RK3399 DMC DEVFREQ Driver"
 	depends on (ARCH_ROCKCHIP && HAVE_ARM_SMCCC) || \

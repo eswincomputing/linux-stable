@@ -524,7 +524,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die1_gpio7_on_default>;
 };
-
+&d0_dmc {
+        status = "okay";
+};
+&d1_dmc {
+        status = "okay";
+};
 &pinctrl_die0_gpio25_default {
 	mux {
 		groups = "gpio25_group";

@@ -650,6 +650,13 @@
 	status = "okay";
 };
 
+&d0_dmc {
+        status = "okay";
+};
+&d1_dmc {
+        status = "okay";
+};
+
 &d0_mbox3 {
 	status = "disabled";
 };

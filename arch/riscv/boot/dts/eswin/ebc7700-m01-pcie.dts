@@ -358,6 +358,10 @@
 	status = "okay";
 };
 
+&d0_dmc {
+        status = "okay";
+};
+
 &pcie {
 	status = "disabled";
 };
