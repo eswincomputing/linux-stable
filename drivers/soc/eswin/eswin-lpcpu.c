@@ -44,6 +44,8 @@
 #include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/mailbox_controller.h>
+#include <linux/suspend.h>
+#include <linux/syscore_ops.h>
 
 #define LPCPU_FW_RESERVED
 #define FW_BOOT_ADDR 0x80000000
@@ -59,6 +61,7 @@ struct lowpower_info {
 #define FW_LOAD_UNKNOW 0
 #define FW_LOAD_SUCC   0xacce55
 #define CFG_RECV_SUCC  0x366676
+#define DDR_REFRESH_OFF_SUCC 0xacce54
 
 #define LPCPU_BOOT_ADDR         0x51828314
 #define LPCPU_CONFIG_ADDR       0x5880d400
@@ -120,6 +123,8 @@ struct lpcpu_config {
 	struct control_gpio_config gpio_config[16];
 };
 
+static atomic_t rcved_wake_msg;
+
 static void eswin_lpcpu_rx_callback(struct mbox_client *client, void *msg)
 {
 	struct mbox_msg *umsg = msg;
@@ -130,7 +135,17 @@ static void eswin_lpcpu_rx_callback(struct mbox_client *client, void *msg)
 	load_event = *(u32 *)msg;
 	wake_up(&lpcpu->waitq);
 	dev_dbg(dev, "eswin_lpcpu_rx_callback returned \n");
-
+	if(umsg->data_l == DDR_REFRESH_OFF_SUCC) {
+		if(dev->power.is_prepared == true) {
+			dev_info(primary_lpcpu->mbox_channel->mbox->dev, 
+			"trigger the termination of the suspend process directly.\n");
+			pm_wakeup_hard_event(primary_lpcpu->mbox_channel->mbox->dev);
+			atomic_set(&rcved_wake_msg, 0);
+		} else {
+			/* Postpone the processing of resume. */
+			atomic_set(&rcved_wake_msg, 1);
+		}
+	}
 	return;
 }
 
@@ -445,6 +460,44 @@ static int lpcpu_config_prepare(struct platform_device *pdev)
 	return 0;
 }
 
+__maybe_unused static int eswin_lpcpu_check_wakeup(void)
+{
+	if(atomic_read(&rcved_wake_msg) != 0) {
+		atomic_set(&rcved_wake_msg, 0);
+		pm_wakeup_hard_event(primary_lpcpu->mbox_channel->mbox->dev);
+		dev_info(primary_lpcpu->mbox_channel->mbox->dev, 
+			"trigger the termination of the suspend process latency.\n");
+	}
+	return 0;
+}
+
+__maybe_unused static int eswin_lpcpu_suspend(struct device *dev)
+{
+	struct lpcpu_dev *lpcpu = platform_get_drvdata(container_of(dev, struct platform_device, dev));
+
+	if(lpcpu->numa_id == 0)
+		eswin_lpcpu_check_wakeup();
+	return 0;
+}
+
+static const struct dev_pm_ops eswin_lpcpu_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(eswin_lpcpu_suspend, NULL)
+};
+
+static int eswin_lpcpu_pm_notifier(struct notifier_block *nb, unsigned long mode, void *_unused)
+{
+	if (mode == PM_POST_SUSPEND) {
+		/* suspend finish. */
+		atomic_set(&rcved_wake_msg, 0);
+	}
+
+	return 0;
+}
+
+static struct notifier_block eswin_lpcpu_notifier_block = {
+	.notifier_call = eswin_lpcpu_pm_notifier,
+};
+
 // TODO: add clk, reset tbu config
 static int eswin_lpcpu_probe(struct platform_device *pdev)
 {
@@ -588,6 +641,11 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		dev_warn(dev, "Send config to lpcpu not ack!\n");
 	}
 
+	if(numa_id == 0){
+		register_pm_notifier(&eswin_lpcpu_notifier_block);
+		atomic_set(&rcved_wake_msg, 0);
+	}
+
 finish_probe:
 	dev_info(dev, "eswin lpcpu initialized\n");
 
@@ -607,6 +665,10 @@ err_misc:
 static int eswin_lpcpu_remove(struct platform_device *pdev)
 {
 	struct lpcpu_dev *_dev = platform_get_drvdata(pdev);
+
+	if(_dev->numa_id == 0) {
+		unregister_pm_notifier(&eswin_lpcpu_notifier_block);
+	}
 
 	if (_dev->mbox_channel)
 		mbox_free_channel(_dev->mbox_channel);
@@ -629,6 +691,7 @@ static struct platform_driver eswin_lpcpu_driver = {
 	.driver = {
 	.name = "win2030-lpcpu",
 	.of_match_table = eswin_lpcpu_match,
+	.pm	= pm_sleep_ptr(&eswin_lpcpu_pm_ops),
 	},
 	.probe = eswin_lpcpu_probe,
 	.remove = eswin_lpcpu_remove,
