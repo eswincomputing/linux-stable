@@ -4213,14 +4213,6 @@ static int eswin_vdec_runtime_suspend(struct device *dev) {
 
 	vcrt = &prvdata->vcrt;
 	LOG_DBG("runtime suspend enter\n");
-	ret = vdec_wait_device_idle(pdev);
-	if (!ret) {
-		LOG_ERR("Timeout for vdec_suspend\n");
-		return -ETIMEDOUT;
-	} else if (ret < 0) {
-		LOG_ERR("Interrupt triggered while vdec_suspend\n");
-		return -ERESTARTSYS;
-	}
 	if (vcrt) {
 		ret = win2030_tbu_power(dev, false);
 		if (ret != 0) {
@@ -4350,13 +4342,24 @@ static int eswin_vdec_suspend(struct device *dev) {
 	}
 
 	int ret = 0;
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 
-	LOG_DBG("system suspend enter\n");
+	LOG_INFO("system suspend enter\n");
 	if (!pm_runtime_status_suspended(dev)) {
 		LOG_DBG("system suspend work\n");
 		/** abort device firstly*/
-		vdec_abort_device(container_of(dev, struct platform_device, dev));
+		vdec_abort_device(pdev);
+		ret = vdec_wait_device_idle(pdev);
+		if (!ret) {
+			LOG_ERR("Timeout for vdec_suspend\n");
+			return -ETIMEDOUT;
+		} else if (ret < 0) {
+			LOG_ERR("Interrupt triggered while vdec_suspend\n");
+			return -ERESTARTSYS;
+		}
 		ret = eswin_vdec_runtime_suspend(dev);
+	} else {
+		LOG_INFO("pm runtime syspended\n");
 	}
 	LOG_DBG("system suspend done\n");
 	return ret;
@@ -4370,14 +4373,15 @@ static int eswin_vdec_resume(struct device *dev) {
 
 	int ret = 0;
 
-	LOG_DBG("system resume enter\n");
+	LOG_INFO("system resume enter\n");
 	if (!pm_runtime_status_suspended(dev)) {
-		LOG_DBG("system resume work\n");
+		LOG_INFO("system resume work\n");
 		ret = eswin_vdec_runtime_resume(dev);
+		LOG_INFO("restart vdec device\n");
 		/** restart pending tasks*/
 		vdec_restart_device(container_of(dev, struct platform_device, dev));
 	}
-	LOG_DBG("system resume done\n");
+	LOG_INFO("system resume done\n");
 	return ret;
 }
 

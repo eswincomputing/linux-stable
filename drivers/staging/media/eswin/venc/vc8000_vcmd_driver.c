@@ -1751,8 +1751,8 @@ static long link_and_run_cmdbuf(struct file *filp,
 			       ((struct cmdbuf_obj *)last_cmdbuf_node->data)->cmdbuf_id,
 			       ((struct cmdbuf_obj *)last_cmdbuf_node->data)->cmdbuf_run_done);
 		}
-		LOG_INFO("link_and_run_cmdbuf, restart vcmd, cmdbuf_id = %u, restart_cmdbuf_id = %u\n"
-			, cmdbuf_id, dev->restart_cmdbuf_id);
+		LOG_INFO("link_and_run_cmdbuf, restart vcmd, core_id = %u, cmdbuf_id = %u, restart_cmdbuf_id = %u\n"
+			, dev->core_id, cmdbuf_id, dev->restart_cmdbuf_id);
 		if (dev->restart_cmdbuf_id == 0XFFFF)
 			vcmd_start(dev, last_cmdbuf_node);
 	} else {
@@ -3312,7 +3312,7 @@ static void vcmd_start(struct hantrovcmd_dev *dev,
 			       dev->reg_mirror[0x40 / 4]);
 			vcmd_write_reg((const void *)dev->hwregs, 0x40,
 				       dev->reg_mirror[0x40 / 4]);
-			LOG_INFO("vcmd start completed, core_id %u\n", dev->core_id);
+			LOG_INFO("vcmd start completed, core_id = %u, cmdbuf_id = %u\n", dev->core_id, cmdbuf_obj->cmdbuf_id);
 #ifdef SUPPORT_WATCHDOG
 			_vcmd_watchdog_feed(dev);
 #endif
@@ -4662,22 +4662,6 @@ int vc8000e_vcmd_cleanup(void)
 	return 0;
 }
 
-static int check_dev_idle(struct hantrovcmd_dev *dev)
-{
-	/** the devices must not be power down now.*/
-	int idle = 0;
-	u8 vcmd_state = vcmd_get_register_value((const void *)dev->hwregs,
-						dev->reg_mirror, HWIF_VCMD_WORK_STATE);
-
-	if (WORKING_STATE_STALL != vcmd_state
-		&& WORKING_STATE_WORKING != vcmd_state) {
-		idle = 1;
-	}
-	LOG_DBG("check_dev_idle, vcmd_state = %u\n", vcmd_state);
-
-	return idle;
-}
-
 void vc8000e_vcmd_abort(u32 core_id)
 {
 	struct hantrovcmd_dev *dev = NULL;
@@ -4699,31 +4683,6 @@ void vc8000e_vcmd_abort(u32 core_id)
 	/** set vce_hang be 1, avoid the current running task is already in the hang state.*/
 	dev->vce_hang = 1;
 	vcmd_abort(dev);
-}
-
-int vc8000e_vcmd_wait_core_idle(u32 core_id)
-{
-	struct hantrovcmd_dev *dev = NULL;
-	int ret;
-
-	if (core_id >= venc_vcmd_core_num) {
-		LOG_ERR("invalid core_id = %u, venc_vcmd_core_num = %u\n", core_id, venc_vcmd_core_num);
-		return -ERESTARTSYS;
-	}
-	dev = &hantrovcmd_data[core_id];
-	LOG_DBG("enc wait core idle, core_id = %u\n", core_id);
-
-	ret = wait_event_interruptible_timeout(*dev->wait_abort_queue, check_dev_idle(dev), ENC_DEV_IDLEWAIT_TIME);
-	if (0 == ret) {
-		/** timeout*/
-		LOG_ERR("Timeout for venc_suspend\n");
-		return -ETIMEDOUT;
-	} else if (ret < 0) {
-		LOG_ERR("Interrupt triggered while venc_suspend\n");
-		return -ERESTARTSYS;
-	}
-
-	return 0;
 }
 
 int vc8000e_vcmd_reset(u32 core_id)
@@ -4750,7 +4709,7 @@ int vc8000e_vcmd_reset(u32 core_id)
     u32 rdy_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_RDY_CMDBUF_COUNT);
     u32 exe_cmdbuf_count = vcmd_get_register_value((const void *)dev->hwregs, dev->reg_mirror, HWIF_VCMD_EXE_CMDBUF_COUNT);
 
-	LOG_INFO("vc8000e_vcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
+	LOG_DBG("vc8000e_vcmd_reset, core_id = %u, working_state %u -> %u, sw_cmdbuf_rdy_num 0x%x -> 0x%x\n"
         , core_id, dev->working_state, working_state, dev->sw_cmdbuf_rdy_num, rdy_cmdbuf_count);
     dev->working_state = working_state;
     dev->sw_cmdbuf_rdy_num = rdy_cmdbuf_count;

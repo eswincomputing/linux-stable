@@ -112,11 +112,9 @@ module_param(power_management, uint, 0);
 
 extern int hantroenc_normal_init(void);
 extern void hantroenc_normal_cleanup(void);
-extern int hantroenc_wait_core_idle(u32 core_id);
 extern int vc8000e_vcmd_init(void);
 extern int vc8000e_vcmd_cleanup(void);
 extern void vc8000e_vcmd_abort(u32 core_id);
-extern int vc8000e_vcmd_wait_core_idle(u32 core_id);
 extern int vc8000e_vcmd_reset(u32 core_id);
 extern void vc8000e_vcmd_restart(u32 core_id);
 /* proc functions*/
@@ -170,33 +168,6 @@ static void venc_abort_device(struct platform_device *pdev) {
 			vc8000e_vcmd_abort(core_id);
 		}
 	}
-}
-
-static int venc_wait_device_idle(struct platform_device *pdev)
-{
-	if (0 == vcmd_supported) {
-		/** <todo> for normal*/
-		return 0;
-	}
-	int ret = 0;
-	venc_dev_prvdata *prvdata = platform_get_drvdata(pdev);
-	u8 numa_id = 0;
-
-	if (!prvdata) {
-		LOG_ERR("%s:%d, invalid prvdata\n", __func__, __LINE__);
-		return -1;
-	}
-	numa_id = prvdata->numa_id;
-
-	for (u32 core_id = 0; core_id < venc_vcmd_core_num; core_id ++) {
-		if (numa_id_array[core_id] == numa_id) {
-			ret = vc8000e_vcmd_wait_core_idle(core_id);
-			if (ret != 0)
-				return -1;
-		}
-	}
-
-	return 0;
 }
 
 static void venc_reset_device(struct platform_device *pdev) {
@@ -677,7 +648,6 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 		return -1;
 	}
 
-	LOG_INFO("venc_smmu_dynm_sid_init\n");
 	venc_csr_reg = ioremap(vccsr_addr[1], vccsr_addr[3]);
 	if (!venc_csr_reg) {
 		LOG_ERR("venc_csr_reg not initialized\n");
@@ -685,11 +655,11 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 	}
 
 	if (VCMD_TYPE_ENCODER == module_type) {
-		LOG_INFO("write VENC_MMU_AWSSID_OFF=%x, value=%x\n", VENC_MMU_AWSSID_OFF, WIN2030_SID_VENC);
+		LOG_DBG("write VENC_MMU_AWSSID_OFF=%x, value=%x\n", VENC_MMU_AWSSID_OFF, WIN2030_SID_VENC);
 		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_AWSSID_OFF));
-		LOG_INFO("write VENC_MMU_ARSSID_OFF=%x, value=%x\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
+		LOG_DBG("write VENC_MMU_ARSSID_OFF=%x, value=%x\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
 		writel(WIN2030_SID_VENC, (venc_csr_reg + VENC_MMU_ARSSID_OFF));
-		LOG_INFO("write VENC_MMU_ARSSID_OFF=%x, value=%x completed\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
+		LOG_DBG("write VENC_MMU_ARSSID_OFF=%x, value=%x completed\n", VENC_MMU_ARSSID_OFF, WIN2030_SID_VENC);
 	} else {
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_AWSSID_OFF));
 		writel(WIN2030_SID_JENC, (venc_csr_reg + JENC_MMU_ARSSID_OFF));
@@ -800,16 +770,19 @@ static int venc_dev_open(struct device *dev)
 		goto end;
 	}
 #ifdef SUPPORT_DMA_HEAP
+	LOG_DBG("venc_smmu_dynm_sid_init, mod_type = %u\n", VCMD_TYPE_ENCODER);
 	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_ENCODER);
 	if (ret < 0) {
 		LOG_ERR("ve: dynamic smmu sid set failed");
 		return -1;
 	}
+	LOG_DBG("venc_smmu_dynm_sid_init, mod_type = %u\n", VCMD_TYPE_JPEG_ENCODER);
 	ret = venc_smmu_dynm_sid_init(pdev, VCMD_TYPE_JPEG_ENCODER);
 	if (ret < 0) {
 		LOG_ERR("je: dynamic smmu sid set failed");
 		return -1;
 	}
+	LOG_DBG("venc_smmu_dynm_sid_init completed, mod_type = %u\n", VCMD_TYPE_JPEG_ENCODER);
 #endif
 
 	venc_reset_device(pdev);
@@ -827,13 +800,6 @@ static int venc_dev_close(struct device *dev)
 	int ret;
 
 	LOG_DBG("dev close, enter\n");
-
-	/** check the device be idle*/
-	ret = venc_wait_device_idle(pdev);
-	if (ret != 0) {
-		LOG_ERR("ve: wait device idle failed\n");
-		goto end;
-	}
 
 	ret = enc_tbu_power(dev, VCMD_TYPE_ENCODER, false);
 	if (ret != 0) {
@@ -1303,11 +1269,12 @@ static int venc_suspend(struct device *dev) {
 		return 0;
 	}
 
-	LOG_DBG("generic suspend\n");
+	LOG_INFO("generic suspend\n");
 	if (pm_runtime_status_suspended(dev)) {
-		LOG_DBG("generic suspend, venc is suspended already\n");
+		LOG_INFO("generic suspend, venc is runtime suspended already\n");
 		return 0;
 	}
+	/**abort device and wait device idle */
 	venc_abort_device(container_of(dev, struct platform_device, dev));
 	return venc_dev_close(dev);
 }
@@ -1318,15 +1285,16 @@ static int venc_resume(struct device *dev) {
 		return 0;
 	}
 
-	LOG_DBG("generic resume\n");
+	LOG_INFO("generic resume\n");
 	if (pm_runtime_status_suspended(dev)) {
-		LOG_DBG("generic resume, venc is resumed already\n");
+		LOG_INFO("generic resume, venc is resumed already\n");
 		return 0;
 	}
 
 	int ret = venc_dev_open(dev);
-
+	LOG_INFO("restart venc device\n");
 	venc_restart_device(container_of(dev, struct platform_device, dev));
+	LOG_INFO("generic resume done\n");
 	return ret;
 }
 
