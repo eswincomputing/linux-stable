@@ -52,6 +52,7 @@ struct eswin_pcie {
 	struct reset_control *powerup_rst;
 	struct reset_control *cfg_rst;
 	struct reset_control *perst;
+	bool suspended;
 };
 
 #define PCIE_PM_SEL_AUX_CLK		BIT(16)
@@ -423,12 +424,17 @@ static int eswin_pcie_suspend(struct device *dev)
 	struct eswin_pcie *pcie = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "%s\n", __func__);
-
-	pm_runtime_put_sync(dev);
-	win2030_tbu_power(dev, false);
-	eswin_pcie_power_off(pcie);
-	eswin_pcie_clk_disable(pcie);
-	msleep(100);
+	/*
+	 * For controllers with active devices, resources are retained and
+	 * cannot be turned off.
+	 */
+	if (!dw_pcie_link_up(&pcie->pci)) {
+		pm_runtime_put_sync(dev);
+		win2030_tbu_power(dev, false);
+		eswin_pcie_power_off(pcie);
+		eswin_pcie_clk_disable(pcie);
+		pcie->suspended = true;
+	}
 
 	return 0;
 }
@@ -439,6 +445,9 @@ static int eswin_pcie_resume(struct device *dev)
 	int ret, retry_times = 0;
 
 	dev_dbg(dev, "%s\n", __func__);
+
+	if (!pcie->suspended)
+		return 0;
 
 	pm_runtime_get_sync(dev);
 	ret = eswin_pcie_host_init(&pcie->pci.pp);
@@ -461,6 +470,8 @@ static int eswin_pcie_resume(struct device *dev)
 		dev_err(dev, "Phy link never came up\n");
 		return -ETIMEDOUT;
 	}
+
+	pcie->suspended = false;
 
 	return 0;
 }
