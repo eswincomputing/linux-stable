@@ -178,7 +178,7 @@ void dsp_flush_iova_cache(struct dsp_file *dsp_file)
 
 	remain_size = dma_addr - 0x30000000; //0x30000000 is the internal address of DSP
 	remain_size = rounddown(remain_size, 0x1000000); //16M align
-	dev_info(dsp->dev, "dsp%d iova remain size:0x%x\n", remain_size);
+	dev_info(dsp->dev, "dsp iova remain size:0x%x\n", remain_size);
 
 	/* To clear the DSP IOVA RCACHE*/
 	vaddr = dma_alloc_coherent(dsp->dev, remain_size, &dma_addr, GFP_KERNEL);

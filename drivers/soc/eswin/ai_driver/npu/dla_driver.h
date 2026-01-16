@@ -44,7 +44,6 @@ struct npu_freq_param {
 	struct clk *llc_clk_parent;
 	unsigned long llc_rate;
 	int volt;
-	int valid;
 };
 
 struct nvdla_device {
@@ -106,7 +105,6 @@ struct nvdla_device {
 
 	uint16_t *pause_op_list;
 	struct regulator *npu_regulator;
-	u8 is_low_freq;
 
 	atomic64_t start_lock_time;
 	atomic64_t end_lock_time;
@@ -117,8 +115,8 @@ struct nvdla_device {
 	struct devfreq *df;
 	struct dev_pm_qos_request req_max_freq;
 	struct npu_freq_param *freq_tbl;
+	u32 max_freq;
 	u32 freq_count;
-	u32 freq_idx_1G;
 	u32 freq_idx;
 };
 

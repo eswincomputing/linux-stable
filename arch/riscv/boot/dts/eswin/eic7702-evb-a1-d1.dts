@@ -137,7 +137,7 @@
 };
 
 &d0_pmu {
-	npu-supply=<&npu_vcc1>;
+	npu-supply = <&npu_vcc1>;
 	status = "okay";
 };
 
@@ -245,9 +245,9 @@
 	status = "okay";
 };
 
-&d0_npu{
+&d0_npu {
 	status = "okay";
-	npu-supply=<&npu_vcc1>;
+	npu-supply = <&npu_vcc1>;
 };
 
 &d0_dsp_subsys {
@@ -805,9 +805,8 @@
 &gpio0 {
 	status = "okay";
 };
-&dev_llc_d0{
-	/* apply_npu_1G_freq; */
-	npu-supply=<&npu_vcc1>;
+&d0_dev_llc {
+	npu-supply = <&npu_vcc1>;
 	status = "okay";
 };
 

@@ -1076,7 +1076,7 @@
 			};
 		};
 
-		d1_llc_dev: llc@71c00000 {
+		d1_dev_llc: llc@71c00000 {
 			compatible = "eswin,llc";
 			reg = <0x0 0x71c00000 0x0 0x400000>;
 			eswin,syscfg = <&d1_sys_con 0x324>;

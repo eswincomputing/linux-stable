@@ -41,7 +41,7 @@
 	status = "disabled";
 };
 
-&d0_npu{
+&d0_npu {
 	status = "disabled";
 };
 
@@ -130,13 +130,11 @@
 	};
 };
 
-&dev_llc_d0{
-	/* apply_npu_1G_freq; */
+&d0_dev_llc {
 	status = "disabled";
 };
 
-&d1_llc_dev{
-	/* apply_npu_1G_freq; */
+&d1_dev_llc {
 	status = "disabled";
 };
 

@@ -460,7 +460,7 @@
 	status = "okay";
 };
 
-&d0_npu{
+&d0_npu {
 	status = "okay";
 };
 &d1_npu {
@@ -1511,14 +1511,12 @@
 	status = "okay";
 };
 
-&dev_llc_d0{
-	/* apply_npu_1G_freq; */
-	npu-supply=<&d0_npu_vcc>;
+&d0_dev_llc {
+	npu-supply = <&d0_npu_vcc>;
 	status = "okay";
 };
-&d1_llc_dev{
-	/* apply_npu_1G_freq; */
-	npu-supply=<&d1_npu_vcc>;
+&d1_dev_llc {
+	npu-supply = <&d1_npu_vcc>;
 	status = "okay";
 };
 

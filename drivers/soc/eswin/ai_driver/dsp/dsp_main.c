@@ -938,8 +938,8 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 	}
 	ret = dsp_get_resource(pdev, dsp);
 	if (ret) {
-		dsp_err("dsp clock init error.\n");
-		goto err_clk_init;
+		dsp_err("dsp get resource failed.\n");
+		goto err_get_source;
 	}
 
 	/* setting for DMA check */
@@ -1040,7 +1040,7 @@ err_map_res:
 err_dev:
 	dsp_put_resource(dsp);
 err_mbx:
-err_clk_init:
+err_get_source:
 	es_dsp_put_subsys(dsp);
 	dsp_free_hw(dsp);
 	dev_err(&pdev->dev, "ret = %d\n", ret);

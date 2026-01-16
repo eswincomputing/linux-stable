@@ -935,18 +935,16 @@ int dsp_get_resource(struct platform_device *pdev, struct es_dsp *dsp)
 
 	ret = dsp_get_mbx_node(pdev);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "get dsb mailbox node err.\n");
+		dev_err(&pdev->dev, "get dsp mailbox node err.\n");
 		return ret;
 	}
-	ret = device_property_read_u32(&pdev->dev, "process-id",
-				       &(dsp->process_id));
+	ret = device_property_read_u32(&pdev->dev, "process-id", &(dsp->process_id));
 	if (0 != ret) {
 		dev_err(&pdev->dev, "failed to init process id\n");
 		return ret;
 	}
 	dev_dbg(&pdev->dev, "dsp processor id=%d.\n", dsp->process_id);
-	ret = device_property_read_u32(&pdev->dev, "numa-node-id",
-				       &(dsp->numa_id));
+	ret = device_property_read_u32(&pdev->dev, "numa-node-id", &(dsp->numa_id));
 	if (0 != ret) {
 		dev_err(&pdev->dev, "failed to get numa node id\n");
 		return ret;
@@ -960,11 +958,9 @@ int dsp_get_resource(struct platform_device *pdev, struct es_dsp *dsp)
 		return ret;
 	}
 
-	ret = device_property_read_string(dsp->dev, "firmware-name",
-					  &dsp->firmware_name);
+	ret = device_property_read_string(dsp->dev, "firmware-name", &dsp->firmware_name);
 	if (ret == -EINVAL || ret == -ENODATA) {
-		dev_dbg(dsp->dev,
-			"no firmware-name property, not loading firmware");
+		dev_dbg(dsp->dev, "no firmware-name property, not loading firmware");
 	} else if (ret < 0) {
 		dev_err(dsp->dev, "invalid firmware name (%d)", ret);
 		return ret;

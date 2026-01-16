@@ -383,10 +383,10 @@
 	status = "disabled";
 };
 
-&d0_npu{
+&d0_npu {
 	status = "okay";
-	apply_npu_1G_freq;
-	npu-supply=<&npu_vcc1>;
+	max_freq = <1040000000>;
+	npu-supply = <&npu_vcc1>;
 };
 
 &d0_dsp_subsys {
@@ -1043,12 +1043,7 @@
 	&pinctrl_gpio61_default>;
 };
 
-&dev_llc_d0{
-	npu-supply=<&npu_vcc1>;
+&d0_dev_llc {
+	npu-supply = <&npu_vcc1>;
 	status = "okay";
-};
-
-&npu_opp_table {
-	/delete-node/ opp@1188000000;
-	/delete-node/ opp@1500000000;
 };
