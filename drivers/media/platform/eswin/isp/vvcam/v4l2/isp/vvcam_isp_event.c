@@ -103,7 +103,7 @@ int vvcam_isp_post_event(struct v4l2_subdev *sd, struct vvcam_isp_event_pkg *eve
 	memcpy(event.u.data, &event_pkg->head, sizeof(event_pkg->head));
 
 	if (!vvcam_isp_event_subscribed(sd, event.type, event.id)) {
-		dev_err(sd->dev, "post event %d not subscribed\n", event.id);
+		dev_warn(sd->dev, "post event %d not subscribed\n", event.id);
 		return -EINVAL;
 	}
 
@@ -277,8 +277,8 @@ int vvcam_isp_g_ctrl_event(struct vvcam_isp_dev *isp_dev,
 			int pad, struct v4l2_ctrl *ctrl)
 {
 	if (!isp_dev || !isp_dev->sd.dev || !isp_dev->sd.devnode) {
-		pr_err("%s: invalid isp_dev or sd not registered\n", __func__);
-		return -ENODEV;
+		pr_warn("%s: isp not ready\n", __func__);
+		return -EAGAIN;
 	}
 	struct vvcam_isp_event_pkg *event_pkg = isp_dev->event_shm.virt_addr;
 	int ret = 0;
