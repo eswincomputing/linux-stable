@@ -76,6 +76,7 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 /* V_TIMING internal */
 #define IMX219_REG_VTS			CCI_REG16(0x0160)
 #define IMX219_VTS_15FPS		0x0dc6
+#define IMX219_VTS_30FPS		0x0aa8
 #define IMX219_VTS_30FPS_1080P		0x06e3
 #define IMX219_VTS_30FPS_BINNED		0x06e3
 #define IMX219_VTS_30FPS_640x480	0x06e3
@@ -425,7 +426,10 @@ static const u32 imx219_mbus_formats[] = {
 /* Mode configs */
 static const struct imx219_mode supported_modes[] = {
 	{
-		/* 8MPix 15fps mode */
+		/*
+		 * 8MPix 30fps mode (4lane)
+		 * 8Mpix 20fps mode (2lane)
+		 */
 		.width = 3280,
 		.height = 2464,
 		.crop = {
@@ -434,7 +438,7 @@ static const struct imx219_mode supported_modes[] = {
 			.width = 3280,
 			.height = 2464
 		},
-		.vts_def = IMX219_VTS_15FPS,
+		.vts_def = IMX219_VTS_30FPS,
 		.reg_list = {
 			.num_of_regs = ARRAY_SIZE(mode_3280x2464_regs),
 			.regs = mode_3280x2464_regs,
