@@ -110,11 +110,11 @@
 	};
 };
 
-&ssi0 {
+&spi1 {
 	/* lora */
 };
 
-&ssi1 {
+&spi2 {
 	/* unused */
 	status = "disabled";
 };

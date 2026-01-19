@@ -598,15 +598,15 @@
 	status = "disabled";
 };
 
-&ssi0 {
+&spi1 {
 	status = "disabled";
 };
 
-&ssi1 {
+&spi2 {
 	status = "disabled";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;

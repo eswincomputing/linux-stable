@@ -574,7 +574,7 @@
 	status = "disabled";
 };
 
-&ssi0 {
+&spi1 {
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spi1_default>;
@@ -589,12 +589,12 @@
 	};
 };
 
-&ssi1 {
+&spi2 {
 	/* unused */
 	status = "disabled";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;

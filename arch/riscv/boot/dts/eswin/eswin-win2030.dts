@@ -527,7 +527,7 @@
 	status = "disabled";
 };
 
-&ssi0 {
+&spi1 {
 	status = "disabled";
 };
 
@@ -1185,7 +1185,7 @@
 	status = "disabled";
 };
 
-&d1_ssi0 {
+&d1_spi1 {
 	status = "disabled";
 };
 

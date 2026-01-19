@@ -571,17 +571,17 @@
 	status = "disabled";
 };
 
-&ssi0 {
+&spi1 {
 	/* pin header mux with GPIO 35,36,37,38,39,40 */
 	status = "disabled";
 };
 
-&ssi1 {
+&spi2 {
 	/* unused */
 	status = "disabled";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;

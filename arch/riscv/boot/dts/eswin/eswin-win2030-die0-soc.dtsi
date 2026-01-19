@@ -952,7 +952,7 @@
 			power-domains = <&d0_pmu EIC770X_PD_PCIE>;
 		};
 
-		ssi0: spi1@50810000 {
+		spi1: spi@50810000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -969,7 +969,7 @@
 			dma-noncoherent;
 		};
 
-		ssi1: spi2@50814000 {
+		spi2: spi@50814000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -986,7 +986,7 @@
 			dma-noncoherent;
 		};
 
-		bootspi: spi0@51800000 {
+		spi0: spi@51800000 {
 			compatible = "eswin,bootspi";
 			reg = <0x0 0x51800000 0x0 0x8000>,
 				<0x0 0x5c000000 0x0 0x8000>;

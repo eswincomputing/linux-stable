@@ -1032,12 +1032,12 @@
 	status = "disabled";
 };
 
-&ssi0 {
+&spi1 {
 	/* unused */
 	status = "disabled";
 };
 
-&d1_ssi0 {
+&d1_spi1 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <2>;
@@ -1094,7 +1094,7 @@
 	};
 };
 
-&ssi1 {
+&spi2 {
 	status = "okay";
 
 	pinctrl-names = "default";
@@ -1123,12 +1123,12 @@
 	};
 };
 
-&d1_ssi1 {
+&d1_spi2 {
 	/* unused */
 	status = "disabled";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;
@@ -1143,7 +1143,7 @@
 	};
 };
 
-&d1_bootspi {
+&d1_spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;

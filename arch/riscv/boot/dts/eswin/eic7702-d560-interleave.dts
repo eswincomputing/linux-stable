@@ -121,11 +121,11 @@
 	status = "okay";
 };
 
-&ssi0 {
+&spi1 {
 	/* pin header */
 	status = "okay";
 };
-&d1_ssi0 {
+&d1_spi1 {
 	/* pin header */
 	status = "okay";
 };

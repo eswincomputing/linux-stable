@@ -1827,7 +1827,7 @@
 			dma-noncoherent;
 		};
 
-		d1_ssi0: spi1@70810000 {
+		d1_spi1: spi@70810000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1844,7 +1844,7 @@
 			dma-noncoherent;
 		};
 
-		d1_ssi1: spi2@70814000 {
+		d1_spi2: spi@70814000 {
 			compatible = "snps,eic770x-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -1861,7 +1861,7 @@
 			dma-noncoherent;
 		};
 
-		d1_bootspi: spi0@71800000 {
+		d1_spi0: spi@71800000 {
 			compatible = "eswin,bootspi";
 			reg = <0x0 0x71800000 0x0 0x8000>,
 				<0x0 0x7c000000 0x0 0x8000>;

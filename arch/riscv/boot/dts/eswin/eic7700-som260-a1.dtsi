@@ -139,8 +139,8 @@
 		d0_uart1
 		d0_uart2
 		d0_uart4
-		ssi0
-		ssi1
+		spi1
+		spi2
 		pwm1
 		pwm2
 		gpio
@@ -461,15 +461,15 @@
 	status = "okay";
 };
 
-&ssi0 {
+&spi1 {
 	status = "okay";
 };
 
-&ssi1 {
+&spi2 {
 	status = "disabled";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;

@@ -27,7 +27,7 @@
 	compatible = "eswin,eic770x";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash PY25Q128LA */
 };
 

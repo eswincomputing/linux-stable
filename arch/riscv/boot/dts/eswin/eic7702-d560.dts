@@ -124,7 +124,7 @@
 	pinctrl-0 = <&pinctrl_die0_uart3_default>;
 };
 
-&ssi0 {
+&spi1 {
 	/* pin header */
 	status = "okay";
 	pinctrl-names = "default";
@@ -139,7 +139,7 @@
 		rx-sample-delay-ns = <10>;
 	};
 };
-&d1_ssi0 {
+&d1_spi1 {
 	/* unused */
 	status = "disabled";
 };

@@ -494,15 +494,15 @@
 	status = "okay";
 };
 
-&ssi0 {
+&spi1 {
 	status = "okay";
 };
 
-&ssi1 {
+&spi2 {
 	status = "okay";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;

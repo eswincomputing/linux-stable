@@ -105,7 +105,7 @@
 	};
 };
 
-&ssi0 {
+&spi1 {
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_dual_spi1_default>;
@@ -121,7 +121,7 @@
 	};
 };
 
-&ssi1 {
+&spi2 {
 	/* unused */
 	status = "disabled";
 };

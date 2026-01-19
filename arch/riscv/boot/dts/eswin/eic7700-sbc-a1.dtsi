@@ -524,7 +524,7 @@
 	status = "disabled";
 };
 
-&ssi0 {
+&spi1 {
 	/* pin header */
 	status = "okay";
 	pinctrl-names = "default";
@@ -541,12 +541,12 @@
 	};
 };
 
-&ssi1 {
+&spi2 {
 	/* pin header */
 	status = "okay";
 };
 
-&bootspi {
+&spi0 {
 	/* spi flash */
 	status = "okay";
 	num-cs = <1>;
