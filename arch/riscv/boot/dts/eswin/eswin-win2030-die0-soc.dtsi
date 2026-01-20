@@ -2137,6 +2137,7 @@
 				snps,dis_u2_susphy_quirk;
 				snps,dis-del-phy-power-chg-quirk;
 				snps,parkmode-disable-ss-quirk;
+				snps,parkmode-disable-hs-quirk;
 				status = "disabled";
 				numa-node-id = <0>;
 				tbus = <WIN2030_TBUID_USB>;
@@ -2183,6 +2184,7 @@
 				snps,dis_u2_susphy_quirk;
 				snps,dis-del-phy-power-chg-quirk;
 				snps,parkmode-disable-ss-quirk;
+				snps,parkmode-disable-hs-quirk;
 				status = "disabled";
 				numa-node-id = <0>;
 				tbus = <WIN2030_TBUID_USB>;
