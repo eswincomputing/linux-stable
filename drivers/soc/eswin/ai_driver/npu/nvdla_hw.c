@@ -776,12 +776,9 @@ int send_mbx_msg_to_e31(struct win_engine *engine, msg_payload_t payload)
 			spin_unlock_irqrestore(&ndev->mbox_lock, flags);
 			return -EBUSY;
 		}
-		writel(ndev->mbox_tx_lock_bit,
-		       ndev->mbox_tx_base + MBOX_NPU_WR_LOCK);
-		if (!(readl(ndev->mbox_tx_base + MBOX_NPU_WR_LOCK) &
-		      ndev->mbox_tx_lock_bit) ||
-		    (readl(ndev->mbox_tx_base + MBOX_NPU_FIFO_OFFSET) &
-		     BIT_ULL(0))) {
+		writel(ndev->mbox_tx_lock_bit, ndev->mbox_tx_base + MBOX_NPU_WR_LOCK);
+		if ((readl(ndev->mbox_tx_base + MBOX_NPU_WR_LOCK) != ndev->mbox_tx_lock_bit) ||
+		    (readl(ndev->mbox_tx_base + MBOX_NPU_FIFO_OFFSET) & BIT_ULL(0))) {
 			udelay(10);
 			count++;
 			continue;
@@ -789,8 +786,7 @@ int send_mbx_msg_to_e31(struct win_engine *engine, msg_payload_t payload)
 		break;
 	}
 
-	tmp_data = ((u32)payload.type | (u32)payload.param << 8 |
-		    (u32)payload.lparam << 16);
+	tmp_data = ((u32)payload.type | (u32)payload.param << 8 | (u32)payload.lparam << 16);
 	writel(tmp_data, ndev->mbox_tx_base + MBOX_NPU_WR_DATA0_OFFSET);
 
 	tmp_data = (u32)BIT(31);
