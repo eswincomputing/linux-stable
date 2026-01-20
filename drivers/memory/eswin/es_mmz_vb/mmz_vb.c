@@ -1661,7 +1661,7 @@ static int mmz_vb_idr_iterate_show(int id, void *p, void *data)
 	return 0;
 }
 
-static int mmz_vb_proc_show(es_proc_entry_t *s)
+int mmz_vb_proc_show(es_proc_entry_t *s)
 {
 	int i;
 	struct mmz_vb_priv *vb_priv = g_mmz_vb_priv;
@@ -1698,6 +1698,7 @@ static int mmz_vb_proc_show(es_proc_entry_t *s)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(mmz_vb_proc_show);
 
 static int es_refresh_mempeak(struct mem_block *memblock, void *data)
 {

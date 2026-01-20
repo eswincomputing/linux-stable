@@ -1,6 +1,6 @@
 /*
  * this program is mostly using when allocating memory from eswin_rsvmem and an
- * out-of-memory occurs, will dump all dmabuf info to /proc/eswin/dmabuf_info.
+ * out-of-memory occurs, will dump all mmz info to /proc/eswin/dmabuf_info.
  *
  * Copyright 2023, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
  * SPDX-License-Identifier: GPL-2.0-only
@@ -9,19 +9,26 @@
 
 #include <linux/module.h>
 #include <linux/proc_fs.h>
+#include <linux/es_proc.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/vmalloc.h>
 
 MODULE_IMPORT_NS(DMA_BUF);
+/* dump dmabuf info in dma-buf.c */
 extern void dma_buf_call_show(struct seq_file *s);
+/* dump vb pool info in mmz_vb.c */
+extern int mmz_vb_proc_show(es_proc_entry_t *s);
 
 static struct proc_dir_entry *entry;
 static DEFINE_MUTEX(lock);
 static bool has_dumped;
 static const size_t BUF_SZ = 4 * 1024 * 1024;
 static struct seq_file seq = { .buf = NULL, .size = BUF_SZ };
+static es_proc_entry_t esp = {
+	.seqfile = &seq,
+};
 
 /* outer user call this function dump all dmabuf info when mmz OOM */
 void eswin_mem_debug_dump(void)
@@ -30,6 +37,9 @@ void eswin_mem_debug_dump(void)
 	if (!has_dumped) {
 		seq.count = 0;
 		dma_buf_call_show(&seq);
+		if (mmz_vb_proc_show(&esp) != 0)
+			seq_puts(&seq,
+				 "\nWarning: Failed to dump VB pool info\n");
 		has_dumped = true;
 	}
 	mutex_unlock(&lock);
@@ -42,6 +52,9 @@ static int eswin_mem_debug_show(struct seq_file *m, void *v)
 	if (!has_dumped) {
 		seq.count = 0;
 		dma_buf_call_show(&seq);
+		if (mmz_vb_proc_show(&esp) != 0)
+			seq_puts(&seq,
+				 "\nWarning: Failed to dump VB pool info\n");
 	} /* user read never change has_dumped */
 
 	if (seq.count != 0) {
