@@ -1140,7 +1140,7 @@ static struct platform_driver eswin_spi_mmio_driver = {
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.of_match_table = eswin_spi_mmio_of_match,
-		.acpi_match_table = ACPI_PTR(eswin_spi_mmio_acpi_match),
+		//.acpi_match_table = ACPI_PTR(eswin_spi_mmio_acpi_match),
 		.pm = pm_sleep_ptr(&eswin_bootspi_pm),
 	},
 };
