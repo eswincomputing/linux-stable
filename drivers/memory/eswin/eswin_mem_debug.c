@@ -24,7 +24,7 @@ static const size_t BUF_SZ = 4 * 1024 * 1024;
 static struct seq_file seq = { .buf = NULL, .size = BUF_SZ };
 
 /* outer user call this function dump all dmabuf info when mmz OOM */
-void eswin_dmabuf_dump_info(void)
+void eswin_mem_debug_dump(void)
 {
 	mutex_lock(&lock);
 	if (!has_dumped) {
@@ -34,9 +34,9 @@ void eswin_dmabuf_dump_info(void)
 	}
 	mutex_unlock(&lock);
 }
-EXPORT_SYMBOL(eswin_dmabuf_dump_info);
+EXPORT_SYMBOL(eswin_mem_debug_dump);
 
-static int debug_dmabuf_show(struct seq_file *m, void *v)
+static int eswin_mem_debug_show(struct seq_file *m, void *v)
 {
 	mutex_lock(&lock);
 	if (!has_dumped) {
@@ -47,20 +47,22 @@ static int debug_dmabuf_show(struct seq_file *m, void *v)
 	if (seq.count != 0) {
 		seq_write(m, seq.buf, seq.count);
 		if (seq_has_overflowed(&seq))
-			seq_puts(m, "\nWarning: 4 M buffer limit reached, output maybe truncated\n");
+			seq_puts(
+				m,
+				"\nWarning: 4 M buffer limit reached, output maybe truncated\n");
 	}
 	mutex_unlock(&lock);
 	return 0;
 }
 
-static int debug_dmabuf_open(struct inode *i, struct file *f)
+static int eswin_mem_debug_open(struct inode *i, struct file *f)
 {
-	return single_open(f, debug_dmabuf_show, NULL);
+	return single_open(f, eswin_mem_debug_show, NULL);
 }
 
 /* user write only clear flag has_dumped */
-static ssize_t debug_dmabuf_write(struct file *f, const char __user *ub,
-			      size_t cnt, loff_t *p)
+static ssize_t eswin_mem_debug_write(struct file *f, const char __user *ub,
+				     size_t cnt, loff_t *p)
 {
 	mutex_lock(&lock);
 	has_dumped = false;
@@ -68,21 +70,21 @@ static ssize_t debug_dmabuf_write(struct file *f, const char __user *ub,
 	return cnt;
 }
 
-static const struct proc_ops debug_dmabuf_ops = {
-	.proc_open    = debug_dmabuf_open,
-	.proc_read    = seq_read,
-	.proc_write   = debug_dmabuf_write,
-	.proc_lseek   = seq_lseek,
+static const struct proc_ops eswin_mem_debug_ops = {
+	.proc_open = eswin_mem_debug_open,
+	.proc_read = seq_read,
+	.proc_write = eswin_mem_debug_write,
+	.proc_lseek = seq_lseek,
 	.proc_release = single_release,
 };
 
-static int __init debug_dmabuf_init(void)
+static int __init eswin_mem_debug_init(void)
 {
 	seq.buf = vmalloc(BUF_SZ);
 	if (!seq.buf)
 		return -ENOMEM;
 
-	entry = proc_create("eswin/dmabuf_info", 0444, NULL, &debug_dmabuf_ops);
+	entry = proc_create("eswin/mem_info", 0444, NULL, &eswin_mem_debug_ops);
 	if (!entry) {
 		vfree(seq.buf);
 		return -ENOMEM;
@@ -91,12 +93,12 @@ static int __init debug_dmabuf_init(void)
 	return 0;
 }
 
-static void __exit debug_dmabuf_exit(void)
+static void __exit eswin_mem_debug_exit(void)
 {
 	proc_remove(entry);
 	vfree(seq.buf);
 }
 
-module_init(debug_dmabuf_init);
-module_exit(debug_dmabuf_exit);
+module_init(eswin_mem_debug_init);
+module_exit(eswin_mem_debug_exit);
 MODULE_LICENSE("GPL v2");

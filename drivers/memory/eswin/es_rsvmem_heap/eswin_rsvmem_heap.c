@@ -27,7 +27,7 @@
 #include <linux/xarray.h>
 #include <linux/eswin_rsvmem_common.h>
 #include "../eswin_memblock.h"
-#include "../eswin_debug_dmabuf_info.h"
+#include "../eswin_mem_debug.h"
 #include "../es_buddy/es_buddy.h"
 #include "include/uapi/linux/eswin_rsvmem_common.h"
 
@@ -512,7 +512,7 @@ static struct dma_buf *eswin_rsvmem_heap_allocate(struct eswin_heap *heap,
 		if (!page){
 			pr_err_ratelimited("%s out of memory! try alloc 0x%lxbytes failed, size_remaining: 0x%lx\n",
 				heap_name, len, size_remaining);
-                        eswin_dmabuf_dump_info();
+			eswin_mem_debug_dump();
 			goto free_buffer;
 		}
 
