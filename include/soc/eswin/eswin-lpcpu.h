@@ -13,6 +13,8 @@
 
 enum lpcpu_ctl_fid {
 	PM_SUSPEND_MEM_ENTER = 0,
+	PM_SUSPEND_FREEZE_BEGIN,
+	PM_SUSPEND_MEM_BEGIN,
 };
 
 int eswin_lpcpu_service_ctl(int fid);

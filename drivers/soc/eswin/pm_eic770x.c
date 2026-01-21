@@ -97,6 +97,23 @@ static int eic770x_lpcpu_notify(int fid)
 }
 #endif
 
+static int eic770x_system_suspend_begin(suspend_state_t state)
+{
+#ifdef CONFIG_ESWIN_LPCPU
+	int ret = -ENOPARAM;
+	if(state == PM_SUSPEND_MEM)
+		ret = eic770x_lpcpu_notify(PM_SUSPEND_MEM_BEGIN);
+	else if(state == PM_SUSPEND_TO_IDLE)
+		ret = eic770x_lpcpu_notify(PM_SUSPEND_FREEZE_BEGIN);
+	if (ret < 0) {
+		pr_err("Failed to notify lpcpu enter suspend begin, ret %d.\n", ret);
+	} else {
+		pr_info("Notify lpcpu to enter suspend begin.\n");
+	}
+	return ret;
+#endif
+}
+
 static int eic770x_system_suspend_enter(suspend_state_t state)
 {
 	/*
@@ -120,6 +137,7 @@ static int eic770x_system_suspend_enter(suspend_state_t state)
 
 static const struct platform_suspend_ops eic770x_system_suspend_ops = {
 	.valid = suspend_valid_only_mem,
+	.begin = eic770x_system_suspend_begin,
 	.enter = eic770x_system_suspend_enter,
 };
 

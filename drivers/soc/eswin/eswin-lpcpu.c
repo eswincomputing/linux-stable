@@ -63,6 +63,10 @@ struct lowpower_info {
 #define CFG_RECV_SUCC  0x366676
 #define DDR_REFRESH_OFF_SUCC 0xacce54
 
+#define DDR_REFRESH_ON_REQ 0X55eccb
+#define SUSPEND_FREEZE_BEGIN 0X55ecce
+#define SUSPEND_MEM_BEGIN 0X55eccf
+
 #define LPCPU_BOOT_ADDR         0x51828314
 #define LPCPU_CONFIG_ADDR       0x5880d400
 #define LPCPU_CONFIG_MAGIC      0x4c435055
@@ -329,6 +333,22 @@ int eswin_lpcpu_service_ctl(int fid)
 			break;
 		}
 
+		case PM_SUSPEND_FREEZE_BEGIN: {
+			msg[0] = SUSPEND_FREEZE_BEGIN & 0xff;
+			msg[1] = (SUSPEND_FREEZE_BEGIN >> 8) & 0xff;
+			msg[2] = (SUSPEND_FREEZE_BEGIN >> 16) & 0xff;
+			ret = lpcpu_send_message(lpcpu->mbox_channel, msg);
+			break;
+		}
+
+		case PM_SUSPEND_MEM_BEGIN: {
+			msg[0] = SUSPEND_MEM_BEGIN & 0xff;
+			msg[1] = (SUSPEND_MEM_BEGIN >> 8) & 0xff;
+			msg[2] = (SUSPEND_MEM_BEGIN >> 16) & 0xff;
+			ret = lpcpu_send_message(lpcpu->mbox_channel, msg);
+			break;
+		}
+
 		default: {
 			return -ENOTTY;
 		}
@@ -474,7 +494,6 @@ __maybe_unused static int eswin_lpcpu_check_wakeup(void)
 __maybe_unused static int eswin_lpcpu_suspend(struct device *dev)
 {
 	struct lpcpu_dev *lpcpu = platform_get_drvdata(container_of(dev, struct platform_device, dev));
-
 	if(lpcpu->numa_id == 0)
 		eswin_lpcpu_check_wakeup();
 	return 0;
