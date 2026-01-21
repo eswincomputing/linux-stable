@@ -526,9 +526,15 @@
 &d0_lpcpu {
 	status = "okay";
 };
+&d0_dmc {
+	status = "okay";
+};
+&d1_dmc {
+	status = "okay";
+};
 
 &d1_lpcpu {
-	status = "disabled";
+	status = "okay";
 };
 
 &pcie {
