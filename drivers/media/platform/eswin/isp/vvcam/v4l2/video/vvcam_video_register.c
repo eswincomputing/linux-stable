@@ -2193,12 +2193,12 @@ static int vvcam_video_vb2_start_streaming(struct vb2_queue *queue,
         stream_status.pad = pad->index;
         stream_status.status = 1;
         //video_device_pipeline_start(vvcam_vdev->video, &pipe);
-        isp_pipeline_start(&subdev->entity, pad->index, 1);
         ret = v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_S_STREAM, &stream_status);
         if(ret) {
             pr_err("vvcam_video_vb2_start_streaming failed\n");
             return ret;
         }
+        isp_pipeline_start(&subdev->entity, pad->index, 1);
         pr_debug("video strat stream ret = %d, name = %s\n", ret, subdev->name);
         
     }
