@@ -267,7 +267,7 @@
 				compatible = "eswin,win2030-pmu-controller-port";
 				id = <EIC770X_PD_PCIE>;
 				reg_base = <0x0>;
-				power_status = <2>;
+				power_status = <1>;
 				power_delay = <6 6 3 3>;
 				clock_delay = <4 2 2 2>;
 				reset_delay = <2 4 2 2>;
