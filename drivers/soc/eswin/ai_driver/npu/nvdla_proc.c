@@ -248,7 +248,7 @@ static ssize_t npu_maxfreq_write(struct file *flip, const char __user *buffer,
 	char buf[32];
 	long maxfreq;
 	struct nvdla_device *ndev;
-	int i;
+	int i, j;
 
 	if (size >= sizeof(buf)) {
 		dla_error("input size %ld error\n", size);
@@ -267,17 +267,17 @@ static ssize_t npu_maxfreq_write(struct file *flip, const char __user *buffer,
 	for (i = 0; i < 2; i++) {
 		ndev = get_nvdla_dev(i);
 		if (ndev) {
-			for (i = 0; i < ndev->freq_count; i++) {
-				if (ndev->freq_tbl[i].npu_rate == maxfreq) {
+			for (j = 0; j < ndev->freq_count; j++) {
+				if (ndev->freq_tbl[j].npu_rate == maxfreq) {
 					break;
 				}
 			}
 
-			if (i == ndev->freq_count) {
+			if (j == ndev->freq_count) {
 				dla_error("max_freq:%ld is invalid!\n", maxfreq);
 				dla_error("npu support max_freq:\n");
-				for (i = 0; i < ndev->freq_count; i++) {
-					pr_info("%ld\n", ndev->freq_tbl[i].npu_rate);
+				for (j = 0; j < ndev->freq_count; j++) {
+					pr_info("%ld\n", ndev->freq_tbl[j].npu_rate);
 				}
 				return -EINVAL;
 			}
