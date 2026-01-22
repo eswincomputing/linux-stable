@@ -699,6 +699,13 @@ static int32_t edla_probe(struct platform_device *pdev)
 	}
 	dev_dbg(dev, "NPU def volt: %duv\n", nvdla_dev->npu_def_high_vol);
 
+	err = of_property_read_u32(pdev->dev.of_node, "idle_voltage", &nvdla_dev->idle_voltage);
+	if (err) {
+		nvdla_dev->idle_voltage = NPU_MIN_VOLTAGE;
+		err = 0;
+	}
+	dev_dbg(dev, "NPU idle volt: %duv\n", nvdla_dev->idle_voltage);
+
 	err = regulator_enable(nvdla_dev->npu_regulator);
 	if (err < 0) {
 		dev_err(dev, "npu_regulator enble error:%d\n\r", err);
@@ -939,7 +946,7 @@ static int32_t __exit edla_remove(struct platform_device *pdev)
 		return -EIO;
 	}
 
-	destory_npu_dev(nvdla_dev->numa_id);
+	destroy_npu_dev(nvdla_dev->numa_id);
 	npu_uninit_mbox(nvdla_dev);
 	npu_dev_reset(nvdla_dev);
 
@@ -1000,15 +1007,15 @@ int __maybe_unused npu_runtime_suspend(struct device *dev)
 
 	ret = npu_set_freq_req(ndev, &ndev->freq_tbl[0]);
 	if (ret) {
-		dev_err(dev, "npu_runtime_suspend set_freq err, ret = %d.\n", ret);
+		dev_err(dev, "%s set_freq err, ret:%d.\n", __func__, ret);
 		mutex_unlock(&ndev->devfreq_lock);
 		return ret;
 	}
 	ndev->rate = ndev->freq_tbl[0].npu_rate;
 
-	ret = regulator_set_voltage(ndev->npu_regulator, NPU_MIN_VOLTAGE, NPU_MIN_VOLTAGE);
+	ret = regulator_set_voltage(ndev->npu_regulator, ndev->idle_voltage, ndev->idle_voltage);
 	if (ret) {
-		dev_err(dev, "npu_runtime_suspend set_voltage err, ret = %d.\n", ret);
+		dev_err(dev, "%s set_voltage(%d) err, ret:%d.\n", __func__, ndev->idle_voltage, ret);
 		mutex_unlock(&ndev->devfreq_lock);
 		return ret;
 	}

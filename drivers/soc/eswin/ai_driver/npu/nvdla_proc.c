@@ -225,17 +225,14 @@ static ssize_t npu_volt_write(struct file *flip, const char __user *buffer,
 
 static int npu_maxfreq_show(struct seq_file *m, void *p)
 {
-	int i = 0;
+
 	struct nvdla_device *ndev = NULL;
 
-	for (i = 0; i < 2; i++)	{
-		ndev = get_nvdla_dev(i);
-		if (!ndev) {
-			continue;
-		}
-
-		seq_printf(m, "npu%d max freq:%u\n", i, ndev->max_freq);
+	ndev = get_nvdla_dev(0);
+	if (ndev) {
+		seq_printf(m, "npu max freq:%u\n", ndev->max_freq);
 	}
+
 	return 0;
 }
 
@@ -277,11 +274,68 @@ static ssize_t npu_maxfreq_write(struct file *flip, const char __user *buffer,
 			}
 
 			if (i == ndev->freq_count) {
-				pr_info("max_freq:%ld is invalid!\n", maxfreq);
+				dla_error("max_freq:%ld is invalid!\n", maxfreq);
+				dla_error("npu support max_freq:\n");
+				for (i = 0; i < ndev->freq_count; i++) {
+					pr_info("%ld\n", ndev->freq_tbl[i].npu_rate);
+				}
 				return -EINVAL;
 			}
 			dev_pm_qos_update_request(&ndev->req_max_freq, DIV_ROUND_UP(maxfreq, HZ_PER_KHZ));
 			ndev->max_freq = maxfreq;
+		}
+	}
+	return size;
+}
+
+static int npu_idle_volt_show(struct seq_file *m, void *p)
+{
+	struct nvdla_device *ndev = NULL;
+
+	ndev = get_nvdla_dev(0);
+	if (ndev) {
+		seq_printf(m, "npu idle volt:%u\n", ndev->idle_voltage);
+	}
+
+	return 0;
+}
+
+static int idle_volt_open(struct inode *inode, struct file *flip)
+{
+	return single_open(flip, npu_idle_volt_show, NULL);
+}
+
+static ssize_t npu_idle_volt_write(struct file *flip, const char __user *buffer,
+								   size_t size, loff_t *pos)
+{
+	char buf[32];
+	long volt;
+	struct nvdla_device *ndev;
+	int i;
+
+	if (size >= sizeof(buf)) {
+		dla_error("input size %ld error\n", size);
+		return -EINVAL;
+	}
+	if (copy_from_user(buf, buffer, size)) {
+		return -EFAULT;
+	}
+	buf[size] = '\0';
+
+	if (kstrtol(buf, 10, &volt))
+		return -EINVAL;
+
+	pr_info("set idle volt = %ld\n", volt);
+
+	if (volt < 700000 || volt > 1100000) {
+		dla_error("npu idle volt %ld is not correct, (700000 <= idle volt <= 1100000).\n", volt);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ndev = get_nvdla_dev(i);
+		if (ndev) {
+			ndev->idle_voltage = volt;
 		}
 	}
 	return size;
@@ -319,6 +373,13 @@ static struct proc_ops proc_maxfreq_fops = {
 	.proc_write = npu_maxfreq_write,
 };
 
+static struct proc_ops proc_idle_volt_fops = {
+	.proc_open = idle_volt_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
+	.proc_write = npu_idle_volt_write,
+};
+
 int npu_create_procfs(void)
 {
 	proc_esnpu = proc_mkdir("esnpu", NULL);
@@ -352,8 +413,14 @@ int npu_create_procfs(void)
 		goto err_maxfreq;
 	}
 
-	return 0;
+	if (!proc_create("idle_volt", 0444, proc_esnpu, &proc_idle_volt_fops)) {
+		dla_error("error create proc idle volt file.\n");
+		goto err_idle_volt;
+	}
 
+	return 0;
+err_idle_volt:
+	remove_proc_entry("maxfreq", proc_esnpu);
 err_maxfreq:
 	remove_proc_entry("volt", proc_esnpu);
 err_volt:
@@ -374,5 +441,6 @@ void npu_remove_procfs(void)
 	remove_proc_entry("stat", proc_esnpu);
 	remove_proc_entry("volt", proc_esnpu);
 	remove_proc_entry("maxfreq", proc_esnpu);
+	remove_proc_entry("idle_volt", proc_esnpu);
 	remove_proc_entry("esnpu", NULL);
 }

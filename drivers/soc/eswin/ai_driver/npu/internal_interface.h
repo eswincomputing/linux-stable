@@ -110,7 +110,7 @@ struct user_model {
 struct win_engine;
 
 int create_npu_dev(int node_id, struct nvdla_device *nvdla_dev);
-void destory_npu_dev(int node_id);
+void destroy_npu_dev(int node_id);
 int npu_hetero_cmd(struct nvdla_device *nvdla_dev, struct win_ioctl_args *args);
 void hetero_send_frame_to_npu(u8 tiktok, struct host_frame_desc *f);
 struct nvdla_device *get_nvdla_dev(int i);

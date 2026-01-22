@@ -350,7 +350,7 @@ void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok, u32 op_in
 		return;
 	}
 	dla_detail("op_index:%d event_idx:%d, exec_status:%x.\n", op_index, event_idx, hw_error);
-	if(f->sync_flag) {
+	if (f->sync_flag) {
 		f->sync_event_id = event_idx;
 		// complete(&f->synctask_comp);
 		return;
@@ -1175,7 +1175,7 @@ class_err:
 	return -1;
 }
 
-void destory_npu_dev(int node_id)
+void destroy_npu_dev(int node_id)
 {
 	unregister_chrdev_region(npu_cdev[node_id].devid, 1);
 	cdev_del(&npu_cdev[node_id].dev);
@@ -1185,5 +1185,5 @@ void destory_npu_dev(int node_id)
 		devm_kfree(&npu_cdev[node_id].nvdla_dev->pdev->dev, npu_cdev[node_id].name);
 		npu_cdev[node_id].name = NULL;
 	}
-	dla_debug("destory_npu_dev!\n");
+	dla_debug("destroy_npu_dev!\n");
 }

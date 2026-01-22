@@ -620,10 +620,12 @@
 &d0_npu {
 	status = "okay";
 	npu-supply = <&d0_npu_vcc>;
+	idle_voltage = <760000>;
 };
 &d1_npu {
 	status = "okay";
 	npu-supply = <&d1_npu_vcc>;
+	idle_voltage = <760000>;
 };
 
 &d0_dsp_subsys {
