@@ -826,13 +826,7 @@
 
 &d0_i2c2 {
 	/* Temperature Sensor */
-	status = "disabled";
-	tmp102@48 {
-		compatible = "ti,tmp102";
-		reg = <0x48>;
-		label = "d0_board_tmp";
-		#thermal-sensor-cells = <1>;
-	};
+	status = "okay";
 	es501x@40 {
 		compatible = "einno,es501x";
 		reg = <0x40>;
@@ -899,11 +893,17 @@
 
 &d0_i2c5 {
 	/* AT24C02C EEPROM */
-	status = "disabled";
+	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
 	eeprom@50 {
 		compatible = "atmel,24c02";
 		reg = <0x50>;
+	};
+	tmp102@48 {
+		compatible = "ti,tmp102";
+		reg = <0x48>;
+		label = "d0_board_tmp";
+		#thermal-sensor-cells = <1>;
 	};
 };
 

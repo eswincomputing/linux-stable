@@ -1054,7 +1054,7 @@ static s32 es501x_probe(struct i2c_client *client)
     }
 
 #ifdef CONFIG_DEBUG_FS
-    data->debug_root = debugfs_create_dir("es5035", NULL);
+    data->debug_root = debugfs_create_dir(chip == ES5035 ? "es5035" : "es501X", NULL);
     if (data->debug_root) {
         debugfs_create_file("force_microvolt", 0644, data->debug_root,
 							data, &es501x_force_voltage_fops);
