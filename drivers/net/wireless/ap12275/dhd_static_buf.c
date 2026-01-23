@@ -9,7 +9,7 @@
 #define	DHD_STATIC_VERSION_STR		"101.10.361.36 (wlan=r892223-20231107-1)"
 #define STATIC_ERROR_LEVEL	BIT(0)
 #define STATIC_TRACE_LEVEL	BIT(1)
-#ifndef ENODEBUG  
+#ifndef ENODEBUG
 #define STATIC_MSG_LEVEL	BIT(0)
 uint static_msg_level = STATIC_ERROR_LEVEL | STATIC_MSG_LEVEL;
 #else
@@ -50,6 +50,10 @@ do { \
 #define DHD_USE_STATIC_MEMDUMP { : = y}
 #endif
 //#define BCMDHD_UNUSE_MEM
+#endif
+
+#ifndef BCMDHD_MDRIVER
+//#define BCMDHD_MDRIVER
 #endif
 
 #ifndef MAX_NUM_ADAPTERS
@@ -112,7 +116,7 @@ enum dhd_prealloc_index {
 #define DHD_PREALLOC_OSL_BUF_SIZE	(STATIC_BUF_MAX_NUM * STATIC_BUF_SIZE)
 #define DHD_PREALLOC_WIPHY_ESCAN0_SIZE	(64 * 1024)
 #define DHD_PREALLOC_DHD_INFO_SIZE	(46 * 1024)
-#define DHD_PREALLOC_MEMDUMP_RAM_SIZE	(1540 * 1024)
+#define DHD_PREALLOC_MEMDUMP_RAM_SIZE	(1600 * 1024)
 #define DHD_PREALLOC_DHD_WLFC_HANGER_SIZE	(73 * 1024)
 #ifdef DHD_USE_STATIC_MEMDUMP
 #define DHD_PREALLOC_DHD_LOG_DUMP_BUF_SIZE \
@@ -240,7 +244,7 @@ dhd_wlan_mem_prealloc(
 
 	if (section == DHD_PREALLOC_DHD_INFO) {
 		if (size > DHD_PREALLOC_DHD_INFO_SIZE) {
-			DHD_STATIC_ERROR("request DHD_INFO(%lu) > %d\n",
+			DHD_STATIC_MSG("request DHD_INFO(%lu) > %d\n",
 				size, DHD_PREALLOC_DHD_INFO_SIZE);
 			return NULL;
 		}

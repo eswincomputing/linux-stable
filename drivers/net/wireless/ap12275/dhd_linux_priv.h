@@ -1,7 +1,26 @@
 /*
  * DHD Linux header file - contains private structure definition of the Linux specific layer
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -47,11 +66,15 @@
 #include <dhd_debug.h>
 #include <dhd_linux.h>
 #include <dhd_bus.h>
+#include <fwpkg_utils.h>
 
 #ifdef PCIE_FULL_DONGLE
 #include <bcmmsgbuf.h>
 #include <dhd_flowring.h>
 #endif /* PCIE_FULL_DONGLE */
+#if defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
+#include <linux/net_tstamp.h>
+#endif /* defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)) */
 
 #ifdef RX_PKT_POOL
 #define RX_PKTPOOL_RESCHED_DELAY_MS 500u
@@ -77,11 +100,13 @@ typedef struct dhd_info {
 	*/
 	dhd_if_t *iflist[DHD_MAX_IFS + DHD_MAX_STATIC_IFS];
 	wifi_adapter_info_t *adapter;			/* adapter information, interrupt, fw path etc. */
+	fwpkg_info_t fwpkg;	/* combined fw package info structure */
 	char fw_path[PATH_MAX];		/* path to firmware image */
 	char nv_path[PATH_MAX];		/* path to nvram vars file */
 	char clm_path[PATH_MAX];	/* path to CLM data */
 	char conf_path[PATH_MAX];	/* path to config vars file */
 	char sig_path[PATH_MAX];	/* path to rtecdc.sig file */
+	char tmp_path[PATH_MAX];	/* path to logstrs vars file */
 #ifdef DHD_UCODE_DOWNLOAD
 	char uc_path[PATH_MAX];	/* path to ucode image */
 #endif /* DHD_UCODE_DOWNLOAD */
@@ -441,6 +466,9 @@ typedef struct dhd_info {
 	osl_atomic_t dump_status;
 	struct work_struct dhd_dump_proc_work;
 #endif /* DHD_FILE_DUMP_EVENT && DHD_FW_COREDUMP */
+#if defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
+	struct hwtstamp_config stmpconf;
+#endif /* defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)) */
 } dhd_info_t;
 
 /** priv_link is the link between netdev and the dhdif and dhd_info structs. */
@@ -520,7 +548,7 @@ extern uint sssr_enab;
 extern uint fis_enab;
 #endif /* DHD_SSSR_DUMP */
 
-#if defined(ANDROID_VERSION) && (LINUX_VERSION_CODE  >= KERNEL_VERSION(4, 14, 0))
+#if (ANDROID_VERSION > 0) && (LINUX_VERSION_CODE  >= KERNEL_VERSION(4, 14, 0))
 #define WAKELOCK_BACKPORT
 #endif
 

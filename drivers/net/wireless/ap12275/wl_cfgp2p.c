@@ -1,7 +1,26 @@
 /*
  * Linux cfgp2p driver
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -838,7 +857,7 @@ wl_cfgp2p_deinit_discovery(struct bcm_cfg80211 *cfg)
 	CFGP2P_DBG(("enter\n"));
 	bssidx = wl_to_p2p_bss_bssidx(cfg, P2PAPI_BSSCFG_DEVICE);
 	if (bssidx <= 0) {
-		CFGP2P_ERR(("do nothing, not initialized\n"));
+		CFGP2P_INFO(("do nothing, not initialized\n"));
 		return -1;
 	}
 
@@ -1349,7 +1368,7 @@ u32
 wl_cfgp2p_vndr_ie(struct bcm_cfg80211 *cfg, u8 *iebuf, s32 pktflag,
             s8 *oui, s32 ie_id, const s8 *data, s32 datalen, const s8* add_del_cmd)
 {
-	vndr_ie_setbuf_t *hdr;  /* aligned temporary vndr_ie buffer header */
+	vndr_ie_setbuf_t *hdr;	/* aligned temporary vndr_ie buffer header */
 	s32 iecount;
 	u32 data_offset;
 	u8 buf[VNDR_IE_SET_ONE_BUF_LEN];
@@ -1371,7 +1390,7 @@ wl_cfgp2p_vndr_ie(struct bcm_cfg80211 *cfg, u8 *iebuf, s32 pktflag,
 
 	/* Set the IE count - the buffer contains only 1 IE */
 	iecount = htod32(1);
-	memcpy((void *)&hdr->vndr_ie_buffer.iecount, &iecount, sizeof(s32));
+	hdr->vndr_ie_buffer.iecount = iecount;
 
 	/* For vendor ID DOT11_MNG_ID_EXT_ID, need to set pkt flag to VNDR_IE_CUSTOM_FLAG */
 	if (ie_id == DOT11_MNG_ID_EXT_ID) {
@@ -1380,7 +1399,9 @@ wl_cfgp2p_vndr_ie(struct bcm_cfg80211 *cfg, u8 *iebuf, s32 pktflag,
 
 	/* Copy packet flags that indicate which packets will contain this IE */
 	pktflag = htod32(pktflag);
+
 	hdr->vndr_ie_buffer.vndr_ie_list[0].pktflag = pktflag;
+
 	/* Add the IE ID to the buffer */
 	hdr->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data.id = ie_id;
 
@@ -1398,11 +1419,10 @@ wl_cfgp2p_vndr_ie(struct bcm_cfg80211 *cfg, u8 *iebuf, s32 pktflag,
 
 	/* Copy the IE data to the IE buffer */
 	data_offset =
-		(u8*)&hdr->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data.data[0] -
+		(u8*)&(hdr->vndr_ie_buffer.vndr_ie_list[0].vndr_ie_data.data[0]) -
 		(u8*)hdr;
 	memcpy(iebuf + data_offset, data, datalen);
 	return data_offset + datalen;
-
 }
 
 struct net_device *
@@ -1968,7 +1988,7 @@ wl_cfgp2p_generate_bss_mac(struct bcm_cfg80211 *cfg)
 {
 	struct ether_addr *mac_addr = wl_to_p2p_bss_macaddr(cfg, P2PAPI_BSSCFG_DEVICE);
 	struct ether_addr *int_addr = NULL;
-#ifdef P2P_AP_CONCURRENT
+#if defined(P2P_AP_CONCURRENT) && !defined(WL_P2P_RAND)
 	dhd_pub_t *dhd = (dhd_pub_t *)(cfg->pub);
 #endif
 	if (!cfg->p2p) {
@@ -1985,7 +2005,7 @@ wl_cfgp2p_generate_bss_mac(struct bcm_cfg80211 *cfg)
 	mac_addr->octet[0] |= 0x02;
 #ifdef P2P_AP_CONCURRENT
 	if (dhd->conf->war & P2P_AP_MAC_CONFLICT)
-		wl_ext_iapsta_get_vif_macaddr(dhd, 2, (u8 *)mac_addr);
+		wl_ext_iapsta_get_vif_macaddr(2, (u8 *)mac_addr);
 #endif
 #endif /* WL_P2P_RAND */
 	WL_INFORM_MEM(("P2P Discovery address:"MACDBG "\n", MAC2STRDBG(mac_addr->octet)));
@@ -2545,7 +2565,7 @@ wl_cfgp2p_register_ndev(struct bcm_cfg80211 *cfg)
 {
 	int ret = 0;
 	struct net_device* net = NULL;
-#ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
+#if !defined(WL_NEWCFG_PRIVCMD_SUPPORT) || (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	struct wireless_dev *wdev = NULL;
 #endif /* WL_NEWCFG_PRIVCMD_SUPPORT */
 	uint8 temp_addr[ETHER_ADDR_LEN] = { 0x00, 0x90, 0x4c, 0x33, 0x22, 0x11 };
@@ -2561,7 +2581,7 @@ wl_cfgp2p_register_ndev(struct bcm_cfg80211 *cfg)
 		return -ENODEV;
 	}
 
-#ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
+#if !defined(WL_NEWCFG_PRIVCMD_SUPPORT) || (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	wdev = (struct wireless_dev *)MALLOCZ(cfg->osh, sizeof(*wdev));
 	if (unlikely(!wdev)) {
 		WL_ERR(("Could not allocate wireless device\n"));
@@ -2589,7 +2609,7 @@ wl_cfgp2p_register_ndev(struct bcm_cfg80211 *cfg)
 	/* Register with a dummy MAC addr */
 	DEV_ADDR_SET(net, temp_addr);
 
-#ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
+#if !defined(WL_NEWCFG_PRIVCMD_SUPPORT) || (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	wdev->wiphy = cfg->wdev->wiphy;
 
 	wdev->iftype = wl_mode_to_nl80211_iftype(WL_MODE_BSS);
@@ -2603,18 +2623,18 @@ wl_cfgp2p_register_ndev(struct bcm_cfg80211 *cfg)
 	net->ethtool_ops = &cfgp2p_ethtool_ops;
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24) */
 
-#ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
+#if !defined(WL_NEWCFG_PRIVCMD_SUPPORT) || (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	SET_NETDEV_DEV(net, wiphy_dev(wdev->wiphy));
 
 	/* Associate p2p0 network interface with new wdev */
 	wdev->netdev = net;
-#endif /* WL_NEWCFG_PRIVCMD_SUPPORT */
+#endif /* WL_NEWCFG_PRIVCMD_SUPPORT || KERNEL_VERSION >= 5.15 */
 
 	ret = dhd_register_net(net, true);
 	if (ret) {
 		CFGP2P_ERR((" register_netdevice failed (%d)\n", ret));
 		free_netdev(net);
-#ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
+#if !defined(WL_NEWCFG_PRIVCMD_SUPPORT) || (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 		MFREE(cfg->osh, wdev, sizeof(*wdev));
 #endif /* WL_NEWCFG_PRIVCMD_SUPPORT */
 		return -ENODEV;
@@ -2623,14 +2643,14 @@ wl_cfgp2p_register_ndev(struct bcm_cfg80211 *cfg)
 	/* store p2p net ptr for further reference. Note that iflist won't have this
 	 * entry as there corresponding firmware interface is a "Hidden" interface.
 	 */
-#ifndef	WL_NEWCFG_PRIVCMD_SUPPORT
+#if !defined(WL_NEWCFG_PRIVCMD_SUPPORT) || (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	cfg->p2p_wdev = wdev;
 #else
 	cfg->p2p_wdev = NULL;
 #endif /* WL_NEWCFG_PRIVCMD_SUPPORT */
 	cfg->p2p_net = net;
 
-	WL_MSG(net->name, "P2P Interface Registered\n");
+	WL_TRACE(net->name, "P2P Interface Registered\n");
 
 	return ret;
 }
@@ -2904,7 +2924,7 @@ wl_cfgp2p_stop_p2p_device(struct wiphy *wiphy, struct wireless_dev *wdev)
 
 	p2p_on(cfg) = false;
 
-	printf("Exit. P2P interface stopped\n");
+	printf("P2P interface stopped\n");
 
 	return;
 }

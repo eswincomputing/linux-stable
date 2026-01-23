@@ -36,7 +36,7 @@ void wl_ext_update_conn_state(dhd_pub_t *dhd, int ifidx, uint conn_state);
 void wl_ext_backup_eapol_txpkt(dhd_pub_t *dhd, int ifidx, void *pkt);
 void wl_ext_release_eapol_txpkt(dhd_pub_t *dhd, int ifidx, bool rx);
 #endif /* EAPOL_RESEND */
-void wl_ext_iapsta_get_vif_macaddr(struct dhd_pub *dhd, int ifidx, u8 *mac_addr);
+void wl_ext_iapsta_get_vif_macaddr(int ifidx, u8 *mac_addr);
 #ifdef WLDWDS
 int wl_ext_iapsta_attach_dwds_netdev(struct net_device *net, int ifidx, uint8 bssidx);
 int wl_ext_iapsta_dettach_dwds_netdev(struct net_device *net, int ifidx, uint8 bssidx);
@@ -49,12 +49,14 @@ int wl_ext_iapsta_alive_preinit(struct net_device *dev);
 int wl_ext_iapsta_alive_postinit(struct net_device *dev);
 int wl_ext_iapsta_attach(struct net_device *net);
 void wl_ext_iapsta_dettach(struct net_device *net);
-int wl_ext_iapsta_enable(struct net_device *dev, char *command, int total_len);
-int wl_ext_iapsta_disable(struct net_device *dev, char *command, int total_len);
 int wl_ext_isam_param(struct net_device *dev, char *command, int total_len);
 int wl_ext_isam_status(struct net_device *dev, char *command, int total_len);
+#ifdef ISAM_CONFIG
 int wl_ext_isam_init(struct net_device *dev, char *command, int total_len);
 int wl_ext_iapsta_config(struct net_device *dev, char *command, int total_len);
+int wl_ext_iapsta_enable(struct net_device *dev, char *command, int total_len);
+int wl_ext_iapsta_disable(struct net_device *dev, char *command, int total_len);
+#endif
 void wl_ext_add_remove_pm_enable_work(struct net_device *dev, bool add);
 bool wl_ext_iapsta_other_if_enabled(struct net_device *net);
 bool wl_ext_sta_connecting(struct net_device *dev);
@@ -82,10 +84,11 @@ void wl_ext_update_extsae_4way(struct net_device *dev,
 u32 wl_ext_iapsta_update_channel(struct net_device *dev, u32 channel);
 void wl_ext_iapsta_update_iftype(struct net_device *net, int wl_iftype);
 bool wl_ext_iapsta_iftype_enabled(struct net_device *net, int wl_iftype);
-void wl_ext_iapsta_enable_master_if(struct net_device *dev, bool post);
-void wl_ext_iapsta_restart_master(struct net_device *dev);
+void wl_ext_iapsta_csa_event(struct net_device *dev);
 void wl_ext_iapsta_ifadding(struct net_device *net, int ifidx);
+#ifdef WLMESH_CFG80211
 bool wl_ext_iapsta_mesh_creating(struct net_device *net);
+#endif /* WLMESH_CFG80211 */
 void wl_ext_fw_reinit_incsa(struct net_device *dev);
 void wl_ext_send_event_msg(struct net_device *dev, int event, int status,
 	int reason);

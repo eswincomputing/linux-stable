@@ -1,7 +1,26 @@
 /*
  * Linux DHD Bus Module for PCIE
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -153,7 +172,7 @@ typedef struct _dhd_ds_trace_t {
 
 #define PCIE_FASTLPO_ENABLED(buscorerev) \
 	((buscorerev == 66) || (buscorerev == 67) || (buscorerev == 68) || \
-	(buscorerev == 70) || (buscorerev == 72) || (buscorerev == 76))
+	(buscorerev == 70) || (buscorerev == 72) || (buscorerev == 76) || (buscorerev == 77))
 
 /*
  * HW JIRA - CRWLPCIEGEN2-672
@@ -521,6 +540,7 @@ typedef struct dhd_bus {
 	uint32 fw_memmap_download_len;	/* Length in bytes of FWS memory-info download */
 
 	char fwsig_filename[DHD_MAX_PATH];		/* Name of FW signature file */
+	bool sig_loaded;
 	char bootloader_filename[DHD_FILENAME_MAX];	/* Name of bootloader image file */
 	uint32 bootloader_addr;		/* Dongle address of bootloader download */
 	bool force_bt_quiesce; /* send bt_quiesce command to BT driver. */
@@ -551,7 +571,6 @@ typedef struct dhd_bus {
 	dhd_pcie_link_state_type_t link_state;
 	bool dar_err_set;
 	uint32 ptm_ctrl_reg;
-	fwpkg_info_t fwpkg;	/* combined fw package info structure */
 	bool lpm_mode;	/* lpm enabled */
 	bool lpm_keep_in_reset; /* during LPM keep in FLR, if FLR force is enabled */
 	bool lpm_mem_kill; /* kill WLAN memories in LPM */
@@ -786,7 +805,7 @@ extern void dhdpcie_oob_intr_unregister(dhd_bus_t *bus);
 extern void dhdpcie_oob_intr_set(dhd_bus_t *bus, bool enable);
 extern int dhdpcie_get_oob_irq_num(struct dhd_bus *bus);
 extern int dhdpcie_get_oob_irq_status(struct dhd_bus *bus);
-extern int dhdpcie_get_oob_irq_level(void);
+extern int dhdpcie_get_oob_irq_level(struct dhd_bus *bus);
 #ifdef PRINT_WAKEUP_GPIO_STATUS
 extern int dhdpcie_get_oob_gpio_number(void);
 #endif /* PRINT_WAKEUP_GPIO_STATUS */
@@ -810,10 +829,12 @@ extern void dhd_bus_doorbell_timeout_reset(struct dhd_bus *bus);
 #define DHD_PCIE_DMA_MASK_FOR_GS101 36
 #endif /* DHD_SET_PCIE_DMA_MASK_FOR_GS101 */
 
+#ifndef CUSTOMER_HW_ROCKCHIP
 #ifdef CONFIG_ARCH_TEGRA
 extern int tegra_pcie_pm_suspend(void);
 extern int tegra_pcie_pm_resume(void);
 #endif /* CONFIG_ARCH_TEGRA */
+#endif
 
 extern int dhd_buzzz_dump_dngl(dhd_bus_t *bus);
 #ifdef IDLE_TX_FLOW_MGMT

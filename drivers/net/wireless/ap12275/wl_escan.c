@@ -244,10 +244,7 @@ wl_escan_dump_bss(struct net_device *dev, struct wl_escan_info *escan,
 	channel = wf_chspec_ctlchan(chanspec);
 	ESCAN_SCAN(dev->name, "BSSID %pM, channel %s-%-3d(%3d %sMHz), rssi %3d, SSID \"%s\"\n",
 		&bi->BSSID, CHSPEC2BANDSTR(chanspec), channel, CHSPEC_CHANNEL(chanspec),
-		CHSPEC_IS20(chanspec)?"20":
-		CHSPEC_IS40(chanspec)?"40":
-		CHSPEC_IS80(chanspec)?"80":"160",
-		rssi, bi->SSID);
+		wf_chspec_to_bw_str(chanspec), rssi, bi->SSID);
 }
 #endif /* BSSCACHE */
 
@@ -494,7 +491,6 @@ wl_escan_ext_handler(struct net_device *dev, void *argu,
 	wl_scan_results_v109_t *list;
 	u32 bi_length;
 	u32 i;
-	u16 channel;
 
 	mutex_lock(&escan->usr_sync);
 	escan_result = (wl_escan_result_v109_t *)data;
@@ -529,12 +525,6 @@ wl_escan_ext_handler(struct net_device *dev, void *argu,
 				bi_length);
 			goto exit;
 		}
-
-		/* +++++ terence 20130524: skip invalid bss */
-		channel =
-			bi->ctl_ch ? bi->ctl_ch :
-			CHSPEC_CHANNEL(wl_chspec_driver_to_host(escan->ioctl_ver, bi->chanspec));
-		/* ----- terence 20130524: skip invalid bss */
 
 		{
 			int cur_len = WL_SCAN_RESULTS_V109_FIXED_SIZE;
@@ -894,6 +884,7 @@ wl_escan_set_scan(struct net_device *dev, wl_scan_info_t *scan_info)
 	s32 params_size;
 	u32 n_channels = 0;
 	wl_uint32_list_t *list = NULL;
+	struct wl_chan_type chan_type;
 
 	mutex_lock(&escan->usr_sync);
 	if (escan->escan_state == ESCAN_STATE_DOWN) {
@@ -936,7 +927,9 @@ wl_escan_set_scan(struct net_device *dev, wl_scan_info_t *scan_info)
 	if (scan_info->channels.count) {
 		memcpy(list, &scan_info->channels, sizeof(wl_channel_list_t));
 	} else {
-		err = wl_construct_ctl_chanspec_list(dev, list, FALSE);
+		memset(&chan_type, 0, sizeof(struct wl_chan_type));
+		chan_type.psc_only = TRUE;
+		err = wl_construct_ctl_chanspec_list(dev, list, &chan_type);
 		if (err != 0) {
 			ESCAN_ERROR(dev->name, "get channels failed with %d\n", err);
 			goto exit;
@@ -1004,7 +997,37 @@ exit2:
 	return err;
 }
 
-#ifdef WL_SOFTAP_ACS
+void
+wl_escan_passive_chan_scan(struct net_device *dev)
+{
+	wl_scan_info_t *scan_info = NULL;
+	struct wl_chan_type chan_type;
+	int ret;
+
+	scan_info = kzalloc(sizeof(wl_scan_info_t), GFP_KERNEL);
+	if (scan_info == NULL) {
+		ESCAN_ERROR(dev->name, "kzalloc failed\n");
+		ret = -ENOMEM;
+		goto exit;
+	}
+	memset(&chan_type, 0, sizeof(struct wl_chan_type));
+	chan_type.nodfs = TRUE;
+	chan_type.passive_only = TRUE;
+	chan_type.no6g = TRUE;
+	scan_info->bcast_ssid = TRUE;
+	ret = wl_construct_ctl_chanspec_list(dev,
+		(wl_uint32_list_t *)&scan_info->channels, &chan_type);
+	if (ret)
+		goto exit;
+	WL_MSG(dev->name, "passive channel scan\n");
+	wl_escan_set_scan(dev, scan_info);
+
+exit:
+	if (scan_info)
+		kfree(scan_info);
+}
+
+#ifdef WL_SUPPORT_AUTO_CHANNEL
 static void
 wl_construct_acs_list(struct net_device *net, uint32 band, wl_scan_info_t *scan_info)
 {
@@ -1152,7 +1175,7 @@ exit:
 	escan->autochannel = 0;
 	return chanspec;
 }
-#endif /* WL_SOFTAP_ACS */
+#endif /* WL_SUPPORT_AUTO_CHANNEL */
 
 #if defined(WL_WIRELESS_EXT)
 static int
@@ -1203,10 +1226,7 @@ wl_escan_merge_scan_results(struct net_device *dev, struct wl_escan_info *escan,
 	channel = wf_chspec_ctlchan(chanspec);
 	ESCAN_SCAN(dev->name, "BSSID %pM, channel %3d(%3d %sMHz), rssi %3d, SSID \"%s\"\n",
 		&bi->BSSID, channel, CHSPEC_CHANNEL(chanspec),
-		CHSPEC_IS20(chanspec)?"20":
-		CHSPEC_IS40(chanspec)?"40":
-		CHSPEC_IS80(chanspec)?"80":"160",
-		rssi, bi->SSID);
+		wf_chspec_to_bw_str(chanspec), rssi, bi->SSID);
 
 	/* First entry must be the BSSID */
 	iwe.cmd = SIOCGIWAP;
@@ -1730,7 +1750,6 @@ wl_escan_init(struct net_device *dev, struct wl_escan_info *escan)
 
 	/* Init scan_timeout timer */
 	init_timer_compat(&escan->scan_timeout, wl_escan_timeout, escan);
-	escan->escan_state = ESCAN_STATE_IDLE;
 
 	return 0;
 }
@@ -1802,6 +1821,7 @@ wl_escan_up(struct net_device *dev)
 			ESCAN_ERROR(dev->name, "get scan_ver err(%d)\n", ret);
 		}
 	}
+	escan->escan_state = ESCAN_STATE_IDLE;
 
 	return 0;
 }

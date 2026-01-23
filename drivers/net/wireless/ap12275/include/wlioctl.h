@@ -6,7 +6,26 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -1361,6 +1380,8 @@ typedef struct wl_assoc_params_v1 {
 /* FW to delete PMKSA of bssid listed in assoc params */
 #define WL_ASSOC_PARAM_FLAG_DEL_PMKSA	0x0002u
 #define WL_ASSOC_PARAM_FLAG_ACTIVE6G	0x0004u
+/* Flag indicates extauth use wl_ext_auth_evt_t or wl_auth_start_evt_t */
+#define WL_ASSOC_PARAM_FLAG_EXTAUTH_EVT	0x0100u
 
 #define WL_ASSOC_PARAMS_FIXED_SIZE      OFFSETOF(wl_assoc_params_t, chanspec_list)
 #define WL_ASSOC_PARAMS_FIXED_SIZE_V1   OFFSETOF(wl_assoc_params_v1_t, chanspec_list)
@@ -9763,7 +9784,7 @@ typedef enum event_msgs_ext_command {
 
 #if defined(BCM_FLEX_ARRAY) && (CHK_EMPTY(BCM_FLEX_ARRAY) == 1)
 /* Do not need to -1 since the BCM_FLEX_ARRAY is empty. */
-#define EVENTMSGS_EXT_STRUCT_SIZE      ((uint)(sizeof(eventmsgs_ext_t)))
+#define EVENTMSGS_EXT_STRUCT_SIZE	((uint)(sizeof(eventmsgs_ext_t)))
 #else
 #define EVENTMSGS_EXT_STRUCT_SIZE	((uint)(sizeof(eventmsgs_ext_t) - 1))
 #endif /* BCM_FLEX_ARRAY && CHECK_EMPTY(BCM_FLEX_ARRAY) */
@@ -10753,6 +10774,7 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	vndr_ie_t vndr_ie_data;		/**< vendor IE data */
 } BWL_POST_PACKED_STRUCT vndr_ie_info_t;
 #include <packed_section_end.h>
+
 /* buffer contains only 1 IE */
 #define VNDR_IE_SET_ONE_BUF_LEN (sizeof(vndr_ie_setbuf_t) + sizeof(vndr_ie_info_t))
 
@@ -10762,9 +10784,6 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	vndr_ie_info_t vndr_ie_list[BCM_FLEX_ARRAY];	/**< var len list of vndr_ie_info_t */
 } BWL_POST_PACKED_STRUCT vndr_ie_buf_t;
 #include <packed_section_end.h>
-
-/* buffer contains only 1 IE */
-#define IE_SET_ONE_BUF_LEN (sizeof(ie_setbuf_t) + sizeof(ie_info_t))
 
 #include <packed_section_start.h>
 typedef BWL_PRE_PACKED_STRUCT struct {
@@ -10788,6 +10807,9 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	tlv_t ie_data;		/**< IE data */
 } BWL_POST_PACKED_STRUCT ie_info_t;
 #include <packed_section_end.h>
+
+/* buffer contains only 1 IE */
+#define IE_SET_ONE_BUF_LEN (sizeof(ie_setbuf_t) + sizeof(ie_info_t))
 
 #include <packed_section_start.h>
 typedef BWL_PRE_PACKED_STRUCT struct {
@@ -15607,6 +15629,8 @@ enum wl_nan_cfg_ctrl2_flags1 {
 	WL_NAN_CTRL2_FLAG1_STRML_ENABLE				= 0x08000000,
 	/* Control flag to enable NAN EMLSR */
 	WL_NAN_CTRL2_FLAG1_EMLSR_ENABLE				= 0x10000000,
+	/* Control flag to enable greedy ranging */
+	WL_NAN_CTRL2_FLAG1_GREEDY_RNG_ENABLE			= 0x20000000,
 	/* Allow election (role change) outside of DW */
 	WL_NAN_CTRL2_FLAG1_ELECTION_OUTOF_DW			= 0x40000000
 };
@@ -17115,6 +17139,8 @@ typedef struct wl_nan_range_req {
 	uint32 ingress; /* ingress limit in mm */
 	uint32 egress; /* egress limit in mm */
 	uint32 interval; /* max interval(in TU) b/w two ranging measurements */
+	/** Number of FTMs per burst */
+	uint8 num_ftm;
 } wl_nan_range_req_t;
 
 #define NAN_RNG_REQ_IOV_LEN	24
@@ -19421,6 +19447,12 @@ typedef struct wl_proxd_iov {
 	uint8			PAD[1];
 	wl_proxd_tlv_t		tlvs[BCM_FLEX_ARRAY];	/**< variable */
 } wl_proxd_iov_t;
+
+#if defined(BCM_FLEX_ARRAY) && (CHK_EMPTY(BCM_FLEX_ARRAY) == 1)
+#define WL_PROXD_IOV_SET_ONE_BUF_LEN (sizeof(wl_proxd_iov_t) + sizeof(wl_proxd_tlv_t))
+#else
+#define WL_PROXD_IOV_SET_ONE_BUF_LEN sizeof(wl_proxd_iov_t)
+#endif /* BCM_FLEX_ARRAY && CHECK_EMPTY(BCM_FLEX_ARRAY) */
 
 #else /* !FTM */
 typedef wl_ftm_session_id_t wl_proxd_session_id_t;

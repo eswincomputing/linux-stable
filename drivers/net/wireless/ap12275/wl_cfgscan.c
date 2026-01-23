@@ -1,7 +1,26 @@
 /*
  * Linux cfg80211 driver scan related code
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -236,7 +255,7 @@ static void wl_update_hidden_ap_ie(wl_bss_info_v109_t *bi, const u8 *ie_stream, 
 	remaining_ie_buf_len = available_buffer_len - (int)ssidie[1];
 	unused_buf_len = WL_EXTRA_BUF_MAX - (4 + bi->length + *ie_size);
 	if (ssidie[1] > available_buffer_len) {
-		WL_ERR_MEM(("wl_update_hidden_ap_ie: skip wl_update_hidden_ap_ie : overflow\n"));
+		WL_ERR_MEM(("skip : overflow\n"));
 		return;
 	}
 
@@ -246,7 +265,7 @@ static void wl_update_hidden_ap_ie(wl_bss_info_v109_t *bi, const u8 *ie_stream, 
 
 	if (ssidie[1] != ssid_len) {
 		if (ssidie[1]) {
-			WL_ERR_RLMT(("wl_update_hidden_ap_ie: Wrong SSID len: %d != %d\n",
+			WL_ERR_RLMT(("Wrong SSID len: %d != %d\n",
 				ssidie[1], bi->SSID_len));
 		}
 		/* ssidie[1] is 1 in beacon on CISCO hidden networks. */
@@ -274,7 +293,7 @@ static void wl_update_hidden_ap_ie(wl_bss_info_v109_t *bi, const u8 *ie_stream, 
 			*ie_size = *ie_size + ssid_len - ssidie[1];
 			ssidie[1] = ssid_len;
 		} else if (ssid_len < ssidie[1]) {
-			WL_ERR_MEM(("wl_update_hidden_ap_ie: Invalid SSID len: %d < %d\n",
+			WL_ERR_MEM(("Invalid SSID len: %d < %d\n",
 				bi->SSID_len, ssidie[1]));
 		}
 		return;
@@ -443,13 +462,10 @@ s32 wl_inform_single_bss(struct bcm_cfg80211 *cfg, wl_bss_info_v109_t *bi, bool 
 	channel = ieee80211_get_channel(wiphy, freq);
 	memcpy(tmp_buf, bi->SSID, bi->SSID_len);
 	tmp_buf[bi->SSID_len] = '\0';
-	WL_SCAN(("BSSID %pM, channel %s-%-3d(%3d %3sMHz), rssi %3d, capa 0x%-4x, mgmt_type %d, "
-		"frame_len %3d, SSID \"%s\"\n",
-		&bi->BSSID, CHSPEC2BANDSTR(chanspec), notif_bss_info->channel, CHSPEC_CHANNEL(chanspec),
-		CHSPEC_IS20(chanspec)?"20":
-		CHSPEC_IS40(chanspec)?"40":
-		CHSPEC_IS80(chanspec)?"80":
-		CHSPEC_IS160(chanspec)?"160":"??",
+	WL_SCAN(("BSSID %pM, channel %s-%-3d(%3d %3sMHz), rssi %3d, capa 0x%-4x, "
+		"mgmt_type %d, frame_len %3d, SSID \"%s\"\n",
+		&bi->BSSID, CHSPEC2BANDSTR(chanspec), notif_bss_info->channel,
+		CHSPEC_CHANNEL(chanspec), wf_chspec_to_bw_str(chanspec),
 		notif_bss_info->rssi, mgmt->u.beacon.capab_info, mgmt_type,
 		notif_bss_info->frame_len, tmp_buf));
 	if (unlikely(!channel)) {
@@ -723,11 +739,12 @@ wl_cfg80211_clear_iw_ie(struct bcm_cfg80211 *cfg, struct net_device *ndev, s32 b
 	WL_DBG(("clear interworking IE\n"));
 
 	ie_setbuf = (ie_setbuf_t *)buf;
-	bzero(ie_setbuf, sizeof(ie_setbuf_t));
+	bzero(ie_setbuf, IE_SET_ONE_BUF_LEN);
 
 	ie_setbuf->ie_buffer.iecount = htod32(1);
 	ie_setbuf->ie_buffer.ie_list[0].ie_data.id = DOT11_MNG_INTERWORKING_ID;
 	ie_setbuf->ie_buffer.ie_list[0].ie_data.len = 0;
+
 	return wldev_iovar_setbuf_bsscfg(ndev, "ie", ie_setbuf, IE_SET_ONE_BUF_LEN,
 		cfg->ioctl_buf, WLC_IOCTL_MAXLEN, bssidx, &cfg->ioctl_buf_sync);
 }
@@ -762,7 +779,8 @@ wl_cfg80211_add_iw_ie(struct bcm_cfg80211 *cfg, struct net_device *ndev, s32 bss
 		return BCME_BADARG;
 	}
 
-	buf_len = sizeof(ie_setbuf_t) + data_len - 1;
+	/* Add sizeof(ie_info_t) in case BCM_FLEX_ARRAY is empty. */
+	buf_len = IE_SET_ONE_BUF_LEN + data_len - 1;
 
 	ie_getbufp.id = DOT11_MNG_INTERWORKING_ID;
 	if (wldev_iovar_getbuf_bsscfg(ndev, "ie", (void *)&ie_getbufp,
@@ -1351,7 +1369,7 @@ wl_escan_handler(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 				goto exit;
 			}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-			if (p2p_scan(cfg) && cfg->scan_request &&
+			if (p2p_is_on(cfg) && p2p_scan(cfg) && cfg->scan_request &&
 				(cfg->scan_request->flags & NL80211_SCAN_FLAG_FLUSH)) {
 				WL_ERR(("scan list is changed"));
 				cfg->bss_list = wl_escan_get_buf(cfg, FALSE);
@@ -1514,7 +1532,7 @@ wl_cfgscan_notify_pfn_complete(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgd
 	err = wl_notify_gscan_event(cfg, cfgdev, e, data);
 	return err;
 #endif /* DISABLE_ANDROID_GSCAN */
-#endif
+#endif /* GSCAN_SUPPORT */
 	mutex_lock(&cfg->scan_sync);
 
 	if (!cfg->sched_scan_req) {
@@ -1794,7 +1812,6 @@ wl_cfgscan_populate_scan_channels(struct bcm_cfg80211 *cfg,
 	int is_printed = false;
 #endif /* P2P_SKIP_DFS */
 	u32 support_chanspec = 0;
-	u32 channel;
 
 	if (!channels || !n_channels) {
 		/* Do full channel scan */
@@ -1805,18 +1822,19 @@ wl_cfgscan_populate_scan_channels(struct bcm_cfg80211 *cfg,
 	is_p2p_scan = p2p_is_on(cfg) && p2p_scan(cfg);
 
 	for (i = 0; i < n_channels; i++) {
-		channel = ieee80211_frequency_to_channel(channels[i]->center_freq);
-		if (skip_dfs && (IS_RADAR_CHAN(channels[i]->flags))) {
-			WL_DBG(("Skipping radar channel. freq:%d\n",
-				(channels[i]->center_freq)));
-			continue;
-		}
-
 		chanspec = wl_freq_to_chanspec(channels[i]->center_freq);
 		if (chanspec == INVCHANSPEC) {
 			WL_ERR(("Invalid chanspec! Skipping channel\n"));
 			continue;
 		}
+
+#ifndef DHD_DFS_MASTER
+		if (skip_dfs && (IS_RADAR_CHAN(channels[i]->flags))) {
+			WL_SCAN(("Skipping radar chan: %s-%d, chanspec: %x\n",
+				CHSPEC2BANDSTR(chanspec), wf_chspec_ctlchan(chanspec), channel_list[j]));
+			continue;
+		}
+#endif /* DHD_DFS_MASTER */
 
 		support_chanspec = wl_channel_to_chanspec(cfg->wdev->wiphy,
 			bcmcfg_to_prmry_ndev(cfg), CHSPEC_CHANNEL(chanspec), WL_CHANSPEC_BW_80);
@@ -2958,7 +2976,7 @@ scan_out:
 }
 
 s32
-#if defined(WL_CFG80211_P2P_DEV_IF)
+#if defined(WL_CFG80211_P2P_DEV_IF) || (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
 wl_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request)
 #else
 wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
@@ -3202,8 +3220,13 @@ wl_notify_escan_complete(struct bcm_cfg80211 *cfg,
 	if (cfg->scan_request) {
 		dev = bcmcfg_to_prmry_ndev(cfg);
 #if defined(WL_ENABLE_P2P_IF)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+		if (cfg->scan_request->wdev->iftype != NL80211_IFTYPE_P2P_DEVICE)
+			dev = cfg->scan_request->wdev->netdev;
+#else
 		if (cfg->scan_request->dev != cfg->p2p_net)
 			dev = cfg->scan_request->dev;
+#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(3, 6, 0) */
 #elif defined(WL_CFG80211_P2P_DEV_IF)
 		if (cfg->scan_request->wdev->iftype != NL80211_IFTYPE_P2P_DEVICE)
 			dev = cfg->scan_request->wdev->netdev;
@@ -3996,7 +4019,7 @@ int wl_cfg80211_scan_mac_config(struct net_device *dev, uint8 *rand_mac, uint8 *
 		/* Disable scan mac for clean-up */
 		return err;
 	}
-	WL_INFORM_MEM(("scanmac configured"));
+	WL_INFORM_MEM(("scanmac configured\n"));
 	cfg->scanmac_config = true;
 
 	return err;
@@ -4314,16 +4337,11 @@ wl_cfgscan_sched_scan_stop_work(struct work_struct *work)
 	cfg = container_of(dw, struct bcm_cfg80211, sched_scan_stop_work);
 	GCC_DIAGNOSTIC_POP();
 
-	if (cfg->sched_scan_req) {
 	/* Hold rtnl_lock -> scan_sync lock to be in sync with cfg80211_ops path */
+	rtnl_lock();
+	mutex_lock(&cfg->scan_sync);
+	if (cfg->sched_scan_req) {
 		wiphy = cfg->sched_scan_req->wiphy;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0))
-		wiphy_lock(wiphy);
-#else
-		rtnl_lock();
-#endif /* KERNEL > 5.12.0 */
-		mutex_lock(&cfg->scan_sync);
-
 		/* Indicate sched scan stopped so that user space
 		 * can do a full scan incase found match is empty.
 		 */
@@ -4335,13 +4353,9 @@ wl_cfgscan_sched_scan_stop_work(struct work_struct *work)
 		cfg80211_sched_scan_stopped_rtnl(wiphy);
 #endif /* KERNEL > 5.12.0 */
 		cfg->sched_scan_req = NULL;
-		mutex_unlock(&cfg->scan_sync);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0))
-		wiphy_unlock(wiphy);
-#else
-		rtnl_unlock();
-#endif /* KERNEL > 5.12.0 */
 	}
+	mutex_unlock(&cfg->scan_sync);
+	rtnl_unlock();
 }
 #endif /* WL_SCHED_SCAN */
 
@@ -6218,7 +6232,8 @@ wl_cfgscan_get_band_freq_list(struct bcm_cfg80211 *cfg, struct wireless_dev *wde
 	return err;
 }
 
-#if defined(WL_SOFTAP_ACS)
+#if defined(WL_SOFTAP_ACS) && \
+	((LINUX_VERSION_CODE > KERNEL_VERSION(3, 13, 0)) || defined(WL_VENDOR_EXT_SUPPORT))
 #define SEC_FREQ_HT40_OFFSET 20
 static acs_delay_work_t delay_work_acs = { .init_flag = 0 };
 

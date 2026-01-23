@@ -1,7 +1,26 @@
 /*
  * SDIO access interface for drivers - linux specific (pci only)
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -29,6 +48,7 @@
 
 #define __UNDEF_NO_VERSION__
 
+#include <dhd_dbg.h>
 #include <typedefs.h>
 #include <linuxver.h>
 #include <linux/pci.h>
@@ -78,7 +98,6 @@ typedef struct bcmsdh_os_info {
 	void			*dev;		/* handle to the underlying device */
 	bool			dev_wake_enabled;
 } bcmsdh_os_info_t;
-
 #ifndef ENODEBUG
 /* debugging macros */
 #ifdef BCMDBG_ERR
@@ -89,9 +108,11 @@ typedef struct bcmsdh_os_info {
 #define SDLX_MSG(x)	printf x
 #endif /* BCMDBG_ERR */
 #else
-#define SDLX_MSG(x)
 #define SDLX_ERR(x) printf x
+#define SDLX_MSG(x)	DHD_INFO(x)
+
 #endif
+
 /**
  * Checks to see if vendor and device IDs match a supported SDIO Host Controller.
  */
@@ -286,6 +307,26 @@ int bcmsdh_resume(bcmsdh_info_t *bcmsdh)
 		return drvinfo.resume(bcmsdh_osinfo->context);
 	return 0;
 }
+
+#ifdef DEVICE_PM_CALLBACK
+int bcmsdh_prepare(bcmsdh_info_t *bcmsdh)
+{
+	bcmsdh_os_info_t *bcmsdh_osinfo = bcmsdh->os_cxt;
+
+	if (drvinfo.prepare && drvinfo.prepare(bcmsdh_osinfo->context))
+		return -EBUSY;
+	return 0;
+}
+
+int bcmsdh_complete(bcmsdh_info_t *bcmsdh)
+{
+	bcmsdh_os_info_t *bcmsdh_osinfo = bcmsdh->os_cxt;
+
+	if (drvinfo.complete)
+		return drvinfo.complete(bcmsdh_osinfo->context);
+	return 0;
+}
+#endif /* DEVICE_PM_CALLBACK */
 
 extern int bcmsdh_register_client_driver(void);
 extern void bcmsdh_unregister_client_driver(void);

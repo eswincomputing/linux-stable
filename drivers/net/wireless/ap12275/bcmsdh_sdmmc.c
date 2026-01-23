@@ -1,7 +1,26 @@
 /*
  * BCMSDH Function Driver for the native SDIO/MMC driver in the Linux Kernel
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -83,13 +102,13 @@ static void IRQHandlerF2(struct sdio_func *func);
 #endif /* !defined(OOB_INTR_ONLY) */
 static int sdioh_sdmmc_get_cisaddr(sdioh_info_t *sd, uint32 regaddr);
 #if defined(ENABLE_INSMOD_NO_FW_LOAD)
-#if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+#if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
 extern int mmc_sw_reset(struct mmc_card *card);
 #else
 extern int mmc_sw_reset(struct mmc_host *host);
 #endif
-#elif defined(MMC_HW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
+#elif defined(MMC_HW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
 extern int mmc_hw_reset(struct mmc_card *card);
 #else
@@ -109,7 +128,11 @@ extern PBCMSDH_SDMMC_INSTANCE gInstance;
 
 #define DEFAULT_SDIO_F2_BLKSIZE		512
 #ifndef CUSTOM_SDIO_F2_BLKSIZE
+#ifndef DYNAMIC_F2_BLKSIZE_FOR_NONLEGACY
 #define CUSTOM_SDIO_F2_BLKSIZE		DEFAULT_SDIO_F2_BLKSIZE
+#else
+#define CUSTOM_SDIO_F2_BLKSIZE     DYNAMIC_F2_BLKSIZE_FOR_NONLEGACY
+#endif /* CUSTOM_SDIO_F2_BLKSIZE */
 #endif
 
 #define DEFAULT_SDIO_F1_BLKSIZE		64
@@ -132,7 +155,11 @@ uint sd_f3_blocksize = 64;
 uint sd_divisor = 2;			/* Default 48MHz/2 = 24MHz */
 
 uint sd_power = 1;		/* Default to SD Slot powered ON */
+#ifdef FORCE_SD_CLOCK
+uint sd_clock = FORCE_SD_CLOCK;
+#else
 uint sd_clock = 1;		/* Default to SD Clock turned ON */
+#endif /* FORCE_SD_CLOCK*/
 uint sd_hiok = FALSE;	/* Don't use hi-speed mode by default */
 uint sd_msglevel = SDH_ERROR_VAL;
 uint sd_use_dma = TRUE;
@@ -276,6 +303,10 @@ sdioh_attach(osl_t *osh, struct sdio_func *func)
 	sd->fake_func0.num = 0;
 	sd->fake_func0.card = func->card;
 	sd->func[0] = &sd->fake_func0;
+	if (sd_clock > 1) {
+		sd->func[0]->card->cis.max_dtr = sd_clock;
+		sdmmc_set_clock_rate(sd, sd_clock);
+	}
 #ifdef GLOBAL_SDMMC_INSTANCE
 	if (func->num == 2)
 		sd->func[1] = gInstance->func[1];
@@ -312,9 +343,6 @@ sdioh_attach(osl_t *osh, struct sdio_func *func)
 	}
 
 	sdio_claim_host(sd->func[2]);
-	if ((func->device == BCM43362_CHIP_ID || func->device == BCM4330_CHIP_ID) &&
-			sd_f2_blocksize > 128)
-		sd_f2_blocksize = 128;
 	sd->client_block_size[2] = sd_f2_blocksize;
 	sd_info(("%s: set sd_f2_blocksize %d\n", __FUNCTION__, sd_f2_blocksize));
 	err_ret = sdio_set_block_size(sd->func[2], sd_f2_blocksize);
@@ -982,7 +1010,6 @@ sdioh_request_byte(sdioh_info_t *sd, uint rw, uint func, uint regaddr, uint8 *by
 			 */
 			if (regaddr == SDIOD_CCCR_IOEN) {
 #if defined(BT_OVER_SDIO)
-				do {
 				if (sd->func[3]) {
 					sd_info(("bcmsdh_sdmmc F3: *byte 0x%x\n", *byte));
 
@@ -1046,10 +1073,7 @@ sdioh_request_byte(sdioh_info_t *sd, uint rw, uint func, uint regaddr, uint8 *by
 					}
 					sdio_release_host(sd->func[2]);
 				}
-#if defined(BT_OVER_SDIO)
-			} while (0);
-#endif /* defined (BT_OVER_SDIO) */
-		}
+			}
 #if defined(MMC_SDIO_ABORT)
 			/* to allow abort command through F1 */
 			else if (regaddr == SDIOD_CCCR_IOABORT) {
@@ -1295,11 +1319,12 @@ sdioh_request_packet_chain(sdioh_info_t *sd, uint fix_inc, uint write, uint func
 			memset(&mmc_dat, 0, sizeof(struct mmc_data));
 			sg_init_table(sd->sg_list, ARRAYSIZE(sd->sg_list));
 
-			/* Set up scatter-gather DMA descriptors. this loop is to find out the max
-			 * data we can transfer with one command 53. blocks per command is limited by
-			 * host max_req_size and 9-bit max block number. when the total length of this
-			 * packet chain is bigger than max_req_size, use multiple SD_IO_RW_EXTENDED
-			 * commands (each transfer is still block aligned)
+			/* Set up scatter-gather DMA descriptors. this loop is to find out
+			 * the max data we can transfer with one command 53. blocks per command
+			 * is limited by host max_req_size and 9-bit max block number. when the
+			 * total length of this packet chain is bigger than max_req_size, use
+			 * multiple SD_IO_RW_EXTENDED commands (each transfer is still block
+			 * aligned)
 			 */
 			while (pnext != NULL && ttl_len < max_req_size) {
 				int pkt_len;
@@ -1309,9 +1334,10 @@ sdioh_request_packet_chain(sdioh_info_t *sd, uint fix_inc, uint write, uint func
 				ASSERT(pdata != NULL);
 				pkt_len = PKTLEN(sd->osh, pnext);
 				sd_trace(("%s[%d] data=%p, len=%d\n", __FUNCTION__, write, pdata, pkt_len));
-				/* sg_count is unlikely larger than the array size, and this is
-				 * NOT something we can handle here, but in case it happens, PLEASE put
-				 * a restriction on max tx/glom count (based on host->max_segs).
+				/* sg_count is unlikely larger than the array size,
+				 * and this is NOT something we can handle here, but in
+				 * case it happens, PLEASE put a restriction on max tx/glom
+				 * count (based on host->max_segs).
 				 */
 				if (sg_count >= ARRAYSIZE(sd->sg_list)) {
 					sd_err(("%s: sg list entries(%u) exceed limit(%zu),"
@@ -1324,9 +1350,9 @@ sdioh_request_packet_chain(sdioh_info_t *sd, uint fix_inc, uint write, uint func
 				sg_data_size = pkt_len - pkt_offset;
 				if (sg_data_size > max_req_size - ttl_len)
 					sg_data_size = max_req_size - ttl_len;
-				/* some platforms put a restriction on the data size of each scatter-gather
-				 * DMA descriptor, use multiple sg buffers when xfer_size is bigger than
-				 * max_seg_size
+				/* some platforms put a restriction on the data size of each
+				 * scatter-gather DMA descriptor, use multiple sg buffers when
+				 * xfer_size is bigger than max_seg_size
 				 */
 				if (sg_data_size > host->max_seg_size) {
 					sg_data_size = host->max_seg_size;
@@ -1719,6 +1745,16 @@ static void IRQHandler(struct sdio_func *func)
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)) */
 
 	sdio_claim_host_lock_local(sd);
+	// Eswin add, because the wiif driver entered suspend before the sdio bus.
+	// So after the WiFi driver enters suspend, it needs to discard the interrupt
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
+	if(dhd_mmc_suspend){
+		sdio_claim_host_unlock_local(sd);
+		sd_info(("Eswin bcmsdh_sdmmc: IRQHandler already in suspend\n"));
+		return;
+	}
+#endif
+
 	sdio_release_host(sd->func[0]);
 
 	if (sd->use_client_ints) {
@@ -1780,7 +1816,7 @@ static int sdio_sw_reset(sdioh_info_t *sd)
 	struct mmc_card *card = sd->func[0]->card;
 	int err = 0;
 
-#if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+#if defined(MMC_SW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
 	/* MMC_SW_RESET */
 	sd_info(("%s: call mmc_sw_reset\n", __FUNCTION__));
 	sdio_claim_host(sd->func[0]);
@@ -1790,7 +1826,7 @@ static int sdio_sw_reset(sdioh_info_t *sd)
 	err = mmc_sw_reset(card->host);
 #endif
 	sdio_release_host(sd->func[0]);
-#elif defined(MMC_HW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
+#elif defined(MMC_HW_RESET) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
 	/* MMC_HW_RESET */
 	sd_info(("%s: call mmc_hw_reset\n", __FUNCTION__));
 	sdio_claim_host(sd->func[0]);
@@ -1811,8 +1847,13 @@ LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32) && LINUX_VERSION_CODE < KERNEL_VE
 	mmc_power_restore_host(card->host);
 #else
 	/* sdio_reset_comm */
+	sd_info(("%s: call sdio_reset_comm\n", __FUNCTION__));
 	err = sdio_reset_comm(card);
 #endif
+	if (sd_clock > 1) {
+		card->cis.max_dtr = sd_clock;
+		sdmmc_set_clock_rate(sd, sd_clock);
+	}
 
 	if (err)
 		sd_err(("%s Failed, error = %d\n", __FUNCTION__, err));
@@ -2029,7 +2070,6 @@ sdmmc_get_clock_rate(sdioh_info_t *sd)
 void
 sdmmc_set_clock_rate(sdioh_info_t *sd, uint hz)
 {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0)) || (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
 	struct sdio_func *sdio_func = sd->func[0];
 	struct mmc_host *host = sdio_func->card->host;
 	struct mmc_ios *ios = &host->ios;
@@ -2049,9 +2089,6 @@ sdmmc_set_clock_rate(sdioh_info_t *sd, uint hz)
 	host->ops->set_ios(host, ios);
 	DHD_ERROR(("%s: After change: sd clock rate is %u\n", __FUNCTION__, ios->clock));
 	mmc_host_clk_release(host);
-#else
-	return;
-#endif
 }
 
 void

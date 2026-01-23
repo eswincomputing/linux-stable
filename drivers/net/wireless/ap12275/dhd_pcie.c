@@ -1,7 +1,26 @@
 /*
  * DHD Bus Module for PCIE
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -72,6 +91,14 @@
 #include <bcmevent.h>
 #include <dhd_config.h>
 
+#ifdef CUSTOMER_HW_ROCKCHIP
+#if IS_ENABLED(CONFIG_PCIEASPM_ROCKCHIP_WIFI_EXTENSION)
+#include <rk_dhd_pcie_linux.h>
+#endif /* CONFIG_PCIEASPM_ROCKCHIP_WIFI_EXTENSION */
+#ifdef CONFIG_ARCH_ROCKCHIP
+#include <linux/aspm_ext.h>
+#endif /* CONFIG_ARCH_ROCKCHIP */
+#endif /* CUSTOMER_HW_ROCKCHIP */
 #ifdef BCM_ROUTER_DHD
 #include <bcmnvram.h>
 #define STR_END		"END\0\0"
@@ -100,9 +127,7 @@
 #include <dhd_linux.h>
 #endif /* DNGL_AXI_ERROR_LOGGING */
 
-#if defined(DHD_CONTROL_PCIE_CPUCORE_WIFI_TURNON)
 #include <dhd_linux_priv.h>
-#endif /* DHD_CONTROL_PCIE_CPUCORE_WIFI_TURNON */
 #include <dhd_linux_pktdump.h>
 
 #define EXTENDED_PCIE_DEBUG_DUMP 1	/* Enable Extended pcie registers dump */
@@ -1000,9 +1025,6 @@ int dhdpcie_bus_attach(osl_t *osh, dhd_bus_t **bus_ptr,
 			ret = BCME_NORESOURCE;
 			break;
 		}
-#if defined(GET_OTP_MAC_ENABLE) || defined(GET_OTP_MODULE_NAME)
-		dhd_conf_get_otp(bus->dhd, bus->sih);
-#endif
 		DHD_ERROR(("%s: making DHD_BUS_DOWN\n", __FUNCTION__));
 		bus->dhd->busstate = DHD_BUS_DOWN;
 		bus->dhd->hostrdy_after_init = TRUE;
@@ -1255,9 +1277,9 @@ dhdpcie_bus_intstatus(dhd_bus_t *bus)
 			return intstatus;
 		}
 
-#ifndef DHD_READ_INTSTATUS_IN_DPC
+#ifndef DHD_PCIE_READ_INTSTATUS_IN_DPC
 		intstatus &= intmask;
-#endif /* DHD_READ_INTSTATUS_IN_DPC */
+#endif /* DHD_PCIE_READ_INTSTATUS_IN_DPC */
 
 #ifdef DHD_MMIO_TRACE
 		dhd_bus_mmio_trace(bus, bus->pcie_mailbox_mask, intmask, FALSE);
@@ -1462,7 +1484,7 @@ dhdpcie_bus_isr(dhd_bus_t *bus)
 			}
 		}
 
-#ifndef DHD_READ_INTSTATUS_IN_DPC
+#ifndef DHD_PCIE_READ_INTSTATUS_IN_DPC
 		if (bus->d2h_intr_method == PCIE_MSI &&
 				!dhd_conf_legacy_msi_chip(bus->dhd)) {
 			/* For MSI, as intstatus is cleared by firmware, no need to read */
@@ -1501,7 +1523,7 @@ skip_intstatus_read:
 
 		/* Count the interrupt call */
 		bus->intrcount++;
-#endif /* DHD_READ_INTSTATUS_IN_DPC */
+#endif /* DHD_PCIE_READ_INTSTATUS_IN_DPC */
 
 		bus->ipend = TRUE;
 
@@ -2122,6 +2144,10 @@ dhdpcie_dongle_attach(dhd_bus_t *bus)
 	if (BCM4349_CHIP(chipid) || BCM4350_CHIP(chipid) || BCM4345_CHIP(chipid)) {
 		DHD_ERROR(("Disable CTO\n"));
 		bus->cto_enable = FALSE;
+	}
+	else if (dhd_conf_legacy_cto_chip(chipid)) {
+		DHD_ERROR(("Disable CTO for chip 0x%x\n", chipid));
+		bus->cto_enable = FALSE;
 	} else {
 		DHD_ERROR(("Enable CTO\n"));
 		bus->cto_enable = TRUE;
@@ -2446,6 +2472,9 @@ dhdpcie_dongle_attach(dhd_bus_t *bus)
 			break;
 		case BCM4382_CHIP_ID:
 			bus->dongle_ram_base = CR4_4382_RAM_BASE;
+			break;
+		case BCM4383_CHIP_ID:
+			bus->dongle_ram_base = CR4_4383_RAM_BASE;
 			break;
 		case BCM4387_CHIP_GRPID:
 			bus->dongle_ram_base = CR4_4387_RAM_BASE;
@@ -3455,13 +3484,13 @@ bool dhd_bus_watchdog(dhd_pub_t *dhd)
 		}
 	}
 
-#ifdef DHD_READ_INTSTATUS_IN_DPC
+#ifdef DHD_PCIE_READ_INTSTATUS_IN_DPC
 	if (bus->poll) {
 		bus->ipend = TRUE;
 		bus->dpc_sched = TRUE;
 		dhd_sched_dpc(bus->dhd);     /* queue DPC now!! */
 	}
-#endif /* DHD_READ_INTSTATUS_IN_DPC */
+#endif /* DHD_PCIE_READ_INTSTATUS_IN_DPC */
 
 #ifdef DEVICE_TX_STUCK_DETECT
 	if (dhd->bus->dev_tx_stuck_monitor == TRUE) {
@@ -3806,15 +3835,12 @@ dhd_get_chiprev(struct dhd_bus *bus)
  */
 int
 dhd_bus_download_firmware(struct dhd_bus *bus, osl_t *osh,
-                          char *pfw_path, char *pnv_path,
-                          char *pclm_path, char *pconf_path)
+                          char *pfw_path, char *pnv_path)
 {
 	int ret;
 
 	bus->fw_path = pfw_path;
 	bus->nv_path = pnv_path;
-	bus->dhd->clm_path = pclm_path;
-	bus->dhd->conf_path = pconf_path;
 
 #if defined(SUPPORT_MULTIPLE_REVISION)
 	if (concate_revision(bus, bus->fw_path, bus->nv_path) != 0) {
@@ -3848,6 +3874,9 @@ dhd_bus_download_firmware(struct dhd_bus *bus, osl_t *osh,
 	dhdpcie_dump_resource(bus);
 #endif /* LINUX || linux */
 
+	if (CHIPID(bus->sih->chip) == BCM43711_CHIP_ID)
+		si_pmu_43711a0_udr_war(bus->sih);
+
 	ret = dhdpcie_download_firmware(bus, osh);
 
 	return ret;
@@ -3856,7 +3885,8 @@ dhd_bus_download_firmware(struct dhd_bus *bus, osl_t *osh,
 void
 dhd_set_bus_params(struct dhd_bus *bus)
 {
-	struct dhd_conf *conf = bus->dhd->conf;
+	dhd_pub_t *dhd = bus->dhd;
+	struct dhd_conf *conf = dhd->conf;
 
 	if (conf->dhd_poll >= 0) {
 		bus->poll = conf->dhd_poll;
@@ -3903,11 +3933,7 @@ dhdpcie_download_firmware(struct dhd_bus *bus, osl_t *osh)
 #if defined(BCM_REQUEST_FW)
 	uint chipid = bus->sih->chip;
 	uint revid = bus->sih->chiprev;
-#if defined(DHD_LINUX_STD_FW_API)
 	char fw_path[64] = "brcm/bcm";	/* path to firmware image */
-#else
-	char fw_path[64] = "/lib/firmware/brcm/bcm";	/* path to firmware image */
-#endif /* DHD_LINUX_STD_FW_API */
 	char nv_path[64];		/* path to nvram vars file */
 
 	bus->fw_path = fw_path;
@@ -3955,16 +3981,18 @@ dhdpcie_download_firmware(struct dhd_bus *bus, osl_t *osh)
 
 	DHD_OS_WAKE_LOCK(bus->dhd);
 
-	dhd_conf_set_path_params(bus->dhd, bus->fw_path, bus->nv_path);
+	dhd_conf_set_path_params(bus->dhd);
 	dhd_set_bus_params(bus);
 
 	ret = _dhdpcie_download_firmware(bus);
+#ifdef SHOW_LOGTRACE
+	dhd_init_logstrs(bus->dhd);
+#endif /* SHOW_LOGTRACE */
 
 	DHD_OS_WAKE_UNLOCK(bus->dhd);
 	return ret;
 } /* dhdpcie_download_firmware */
 
-#ifdef DHD_LINUX_STD_FW_API
 static int
 dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 {
@@ -3973,10 +4001,12 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 	int len = 0;
 	bool store_reset;
 	int offset_end = bus->ramsize;
-	const struct firmware *fw = NULL;
+	FWPKG_FILE *fw = NULL;
 	int buf_offset = 0, residual_len = 0;
+	fwpkg_info_t *fwpkg = &bus->dhd->info->fwpkg;
+	uint8 *memptr_w = NULL;
 #ifdef CHECK_DOWNLOAD_FW
-	uint8 *memptr_tmp = NULL; // terence: check downloaded firmware is correct
+	uint8 *memptr_r = NULL;
 #endif
 
 #if defined(DHD_FW_MEM_CORRUPTION)
@@ -4012,32 +4042,47 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 	store_reset = (si_setcore(bus->sih, ARMCR4_CORE_ID, 0) ||
 			si_setcore(bus->sih, ARMCA7_CORE_ID, 0));
 
-	bcmerror = dhd_os_get_img_fwreq(&fw, bus->fw_path);
-	if (bcmerror < 0) {
-		DHD_ERROR(("dhd_os_get_img(Request Firmware API) error : %d\n",
-			bcmerror));
+	residual_len = fwpkg_open_firmware_img(&fw, fwpkg, FWPKG_TAG_FW, pfw_path,
+		__FUNCTION__);
+	if (residual_len <= 0) {
+		DHD_ERROR(("%s: Open firmware file failed %s\n", __FUNCTION__, pfw_path));
 		goto err;
 	}
+
+	if (fwpkg_unit_inside(fwpkg, FWPKG_TAG_SIG))
+		strlcpy(bus->fwsig_filename, pfw_path, sizeof(bus->fwsig_filename));
+
+	memptr_w = MALLOC(bus->dhd->osh, MEMBLOCK);
+	if (memptr_w == NULL) {
+		DHD_ERROR(("%s: Failed to allocate memory %d bytes\n", __FUNCTION__, MEMBLOCK));
+		goto err;
+	}
+
 #ifdef CHECK_DOWNLOAD_FW
 	if (bus->dhd->conf->fwchk) {
-		memptr_tmp = MALLOC(bus->dhd->osh, MEMBLOCK + DHD_SDALIGN);
-		if (memptr_tmp == NULL) {
+		memptr_r = MALLOC(bus->dhd->osh, MEMBLOCK);
+		if (memptr_r == NULL) {
 			DHD_ERROR(("%s: Failed to allocate memory %d bytes\n", __FUNCTION__, MEMBLOCK));
 			goto err;
 		}
 	}
 #endif
 
-	bus->fw_download_len = fw->size;
+	bus->fw_download_len = residual_len;
 	bus->fw_download_addr = bus->dongle_ram_base;
-	residual_len = fw->size;
 	while (residual_len) {
 		len = MIN(residual_len, MEMBLOCK);
+		len = fwpkg_get_firmware_img_block(fw, fwpkg, FWPKG_TAG_FW,
+			memptr_w, len, buf_offset);
+		if (len <= 0) {
+			DHD_ERROR(("%s: failed to get img block %d\n", __FUNCTION__, len));
+			goto err;
+		}
 
 		/* if address is 0, store the reset instruction to be written in 0 */
 		if (store_reset) {
 			ASSERT(offset == 0);
-			bus->resetinstr = *(((const uint32*)fw->data + buf_offset));
+			bus->resetinstr = *(((uint32*)memptr_w));
 			/* Add start of RAM address to the address given by user */
 			offset += bus->dongle_ram_base;
 			offset_end += offset;
@@ -4046,8 +4091,7 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 		/* Ignore compiler warnings due to -Werror=cast-qual */
 		GCC_DIAGNOSTIC_PUSH_SUPPRESS_CAST();
-		bcmerror = dhdpcie_bus_membytes(bus, TRUE, offset,
-			(uint8 *)fw->data + buf_offset, len);
+		bcmerror = dhdpcie_bus_membytes(bus, TRUE, offset, memptr_w, len);
 		GCC_DIAGNOSTIC_POP();
 
 		if (bcmerror) {
@@ -4057,13 +4101,13 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 		}
 #ifdef CHECK_DOWNLOAD_FW
 		if (bus->dhd->conf->fwchk) {
-			bcmerror = dhdpcie_bus_membytes(bus, FALSE, offset, memptr_tmp, len);
+			bcmerror = dhdpcie_bus_membytes(bus, FALSE, offset, memptr_r, len);
 			if (bcmerror) {
 				DHD_ERROR(("%s: error %d on reading %d membytes at 0x%08x\n",
 				        __FUNCTION__, bcmerror, MEMBLOCK, offset));
 				goto err;
 			}
-			if (memcmp(memptr_tmp, (uint8 *)fw->data + buf_offset, len)) {
+			if (memcmp(memptr_r, memptr_w, len)) {
 				DHD_ERROR(("%s: Downloaded image is corrupted at 0x%08x\n", __FUNCTION__, offset));
 				bcmerror = BCME_ERROR;
 				goto err;
@@ -4083,297 +4127,16 @@ dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
 		buf_offset += len;
 	}
 err:
+	if (memptr_w)
+		MFREE(bus->dhd->osh, memptr_w, MEMBLOCK);
 #ifdef CHECK_DOWNLOAD_FW
-	if (memptr_tmp)
-		MFREE(bus->dhd->osh, memptr_tmp, MEMBLOCK + DHD_SDALIGN);
+	if (memptr_r)
+		MFREE(bus->dhd->osh, memptr_r, MEMBLOCK);
 #endif
-	if (fw) {
-		dhd_os_close_img_fwreq(fw);
-	}
+	if (fw)
+		fwpkg_close_firmware_img(fw);
 	return bcmerror;
-} /* dhdpcie_download_code_file */
-
-#else
-
-/**
- * Downloads a file containing firmware into dongle memory. In case of a .bea file, the DHD
- * is updated with the event logging partitions within that file as well.
- *
- * @param pfw_path    Path to .bin or .bea file
- */
-static int
-dhdpcie_download_code_file(struct dhd_bus *bus, char *pfw_path)
-{
-	int bcmerror = BCME_ERROR;
-	int offset = 0;
-	int len = 0;
-	bool store_reset;
-	void *filep = NULL;
-	uint8 *memblock = NULL, *memptr = NULL;
-#ifdef CHECK_DOWNLOAD_FW
-	uint8 *memptr_tmp = NULL; // terence: check downloaded firmware is correct
-#endif
-	int offset_end = bus->ramsize;
-	uint32 file_size = 0, read_len = 0;
-	fwpkg_info_t *fwpkg;
-
-#if defined(CACHE_FW_IMAGES)
-	int buf_offset, total_len, residual_len;
-	char * dnld_buf = NULL;
-#endif /* CACHE_FW_IMAGES */
-
-#if defined(linux) || defined(LINUX)
-#if defined(DHD_FW_MEM_CORRUPTION)
-	if (dhd_bus_get_fw_mode(bus->dhd) == DHD_FLAG_MFG_MODE) {
-		dhd_tcm_test_enable = TRUE;
-	} else {
-		dhd_tcm_test_enable = FALSE;
-	}
-#endif /* DHD_FW_MEM_CORRUPTION */
-	DHD_ERROR(("%s: dhd_tcm_test_enable %u, dhd_tcm_test_status %u\n", __FUNCTION__,
-		dhd_tcm_test_enable, dhd_tcm_test_status));
-	/* run TCM test if not passed yet */
-	if (dhd_tcm_test_enable && dhd_tcm_test_status != TCM_TEST_PASSED) {
-		if (dhd_bus_tcm_test(bus) == FALSE) {
-			DHD_ERROR(("dhd_bus_tcm_test failed\n"));
-			dhd_tcm_test_status = TCM_TEST_FAILED;
-			bcmerror = BCME_ERROR;
-			goto err;
-		} else {
-			dhd_tcm_test_status = TCM_TEST_PASSED;
-		}
-	}
-#endif /* LINUX || linux */
-	DHD_ERROR_MEM(("%s: download firmware %s\n", __FUNCTION__, pfw_path));
-
-	bcmerror = fwpkg_init(&bus->fwpkg, pfw_path);
-	if (bcmerror == BCME_ERROR) {
-		printf("%s: fwpkg_init failed %s\n", __FUNCTION__, pfw_path);
-		goto err;
-	}
-	fwpkg = &bus->fwpkg;
-	/* Should succeed in opening image if it is actually given through registry
-	 * entry or in module param.
-	 */
-	bcmerror = fwpkg_open_firmware_img(fwpkg, pfw_path, &filep);
-	if (bcmerror == BCME_ERROR) {
-		printf("%s: Open firmware file failed %s\n", __FUNCTION__, pfw_path);
-		goto err;
-	}
-
-	if (bcmerror == BCME_UNSUPPORTED) {
-		file_size = fwpkg->file_size;
-		DHD_ERROR(("%s Using SINGLE image (size %d)\n",
-			__FUNCTION__, file_size));
-	} else {
-		file_size = fwpkg_get_firmware_img_size(fwpkg);
-		strlcpy(bus->fwsig_filename, pfw_path, sizeof(bus->fwsig_filename));
-		DHD_ERROR(("%s Using COMBINED image (size %d)\n",
-			__FUNCTION__, file_size));
-	}
-	bus->fw_download_len = file_size;
-	bus->fw_download_addr = bus->dongle_ram_base;
-
-	memptr = memblock = MALLOC(bus->dhd->osh, MEMBLOCK + DHD_SDALIGN);
-	if (memblock == NULL) {
-		DHD_ERROR(("%s: Failed to allocate memory %d bytes\n", __FUNCTION__, MEMBLOCK));
-		bcmerror = BCME_NOMEM;
-		goto err;
-	}
-#ifdef CHECK_DOWNLOAD_FW
-	if (bus->dhd->conf->fwchk) {
-		memptr_tmp = MALLOC(bus->dhd->osh, MEMBLOCK + DHD_SDALIGN);
-		if (memptr_tmp == NULL) {
-			DHD_ERROR(("%s: Failed to allocate memory %d bytes\n", __FUNCTION__, MEMBLOCK));
-			goto err;
-		}
-	}
-#endif
-	if ((uint32)(uintptr)memblock % DHD_SDALIGN) {
-		memptr += (DHD_SDALIGN - ((uint32)(uintptr)memblock % DHD_SDALIGN));
-	}
-
-	/* check if CR4/CA7 */
-	store_reset = (si_setcore(bus->sih, ARMCR4_CORE_ID, 0) ||
-			si_setcore(bus->sih, ARMCA7_CORE_ID, 0));
-#if defined(CACHE_FW_IMAGES)
-	total_len = bus->ramsize;
-	dhd_os_close_image(filep);
-	filep = NULL;
-	buf_offset = 0;
-	bcmerror = dhd_get_download_buffer(bus->dhd, pfw_path, FW, &dnld_buf, &total_len);
-	if (bcmerror != BCME_OK) {
-		DHD_ERROR(("%s: dhd_get_download_buffer failed (%d)\n", __FUNCTION__, bcmerror));
-		goto err;
-	}
-	residual_len = total_len;
-	/* Download image with MEMBLOCK size */
-	while (residual_len)
-#else
-	/* Download image with MEMBLOCK size */
-	while ((len = dhd_os_get_image_block((char*)memptr, MEMBLOCK, filep)))
-#endif /* CACHE_FW_IMAGES */
-	{
-#if defined(CACHE_FW_IMAGES)
-		len = MIN(residual_len, MEMBLOCK);
-		memcpy(memptr, dnld_buf + buf_offset, len);
-		residual_len -= len;
-		buf_offset += len;
-#else
-		if (len < 0) {
-			DHD_ERROR(("%s: dhd_os_get_image_block failed (%d)\n", __FUNCTION__, len));
-			bcmerror = BCME_ERROR;
-			goto err;
-		}
-#endif /* CACHE_FW_IMAGES */
-
-		read_len += len;
-		if (read_len > file_size) {
-			DHD_ERROR(("%s: WARNING! reading beyond EOF, len=%d; read_len=%u;"
-				" file_size=%u truncating len to %d \n", __FUNCTION__,
-				len, read_len, file_size, (len - (read_len - file_size))));
-			len -= (read_len - file_size);
-		}
-
-		/* if address is 0, store the reset instruction to be written in 0 */
-		if (store_reset) {
-			ASSERT(offset == 0);
-			bus->resetinstr = *(((uint32*)memptr));
-			/* Add start of RAM address to the address given by user */
-			offset += bus->dongle_ram_base;
-			offset_end += offset;
-			store_reset = FALSE;
-		}
-
-		bcmerror = dhdpcie_bus_membytes(bus, TRUE, offset, (uint8 *)memptr, len);
-		if (bcmerror) {
-			DHD_ERROR(("%s: error %d on writing %d membytes at 0x%08x\n",
-				__FUNCTION__, bcmerror, MEMBLOCK, offset));
-			goto err;
-		}
-
-#ifdef CHECK_DOWNLOAD_FW
-		if (bus->dhd->conf->fwchk) {
-			bcmerror = dhdpcie_bus_membytes(bus, FALSE, offset, memptr_tmp, len);
-			if (bcmerror) {
-				DHD_ERROR(("%s: error %d on reading %d membytes at 0x%08x\n",
-				        __FUNCTION__, bcmerror, MEMBLOCK, offset));
-				goto err;
-			}
-			if (memcmp(memptr_tmp, memptr, len)) {
-				DHD_ERROR(("%s: Downloaded image is corrupted at 0x%08x\n", __FUNCTION__, offset));
-				bcmerror = BCME_ERROR;
-				goto err;
-			} else
-				DHD_INFO(("%s: Download, Upload and compare succeeded.\n", __FUNCTION__));
-		}
-#endif
-		offset += MEMBLOCK;
-
-		if (offset >= offset_end) {
-			DHD_ERROR(("%s: invalid address access to %x (offset end: %x)\n",
-				__FUNCTION__, offset, offset_end));
-			bcmerror = BCME_ERROR;
-			goto err;
-		}
-
-		if (read_len >= file_size) {
-			break;
-		}
-	}
-#if defined(DHD_DEBUG) && defined(DHD_FW_MEM_CORRUPTION)
-	/* Upload and compare the downloaded code */
-	{
-		unsigned char *ulblock = NULL;
-		unsigned int uploded_len;
-		read_len = 0;
-		uploded_len = 0;
-		bcmerror = BCME_ERROR;
-		ulblock = MALLOC(bus->dhd->osh, MEMBLOCK);
-		if (ulblock == NULL)
-			goto upload_err;
-		/* Close and re-open the image file to reset the file pointer.
-		*/
-		dhd_os_close_image1(bus->dhd, imgbuf);
-		imgbuf = dhd_os_open_image1(bus->dhd, pfw_path);
-		if (imgbuf == NULL) {
-			goto upload_err;
-		}
-		/* Upload image to verify downloaded contents. */
-		offset = bus->dongle_ram_base;
-		offset_end = offset + bus->ramsize;
-		/* Upload image with MEMBLOCK size */
-		while ((len = dhd_os_get_image_block((char*)memptr, MEMBLOCK, imgbuf))) {
-			if (len < 0) {
-				DHD_ERROR(("%s: dhd_os_get_image_block failed (%d)\n", __FUNCTION__, len));
-				bcmerror = BCME_ERROR;
-				goto upload_err;
-			}
-
-			read_len += len;
-			if (read_len > file_size) {
-				DHD_ERROR(("%s: WARNING! reading beyond EOF, len=%d; read_len=%u;"
-					" file_size=%u truncating len to %d \n", __FUNCTION__,
-					len, read_len, file_size, (len - (read_len - file_size))));
-				len -= (read_len - file_size);
-			}
-			memset(ulblock, 0xaa, MEMBLOCK);
-			bcmerror = dhdpcie_bus_membytes(bus, FALSE, offset,
-				(uint8 *)ulblock, len);
-			if (bcmerror) {
-				DHD_ERROR(("%s: error %d on reading %d membytes at 0x%08x\n",
-					__FUNCTION__, bcmerror, len, offset));
-				goto upload_err;
-			}
-			if (memcmp(memptr, ulblock, len)) {
-				DHD_ERROR(("%s: Downloaded image is corrupted! \n",
-					__FUNCTION__));
-				bcmerror = BCME_ERROR;
-				goto upload_err;
-			}
-
-			uploded_len += len;
-			offset += MEMBLOCK;
-
-			if (offset >= offset_end) {
-				DHD_ERROR(("%s: invalid address access to %x (offset end: %x)\n",
-					__FUNCTION__, offset, offset_end));
-				bcmerror = BCME_ERROR;
-				goto upload_err;
-			}
-
-			if (read_len >= file_size) {
-				break;
-			}
-		}
-		DHD_INFO(("%s: Download, Upload and compare succeeded.\n", __FUNCTION__));
-
-upload_err:
-		if (ulblock)
-			MFREE(bus->dhd->osh, ulblock, MEMBLOCK);
-	}
-#endif /* DHD_DEBUG && DHD_FW_MEM_CORRUPTION */
-err:
-	if (memblock) {
-		MFREE(bus->dhd->osh, memblock, MEMBLOCK + DHD_SDALIGN);
-#ifdef CHECK_DOWNLOAD_FW
-		if (memptr_tmp)
-			MFREE(bus->dhd->osh, memptr_tmp, MEMBLOCK + DHD_SDALIGN);
-#endif
-	}
-#if defined(CACHE_FW_IMAGES)
-	if (dnld_buf) {
-		dhd_free_download_buffer(bus->dhd, dnld_buf, total_len);
-	}
-#endif /* CACHE_FW_IMAGES */
-
-	if (filep) {
-		dhd_os_close_image1(bus->dhd, filep);
-	}
-
-	return bcmerror;
-} /* dhdpcie_download_code_file */
-#endif /* DHD_LINUX_STD_FW_API */
+}
 
 static int
 dhdpcie_download_nvram(struct dhd_bus *bus)
@@ -4873,6 +4636,9 @@ _dhdpcie_download_firmware(struct dhd_bus *bus)
 	if (!dlok) {
 		DHD_ERROR(("%s:%d dongle image download failed\n", __FUNCTION__, __LINE__));
 		goto err;
+	}
+	if (CHIPID(bus->sih->chip) == BCM43711_CHIP_ID) {
+		si_pmu_43711a0_pll_war(bus->sih);
 	}
 
 	/* EXAMPLE: nvram_array */
@@ -5951,9 +5717,6 @@ BCMFASTPATH(dhd_bus_schedule_queue)(struct dhd_bus  *bus, uint16 flow_id, bool t
 		unsigned long flags;
 		void *txp = NULL;
 		flow_queue_t *queue;
-#ifdef TPUT_MONITOR
-		int pktlen;
-#endif
 
 		queue = &flow_ring_node->queue; /* queue associated with flow ring */
 
@@ -5970,8 +5733,7 @@ BCMFASTPATH(dhd_bus_schedule_queue)(struct dhd_bus  *bus, uint16 flow_id, bool t
 		}
 
 		while ((txp = dhd_flow_queue_dequeue(bus->dhd, queue)) != NULL) {
-			if (bus->dhd->conf->orphan_move <= 1)
-				PKTORPHAN(txp, bus->dhd->conf->tsq);
+			PKTORPHAN(txp);
 
 			/*
 			 * Modifying the packet length caused P2P cert failures.
@@ -5998,12 +5760,6 @@ BCMFASTPATH(dhd_bus_schedule_queue)(struct dhd_bus  *bus, uint16 flow_id, bool t
 			/* Attempt to transfer packet over flow ring */
 			/* XXX: ifidx is wrong */
 			++cnt;
-#ifdef TPUT_MONITOR
-			pktlen  = PKTLEN(OSH_NULL, txp);
-			if ((bus->dhd->conf->data_drop_mode == TXPKT_DROP) && (pktlen > 500))
-				ret = BCME_OK;
-			else
-#endif
 			ret = dhd_prot_txdata(bus->dhd, txp, flow_ring_node->flow_info.ifindex);
 			if (ret != BCME_OK) { /* may not have resources in flow ring */
 				DHD_INFO(("%s: Reinserrt %d\n", __FUNCTION__, ret));
@@ -7802,6 +7558,13 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 				dhdpcie_bus_intr_disable(bus);
 				dhdpcie_free_irq(bus);
 			}
+#if defined(CUSTOMER_HW_ROCKCHIP) && IS_ENABLED(CONFIG_PCIEASPM_ROCKCHIP_WIFI_EXTENSION)
+			if (!rk_dhd_bus_pcie_wait_for_l1ss(bus)) {
+				DHD_ERROR(("%s: wait for l1ss success\n", __FUNCTION__));
+			} else {
+				DHD_ERROR(("%s: wait for l1ss failed\n", __FUNCTION__));
+			}
+#endif /* CUSTOMER_HW_ROCKCHIP && CONFIG_PCIEASPM_ROCKCHIP_WIFI_EXTENSION */
 			dhd_deinit_bus_lp_state_lock(bus);
 			dhd_deinit_bar1_switch_lock(bus);
 			dhd_deinit_backplane_access_lock(bus);
@@ -7910,6 +7673,16 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			DHD_ERROR(("%s: == Power ON ==\n", __FUNCTION__));
 			/* PCIe RC Turn on */
 			do {
+#if defined(CUSTOMER_HW_ROCKCHIP) && defined(CONFIG_ARCH_ROCKCHIP)
+				if (bus->rc_dev) {
+					bcmerror = rockchip_dw_pcie_pm_ctrl_for_user(bus->rc_dev, ROCKCHIP_PCIE_PM_CTRL_RESET);
+					if (bcmerror) {
+						DHD_ERROR(("%s Failed to bring up PCIe link\n", __FUNCTION__));
+						OSL_SLEEP(10);
+						continue;
+					}
+				}
+#endif /* CUSTOMER_HW_ROCKCHIP && CONFIG_ARCH_ROCKCHIP */
 				bcmerror = dhdpcie_bus_start_host_dev(bus);
 				if (!bcmerror) {
 					DHD_ERROR_MEM(("%s: dhdpcie_bus_start_host_dev OK\n",
@@ -10811,8 +10584,11 @@ dhdpcie_bus_download_fw_signature(dhd_bus_t *bus, bool *do_write)
 
 	/* Write FW signature to memory */
 	if ((bcmerror = dhdpcie_bus_write_fw_signature(bus))) {
-		DHD_ERROR(("%s: could not write FWsig , err %d\n",
-			__FUNCTION__, bcmerror));
+		if (bcmerror == BCME_NOTFOUND)
+			bcmerror = BCME_OK;
+		else
+			DHD_ERROR(("%s: could not write FWsig , err %d\n",
+				__FUNCTION__, bcmerror));
 		goto exit;
 	}
 
@@ -10841,8 +10617,9 @@ dhdpcie_bus_write_fw_signature(dhd_bus_t *bus)
 	/* Write FW signature rTLV to TCM */
 	if ((bcmerror = dhdpcie_bus_write_fwsig(bus, bus->fwsig_filename,
 		NULL))) {
-		DHD_ERROR(("%s: could not write FWsig to TCM, err %d\n",
-			__FUNCTION__, bcmerror));
+		if (bcmerror != BCME_NOTFOUND)
+			DHD_ERROR(("%s: could not write FWsig to TCM, err %d\n",
+				__FUNCTION__, bcmerror));
 		goto exit;
 	}
 
@@ -11105,14 +10882,15 @@ dhdpcie_bus_save_download_info(dhd_bus_t *bus, uint32 download_addr,
 } /* dhdpcie_bus_save_download_info */
 
 /* Read a binary file and write it to the specified socram dest address */
-#ifdef DHD_LINUX_STD_FW_API
 static int
 dhdpcie_download_sig_file(dhd_bus_t *bus, char *path, uint32 type)
 {
 	int bcmerror = BCME_ERROR;
 	int srcsize = 0;
 	uint32 dest_size = 0;	/* dongle RAM dest size */
-	const struct firmware *sig = NULL;
+	FWPKG_FILE *sig = NULL;
+	uint8 *srcbuf = NULL;
+	fwpkg_info_t *fwpkg = &bus->dhd->info->fwpkg;
 
 	if (path == NULL || path[0] == '\0') {
 		DHD_ERROR(("%s: no file\n", __FUNCTION__));
@@ -11120,26 +10898,39 @@ dhdpcie_download_sig_file(dhd_bus_t *bus, char *path, uint32 type)
 		goto exit;
 	}
 
-	bcmerror = dhd_os_get_img_fwreq(&sig, bus->fwsig_filename);
-	if (bcmerror < 0) {
-		DHD_ERROR(("dhd_os_get_img(Request Firmware API) error : %d\n",
-			bcmerror));
+	srcsize = fwpkg_open_firmware_img(&sig, fwpkg, FWPKG_TAG_SIG, path,
+		__FUNCTION__);
+	if (srcsize <= 0) {
+		DHD_ERROR(("%s: Ignore signature file %s\n", __FUNCTION__, path));
+		bcmerror = BCME_NOTFOUND;
 		goto exit;
 	}
-	DHD_ERROR(("%s: dhd_os_get_img(Request Firmware API) success. size %d.\n",
-		__func__, sig->size));
-
-	srcsize = sig->size;
-	if (srcsize <= 0 || srcsize > MEMBLOCK) {
+	if (srcsize > MEMBLOCK) {
 		DHD_ERROR(("%s: invalid fwsig size %u\n", __FUNCTION__, srcsize));
 		bcmerror = BCME_BUFTOOSHORT;
 		goto exit;
 	}
 
 	dest_size = ROUNDUP(srcsize, 4);
+
+	/* Allocate src buffer, read in the entire file */
+	srcbuf = (uint8 *)MALLOCZ(bus->dhd->osh, dest_size);
+	if (!srcbuf) {
+		bcmerror = BCME_NOMEM;
+		goto exit;
+	}
+
+	dest_size = fwpkg_get_firmware_img_block(sig, fwpkg, FWPKG_TAG_SIG,
+		srcbuf, srcsize, 0);
+	if (dest_size <= 0) {
+		DHD_ERROR(("%s: get image block failed (%d)\n", __FUNCTION__, dest_size));
+		bcmerror = BCME_ERROR;
+		goto exit;
+	}
+
 	/* Write the src buffer as a rTLV to the dongle */
 	GCC_DIAGNOSTIC_PUSH_SUPPRESS_CAST();
-	bcmerror = dhdpcie_download_rtlv(bus, type, dest_size, (uint8 *)sig->data);
+	bcmerror = dhdpcie_download_rtlv(bus, type, dest_size, srcbuf);
 	GCC_DIAGNOSTIC_POP();
 	if (bcmerror) {
 		DHD_ERROR(("%s: error %d on writing %d membytes at 0x%08x\n",
@@ -11151,81 +10942,14 @@ dhdpcie_download_sig_file(dhd_bus_t *bus, char *path, uint32 type)
 	bus->fwsig_download_len = dest_size;
 exit:
 	if (sig) {
-		dhd_os_close_img_fwreq(sig);
-	}
-
-	return bcmerror;
-}
-#else
-static int
-dhdpcie_download_sig_file(dhd_bus_t *bus, char *path, uint32 type)
-{
-	int bcmerror = BCME_OK;
-	void *filep = NULL;
-	uint8 *srcbuf = NULL;
-	int srcsize = 0;
-	int len;
-	uint32 dest_size = 0;	/* dongle RAM dest size */
-	fwpkg_info_t *fwpkg = NULL;
-
-	if (path == NULL || path[0] == '\0') {
-		DHD_ERROR(("%s: no file\n", __FUNCTION__));
-		bcmerror = BCME_NOTFOUND;
-		goto exit;
-	}
-
-	bcmerror = fwpkg_init(&bus->fwpkg, path);
-	if (bcmerror == BCME_ERROR) {
-		goto exit;
-	}
-	fwpkg = &bus->fwpkg;
-
-	/* Open file, get size */
-	bcmerror = fwpkg_open_signature_img(fwpkg, path, &filep);
-	if (bcmerror == BCME_ERROR) {
-		DHD_ERROR(("%s: error opening file %s\n", __FUNCTION__, path));
-		goto exit;
-	}
-
-	srcsize = fwpkg_get_signature_img_size(fwpkg);
-
-	if (srcsize <= 0 || srcsize > MEMBLOCK) {
-		DHD_ERROR(("%s: invalid fwsig size %u\n", __FUNCTION__, srcsize));
-		bcmerror = BCME_BUFTOOSHORT;
-		goto exit;
-	}
-	dest_size = ROUNDUP(srcsize, 4);
-
-	/* Allocate src buffer, read in the entire file */
-	srcbuf = (uint8 *)MALLOCZ(bus->dhd->osh, dest_size);
-	if (!srcbuf) {
-		bcmerror = BCME_NOMEM;
-		goto exit;
-	}
-	len = dhd_os_get_image_block(srcbuf, srcsize, filep);
-	if (len != srcsize) {
-		DHD_ERROR(("%s: dhd_os_get_image_block failed (%d)\n", __FUNCTION__, len));
-		bcmerror = BCME_BADLEN;
-		goto exit;
-	}
-
-	/* Write the src buffer as a rTLV to the dongle */
-	bcmerror = dhdpcie_download_rtlv(bus, type, dest_size, srcbuf);
-
-	bus->fwsig_download_addr = bus->ramtop_addr;
-	bus->fwsig_download_len = dest_size;
-
-exit:
-	if (filep) {
-		dhd_os_close_image1(bus->dhd, filep);
+		fwpkg_close_firmware_img(sig);
 	}
 	if (srcbuf) {
 		MFREE(bus->dhd->osh, srcbuf, dest_size);
 	}
 
 	return bcmerror;
-} /* dhdpcie_download_sig_file */
-#endif /* DHD_LINUX_STD_FW_API */
+}
 
 static int
 dhdpcie_bus_write_fwsig(dhd_bus_t *bus, char *fwsig_path, char *nvsig_path)
@@ -11235,8 +10959,12 @@ dhdpcie_bus_write_fwsig(dhd_bus_t *bus, char *fwsig_path, char *nvsig_path)
 	/* Download the FW signature file to the chip */
 	bcmerror = dhdpcie_download_sig_file(bus, fwsig_path, DNGL_RTLV_TYPE_FW_SIGNATURE);
 	if (bcmerror) {
+		bus->sig_loaded = FALSE;
+		if (bcmerror == BCME_NOTFOUND)
+			return bcmerror;
 		goto exit;
 	}
+	bus->sig_loaded = TRUE;
 
 exit:
 	if (bcmerror) {
@@ -11800,7 +11528,7 @@ void dhd_dump_intr_counters(dhd_pub_t *dhd, struct bcmstrbuf *strbuf)
 		GET_SEC_USEC(bus->last_oob_irq_thr_time),
 		GET_SEC_USEC(bus->last_oob_irq_enable_time),
 		GET_SEC_USEC(bus->last_oob_irq_disable_time), dhdpcie_get_oob_irq_status(bus),
-		dhdpcie_get_oob_irq_level());
+		dhdpcie_get_oob_irq_level(bus));
 #endif /* BCMPCIE_OOB_HOST_WAKE */
 	bcm_bprintf(strbuf, "\ncurrent_time="SEC_USEC_FMT" isr_entry_time="SEC_USEC_FMT
 		" prev_isr_entry_time="SEC_USEC_FMT" isr_exit_time="SEC_USEC_FMT"\n"
@@ -13174,7 +12902,7 @@ BCMFASTPATH(dhd_bus_dpc)(struct dhd_bus *bus)
 	DHD_BUS_BUSY_SET_IN_DPC(bus->dhd);
 	DHD_GENERAL_UNLOCK(bus->dhd, flags);
 
-#ifdef DHD_READ_INTSTATUS_IN_DPC
+#ifdef DHD_PCIE_READ_INTSTATUS_IN_DPC
 	if (bus->ipend) {
 		bus->ipend = FALSE;
 		bus->intstatus = dhdpcie_bus_intstatus(bus);
@@ -13184,16 +12912,19 @@ BCMFASTPATH(dhd_bus_dpc)(struct dhd_bus *bus)
 		}
 		bus->intrcount++;
 	}
-#endif /* DHD_READ_INTSTATUS_IN_DPC */
+#endif /* DHD_PCIE_READ_INTSTATUS_IN_DPC */
 
 	resched = dhdpcie_bus_process_mailbox_intr(bus, bus->intstatus);
 	if (!resched) {
 		bus->intstatus = 0;
-#ifdef DHD_READ_INTSTATUS_IN_DPC
+
+#ifdef DHD_PCIE_READ_INTSTATUS_IN_DPC
 INTR_ON:
-#endif /* DHD_READ_INTSTATUS_IN_DPC */
+#endif /* DHD_PCIE_READ_INTSTATUS_IN_DPC */
+
 		bus->dpc_exit_time = OSL_LOCALTIME_NS();
-		bus->dpc_time_usec = DIV_U64_BY_U64((bus->dpc_exit_time - bus->dpc_entry_time), NSEC_PER_USEC);
+		bus->dpc_time_usec = DIV_U64_BY_U64((bus->dpc_exit_time - bus->dpc_entry_time),
+			NSEC_PER_USEC);
 		if (!dhd_query_bus_erros(bus->dhd)) {
 			/* Due to irq mismatch WARNING in linux, currently keeping it disabled and
 			 * using dongle intmask to control INTR enable/disable
@@ -13209,7 +12940,8 @@ INTR_ON:
 		}
 	} else {
 		bus->resched_dpc_time = OSL_LOCALTIME_NS();
-		bus->dpc_time_usec = DIV_U64_BY_U64((bus->resched_dpc_time - bus->dpc_entry_time), NSEC_PER_USEC);
+		bus->dpc_time_usec = DIV_U64_BY_U64((bus->resched_dpc_time - bus->dpc_entry_time),
+			NSEC_PER_USEC);
 	}
 	dhd_histo_update(bus->dhd, bus->dpc_time_histo, (uint32)bus->dpc_time_usec);
 
@@ -14480,7 +14212,7 @@ dhdpcie_readshared(dhd_bus_t *bus)
 	}
 done:
 #if defined(FW_SIGNATURE)
-	if ((ret == BCME_ERROR) && (bus->fwsig_filename[0] != 0)) {
+	if ((ret == BCME_ERROR) && (bus->fwsig_filename[0] != 0) && bus->sig_loaded) {
 		bl_verif_status_t status;
 
 		(void)dhdpcie_read_fwstatus(bus, &status);
@@ -14858,6 +14590,8 @@ dhdpcie_chipmatch(uint16 vendor, uint16 device)
 		case BCM4388_D11AX_ID:
 		case BCM4389_CHIP_ID:
 		case BCM4389_D11AX_ID:
+		case BCM4383_CHIP_ID:
+		case BCM4383_D11AX_ID:
 		case BCM4385_D11AX_ID:
 		case BCM4385_CHIP_ID:
 
@@ -17636,7 +17370,7 @@ dhd_pcie_intr_count_dump(dhd_pub_t *dhd)
 		GET_SEC_USEC(bus->last_oob_irq_disable_time)));
 	DHD_ERROR(("oob_irq_enabled=%d oob_gpio_level=%d\n",
 		dhdpcie_get_oob_irq_status(bus),
-		dhdpcie_get_oob_irq_level()));
+		dhdpcie_get_oob_irq_level(bus)));
 
 #if defined(__linux__)
 	dhd_plat_pin_dbg_show(bus->dhd->plat_info);

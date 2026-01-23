@@ -1,7 +1,26 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -1674,12 +1693,6 @@ bcm_iovar_lencheck(const bcm_iovar_t *vi, void *arg, uint len, bool set)
 #define MWBMAP_DBG(x)
 #endif  /* !BCM_MWBMAP_DEBUG */
 
-#ifndef ENODEBUG
-#define EDBG_DUMP(x)           printf x
-#else
-#define EDBG_DUMP(x)
-#endif
-
 typedef struct bcm_mwbmap {     /* Hierarchical multiword bitmap allocator    */
 	uint16 wmaps;               /* Total number of words in free wd bitmap    */
 	uint16 imaps;               /* Total number of words in free id bitmap    */
@@ -1693,7 +1706,7 @@ typedef struct bcm_mwbmap {     /* Hierarchical multiword bitmap allocator    */
 	int8   wd_count[BCM_MWBMAP_WORDS_MAX];  /* free id running count, 1st lvl */
 #endif /*  ! BCM_MWBMAP_USE_CNTSETBITS */
 
-	uint32 id_bitmap[0];        /* Second level bitmap                        */
+	uint32 id_bitmap[];        /* Second level bitmap                        */
 } bcm_mwbmap_t;
 
 /* Incarnate a hierarchical multiword bitmap based small index allocator. */
@@ -2094,7 +2107,7 @@ typedef struct id16_map {
 	uint16  total;     /* total number of ids managed by allocator */
 	uint16  start;     /* start value of 16bit ids to be managed */
 	int     stack_idx; /* index into stack of available ids */
-	uint16  stack[0];  /* stack of 16 bit ids */
+	uint16  stack[];  /* stack of 16 bit ids */
 } id16_map_t;
 
 #define ID16_MAP_SZ(items)      (sizeof(id16_map_t) + \
@@ -2107,7 +2120,7 @@ typedef struct id16_map {
 
 typedef struct id16_map_dbg {
 	uint16  total;
-	bool    avail[0];
+	bool    avail[];
 } id16_map_dbg_t;
 #define ID16_MAP_DBG_SZ(items)  (sizeof(id16_map_dbg_t) + \
 				     (sizeof(bool) * (items)))
@@ -5060,7 +5073,7 @@ dump_nvram(char *varbuf, int column, unsigned int n, unsigned int len)
 				break;
 			vars[m-n] = varbuf[m];
 		}
-		EDBG_DUMP(("%s\n", vars));
+		printf("  NVRAM: %s\n", vars);
 	}
 }
 
@@ -5397,7 +5410,7 @@ void counter_printlog(counter_tbl_t *ctr_tbl)
 #endif /* DEBUG_COUNTER */
 
 /* calculate partial checksum */
-static uint32
+uint32
 ip_cksum_partial(uint32 sum, uint8 *val8, uint32 count)
 {
 	uint32 i;
@@ -5416,7 +5429,7 @@ ip_cksum_partial(uint32 sum, uint8 *val8, uint32 count)
 }
 
 /* calculate IP checksum */
-static uint16
+uint16
 ip_cksum(uint32 sum, uint8 *val8, uint32 count)
 {
 	uint16 *val16 = (uint16 *)val8;

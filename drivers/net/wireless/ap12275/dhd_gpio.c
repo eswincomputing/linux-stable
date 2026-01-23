@@ -8,16 +8,10 @@
 #ifdef BCMDHD_PLATDEV
 #include <linux/platform_device.h>
 #endif
-#include <dhd_dbg.h>
-
-#ifdef CONFIG_DHD_USE_STATIC_BUF
-#if defined(BCMDHD_MDRIVER) && !defined(DHD_STATIC_IN_DRIVER)
-extern void *dhd_wlan_mem_prealloc(uint bus_type, int index,
-	int section, unsigned long size);
-#else
-extern void *dhd_wlan_mem_prealloc(int section, unsigned long size);
+#ifdef CUSTOMER_HW_ROCKCHIP
+#include <linux/rfkill-wlan.h>
 #endif
-#endif /* CONFIG_DHD_USE_STATIC_BUF */
+#include <dhd_dbg.h>
 
 #ifdef BCMDHD_DTS
 /* This is sample code in dts file.
@@ -28,12 +22,27 @@ bcmdhd_wlan {
 };
 */
 #define DHD_DT_COMPAT_ENTRY		"android,bcmdhd_wlan"
-#define GPIO_WL_REG_ON_PROPNAME		"gpio_wl_reg_on"
-#define GPIO_WL_HOST_WAKE_PROPNAME	"gpio_wl_host_wake"
+#define GPIO_WL_REG_ON_PROPNAME		"gpio_wl_reg_on" ADAPTER_IDX_STR
+#define GPIO_WL_HOST_WAKE_PROPNAME	"gpio_wl_host_wake" ADAPTER_IDX_STR
+#endif
+#define GPIO_WL_REG_ON_NAME 	"WL_REG_ON" ADAPTER_IDX_STR
+#define GPIO_WL_HOST_WAKE_NAME	"WL_HOST_WAKE" ADAPTER_IDX_STR
+
+#ifdef CONFIG_DHD_USE_STATIC_BUF
+#if defined(BCMDHD_MDRIVER) && !defined(DHD_STATIC_IN_DRIVER)
+extern void *dhd_wlan_mem_prealloc(uint bus_type, int index,
+	int section, unsigned long size);
+#else
+extern void *dhd_wlan_mem_prealloc(int section, unsigned long size);
+#endif
+#endif /* CONFIG_DHD_USE_STATIC_BUF */
+
+#if defined(BCMPCIE) && defined(PCIE_ATU_FIXUP)
+extern void pcie_power_on_atu_fixup(void);
 #endif
 
 static int
-dhd_wlan_set_power(int on, wifi_adapter_info_t *adapter)
+dhd_wlan_set_power(wifi_adapter_info_t *adapter, int on)
 {
 	int gpio_wl_reg_on = adapter->gpio_wl_reg_on;
 	int err = 0;
@@ -47,6 +56,13 @@ dhd_wlan_set_power(int on, wifi_adapter_info_t *adapter)
 				return -EIO;
 			}
 		}
+#ifdef CUSTOMER_HW_ROCKCHIP
+		rockchip_wifi_power(1);
+#endif
+#if defined(BCMPCIE) && defined(PCIE_ATU_FIXUP)
+		mdelay(100);
+		rk_pcie_power_on_atu_fixup();
+#endif
 #ifdef BUS_POWER_RESTORE
 #ifdef BCMPCIE
 		if (adapter->pci_dev) {
@@ -85,6 +101,9 @@ dhd_wlan_set_power(int on, wifi_adapter_info_t *adapter)
 				return -EIO;
 			}
 		}
+#ifdef CUSTOMER_HW_ROCKCHIP
+		rockchip_wifi_power(0);
+#endif
 	}
 
 	return err;
@@ -97,7 +116,7 @@ dhd_wlan_set_reset(int onoff)
 }
 
 static int
-dhd_wlan_set_carddetect(int present)
+dhd_wlan_set_carddetect(wifi_adapter_info_t *adapter, int present)
 {
 	int err = 0;
 
@@ -107,6 +126,9 @@ dhd_wlan_set_carddetect(int present)
 #ifdef CUSTOMER_HW_PLATFORM
 		err = sdhci_force_presence_change(&sdmmc_channel, 1);
 #endif /* CUSTOMER_HW_PLATFORM */
+#ifdef CUSTOMER_HW_ROCKCHIP
+		rockchip_wifi_set_carddetect(1);
+#endif
 #elif defined(BCMPCIE)
 		DHD_INFO(("======== Card detection to detect PCIE card! ========\n"));
 #endif
@@ -116,6 +138,9 @@ dhd_wlan_set_carddetect(int present)
 #ifdef CUSTOMER_HW_PLATFORM
 		err = sdhci_force_presence_change(&sdmmc_channel, 0);
 #endif /* CUSTOMER_HW_PLATFORM */
+#ifdef CUSTOMER_HW_ROCKCHIP
+		rockchip_wifi_set_carddetect(0);
+#endif
 #elif defined(BCMPCIE)
 		DHD_INFO(("======== Card detection to remove PCIE card! ========\n"));
 #endif
@@ -125,36 +150,31 @@ dhd_wlan_set_carddetect(int present)
 }
 
 static int
-dhd_wlan_get_mac_addr(unsigned char *buf, int ifidx)
+dhd_wlan_get_mac_addr(wifi_adapter_info_t *adapter,
+	unsigned char *buf, int ifidx)
 {
 	int err = -1;
 
-	if (ifidx == 1) {
+	if (ifidx == 0) {
+		/* Here is for wlan0 MAC address and please enable CONFIG_BCMDHD_CUSTOM_MAC in Makefile */
 #ifdef EXAMPLE_GET_MAC
 		struct ether_addr ea_example = {{0x00, 0x11, 0x22, 0x33, 0x44, 0xFF}};
 		bcopy((char *)&ea_example, buf, sizeof(struct ether_addr));
 #endif /* EXAMPLE_GET_MAC */
-	} else {
+#ifdef CUSTOMER_HW_ROCKCHIP
+		err = rockchip_wifi_mac_addr(buf);
+#endif
+	}
+	else if (ifidx == 1) {
+		/* Here is for wlan1 MAC address and please enable CUSTOM_MULTI_MAC in Makefile */
 #ifdef EXAMPLE_GET_MAC
 		struct ether_addr ea_example = {{0x02, 0x11, 0x22, 0x33, 0x44, 0x55}};
 		bcopy((char *)&ea_example, buf, sizeof(struct ether_addr));
 #endif /* EXAMPLE_GET_MAC */
 	}
-
-#ifdef EXAMPLE_GET_MAC_VER2
-	/* EXAMPLE code */
-	{
-		char macpad[56]= {
-		0x00,0xaa,0x9c,0x84,0xc7,0xbc,0x9b,0xf6,
-		0x02,0x33,0xa9,0x4d,0x5c,0xb4,0x0a,0x5d,
-		0xa8,0xef,0xb0,0xcf,0x8e,0xbf,0x24,0x8a,
-		0x87,0x0f,0x6f,0x0d,0xeb,0x83,0x6a,0x70,
-		0x4a,0xeb,0xf6,0xe6,0x3c,0xe7,0x5f,0xfc,
-		0x0e,0xa7,0xb3,0x0f,0x00,0xe4,0x4a,0xaf,
-		0x87,0x08,0x16,0x6d,0x3a,0xe3,0xc7,0x80};
-		bcopy(macpad, buf+6, sizeof(macpad));
+	else {
+		printf("%s: invalid ifidx=%d\n", __FUNCTION__, ifidx);
 	}
-#endif /* EXAMPLE_GET_MAC_VER2 */
 
 	DHD_INFO(("======== %s err=%d ========\n", __FUNCTION__, err));
 
@@ -233,6 +253,11 @@ dhd_wlan_init_gpio(wifi_adapter_info_t *adapter)
 	int gpio_wl_host_wake = -1;
 	int host_oob_irq = -1;
 	uint host_oob_irq_flags = 0;
+#ifdef CUSTOMER_HW_ROCKCHIP
+#ifdef HW_OOB
+	int irq_flags = -1;
+#endif
+#endif
 #endif
 
 	/* Please check your schematic and fill right GPIO number which connected to
@@ -267,18 +292,33 @@ dhd_wlan_init_gpio(wifi_adapter_info_t *adapter)
 	}
 
 	if (gpio_wl_reg_on >= 0) {
-		err = gpio_request(gpio_wl_reg_on, "WL_REG_ON");
+		err = gpio_request(gpio_wl_reg_on, GPIO_WL_REG_ON_NAME);
 		if (err < 0) {
 			printf("%s: gpio_request(%d) for WL_REG_ON failed %d\n",
 				__FUNCTION__, gpio_wl_reg_on, err);
 			gpio_wl_reg_on = -1;
 		}
+#if defined(BCMPCIE) && defined(PCIE_ATU_FIXUP)
+		DHD_INFO(("======== PULL WL_REG_ON(%d) HIGH! ========\n", gpio_wl_reg_on));
+#ifdef CUSTOMER_HW_ROCKCHIP
+		rockchip_wifi_power(1);
+#endif
+		err = gpio_direction_output(gpio_wl_reg_on, 1);
+		if (err) {
+			printf("%s: WL_REG_ON didn't output high\n", __FUNCTION__);
+			gpio_wl_reg_on = -1;
+		} else {
+			OSL_SLEEP(WIFI_TURNON_DELAY);
+		}
+		rk_pcie_power_on_atu_fixup();
+#endif
 	}
 	adapter->gpio_wl_reg_on = gpio_wl_reg_on;
 
 #ifdef CUSTOMER_OOB
+	adapter->gpio_wl_host_wake = -1;
 	if (gpio_wl_host_wake >= 0) {
-		err = gpio_request(gpio_wl_host_wake, "bcmdhd");
+		err = gpio_request(gpio_wl_host_wake, GPIO_WL_HOST_WAKE_NAME);
 		if (err < 0) {
 			printf("%s: gpio_request(%d) for WL_HOST_WAKE failed %d\n",
 				__FUNCTION__, gpio_wl_host_wake, err);
@@ -300,12 +340,25 @@ dhd_wlan_init_gpio(wifi_adapter_info_t *adapter)
 			return -1;
 		}
 	}
+#ifdef CUSTOMER_HW_ROCKCHIP
+	host_oob_irq = rockchip_wifi_get_oob_irq();
+#endif
 
 #ifdef HW_OOB
 #ifdef HW_OOB_LOW_LEVEL
 	host_oob_irq_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL | IORESOURCE_IRQ_SHAREABLE;
 #else
 	host_oob_irq_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE;
+#endif
+#ifdef CUSTOMER_HW_ROCKCHIP
+	host_oob_irq_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_SHAREABLE;
+	irq_flags = rockchip_wifi_get_oob_irq_flag();
+	if (irq_flags == 1)
+		host_oob_irq_flags |= IORESOURCE_IRQ_HIGHLEVEL;
+	else if (irq_flags == 0)
+		host_oob_irq_flags |= IORESOURCE_IRQ_LOWLEVEL;
+	else
+		pr_warn("%s: unknown oob irqflags !\n", __func__);
 #endif
 #else
 	host_oob_irq_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE | IORESOURCE_IRQ_SHAREABLE;
@@ -349,14 +402,14 @@ static void
 dhd_wlan_init_adapter(wifi_adapter_info_t *adapter)
 {
 #ifdef ADAPTER_IDX
-	if (ADAPTER_IDX == 0) {
+	adapter->index = ADAPTER_IDX;
+	if (adapter->index == 0) {
 		adapter->bus_num = 1;
 		adapter->slot_num = 1;
-	} else if (ADAPTER_IDX == 1) {
+	} else if (adapter->index == 1) {
 		adapter->bus_num = 2;
 		adapter->slot_num = 1;
 	}
-	adapter->index = ADAPTER_IDX;
 #ifdef BCMSDIO
 	adapter->bus_type = SDIO_BUS;
 #elif defined(BCMPCIE)

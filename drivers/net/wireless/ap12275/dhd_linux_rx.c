@@ -2,7 +2,26 @@
  * Broadcom Dongle Host Driver (DHD),
  * Linux-specific network interface for receive(rx) path
  *
- * Copyright (C) 2022, Broadcom.
+ * Copyright (C) 2024 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2024, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -36,6 +55,7 @@
 #include <bcmmsgbuf.h>
 #endif /* PCIE_FULL_DONGLE */
 
+#include <bcmsdpcm.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -64,7 +84,11 @@
 #include <linux/rtc.h>
 #include <linux/namei.h>
 #include <asm/uaccess.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+#include <linux/unaligned.h>
+#else
 #include <asm/unaligned.h>
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0) */
 #include <dhd_linux_priv.h>
 
 #include <epivers.h>
@@ -74,6 +98,7 @@
 #include <bcmdevs_legacy.h>    /* need to still support chips no longer in trunk firmware */
 #include <bcmiov.h>
 #include <bcmstdlib_s.h>
+#include <bcmsdpcm.h>
 
 #include <ethernet.h>
 #include <bcmevent.h>
@@ -160,6 +185,10 @@
 #if defined(OEM_ANDROID)
 #include <wl_android.h>
 #endif
+
+#ifdef CSI_SUPPORT
+#include <dhd_csi.h>
+#endif /* CSI_SUPPORT */
 #include <dhd_config.h>
 
 /* RX frame thread priority */
@@ -350,7 +379,7 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 						(ifp->net->ingress_cl_list != NULL) ||
 #endif /* LINUX_VERSION >= 4.2.0 */
 #endif /* CONFIG_NET_CLS_ACT */
-						0 ) {
+						0) {
 						dhd_gro_enable = FALSE;
 						DHD_TRACE(("%s: disable sw gro because of"
 						" qdisc rx traffic control\n", __FUNCTION__));
@@ -652,8 +681,10 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 #else /* !BCM_ROUTER_DHD */
 
 #if defined(DBG_PKT_MON) && !defined(PCIE_FULL_DONGLE)
-		if (dhd_80211_mon_pkt(dhdp, pktbuf, ifidx)) {
-			continue;
+		if (chan == SDPCM_EVENT_CHANNEL) {
+			if (dhd_80211_mon_pkt(dhdp, pktbuf, ifidx)) {
+				continue;
+			}
 		}
 #endif
 
@@ -831,6 +862,14 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			}
 #endif /* SHOW_LOGTRACE */
 
+#ifdef CSI_SUPPORT
+			if (WLC_E_CSI == event_type) {
+				DHD_TRACE(("%s: WLC_E_CSI\n", __func__));
+				dhd_csi_event_enqueue(dhdp, ifidx, pktbuf);
+				continue;
+			}
+#endif /* CSI_SUPPORT */
+
 			ret_event = dhd_wl_host_event(dhd, ifidx, pkt_data, len, &event, &data);
 
 			wl_event_to_host_order(&event);
@@ -873,12 +912,10 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			}
 #endif /* DHD_WAKE_STATUS */
 
-			/* For delete virtual interface event, wl_host_event returns positive
-			 * i/f index, do not proceed. just free the pkt.
-			 */
-			if ((event_type == WLC_E_IF) && (ret_event > 0)) {
-				DHD_ERROR(("%s: interface is deleted. Free event packet\n",
-				__FUNCTION__));
+			/* drop events if wl_host_event returns positive */
+			if (0 < ret_event) {
+				DHD_ERROR(("%s: Free event packet, event=%d\n",
+				           __func__, event.event_type));
 				PKTFREE_CTRLBUF(dhdp->osh, pktbuf, FALSE);
 				continue;
 			}
@@ -903,13 +940,17 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 				continue;
 			}
 
+			/* always send up WLC_E_ESCAN_RESULT for WL utility */
+			if ((dhdp->wl_event_enabled) || (WLC_E_ESCAN_RESULT == event_type) ||
 #ifdef SENDPROB
-			if (dhdp->wl_event_enabled ||
-				(dhdp->recv_probereq && (event.event_type == WLC_E_PROBREQ_MSG)))
-#else
-			if (dhdp->wl_event_enabled)
+				(dhdp->recv_probereq && (event.event_type == WLC_E_PROBREQ_MSG)) ||
 #endif
-			{
+				/* Also send nan and ranging events for the same */
+				(WLC_E_RANGING_EVENT == event_type) ||
+				(WLC_E_RANGING_RESULTS == event_type) ||
+				(WLC_E_NAN_NON_CRITICAL == event_type) ||
+				(WLC_E_NAN_CRITICAL == event_type) ||
+				0) {
 #ifdef DHD_USE_STATIC_CTRLBUF
 				/* If event bufs are allocated via static buf pool
 				 * and wl events are enabled, make a copy, free the
@@ -1054,6 +1095,11 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			netif_receive_skb(skb);
 #endif /* ENABLE_DHD_GRO */
 #else /* !defined(DHD_LB_RXP) */
+#if defined(WL_MONITOR) && defined(BCMDBUS)
+			if (dhd_monitor_enabled(dhdp, ifidx))
+				dhd_rx_mon_pkt_sdio(dhdp, skb, ifidx);
+			else
+#endif /* WL_MONITOR && BCMDBUS */
 			netif_rx(skb);
 #endif /* !defined(DHD_LB_RXP) */
 		} else {
@@ -1127,6 +1173,10 @@ dhd_rxf_thread(void *data)
 		param.sched_priority = (dhd_rxf_prio < MAX_RT_PRIO)?dhd_rxf_prio:(MAX_RT_PRIO-1);
 		setScheduler(current, SCHED_FIFO, &param);
 	}
+
+#ifdef CUSTOM_RXF_CPUCORE
+	set_cpus_allowed_ptr(current, cpumask_of(CUSTOM_RXF_CPUCORE));
+#endif
 
 #ifdef CUSTOM_SET_CPUCORE
 	dhd->pub.current_rxf = current;
@@ -1236,7 +1286,7 @@ dhd_sched_rxf(dhd_pub_t *dhdp, void *skb)
 }
 
 #ifdef WL_MONITOR
-#ifdef BCMSDIO
+#if defined(BCMSDIO) || defined(BCMDBUS)
 void
 dhd_rx_mon_pkt_sdio(dhd_pub_t *dhdp, void *pkt, int ifidx)
 {
