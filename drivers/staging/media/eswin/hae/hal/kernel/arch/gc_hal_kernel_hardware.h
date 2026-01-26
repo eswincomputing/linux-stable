@@ -263,6 +263,9 @@ struct _gckHARDWARE {
     gctUINT64                   threadShClk;
     gctUINT64                   firstProcessCnt;
     gctUINT64                   lastProcessCnt;
+    gctUINT64                   broadcastIdleCnt;
+    gctUINT64                   powerOffTimerStartCnt;
+    gctBOOL                     timerStartFlag;
     gctUINT64                   chipPowerOffCnt;
     gctUINT64                   chipPowerOnCnt;
     gctUINT64                   chipPowerIdleCnt;

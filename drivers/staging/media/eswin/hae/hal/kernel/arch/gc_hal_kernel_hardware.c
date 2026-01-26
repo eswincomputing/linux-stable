@@ -680,6 +680,7 @@ _PowerStateTimerFunc(gctPOINTER Data)
 {
     gckHARDWARE hardware = (gckHARDWARE)Data;
 
+    hardware->timerStartFlag = gcvFALSE;
     gcmkVERIFY_OK(gckHARDWARE_SetPowerState(hardware, hardware->nextPowerState));
 }
 #endif
@@ -6208,6 +6209,11 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
     gcmkONERROR(status);
     mutexAcquired = gcvTRUE;
 
+    // if timer start, but other state in, clear timer state
+    if (state != gcvPOWER_OFF) {
+        Hardware->nextPowerState = gcvPOWER_INVALID;
+    }
+
     if (Hardware->chipPowerState == state) {
         /* No state change. */
         status = gcvSTATUS_OK;
@@ -6230,9 +6236,15 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
     }
 
     if (Hardware->powerOffTimeout && !timeout && broadcast && (state == gcvPOWER_OFF)) {
+        if (!Hardware->timerStartFlag) {
+            Hardware->powerOffTimerStartCnt++;
+            gcmkVERIFY_OK(gckOS_StartTimer(os, Hardware->powerStateTimer,
+                                        Hardware->powerOffTimeout));
+            Hardware->timerStartFlag = gcvTRUE;
+        }
+
         Hardware->nextPowerState = gcvPOWER_OFF_TIMEOUT;
-        gcmkVERIFY_OK(gckOS_StartTimer(os, Hardware->powerStateTimer,
-                                       Hardware->powerOffTimeout));
+
         status = gcvSTATUS_OK;
         goto OnError;
     }
@@ -6382,10 +6394,6 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
         gckDVFS_Start(Hardware->kernel->dvfs);
 #endif
 
-    if (state != gcvPOWER_OFF) {
-        Hardware->nextPowerState = gcvPOWER_INVALID;
-    }
-
     switch (Hardware->chipPowerState) {
         case gcvPOWER_ON:
             Hardware->chipPowerOnCnt++;
@@ -6404,6 +6412,9 @@ gckHARDWARE_SetPowerState(gckHARDWARE Hardware, gceCHIPPOWERSTATE State)
     }
     Hardware->chipPowerChangeCnt++;
 
+    // any state change, cancel timer power off.
+    Hardware->nextPowerState = gcvPOWER_INVALID;
+    Hardware->timerStartFlag = gcvFALSE;
     /* Release the power mutex. */
     gcmkONERROR(gckOS_ReleaseMutex(os, Hardware->powerMutex));
 

@@ -4327,8 +4327,9 @@ gckOS_Broadcast(gckOS Os, gckHARDWARE Hardware, gceBROADCAST Reason)
 
     case gcvBROADCAST_GPU_IDLE:
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_OS, "GPU idle.");
-#if gcdPOWER_SUSPEND_WHEN_IDLE
-        state = gcvPOWER_SUSPEND_BROADCAST;
+        Hardware->broadcastIdleCnt++;
+#if gcdPOWER_SUSPEND_WHEN_IDLE //change to power off.
+        state = gcvPOWER_OFF_BROADCAST;
 #else
         state = gcvPOWER_IDLE_BROADCAST;
 #endif

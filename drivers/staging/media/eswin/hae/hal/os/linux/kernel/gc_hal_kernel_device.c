@@ -68,7 +68,7 @@
 #define MAX_ISR_NOT_HANDLED_CNT 2000
 
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
-#define ESWIN_HAE_VERSION "2026012200"
+#define ESWIN_HAE_VERSION "2026012700"
 
 static gckGALDEVICE     galDevice;
 
@@ -1064,6 +1064,8 @@ static int gc_run_state_show_dev(void *m, gckDEVICE device)
         len += fs_printf(ptr + len, "execute_cnt      : %u\n", kernel->hardware->executeCount);
         len += fs_printf(ptr + len, "first_proc_cnt   : %u\n", kernel->hardware->firstProcessCnt);
         len += fs_printf(ptr + len, "last_proc_cnt    : %u\n", kernel->hardware->lastProcessCnt);
+        len += fs_printf(ptr + len, "idle_check_cnt   : %u\n", kernel->hardware->broadcastIdleCnt);
+        len += fs_printf(ptr + len, "timer_start_cnt  : %u\n", kernel->hardware->powerOffTimerStartCnt);
         len += fs_printf(ptr + len, "wait_cnt         : %u\n", kernel->hardware->waitCount);
         len += fs_printf(ptr + len, "pw_on_cnt        : %u\n", kernel->hardware->chipPowerOnCnt);
         len += fs_printf(ptr + len, "pw_idle_cnt      : %u\n", kernel->hardware->chipPowerIdleCnt);
