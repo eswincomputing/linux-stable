@@ -27,7 +27,8 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							ebc7700-m01-pcie.dtb \
 							eic7700-vela.dtb \
 							eic7700-evb-a4.dtb \
-							vpu7702-pcie-8G.dtb
+							vpu7702-pcie-8G.dtb \
+							vpu7702_pcie_8G_factory.dtb
 
 subdir-y += overlays
 obj-$(CONFIG_BUILTIN_DTB) += $(addsuffix .o, $(dtb-y))
