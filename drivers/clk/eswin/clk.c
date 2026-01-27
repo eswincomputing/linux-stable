@@ -429,6 +429,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		 */
 		opp = devfreq_recommended_opp(clk->dev, &max_rate, 1);
 		if (IS_ERR(opp)) {
+			mutex_unlock(&lock);
 			return PTR_ERR(opp);
 		}
 
