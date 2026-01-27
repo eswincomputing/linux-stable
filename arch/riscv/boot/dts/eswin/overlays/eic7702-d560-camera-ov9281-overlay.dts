@@ -76,35 +76,7 @@
 		};
 	};
 
-    fragment@910 {
-		target = <&camera_imx219>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@11 {
-		target = <&camera_imx219_1>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@12 {
-		target = <&d1_camera_imx219>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@13 {
-		target = <&d1_camera_imx219_1>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@14 { 
+	fragment@10 { 
 		target = <&mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov9281_out0>;
@@ -112,7 +84,7 @@
 		};
 	};
 
-	fragment@15 {
+	fragment@11 {
 		target = <&mipidphy2_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&ov9281_out1>;
@@ -120,7 +92,7 @@
 		};
 	};
 
-	fragment@16 {
+	fragment@12 {
 		target = <&d1_mipidphy0_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&d1_ov9281_out0>;
@@ -128,7 +100,7 @@
 		};
 	};
 
-	fragment@17 {
+	fragment@13 {
 		target = <&d1_mipidphy2_in_ucam0>;
 		__overlay__ {
 			remote-endpoint = <&d1_ov9281_out1>;
@@ -136,35 +108,35 @@
 		};
 	};
 
-	fragment@18 {
+	fragment@14 {
 		target = <&csi2_dphy0>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@19 {
+	fragment@15 {
 		target = <&csi2_dphy2>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@20 {
+	fragment@16 {
 		target = <&d1_csi2_dphy0>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@21 {
+	fragment@17 {
 		target = <&d1_csi2_dphy2>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	fragment@22 {
+	fragment@18 {
 		target = <&d0_i2c3>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -190,7 +162,7 @@
 		};
 	};
 
-	fragment@23 {
+	fragment@19 {
 		target = <&d0_i2c4>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -216,7 +188,7 @@
 		};
 	};
 
-	fragment@24 {
+	fragment@20 {
 		target = <&d1_i2c3>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -242,7 +214,7 @@
 		};
 	};
 
-	fragment@25 {
+	fragment@21 {
 		target = <&d1_i2c4>;
 		__overlay__ {
 			#address-cells = <1>;
