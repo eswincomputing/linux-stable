@@ -362,10 +362,15 @@ static void es_dvp2axi_hw_shutdown(struct platform_device *pdev)
 static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
+	u32 reg_val = 0;
 
 	win2030_tbu_power(dev, false);
 
 	reset_control_assert(dvp2axi_hw->rstc);
+
+	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
+	reg_val &= (!DVP2AXI_DVP_CLK_EN);
+	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
 
 	clk_bulk_disable_unprepare(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
 
