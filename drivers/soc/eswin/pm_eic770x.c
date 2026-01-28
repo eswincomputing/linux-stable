@@ -111,6 +111,8 @@ static int eic770x_system_suspend_begin(suspend_state_t state)
 		pr_info("Notify lpcpu to enter suspend begin.\n");
 	}
 	return ret;
+#else
+	return 0;
 #endif
 }
 
