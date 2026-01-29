@@ -513,7 +513,7 @@ static void messagebox_send_p2p(msg_payload_t payload, u32 mbox_base)
 {
     u32 mbox_int, mbox_lock, timeout, data;
     mbox_int = BIT3;
-    mbox_lock = ((u32)payload.lparam) >> 8 + 16; // 1-16 reserved to u84 and dsp
+    mbox_lock = (((u32)payload.lparam) >> 8) + 16; // 1-16 reserved to u84 and dsp
     timeout = 0;
 
     // check lock bit and fifo
