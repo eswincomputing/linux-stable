@@ -191,6 +191,10 @@ void buddy_free_pages(struct mem_zone *zone,
         struct esPage_s *buddy;
         // find and delete buddy to combine
         buddy_idx = __find_buddy_index(page_idx, order);
+        if (buddy_idx >= zone->page_num) {
+            break;
+        }
+
         buddy = page + (buddy_idx - page_idx);
         if (!page_is_buddy(buddy, order))
             break;
