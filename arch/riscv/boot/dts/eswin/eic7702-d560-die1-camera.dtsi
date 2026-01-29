@@ -1,3 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ */
+
 &d1_vi_subsys {
 	eswin,isp_dvp0_hor = <3280>;
 	eswin,isp_dvp0_ver = <2464>;
@@ -111,6 +117,11 @@
 				};
 			};
 		};
+	};
+
+	d1_es_ircut: es_ircut {
+		compatible = "eswin,ircut";
+		status = "disabled";
 	};
 };
 
