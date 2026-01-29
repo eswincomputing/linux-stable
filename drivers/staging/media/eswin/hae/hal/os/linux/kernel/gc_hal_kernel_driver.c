@@ -1532,12 +1532,92 @@ static void viv_dev_shutdown(struct platform_device *pdev)
     viv_dev_remove(pdev);
 }
 
+#if defined(CONFIG_PM_SLEEP) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)
+static int viv_dev_suspend_power_off(const struct platform_device *dev, const gckDEVICE device)
+{
+    gctINT32 i;
+    gceSTATUS status;
+
+    for (i = 0; i < gcvCORE_COUNT; i++) {
+        if (device->kernels[i] == gcvNULL) {
+            continue;
+        }
+
+        /* Store states. */
+        status = gckHARDWARE_QueryPowerState(device->kernels[i]->hardware,
+                                            &device->statesStored[i]);
+        if (gcmIS_ERROR(status)) {
+            dev_err(&dev->dev, "hae pm suspend %d query state failed!\n", i);
+            return -1;
+        }
+
+        dev_info(&dev->dev, "[%d]hard: %p, store_state: %d, power off.\n", i, device->kernels[i]->hardware, device->statesStored[i]);
+        status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_OFF);
+        if (gcmIS_ERROR(status)) {
+            dev_err(&dev->dev, "hae pm suspend %d set power off failed!\n", i);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static int viv_dev_resume_power_on(const struct platform_device *dev, const gckDEVICE device)
+{
+    gctUINT32 i;
+    gceSTATUS status;
+    gceCHIPPOWERSTATE statesStored;
+
+    for (i = 0; i < gcvCORE_COUNT; i++) {
+        if (device->kernels[i] == gcvNULL) {
+            continue;
+        }
+
+        status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_ON);
+        if (gcmIS_ERROR(status)) {
+            dev_err(&dev->dev, "hae pm %d resume power on failed!\n", i);
+            return -1;
+        }
+
+        /* Convert global state to crossponding internal state. */
+        switch (device->statesStored[i]) {
+        case gcvPOWER_ON:
+            statesStored = gcvPOWER_ON_AUTO;
+            break;
+        case gcvPOWER_IDLE:
+            statesStored = gcvPOWER_IDLE_BROADCAST;
+            break;
+        case gcvPOWER_SUSPEND:
+            statesStored = gcvPOWER_SUSPEND_BROADCAST;
+            break;
+        case gcvPOWER_OFF:
+            statesStored = gcvPOWER_OFF_BROADCAST;
+            break;
+        default:
+            statesStored = device->statesStored[i];
+            break;
+        }
+
+        dev_info(&dev->dev, "[%d]hard: %p, store_state: %d, resume.\n", i, device->kernels[i]->hardware, statesStored);
+        /* Restore states. */
+        status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, statesStored);
+        if (gcmIS_ERROR(status)) {
+            dev_err(&dev->dev, "hae pm %d resume restore power state: %d failed!\n", i, statesStored);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 static int viv_dev_suspend(struct platform_device *dev, pm_message_t state)
 {
-    gceSTATUS status;
     gckGALDEVICE gal_device;
-    gckDEVICE device;
-    gctUINT i, dev_index;
+    gckDEVICE hae_dev = gcvNULL;
+    gctUINT dev_index;
+    gctINT32 find_dev_flag = -1;
+
+    dev_info(&dev->dev, "viv pm suspend.\n");
 
     gal_device = galDevice;
     if (!gal_device) {
@@ -1545,86 +1625,55 @@ static int viv_dev_suspend(struct platform_device *dev, pm_message_t state)
     }
 
     for (dev_index = 0; dev_index < gal_device->args.devCount; dev_index++) {
-        device = gal_device->devices[dev_index];
-
-        for (i = 0; i < gcvCORE_COUNT; i++) {
-            if (device->kernels[i] != gcvNULL) {
-                /* Store states. */
-                status = gckHARDWARE_QueryPowerState(device->kernels[i]->hardware,
-                                                     &device->statesStored[i]);
-                if (gcmIS_ERROR(status)) {
-                    return -1;
-                }
-
-                hae_print("hard: %p, store_state: %d, power off.", device->kernels[i]->hardware, device->statesStored[i]);
-                status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_OFF);
-                if (gcmIS_ERROR(status)) {
-                    return -1;
-                }
+        hae_dev = gal_device->devices[dev_index];
+        if (hae_dev) {
+            if ((struct device *)(hae_dev->dev) == &dev->dev) {
+                find_dev_flag = 0;
+                break;
             }
         }
     }
 
-    return 0;
+    if (find_dev_flag) {
+        dev_err(&dev->dev, "hae pm suspend device not find!\n");
+        return -1;
+    }
+
+    return viv_dev_suspend_power_off(dev, hae_dev);
 }
 
 static int viv_dev_resume(struct platform_device *dev)
 {
-    gceSTATUS status;
     gckGALDEVICE gal_device;
-    gckDEVICE device;
-    gctUINT i, dev_index;
-    gceCHIPPOWERSTATE statesStored;
+    gckDEVICE hae_dev = gcvNULL;
+    gctUINT dev_index;
+    gctINT32 find_dev_flag = -1;
+
+    dev_info(&dev->dev, "viv pm resume.\n");
 
     gal_device = galDevice;
-    if (!gal_device)
+    if (!gal_device) {
         return -1;
+    }
 
     for (dev_index = 0; dev_index < gal_device->args.devCount; dev_index++) {
-        device = gal_device->devices[dev_index];
-
-        for (i = 0; i < gcvCORE_COUNT; i++) {
-            if (device->kernels[i] != gcvNULL) {
-                    status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_ON);
-
-                if (gcmIS_ERROR(status)) {
-                    return -1;
-                }
-
-                /* Convert global state to crossponding internal state. */
-                switch (device->statesStored[i]) {
-                case gcvPOWER_ON:
-                    statesStored = gcvPOWER_ON_AUTO;
-                    break;
-                case gcvPOWER_IDLE:
-                    statesStored = gcvPOWER_IDLE_BROADCAST;
-                    break;
-                case gcvPOWER_SUSPEND:
-                    statesStored = gcvPOWER_SUSPEND_BROADCAST;
-                    break;
-                case gcvPOWER_OFF:
-                    statesStored = gcvPOWER_OFF_BROADCAST;
-                    break;
-                default:
-                    statesStored = device->statesStored[i];
-                    break;
-                }
-
-                hae_print("hard: %p, store_state: %d, resume.", device->kernels[i]->hardware, statesStored);
-                /* Restore states. */
-                status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, statesStored);
-                if (gcmIS_ERROR(status)) {
-                    return -1;
-                }
+        hae_dev = gal_device->devices[dev_index];
+        if (hae_dev) {
+            if ((struct device *)(hae_dev->dev) == &dev->dev) {
+                find_dev_flag = 0;
+                break;
             }
         }
     }
 
-    return 0;
+    if (find_dev_flag) {
+        dev_err(&dev->dev, "hae pm resume device not find!\n");
+        return -1;
+    }
+
+    return viv_dev_resume_power_on(dev, hae_dev);
 }
 
-#if defined(CONFIG_PM) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)
-#ifdef CONFIG_PM_SLEEP
 static int viv_dev_system_suspend(struct device *dev)
 {
     pm_message_t state = { 0 };
@@ -1636,12 +1685,11 @@ static int viv_dev_system_resume(struct device *dev)
 {
     return viv_dev_resume(to_platform_device(dev));
 }
-# endif
+#endif
 
 static const struct dev_pm_ops viv_dev_pm_ops = {
     SET_SYSTEM_SLEEP_PM_OPS(viv_dev_system_suspend, viv_dev_system_resume)
 };
-#endif
 
 static struct platform_driver viv_dev_driver = {
     .probe = viv_dev_probe,
@@ -1650,16 +1698,13 @@ static struct platform_driver viv_dev_driver = {
 #else
     .remove = __devexit_p(viv_dev_remove),
 #endif
-
-    .suspend = viv_dev_suspend,
-    .resume = viv_dev_resume,
     .shutdown = viv_dev_shutdown,
 
     .driver = {
         .owner = THIS_MODULE,
         .name = DEVICE_NAME,
-#if defined(CONFIG_PM) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)
-        .pm = &viv_dev_pm_ops,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)
+        .pm = pm_sleep_ptr(&viv_dev_pm_ops),
 #endif
     }
 };

@@ -1132,7 +1132,7 @@ gckWLFE_Execute(gckHARDWARE Hardware, gctADDRESS Address, gctUINT32 Bytes)
 
     if (command->feType == gcvHW_FE_END) {
         gctUINT idle = 0;
-        gctUINT try_cnt = 0;
+        gctUINT try_cnt = 1;
         gceSTATUS ret;
         /* Make sure FE is idle. */
         do {

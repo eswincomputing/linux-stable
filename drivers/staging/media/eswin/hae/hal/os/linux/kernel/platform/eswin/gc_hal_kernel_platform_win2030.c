@@ -276,7 +276,7 @@ static int g2d_devfreq_get_cur_freq(struct device *dev, unsigned long *freq) {
     int i;
 
     for (i = 0; i < gpd.num_domains; i++) {
-        if (gpd.dev[i] == dev) {
+        if (gpd.dev[i] != dev) {
             continue;
         }
         if (g_dev_cur_freq[i] == G2D_INIT_DEV_FREQ) {
