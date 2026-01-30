@@ -308,7 +308,7 @@ irqreturn_t npu_mbox_irq(int irq, void *dev_id)
 			mbx_irq_op_done(nvdla_dev->win_engine, tiktok, op_index);
 			break;
 		case NOTIFY_EVENT_SINK_DONE:
-			stat = payload.param >> 1 & 0xff;
+			stat = payload.lparam;
 			mbx_irq_event_sink_done(nvdla_dev->win_engine, tiktok, op_index, stat);
 			break;
 		default:
