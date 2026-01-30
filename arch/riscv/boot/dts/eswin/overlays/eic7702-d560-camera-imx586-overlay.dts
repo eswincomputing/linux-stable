@@ -1,3 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ */
+
 /dts-v1/;
 /plugin/;
 
@@ -163,6 +169,34 @@
 					};
 				};
 			};
+		};
+	};
+
+	fragment@12 {
+		target = <&camera_imx219>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@13 {
+		target = <&camera_imx219_1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@14 {
+		target = <&d1_camera_imx219>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@15 {
+		target = <&d1_camera_imx219_1>;
+		__overlay__ {
+			status = "disabled";
 		};
 	};
 };

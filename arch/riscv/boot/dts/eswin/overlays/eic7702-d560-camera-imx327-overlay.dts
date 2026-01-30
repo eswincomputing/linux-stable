@@ -249,4 +249,32 @@
 			};
 		};
 	};
+
+	fragment@22 {
+		target = <&camera_imx219>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@23 {
+		target = <&camera_imx219_1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@24 {
+		target = <&d1_camera_imx219>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@25 {
+		target = <&d1_camera_imx219_1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
 };

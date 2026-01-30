@@ -201,4 +201,32 @@
 			};
 		};
 	};
+
+	fragment@10 {
+		target = <&imx219_0>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
+
+	fragment@11 {
+		target = <&imx219_1>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
+
+	fragment@12 {
+		target = <&imx219_2>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
+
+	fragment@13 {
+		target = <&imx219_3>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
 };
