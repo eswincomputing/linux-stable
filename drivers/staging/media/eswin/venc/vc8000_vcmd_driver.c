@@ -147,7 +147,8 @@
 #define HW_WORK_STATE_PEND                3
 
 #define MAX_CMDBUF_INT_NUMBER             1
-#define INT_MIN_SUM_OF_IMAGE_SIZE         (4096 * 2160 * 1 * MAX_CMDBUF_INT_NUMBER)
+#define INT_MIN_SUM_OF_IMAGE_SIZE_DEF     (4096 * 2160 * 1 * MAX_CMDBUF_INT_NUMBER)
+#define INT_MIN_SUM_OF_IMAGE_SIZE_MAX     (INT_MIN_SUM_OF_IMAGE_SIZE_DEF * 32)
 #define MAX_PROCESS_CORE_NUMBER           (4 * 8)
 #define PROCESS_MAX_VIDO_SIZE             (4096 * 2160 * MAX_SAME_MODULE_TYPE_CORE_NUMBER * MAX_PROCESS_CORE_NUMBER)
 #define PROCESS_MAX_JPEG_SIZE             (32768ULL*32768ULL*(2+1)) //32K*32K*(2(a pic per core)+1(extra a pic for a proc))
@@ -246,6 +247,7 @@ struct hantrovcmd_dev {
 	volatile u8 *hwregs; /* IO mem base */
 	u32 reg_mirror[ASIC_VCMD_SWREG_AMOUNT];
 	u32 duration_without_int; //number of cmdbufs without interrupt.
+	u32 duration_without_int_max;
 
 	volatile u8 working_state;
 	u64 total_exe_time;
@@ -2458,7 +2460,7 @@ static void vcmd_delink_rm_cmdbuf(struct hantrovcmd_dev *dev,
 	cmdbuf_update_jmp_cmd(dev->hw_version_id, prev ? prev->data : NULL,
 			      next ? next->data : NULL,
 			      dev->duration_without_int >
-				      INT_MIN_SUM_OF_IMAGE_SIZE);
+				      dev->duration_without_int_max);
 }
 
 static int hantrovcmd_open(struct inode *inode, struct file *filp)
@@ -2998,7 +3000,7 @@ static void vcmd_link_cmdbuf(struct hantrovcmd_dev *dev,
 				if (cmdbuf_obj->no_normal_int_cmdbuf == 1) {
 					dev->duration_without_int = cmdbuf_obj->executing_time;
 					//maybe nop is modified, so write back.
-					if (dev->duration_without_int >= INT_MIN_SUM_OF_IMAGE_SIZE) {
+					if (dev->duration_without_int >= dev->duration_without_int_max) {
 						jmp_addr =
 							cmdbuf_obj->cmdbuf_virtualAddress + (cmdbuf_obj->cmdbuf_size / 4);
 						operation_code = *(jmp_addr - 4);
@@ -3065,7 +3067,7 @@ static void vcmd_link_cmdbuf(struct hantrovcmd_dev *dev,
 
 					//maybe we see the modified nop before abort, so need to write back.
 					if (dev->duration_without_int >=
-					    INT_MIN_SUM_OF_IMAGE_SIZE) {
+					    dev->duration_without_int_max) {
 						jmp_addr =
 							next_cmdbuf_obj->cmdbuf_virtualAddress + (next_cmdbuf_obj->cmdbuf_size / 4);
 						operation_code = *(jmp_addr - 4);
@@ -3782,6 +3784,7 @@ int hantroenc_vcmd_init(void)
 		hantrovcmd_data[i].vcmd_core_cfg = vc8000e_vcmd_core_array[i];
 		hantrovcmd_data[i].hwregs = NULL;
 		hantrovcmd_data[i].core_id = i;
+		hantrovcmd_data[i].duration_without_int_max = INT_MIN_SUM_OF_IMAGE_SIZE_DEF;
 		hantrovcmd_data[i].working_state = WORKING_STATE_IDLE;
 		hantrovcmd_data[i].sw_cmdbuf_rdy_num = 0;
 		hantrovcmd_data[i].spinlock = &owner_lock_vcmd[i];
@@ -4762,4 +4765,44 @@ void hantroenc_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *tot
 	if (freq) {
 		*freq = hantrovcmd_data[core_id].vcmd_core_cfg.freq;
 	}
+}
+
+/** get vcmd interrupt time */
+void hantroenc_get_vcmd_int(u32 core_id, s32 *vcmd_int)
+{
+	if (!vcmd_int) {
+		return;
+	}
+	if (core_id >= venc_vcmd_core_num) {
+		LOG_ERR("hantroenc_get_vcmd_int, unknown core_id = %u\n", core_id);
+		*vcmd_int = -1;
+		return;
+	}
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = &hantrovcmd_data[core_id];
+
+	spin_lock_irqsave(dev->spinlock, flags);
+	*vcmd_int = (s32)dev->duration_without_int_max;
+	spin_unlock_irqrestore(dev->spinlock, flags);
+}
+
+/** set vcmd interrupt time */
+void hantroenc_set_vcmd_int(u32 core_id, u32 vcmd_int)
+{
+	if (core_id >= venc_vcmd_core_num) {
+		LOG_ERR("hantroenc_set_vcmd_int, unknown core_id = %u\n", core_id);
+		return;
+	}
+	if (vcmd_int > INT_MIN_SUM_OF_IMAGE_SIZE_MAX) {
+		LOG_ERR("hantroenc_set_vcmd_int, outof range[0,%u]\n", vcmd_int);
+		return;
+	}
+
+	unsigned long flags;
+	struct hantrovcmd_dev *dev = &hantrovcmd_data[core_id];
+
+	spin_lock_irqsave(dev->spinlock, flags);
+	dev->duration_without_int_max = vcmd_int;
+	spin_unlock_irqrestore(dev->spinlock, flags);
+	LOG_INFO("hantroenc_set_vcmd_int, set vcmd_int of %u to %u\n", core_id, vcmd_int);
 }

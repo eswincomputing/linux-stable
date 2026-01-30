@@ -3881,6 +3881,97 @@ static int vdec_smmu_dynm_sid_init(struct platform_device *pdev, int numa_id)
 }
 #endif
 
+/**sysfs */
+struct vdec_vcmd_int_attr {
+	struct device_attribute attr;
+	u32 core_id;
+};
+
+static ssize_t vdec_vcmd_int_show(struct device *dev,
+								  struct device_attribute *attr,
+								  char *buf)
+{
+	const char *attr_name = attr->attr.name;
+	s32 vcmd_int = 0;
+
+	if (strcmp(attr_name, "vcmd_int_core0") == 0) {
+		hantrodec_get_vcmd_int(0, &vcmd_int);
+	} else if (strcmp(attr_name, "vcmd_int_core1") == 0) {
+		hantrodec_get_vcmd_int(1, &vcmd_int);
+	} else if (strcmp(attr_name, "vcmd_int_core2") == 0) {
+		hantrodec_get_vcmd_int(2, &vcmd_int);
+	} else if (strcmp(attr_name, "vcmd_int_core3") == 0) {
+		hantrodec_get_vcmd_int(3, &vcmd_int);
+	} else {
+		LOG_WARN("unknown attr name %s\n", attr_name);
+		return 0;
+	}
+	return sysfs_emit(buf, "%d\n", vcmd_int);
+}
+
+static ssize_t vdec_vcmd_int_store(struct device *dev,
+								   struct device_attribute *attr,
+								   const char *buf,
+								   size_t count)
+{
+	const char *attr_name = attr->attr.name;
+	int val = 0;
+	int ret = 0;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret < 0) {
+		LOG_ERR("invalid int_min input:%s\n", buf);
+		return ret;
+	}
+	if (strcmp(attr_name, "vcmd_int_core0") == 0) {
+		hantrodec_set_vcmd_int(0, val);
+	} else if (strcmp(attr_name, "vcmd_int_core1") == 0) {
+		hantrodec_set_vcmd_int(1, val);
+	} else if (strcmp(attr_name, "vcmd_int_core2") == 0) {
+		hantrodec_set_vcmd_int(2, val);
+	} else if (strcmp(attr_name, "vcmd_int_core3") == 0) {
+		hantrodec_set_vcmd_int(3, val);
+	} else {
+		LOG_WARN("unknown attr name %s\n", attr_name);
+		return 0;
+	}
+	return count;
+}
+static DEVICE_ATTR(vcmd_int_core0, 0644, vdec_vcmd_int_show, vdec_vcmd_int_store);
+static DEVICE_ATTR(vcmd_int_core1, 0644, vdec_vcmd_int_show, vdec_vcmd_int_store);
+static DEVICE_ATTR(vcmd_int_core2, 0644, vdec_vcmd_int_show, vdec_vcmd_int_store);
+static DEVICE_ATTR(vcmd_int_core3, 0644, vdec_vcmd_int_show, vdec_vcmd_int_store);
+
+static struct attribute *vdec_attrs[] = {
+	&dev_attr_vcmd_int_core0.attr,
+	&dev_attr_vcmd_int_core1.attr,
+	&dev_attr_vcmd_int_core2.attr,
+	&dev_attr_vcmd_int_core3.attr,
+	NULL
+};
+
+static struct attribute_group vdec_attr_group = {
+	.name = "config",
+	.attrs = vdec_attrs,
+};
+
+int hantrodec_create_sysfs(struct device *dev)
+{
+	int ret = sysfs_create_group(&dev->kobj, &vdec_attr_group);
+
+	if (ret) {
+		LOG_ERR("failed to create vdec sysfs group\n");
+	}
+
+	return ret;
+}
+
+void hantrodec_remove_sysfs(struct device *dev)
+{
+	sysfs_remove_group(&dev->kobj, &vdec_attr_group);
+}
+/**end of sysfs */
+
 /** status statistics*/
 static int dec_stat_proc_show(es_proc_entry_t *s)
 {
@@ -4159,6 +4250,8 @@ static int hantro_vdec_probe(struct platform_device *pdev)
 
 	/** create procfs*/
 	hantrodec_create_procfs();
+	/** create sysfs */
+	hantrodec_create_sysfs(&pdev->dev);
 	return ret;
 }
 
@@ -4181,6 +4274,8 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 #endif
 	vdec_clk_rst_t *vcrt;
 
+	/** remove sysfs*/
+	hantrodec_remove_sysfs(&pdev->dev);
 	/** remove procfs*/
 	hantrodec_remove_procfs();
 

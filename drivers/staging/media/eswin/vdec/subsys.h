@@ -185,6 +185,9 @@ int vdec_pm_runtime_get(u32 core_id);
 int vdec_pm_runtime_put(u32 core_id);
 /** get status statistcs*/
 void hantrodec_dev_stat(u32 core_id, u32 *module_type, u64 *tot_cycles, u64 *tot_exetime, u64 *freq);
+/** sysfs config*/
+void hantrodec_get_vcmd_int(u32 core_id, s32 *vcmd_int);
+void hantrodec_set_vcmd_int(u32 core_id, s32 vcmd_int);
 /******************************************************************************/
 /* MMU */
 /******************************************************************************/
