@@ -657,6 +657,69 @@ static void fusb303b_remove(struct i2c_client *client)
 	fusb303b_debugfs_exit(chip);
 }
 
+static int fusb303b_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fusb303b_chip *chip = i2c_get_clientdata(client);
+	int ret;
+	u8 data;
+	mutex_lock(&chip->lock);
+	/* Mask interrupts */
+	ret = fusb303b_i2c_read(chip, FUSB303B_REG_CONTROL, &data);
+	if (ret < 0)
+		goto done;
+
+	if (!(data & FUSB303B_CONTROL_INT_MASK)) {
+		ret = 0;
+		goto done;
+	}
+
+	data &= (~FUSB303B_CONTROL_INT_MASK);
+	ret = fusb303b_i2c_write(chip, FUSB303B_REG_CONTROL, data);
+	if (ret < 0)
+		goto done;
+
+	mutex_unlock(&chip->lock);
+
+	return 0;
+
+done:
+	mutex_unlock(&chip->lock);
+	return ret;
+}
+
+static int fusb303b_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct fusb303b_chip *chip = i2c_get_clientdata(client);
+	int ret;
+	u8 data;
+
+	mutex_lock(&chip->lock);
+	ret = fusb303b_i2c_read(chip, FUSB303B_REG_CONTROL, &data);
+	if (ret < 0)
+		goto done;
+
+	if (data & FUSB303B_CONTROL_INT_MASK) {
+		ret = 0;
+		goto done;
+	}
+
+	data |= FUSB303B_CONTROL_INT_MASK;
+	ret = fusb303b_i2c_write(chip, FUSB303B_REG_CONTROL, data);
+	if (ret < 0)
+		goto done;
+
+	mutex_unlock(&chip->lock);
+	return 0;
+
+done:
+	mutex_unlock(&chip->lock);
+	return ret;
+}
+
+static SIMPLE_DEV_PM_OPS(fusb303b_pm_ops, fusb303b_suspend, fusb303b_resume);
+
 static const struct of_device_id fusb303b_dt_match[] = {
 	{.compatible = "fcs,fusb303b"},
 	{},
@@ -672,6 +735,7 @@ MODULE_DEVICE_TABLE(i2c, fusb303b_i2c_device_id);
 static struct i2c_driver fusb303b_driver = {
 	.driver = {
 		.name = "typec_fusb303b",
+		.pm = pm_sleep_ptr(&fusb303b_pm_ops),
 		.of_match_table = of_match_ptr(fusb303b_dt_match),
 	},
 	.probe = fusb303b_probe,

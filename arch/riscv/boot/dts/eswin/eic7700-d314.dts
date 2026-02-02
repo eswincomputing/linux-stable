@@ -216,7 +216,8 @@
 		compatible = "fcs,fusb303b";
 		status = "okay";
 		reg = <0x21>;
-		eswin,syscfg = <&d0_sys_con 0x3C0 12>;
+		// Do not clear gpio_sel bit, gpio0-7 interrupts should be routed to lpcpu
+		// eswin,syscfg = <&d1_sys_con 0x3C0 12>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio5_default>;

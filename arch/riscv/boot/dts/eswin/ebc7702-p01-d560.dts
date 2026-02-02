@@ -84,7 +84,7 @@
 			reg = <0x1 0x4414000 0 0x1000>;
 			no-map;
 		};
-		
+
 		usage_table:usage_table@104415000 {
 			reg = <0x1 0x4415000 0 0x1000>;
 			no-map;
@@ -156,7 +156,7 @@
 			reg = <0x20 0x84414000 0 0x1000>;
 			no-map;
 		};
-		
+
 		usage_table1:usage_table@2084415000 {
 			reg = <0x20 0x84415000 0 0x1000>;
 			no-map;
@@ -573,7 +573,8 @@
 		compatible = "fcs,fusb303b";
 		status = "okay";
 		reg = <0x21>;
-		eswin,syscfg = <&d1_sys_con 0x3C0 12>;
+		// Do not clear gpio_sel bit, gpio0-7 interrupts should be routed to lpcpu
+		// eswin,syscfg = <&d1_sys_con 0x3C0 12>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_die1_gpio30_default>;
@@ -676,7 +677,7 @@
 	/* pin header */
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio6_default &pinctrl_die0_gpio12_default &pinctrl_die0_gpio39_default 
+	pinctrl-0 = <&pinctrl_die0_gpio6_default &pinctrl_die0_gpio12_default &pinctrl_die0_gpio39_default
 				&pinctrl_die0_gpio40_default &pinctrl_die0_gpio41_default &pinctrl_die0_gpio46_default
 				&pinctrl_die0_gpio47_default &pinctrl_die0_gpio73_default &pinctrl_die0_gpio74_default
 				&pinctrl_die0_gpio75_default &pinctrl_die0_gpio81_default>;
