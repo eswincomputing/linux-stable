@@ -1,3 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ */
+
 // #include "eswin-win2030-die0-soc.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
@@ -171,7 +177,7 @@
 	/* mipi csi0/csi1 */
 	status = "okay";
 	imx327_0: imx327@36 {
-			compatible = "sony,imx327";
+			compatible = "sony,imx327lqr";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
@@ -179,18 +185,15 @@
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
 			assigned-clock-rates = <37125000>;
+			clock-frequency = <37125000>;
 			clock-names = "xclk";
-			/* Reset and power down GPIOs controlled by tca6416_0 */
-			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
-			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
-			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
 			power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 			port {
 				imx327_out0: endpoint {
 					remote-endpoint = <&mipidphy0_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <222750000>;
+					link-frequencies = /bits/ 64 <222750000 148500000>;
 				};
 			};
 		};
@@ -200,7 +203,7 @@
 	/* mipi csi2/csi3 */
 	status = "okay";
 	imx327_2: imx327@36 {
-			compatible = "sony,imx327";
+			compatible = "sony,imx327lqr";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
@@ -208,11 +211,8 @@
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
 			assigned-clock-rates = <37125000>;
+			clock-frequency = <37125000>;
 			clock-names = "xclk";
-			/* Reset and power down GPIOs controlled by tca6416_0 */
-			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
-			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
-			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
 			power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 			port {
@@ -220,7 +220,7 @@
 					// remote-endpoint = <&mipi_in_ucam0>;
 					remote-endpoint = <&mipidphy2_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <222750000>;
+					link-frequencies = /bits/ 64 <222750000 148500000>;
 				};
 			};
 		};
@@ -230,7 +230,7 @@
 	/* mipi csi4/csi5 */
 	status = "okay";
 	imx327_4: imx327@36 {
-			compatible = "sony,imx327";
+			compatible = "sony,imx327lqr";
 			status = "okay";
 			address-cells = <1>;
 			size-cells = <0>;
@@ -238,19 +238,15 @@
 			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
 			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
 			assigned-clock-rates = <37125000>;
+			clock-frequency = <37125000>;
 			clock-names = "xclk";
-			/* Reset and power down GPIOs controlled by tca6416_0 */
-			reset-gpios = <&tca6416_0 1 GPIO_ACTIVE_HIGH>;  // GPIO number 1 for MIPI_CSI0_RESET
-			pwdn-gpios = <&tca6416_0 0 GPIO_ACTIVE_HIGH>; // GPIO number 0 for MIPI_CSI0_PWDN
-			enable-gpios = <&tca6416_0 7 GPIO_ACTIVE_HIGH>;
 			power-domains = <&d0_pmu EIC770X_PD_VI>;
 
 			port {
 				imx327_out4: endpoint {
-					// remote-endpoint = <&mipi_in_ucam0>;
 					remote-endpoint = <&mipidphy4_in_ucam0>;
 					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <222750000>;
+					link-frequencies = /bits/ 64 <222750000 148500000>;
 				};
 			};
 		};
@@ -739,5 +735,3 @@
 &isp_1 {
 	status = "okay";
 };
-
-

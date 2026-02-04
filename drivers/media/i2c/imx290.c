@@ -1344,7 +1344,8 @@ static int imx290_power_on(struct imx290 *imx290)
 	}
 
 	usleep_range(1, 2);
-	gpiod_set_value_cansleep(imx290->rst_gpio, 1);
+	if(imx290->rst_gpio)
+		gpiod_set_value_cansleep(imx290->rst_gpio, 1);
 	usleep_range(30000, 31000);
 
 	return 0;
@@ -1353,7 +1354,8 @@ static int imx290_power_on(struct imx290 *imx290)
 static void imx290_power_off(struct imx290 *imx290)
 {
 	clk_disable_unprepare(imx290->xclk);
-	gpiod_set_value_cansleep(imx290->rst_gpio, 0);
+	if(imx290->rst_gpio)
+		gpiod_set_value_cansleep(imx290->rst_gpio, 0);
 	regulator_bulk_disable(ARRAY_SIZE(imx290->supplies), imx290->supplies);
 }
 
