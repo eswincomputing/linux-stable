@@ -63,7 +63,8 @@
 #define ES501X_VSET_REG          0x00    /* Output voltage setting register */
 #define ES501X_CONTROL1_REG      0x01    /* Control Register 1 - Includes DC/DC Switch Bit */
 #define ES501X_CONTROL2_REG      0x02    /* Control Register 2 - Includes VRANGE bit */
-#define ES501X_VRANGE_MASK       0x03    /* VRANGE bit mask */
+#define ES501X_VRANGE_SHIFT      2
+#define ES501X_VRANGE_MASK      (0x3 << ES501X_VRANGE_SHIFT)  /* VRANGE bit mask */
 #define ES501X_STATUS_REG        0x02    /* Status register */
 #define ES501X_ID_REG            0x0F    /* Chip ID Register */
 
@@ -159,7 +160,7 @@ static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrang
     dev_dbg(&client->dev, "Eswin:%s read CONTROL2 value=%d\n",__func__, value);
     /* Clear the VRANGE bit and set a new value */
     current_ctrl2 &= ~ES501X_VRANGE_MASK;
-    current_ctrl2 |= (vrange & ES501X_VRANGE_MASK);
+    current_ctrl2 |= (vrange << ES501X_VRANGE_SHIFT);
 
     ret = i2c_smbus_write_byte_data(client, ES501X_CONTROL2_REG, current_ctrl2);
     if (ret < 0) {
@@ -592,7 +593,7 @@ static int es501x_get_vrange(struct i2c_client *client)
         return ctrl2;
     }
 
-    return ctrl2 & ES501X_VRANGE_MASK;
+    return (ctrl2 & ES501X_VRANGE_MASK) >> ES501X_VRANGE_SHIFT;
 }
 
 /* Regulator operation function */
@@ -1054,7 +1055,14 @@ static s32 es501x_probe(struct i2c_client *client)
     }
 
 #ifdef CONFIG_DEBUG_FS
-    data->debug_root = debugfs_create_dir(chip == ES5035 ? "es5035" : "es501X", NULL);
+    char name[32];
+    const char *bus_name = dev_name(&client->adapter->dev);
+    if (chip == ES5035) {
+        snprintf(name, sizeof(name), "es5035-%s-%02x", bus_name, client->addr);
+    } else {
+        snprintf(name, sizeof(name), "es501x-%s-%02x", bus_name, client->addr);
+    }
+    data->debug_root = debugfs_create_dir(name, NULL);
     if (data->debug_root) {
         debugfs_create_file("force_microvolt", 0644, data->debug_root,
 							data, &es501x_force_voltage_fops);
