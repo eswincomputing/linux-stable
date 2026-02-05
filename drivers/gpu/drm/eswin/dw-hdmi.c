@@ -38,6 +38,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
 #include <linux/clk-provider.h>
+#include <linux/device.h>
 
 #include <media/cec-notifier.h>
 
@@ -62,14 +63,10 @@
 
 #define DDC_CI_ADDR 0x37
 #define DDC_SEGMENT_ADDR 0x30
-
 #define HDMI_EDID_LEN 512
-
 /* DW-HDMI Controller >= 0x200a are at least compliant with SCDC version 1 */
 #define SCDC_MIN_SOURCE_VERSION 0x1
-
 #define HDMI14_MAX_TMDSCLK 340000000
-
 #define HDMI_CEC_CLK 32768
 
 static bool hpd_flag[2] = {0, 0};
@@ -218,14 +215,15 @@ struct dw_hdmi {
 	struct pinctrl_state *default_state;
 	struct pinctrl_state *unwedge_state;
 
-	struct mutex mutex;		/* for state below and previous_mode */
-	enum drm_connector_force force;	/* mutex-protected force state */
-	struct drm_connector *curr_conn;/* current connector (only valid when !disabled) */
-	bool disabled;			/* DRM has disabled our bridge */
-	bool bridge_is_on;		/* indicates the bridge is on */
-	bool rxsense;			/* rxsense state */
-	u8 phy_mask;			/* desired phy int mask settings */
-	u8 mc_clkdis;			/* clock disable register */
+	struct mutex mutex;					/* for state below and previous_mode */
+	enum drm_connector_force force;		/* mutex-protected force state */
+	struct drm_connector *curr_conn;	/* current connector (only valid when !disabled) */
+	struct drm_crtc *curr_crtc;			/* current crtc (only valid when !disabled) */
+	bool disabled;						/* DRM has disabled our bridge */
+	bool bridge_is_on;					/* indicates the bridge is on */
+	bool rxsense;						/* rxsense state */
+	u8 phy_mask;						/* desired phy int mask settings */
+	u8 mc_clkdis;						/* clock disable register */
 
 	spinlock_t audio_lock;
 	struct mutex audio_mutex;
@@ -324,10 +322,10 @@ static void repo_hpd_event(struct work_struct *p_work)
 	u8 phy_stat = hdmi_readb(hdmi, HDMI_PHY_STAT0);
 
 	mutex_lock(&hdmi->mutex);
-	if (!(phy_stat & HDMI_PHY_RX_SENSE))
-		hdmi->rxsense = false;
-	if (phy_stat & HDMI_PHY_HPD)
+	if ((phy_stat & HDMI_PHY_HPD) && (phy_stat & HDMI_PHY_RX_SENSE))
 		hdmi->rxsense = true;
+	else
+		hdmi->rxsense = false;
 	mutex_unlock(&hdmi->mutex);
 
 	if (hdmi->bridge.dev) {
@@ -2723,6 +2721,194 @@ static void dw_hdmi_poweroff(struct dw_hdmi *hdmi)
 	hdmi->bridge_is_on = false;
 }
 
+static void dw_hdmi_eswin_select_output(struct drm_connector_state *conn_state,
+	struct drm_crtc_state *crtc_state, struct eswin_hdmi *hdmi,
+	unsigned int *color_format, unsigned int *color_depth,
+	unsigned long *enc_out_encoding, unsigned int *eotf)
+{
+	struct drm_display_info *info = &conn_state->connector->display_info;
+	struct drm_display_mode *mode = &crtc_state->mode;
+	struct hdr_output_metadata *hdr_metadata;
+	u32 vic = drm_match_cea_mode(mode);
+	unsigned long tmdsclock, pixclock = mode->crtc_clock;
+	bool support_dc = false;
+	int max_tmds_clock = info->max_tmds_clock;
+	int output_eotf;
+
+	*color_format = DRM_HDMI_OUTPUT_DEFAULT_RGB;
+
+	switch (hdmi->hdmi_output) {
+	case DRM_HDMI_OUTPUT_YCBCR_HQ:
+		if (info->color_formats & DRM_COLOR_FORMAT_YCBCR444)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR444;
+		else if (info->color_formats & DRM_COLOR_FORMAT_YCBCR422)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR422;
+		else if (conn_state->connector->ycbcr_420_allowed &&
+			 drm_mode_is_420(info, mode))
+			*color_format = DRM_HDMI_OUTPUT_YCBCR420;
+		break;
+	case DRM_HDMI_OUTPUT_YCBCR_LQ:
+		if (conn_state->connector->ycbcr_420_allowed &&
+		    drm_mode_is_420(info, mode))
+			*color_format = DRM_HDMI_OUTPUT_YCBCR420;
+		else if (info->color_formats & DRM_COLOR_FORMAT_YCBCR422)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR422;
+		else if (info->color_formats & DRM_COLOR_FORMAT_YCBCR444)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR444;
+		break;
+	case DRM_HDMI_OUTPUT_YCBCR420:
+		if (conn_state->connector->ycbcr_420_allowed &&
+		    drm_mode_is_420(info, mode))
+			*color_format = DRM_HDMI_OUTPUT_YCBCR420;
+		break;
+	case DRM_HDMI_OUTPUT_YCBCR422:
+		if (info->color_formats & DRM_COLOR_FORMAT_YCBCR422)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR422;
+		break;
+	case DRM_HDMI_OUTPUT_YCBCR444:
+		if (info->color_formats & DRM_COLOR_FORMAT_YCBCR444)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR444;
+		break;
+	case DRM_HDMI_OUTPUT_DEFAULT_RGB:
+	default:
+		break;
+	}
+
+	if (*color_format == DRM_HDMI_OUTPUT_DEFAULT_RGB &&
+	    info->edid_hdmi_rgb444_dc_modes & DRM_EDID_HDMI_DC_30)
+		support_dc = true;
+	if (*color_format == DRM_HDMI_OUTPUT_YCBCR444 &&
+	    info->edid_hdmi_rgb444_dc_modes &
+		    (DRM_EDID_HDMI_DC_Y444 | DRM_EDID_HDMI_DC_30))
+		support_dc = true;
+	if (*color_format == DRM_HDMI_OUTPUT_YCBCR422)
+		support_dc = true;
+	if (*color_format == DRM_HDMI_OUTPUT_YCBCR420 &&
+	    info->hdmi.y420_dc_modes & DRM_EDID_YCBCR420_DC_30)
+		support_dc = true;
+
+	if (hdmi->colordepth > 8 && support_dc)
+		*color_depth = 10;
+	else
+		*color_depth = 8;
+
+	*eotf = TRADITIONAL_GAMMA_SDR;
+	if (conn_state->hdr_output_metadata) {
+		hdr_metadata = (struct hdr_output_metadata *)
+			conn_state->hdr_output_metadata->data;
+		output_eotf = hdr_metadata->hdmi_metadata_type1.eotf;
+		if (output_eotf > TRADITIONAL_GAMMA_HDR && output_eotf < FUTURE_EOTF)
+			*eotf = output_eotf;
+	}
+
+	if ((*eotf > TRADITIONAL_GAMMA_HDR &&
+	     conn_state->connector->hdr_sink_metadata.hdmi_type1.eotf &
+		     BIT(*eotf)) || (hdmi->colorimetry == ESWIN_HDMI_COLORIMETRY_BT2020))
+		*enc_out_encoding = V4L2_YCBCR_ENC_BT2020;
+	else if ((vic == 6) || (vic == 7) || (vic == 21) || (vic == 22) ||
+		 (vic == 2) || (vic == 3) || (vic == 17) || (vic == 18))
+		*enc_out_encoding = V4L2_YCBCR_ENC_601;
+	else
+		*enc_out_encoding = V4L2_YCBCR_ENC_709;
+
+	if (*enc_out_encoding == V4L2_YCBCR_ENC_BT2020) {
+		/* BT2020 require color depth at lest 10bit */
+		*color_depth = 10;
+		/* We prefer use YCbCr422 to send 10bit */
+		if (info->color_formats & DRM_COLOR_FORMAT_YCBCR422)
+			*color_format = DRM_HDMI_OUTPUT_YCBCR422;
+	}
+
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
+		pixclock *= 2;
+	if ((mode->flags & DRM_MODE_FLAG_3D_MASK) ==
+	    DRM_MODE_FLAG_3D_FRAME_PACKING)
+		pixclock *= 2;
+
+	if (*color_format == DRM_HDMI_OUTPUT_YCBCR422 || *color_depth == 8)
+		tmdsclock = pixclock;
+	else
+		tmdsclock = pixclock * (*color_depth) / 8;
+
+	if (*color_format == DRM_HDMI_OUTPUT_YCBCR420)
+		tmdsclock /= 2;
+
+	/* XXX: max_tmds_clock of some sink is 0, we think it is 340MHz. */
+	if (!max_tmds_clock)
+		max_tmds_clock = 340000;
+
+	max_tmds_clock = min(max_tmds_clock, 594000);
+
+	if (tmdsclock > max_tmds_clock) {
+		if (max_tmds_clock >= 594000) {
+			*color_depth = 8;
+		} else if (max_tmds_clock > 340000) {
+			if (drm_mode_is_420(info, mode) || tmdsclock >= 594000)
+				*color_format = DRM_HDMI_OUTPUT_YCBCR420;
+		} else {
+			*color_depth = 8;
+			if (drm_mode_is_420(info, mode) || tmdsclock >= 594000)
+				*color_format = DRM_HDMI_OUTPUT_YCBCR420;
+		}
+	}
+}
+
+int dw_hdmi_eswin_encoder_atomic_check(struct drm_encoder *encoder,
+				   struct drm_crtc_state *crtc_state,
+				   struct drm_connector_state *conn_state)
+{
+	struct es_crtc_state *s = to_es_crtc_state(crtc_state);
+	struct eswin_hdmi *hdmi = to_eswin_hdmi(encoder);
+	unsigned int colordepth, colorformat, bus_width, eotf;
+
+	dw_hdmi_eswin_select_output(conn_state, crtc_state, hdmi, &colorformat,
+		&colordepth, &hdmi->enc_out_encoding, &eotf);
+	if (colordepth > 8)
+		hdmi->bus_format = MEDIA_BUS_FMT_RGB101010_1X30;
+	else
+		hdmi->bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+
+	/* DC does not support YUV output */
+	s->output_fmt = hdmi->bus_format;
+
+	if (colorformat == DRM_HDMI_OUTPUT_YCBCR420) {
+		if (colordepth > 8)
+			hdmi->output_bus_format = MEDIA_BUS_FMT_UYYVYY10_0_5X30;
+		else
+			hdmi->output_bus_format = MEDIA_BUS_FMT_UYYVYY8_0_5X24;
+
+		bus_width = colordepth / 2;
+	} else {
+		if ((colordepth > 8) &&
+		    (colorformat != DRM_HDMI_OUTPUT_YCBCR422)) {
+			if (colorformat != DRM_HDMI_OUTPUT_DEFAULT_RGB)
+				hdmi->output_bus_format = MEDIA_BUS_FMT_YUV10_1X30;
+			else
+				hdmi->output_bus_format = MEDIA_BUS_FMT_RGB101010_1X30;
+		} else {
+			if (colorformat != DRM_HDMI_OUTPUT_DEFAULT_RGB)
+				hdmi->output_bus_format = MEDIA_BUS_FMT_YUV8_1X24;
+			else
+				hdmi->output_bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+		}
+		if (colorformat == DRM_HDMI_OUTPUT_YCBCR422) {
+			bus_width = 8;
+			if (colordepth > 8)
+				hdmi->output_bus_format = MEDIA_BUS_FMT_UYVY10_1X20;
+			else
+				hdmi->output_bus_format = MEDIA_BUS_FMT_UYVY8_1X16;
+		} else {
+			bus_width = colordepth;
+		}
+	}
+
+	hdmi->phy_bus_width = bus_width;
+	s->encoder_type = DRM_MODE_ENCODER_TMDS;
+
+	return 0;
+}
+
+
 static void dw_hdmi_update_power(struct dw_hdmi *hdmi)
 {
 	int force = hdmi->force;
@@ -2735,16 +2921,38 @@ static void dw_hdmi_update_power(struct dw_hdmi *hdmi)
 		else
 			force = DRM_FORCE_OFF;
 	}
-
+	dev_info(hdmi->dev, "[%s %d]disabled=%d, force=%d, bridge_is_on=%d\n",
+		__func__, __LINE__, hdmi->disabled, force, hdmi->bridge_is_on);
 	if (force == DRM_FORCE_OFF) {
 		if (hdmi->bridge_is_on)
 			dw_hdmi_poweroff(hdmi);
 	} else {
 		if (!hdmi->bridge_is_on) {
-			struct edid *edid;
-			edid = dw_hdmi_get_edid(hdmi, &hdmi->connector);
-			dw_hdmi_poweron(hdmi);
-			kfree(edid);
+			/*
+			 *When the dp board is connected to some special panel, if the
+			 *sleep wake-up test is performed, the phy connection is unstable,
+			 *resulting in data format errors. Therefore, a check should be 
+			 *conducted between get edid and phy power on
+			 */
+			bool check = false;
+			if (hdmi->curr_conn->display_info.max_tmds_clock == 0)
+				check = true;
+			struct edid *edid = dw_hdmi_get_edid(hdmi, &hdmi->connector);
+			if (edid == NULL)
+				dev_err(hdmi->dev, "[%s %d]can't get edid, no need to power on",
+					__func__, __LINE__);
+			else {
+				if (check) {
+					dev_info(hdmi->dev, "get edid success but tmds clk is null, enter atomic_check\n");
+					dw_hdmi_eswin_encoder_atomic_check(hdmi->bridge.encoder,
+						hdmi->curr_crtc->state, hdmi->curr_conn->state);
+					check = false;
+				} else {
+					dev_info(hdmi->dev, "get edid success, tmds clk isn't null\n");
+				}
+				dw_hdmi_poweron(hdmi);
+				kfree(edid);
+			}
 		}
 	}
 }
@@ -3408,20 +3616,33 @@ static void dw_hdmi_bridge_atomic_disable(struct drm_bridge *bridge,
 }
 
 static void dw_hdmi_bridge_atomic_enable(struct drm_bridge *bridge,
-					 struct drm_bridge_state *old_state)
+	struct drm_bridge_state *old_state)
 {
+	u32 phy_state =0;
 	struct dw_hdmi *hdmi = bridge->driver_private;
 	struct drm_atomic_state *state = old_state->base.state;
-	struct drm_connector *connector;
-
-	connector = drm_atomic_get_new_connector_for_encoder(state,
-							     bridge->encoder);
+	struct drm_connector *connector =
+		drm_atomic_get_new_connector_for_encoder(state, bridge->encoder);
+	struct drm_crtc *crtc =
+		drm_atomic_get_new_crtc_for_encoder(state, bridge->encoder);
+	if (connector == NULL || crtc==NULL) {
+		dev_err(hdmi->dev, "[%s %d]connector or crtc is NULL\n", __func__, __LINE__);
+		return;
+	}
 
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = false;
 	hdmi->curr_conn = connector;
-	dw_hdmi_update_power(hdmi);
-	dw_hdmi_update_phy_mask(hdmi);
+	hdmi->curr_crtc = crtc;
+	phy_state = hdmi_readb(hdmi, HDMI_PHY_STAT0);
+	/*only phd in and rxsense is normal, we can power on*/
+	if ((phy_state & HDMI_PHY_HPD) && (phy_state & HDMI_PHY_RX_SENSE)) {
+		hdmi->rxsense = true;
+		dw_hdmi_update_power(hdmi);
+		dw_hdmi_update_phy_mask(hdmi);
+	} else {
+		hdmi->rxsense = false;
+	}
 	handle_plugged_change(hdmi, true);
 	mutex_unlock(&hdmi->mutex);
 }
@@ -3514,20 +3735,16 @@ void dw_hdmi_setup_rx_sense(struct dw_hdmi *hdmi, bool hpd, bool rx_sense)
 
 	if (!hdmi->force) {
 		/*
-		 * If the RX sense status indicates we're disconnected,
-		 * clear the software rxsense status.
-		 */
-		if (!rx_sense)
-			hdmi->rxsense = false;
-
-		/*
 		 * Only set the software rxsense status when both
 		 * rxsense and hpd indicates we're connected.
 		 * This avoids what seems to be bad behaviour in
 		 * at least iMX6S versions of the phy.
 		 */
-		if (hpd)
+		dev_info(hdmi->dev, "[%s %d]hpd=%d, rxsense=%d\n", __func__, __LINE__, hpd, rx_sense);
+		if (hpd && rx_sense)
 			hdmi->rxsense = true;
+		else
+			hdmi->rxsense = false;
 
 		dw_hdmi_update_power(hdmi);
 		dw_hdmi_update_phy_mask(hdmi);
@@ -3545,8 +3762,8 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 	if (intr_stat) {
 		phy_int_pol = hdmi_readb(hdmi, HDMI_PHY_POL0);
 		phy_stat = hdmi_readb(hdmi, HDMI_PHY_STAT0);
-		dev_dbg(hdmi->dev, "phy_int_pol:0x%x, phy_stat:0x%x\n",
-			phy_int_pol, phy_stat);
+		dev_dbg(hdmi->dev, "phy_int_pol:0x%x, phy_stat:0x%x, intr_stat=0x%x\n",
+			phy_int_pol, phy_stat, intr_stat);
 
 		phy_pol_mask = 0;
 		if (intr_stat & HDMI_IH_PHY_STAT0_HPD)

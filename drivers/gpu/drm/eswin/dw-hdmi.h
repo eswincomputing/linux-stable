@@ -25,12 +25,20 @@
 
 #include <sound/hdmi-codec.h>
 #include <drm/drm_property.h>
+#include <drm/drm_encoder.h>
+#include <drm/drm_crtc.h>
+
+#include "es_crtc.h"
 
 extern struct platform_driver dw_hdmi_eswin_pltfm_driver;
 extern struct platform_driver snd_dw_hdmi_driver;
 extern struct platform_driver dw_hdmi_cec_driver;
 extern struct platform_driver dw_hdmi_hdcp_driver;
 extern struct platform_driver dw_hdmi_hdcp2_driver;
+
+#define ESWIN_HDMI_COLORIMETRY_BT2020                                          \
+	(HDMI_COLORIMETRY_EXTENDED + HDMI_EXTENDED_COLORIMETRY_BT2020)
+#define to_eswin_hdmi(x) container_of(x, struct eswin_hdmi, x)
 
 /* Identification Registers */
 #define HDMI_DESIGN_ID                          0x0000
@@ -1275,6 +1283,47 @@ struct dw_hdmi_property_ops {
 			    void *data);
 };
 
+/* HDMI output pixel format */
+enum drm_hdmi_output_type {
+        DRM_HDMI_OUTPUT_DEFAULT_RGB, /* default RGB */
+        DRM_HDMI_OUTPUT_YCBCR444, /* YCBCR 444 */
+        DRM_HDMI_OUTPUT_YCBCR422, /* YCBCR 422 */
+        DRM_HDMI_OUTPUT_YCBCR420, /* YCBCR 420 */
+        DRM_HDMI_OUTPUT_YCBCR_HQ, /* Highest subsampled YUV */
+        DRM_HDMI_OUTPUT_YCBCR_LQ, /* Lowest subsampled YUV */
+        DRM_HDMI_OUTPUT_INVALID, /* Guess what ? */
+};
+
+struct eswin_hdmi {
+	struct device *dev;
+	struct regmap *regmap;
+	struct dw_hdmi *hdmi;
+	struct drm_encoder encoder;
+	u8 id;
+	unsigned long bus_format;
+	unsigned long output_bus_format;
+	unsigned long enc_out_encoding;
+
+	struct drm_property *color_depth_property;
+	struct drm_property *output_format_property;
+	struct drm_property *colorimetry_property;
+	struct drm_property *video_enable_property;
+
+	struct drm_property *color_depth_capacity;
+	struct drm_property *output_format_capacity;
+	struct drm_property *is_hdmi_capacity;
+	struct drm_property *width_heigth_capacity;
+	struct drm_property *quant_range_select_capacity;
+	struct drm_property *max_tmds_clock_capacity;
+
+	unsigned int colordepth;
+	unsigned int colorimetry;
+	unsigned int phy_bus_width;
+	unsigned int hdmi_quant_range;
+	enum drm_hdmi_output_type hdmi_output;
+	bool video_enable;
+};
+
 enum supported_eotf_type {
 	TRADITIONAL_GAMMA_SDR = 0,
 	TRADITIONAL_GAMMA_HDR,
@@ -1283,6 +1332,8 @@ enum supported_eotf_type {
 	FUTURE_EOTF
 };
 
+int dw_hdmi_eswin_encoder_atomic_check(struct drm_encoder *encoder,
+	struct drm_crtc_state *crtc_state, struct drm_connector_state *conn_state);
 void dw_hdmi_suspend(struct dw_hdmi *hdmi);
 void dw_hdmi_enable_video(struct dw_hdmi *hdmi);
 void dw_hdmi_disable_video(struct dw_hdmi *hdmi);
