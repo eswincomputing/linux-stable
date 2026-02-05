@@ -525,10 +525,10 @@
 	pinctrl-0 = <&pinctrl_die1_gpio7_on_default>;
 };
 &d0_dmc {
-        status = "okay";
+        status = "disabled";
 };
 &d1_dmc {
-        status = "okay";
+        status = "disabled";
 };
 &pinctrl_die0_gpio25_default {
 	mux {
