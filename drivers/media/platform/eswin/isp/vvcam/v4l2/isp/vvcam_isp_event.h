@@ -68,6 +68,8 @@ enum vvcam_isp_vevent_id {
 	VVCAM_ISP_EVENT_S_CTRL,
 	VVCAM_ISP_EVENT_G_CTRL,
 	VVCAM_ISP_EVENT_S_SELECTION,
+	VVCAM_ISP_EVENT_GET_FPS,
+	VVCAM_ISP_EVENT_SET_FPS,
 	VVCAM_ISP_EVENT_MAX,
 };
 
@@ -132,6 +134,8 @@ int vvcam_isp_s_stream_event(struct vvcam_isp_dev *isp_dev, int pad, uint32_t st
 int vvcam_isp_s_ctrl_event(struct vvcam_isp_dev *isp_dev, int pad, struct v4l2_ctrl *ctrl);
 int vvcam_isp_g_ctrl_event(struct vvcam_isp_dev *isp_dev, int pad, struct v4l2_ctrl *ctrl);
 int vvcam_isp_s_selection_event(struct vvcam_isp_dev *isp_dev, int pad, struct vvcam_isp_selection *sel);
+int vvcam_isp_get_fps_event(struct vvcam_isp_dev *isp_dev, int pad, struct vvcam_pad_streamparm* pad_streamparm);
+int vvcam_isp_set_fps_event(struct vvcam_isp_dev *isp_dev, int pad, struct vvcam_pad_streamparm* pad_streamparm);
 
 #endif
 

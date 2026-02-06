@@ -1923,6 +1923,64 @@ static int vvcam_videoc_subscribe_event(struct v4l2_fh *fh,
 //     return 0;
 // }
 
+
+int vvcam_videoc_g_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a)
+{
+	int ret;
+	struct media_pad *pad;
+	struct v4l2_subdev *subdev;
+	struct vvcam_pad_streamparm pad_streamparm;
+	struct vvcam_video_dev *vvcam_vdev = video_drvdata(file);
+
+	subdev = vvcam_video_remote_subdev(vvcam_vdev);
+	if (subdev) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+		pad = media_pad_remote_pad_first(&vvcam_vdev->pad);
+#else
+		pad = media_entity_remote_pad(&vvcam_vdev->pad);
+#endif
+		memset(&pad_streamparm, 0, sizeof(pad_streamparm));
+		a->parm.capture.capability |= V4L2_CAP_TIMEPERFRAME;
+		//a->parm.capture.readbuffers = 8;
+		memcpy(&pad_streamparm.streamparm, a, sizeof(struct v4l2_streamparm));
+		pad_streamparm.pad = pad->index;
+
+		ret = v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_GET_FPS, &pad_streamparm);
+		a->parm.capture.timeperframe.denominator = pad_streamparm.streamparm.parm.capture.timeperframe.denominator;
+		a->parm.capture.timeperframe.numerator = pad_streamparm.streamparm.parm.capture.timeperframe.numerator;
+	} else {
+		return -ENOTTY;
+	}
+	return ret;
+}
+
+int vvcam_videoc_s_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a)
+{
+	int ret;
+	struct media_pad *pad;
+	struct v4l2_subdev *subdev;
+	struct vvcam_pad_streamparm pad_streamparm;
+	struct vvcam_video_dev *vvcam_vdev = video_drvdata(file);
+
+	subdev = vvcam_video_remote_subdev(vvcam_vdev);
+	if (subdev) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+		pad = media_pad_remote_pad_first(&vvcam_vdev->pad);
+#else
+		pad = media_entity_remote_pad(&vvcam_vdev->pad);
+#endif
+		memset(&pad_streamparm, 0, sizeof(pad_streamparm));
+		memcpy(&pad_streamparm.streamparm, a, sizeof(struct v4l2_streamparm));
+		pad_streamparm.pad = pad->index;
+		ret = v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_SET_FPS, &pad_streamparm);
+	} else {
+		return -ENOTTY;
+	}
+	return ret;
+}
+
 static const struct v4l2_ioctl_ops vvcam_video_ioctl_ops = {
     .vidioc_querycap            = vvcam_videoc_querycap,
     .vidioc_enum_fmt_vid_cap    = vvcam_videoc_enum_fmt_vid_cap,
@@ -1945,8 +2003,8 @@ static const struct v4l2_ioctl_ops vvcam_video_ioctl_ops = {
     .vidioc_s_input             = vvcam_videoc_s_input,
     .vidioc_g_selection         = vvcam_videoc_g_selection,
     .vidioc_s_selection         = vvcam_videoc_s_selection,
-    // .vidioc_g_parm              = vvcam_videoc_g_parm,
-    // .vidioc_s_parm              = vvcam_videoc_s_parm,
+    .vidioc_g_parm              = vvcam_videoc_g_parm,
+    .vidioc_s_parm              = vvcam_videoc_s_parm,
     // .vidioc_enum_framesizes     = vvcam_videoc_enum_framesizes,
     // .vidioc_enum_frameintervals = vvcam_videoc_enum_frmaeintervals,
     .vidioc_queryctrl           = vvcam_videoc_queryctrl,

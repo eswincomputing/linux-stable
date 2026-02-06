@@ -2792,6 +2792,133 @@ void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps 
 		 stream->skip_info.skip_to_en, cap_m, skip_n);
 }
 
+int es_dvp2axi_g_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a)
+{
+	int cur_fps;
+	int ret;
+	int def_vblank, cur_vblank;
+	int def_hblank, cur_hblank;
+	u64 pixel_rate;
+	u64 frame_pixel;
+	int max_common_div;
+	int fps_numerator;
+	int fps_denominator;
+	struct es_dvp2axi_stream *stream = video_drvdata(file);
+	struct es_dvp2axi_device *es_dev = stream->dvp2axidev;
+	struct v4l2_subdev *sensor_sd = es_dev->terminal_sensor.sd;
+
+	struct v4l2_subdev_format fmt = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+		.pad = 0,
+	};
+
+	def_vblank =  es_dvp2axi_get_sensor_vblank_def(es_dev);
+	cur_vblank = es_dvp2axi_get_sensor_vblank(es_dev);
+
+	def_hblank = es_dvp2axi_get_sensor_hblank_def(es_dev);
+	cur_hblank = es_dvp2axi_get_sensor_hblank(es_dev);
+
+	pixel_rate = es_dvp2axi_get_sensor_pixel_rate(es_dev);
+	if(pixel_rate == 0) {
+		v4l2_err(es_dev->v4l2_dev, "FPS adjustment not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	ret = v4l2_subdev_call(sensor_sd, pad, get_fmt, NULL, &fmt);
+	if(ret) {
+		v4l2_err(es_dev->v4l2_dev, "%s sensor get_fmt error, ret %d \n", __func__, ret);
+		return ret;
+	}
+
+	frame_pixel = (fmt.format.width+cur_hblank) * (fmt.format.height+cur_vblank);
+	max_common_div = es_dvp2axi_get_max_common_div(pixel_rate, frame_pixel);
+	if (max_common_div > 1) {
+		fps_numerator = (u32)(frame_pixel / max_common_div);
+		fps_denominator = (u32)(pixel_rate / max_common_div);
+	} else {
+		fps_numerator = (u32)frame_pixel;
+		fps_denominator = (u32)pixel_rate;
+	}
+
+	if (fps_denominator == 0) {
+		fps_numerator = 1;
+		fps_denominator = 30;  // use default 30fps
+	}
+
+	a->parm.capture.timeperframe.denominator = fps_denominator;
+	a->parm.capture.timeperframe.numerator = fps_numerator;
+	// a->parm.capture.readbuffers = 6;
+	v4l2_dbg(2, es_dvp2axi_debug, es_dev->v4l2_dev, "timeperframe_denominator %d, timeperframe_numerator %d \n", fps_denominator, fps_numerator);
+
+	return 0;
+}
+
+int es_dvp2axi_s_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a)
+{
+	int ret;
+	int def_fps;
+	int target_fps;
+	int vts;
+	int def_vblank, cur_vblank;
+	int def_hblank, cur_hblank;
+	u64 def_frame_pixel;
+	u64 pixel_rate;
+	struct es_dvp2axi_stream *stream = video_drvdata(file);
+	struct es_dvp2axi_device *es_dev = stream->dvp2axidev;
+	struct v4l2_subdev *sensor_sd = es_dev->terminal_sensor.sd;
+	struct v4l2_subdev_format fmt = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+		.pad = 0,
+	};
+
+	struct v4l2_control vblank_ctrl = {
+		.id = V4L2_CID_VBLANK
+	};
+
+	def_vblank =  es_dvp2axi_get_sensor_vblank_def(es_dev);
+	cur_vblank = es_dvp2axi_get_sensor_vblank(es_dev);
+
+	def_hblank = es_dvp2axi_get_sensor_hblank_def(es_dev);
+	cur_hblank = es_dvp2axi_get_sensor_hblank(es_dev);
+
+	pixel_rate = es_dvp2axi_get_sensor_pixel_rate(es_dev);
+	if(pixel_rate == 0) {
+		v4l2_err(es_dev->v4l2_dev, "FPS adjustment not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	ret = v4l2_subdev_call(sensor_sd, pad, get_fmt, NULL, &fmt);
+	if (ret) {
+		v4l2_err(es_dev->v4l2_dev, "%s sensor get_fmt error, ret %d \n", __func__, ret);
+		return ret;
+	}
+	
+	def_frame_pixel = (fmt.format.width+def_hblank) * (fmt.format.height+def_vblank);
+	def_fps= pixel_rate / def_frame_pixel;
+	def_fps += (pixel_rate - def_fps*def_frame_pixel) > 0 ? 1:0;
+
+	target_fps = a->parm.capture.timeperframe.denominator / a->parm.capture.timeperframe.numerator;
+	v4l2_dbg(2, es_dvp2axi_debug, es_dev->v4l2_dev, "%s: target_fps %d", __func__, target_fps);
+
+	if(target_fps > def_fps) {
+		dev_warn(es_dev->dev, "set fps %d must smaller than default fps %d \n", target_fps, def_fps);
+		return 0;
+	}
+
+	// start cal vblank
+	vts = pixel_rate / target_fps / (fmt.format.width+def_hblank);
+	vblank_ctrl.value = vts - fmt.format.height;
+	ret = v4l2_s_ctrl(fh, sensor_sd->ctrl_handler, &vblank_ctrl);
+	if (ret) {
+		v4l2_err(es_dev->v4l2_dev, "%s: call sensor set V4L2_CID_VBLANK error, ret %d \n", __func__, ret);
+		return ret;
+	}
+
+	v4l2_dbg(2, es_dvp2axi_debug, es_dev->v4l2_dev, "set target fps %d done \n", target_fps);
+	return 0;
+}
 
 static long es_dvp2axi_ioctl_default(struct file *file, void *fh, bool valid_prio,
 				unsigned int cmd, void *arg)
@@ -2819,6 +2946,8 @@ static const struct v4l2_ioctl_ops es_dvp2axi_v4l2_ioctl_ops = {
 	.vidioc_g_selection = es_dvp2axi_g_selection,
 	.vidioc_enum_frameintervals = es_dvp2axi_enum_frameintervals,
 	.vidioc_enum_framesizes = es_dvp2axi_enum_framesizes,
+	.vidioc_g_parm = es_dvp2axi_g_parm,
+	.vidioc_s_parm = es_dvp2axi_s_parm,
 	.vidioc_default = es_dvp2axi_ioctl_default,
 };
 
@@ -3205,6 +3334,83 @@ s32 es_dvp2axi_get_sensor_vblank_def(struct es_dvp2axi_device *dev)
 		}
 	}
 
+	return 0;
+}
+
+s32 es_dvp2axi_get_sensor_hblank_def(struct es_dvp2axi_device *dev)
+{
+	struct es_dvp2axi_sensor_info *terminal_sensor = &dev->terminal_sensor;
+	struct v4l2_subdev *sd = terminal_sensor->sd;
+	struct v4l2_ctrl_handler *hdl = sd->ctrl_handler;
+	struct v4l2_ctrl *ctrl = NULL;
+
+	if (!list_empty(&hdl->ctrls)) {
+		list_for_each_entry(ctrl, &hdl->ctrls, node) {
+			if (ctrl->id == V4L2_CID_HBLANK)
+				return ctrl->default_value;
+		}
+	}
+
+	return 0;
+}
+
+s32 es_dvp2axi_get_sensor_hblank(struct es_dvp2axi_device *dev)
+{
+	struct es_dvp2axi_sensor_info *terminal_sensor = &dev->terminal_sensor;
+	struct v4l2_subdev *sd = terminal_sensor->sd;
+	struct v4l2_ctrl_handler *hdl = sd->ctrl_handler;
+	struct v4l2_ctrl *ctrl = NULL;
+
+	if (!list_empty(&hdl->ctrls)) {
+		list_for_each_entry(ctrl, &hdl->ctrls, node) {
+			if (ctrl->id == V4L2_CID_HBLANK)
+				return ctrl->default_value;
+		}
+	}
+
+	return 0;
+}
+
+u64 es_dvp2axi_get_sensor_pixel_rate(struct es_dvp2axi_device *dev)
+{
+	struct es_dvp2axi_sensor_info *terminal_sensor = &dev->terminal_sensor;
+	struct v4l2_subdev *sensor_sd = terminal_sensor->sd;
+	struct v4l2_ctrl_handler *hdl = sensor_sd->ctrl_handler;
+	struct v4l2_ext_controls ctrls = {0};
+	struct v4l2_ext_control ext_ctrl = {
+		.id = V4L2_CID_PIXEL_RATE,
+		.size = 0,
+	};
+	struct v4l2_ctrl *ctrl = NULL;
+	int ret;
+
+	if (!sensor_sd) {
+		dev_err(dev->dev, "No sensor subdev\n");
+		return 0;
+	}
+
+	// try 64bit ctrl
+	ctrls.controls = &ext_ctrl;
+	ctrls.count = 1;
+
+	ret = v4l2_g_ext_ctrls(sensor_sd->ctrl_handler, NULL, NULL, &ctrls);
+	if (ret == 0) {
+		v4l2_dbg(2, es_dvp2axi_debug, dev->v4l2_dev, "Got pixel rate from sensor (64bit): %llu Hz\n", 
+					ext_ctrl.value64);
+		return ext_ctrl.value64;
+	}
+
+		// try 32bit ctrl
+	if (!list_empty(&hdl->ctrls)) {
+		list_for_each_entry(ctrl, &hdl->ctrls, node) {
+			if (ctrl->id == V4L2_CID_PIXEL_RATE) {
+				v4l2_dbg(2, es_dvp2axi_debug, dev->v4l2_dev, "Got pixel rate from sensor (32bit): %u Hz\n", ctrl->val);
+				return ctrl->val;
+			}
+		}
+	}
+
+	v4l2_warn(dev->v4l2_dev, "Sensor doesn't expose pixel rate control\n");
 	return 0;
 }
 

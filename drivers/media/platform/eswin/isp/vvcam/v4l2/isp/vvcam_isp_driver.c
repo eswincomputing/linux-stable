@@ -1000,6 +1000,24 @@ static int vvcam_isp_try_ext_ctrls(struct v4l2_subdev *sd,void *arg)
 	return ret;
 }
 
+static int vvcam_isp_get_fps(struct v4l2_subdev *sd,void *arg)
+{
+	int ret;
+	struct vvcam_isp_dev *isp_dev = v4l2_get_subdevdata(sd);
+	struct vvcam_pad_streamparm *pad_streamparm = (struct vvcam_pad_streamparm *)arg;
+	ret = vvcam_isp_get_fps_event(isp_dev, pad_streamparm->pad, pad_streamparm);
+	return ret;
+}
+
+static int vvcam_isp_set_fps(struct v4l2_subdev *sd,void *arg)
+{
+	int ret;
+	struct vvcam_isp_dev *isp_dev = v4l2_get_subdevdata(sd);
+	struct vvcam_pad_streamparm *pad_streamparm = (struct vvcam_pad_streamparm *)arg;
+	ret = vvcam_isp_set_fps_event(isp_dev, pad_streamparm->pad, pad_streamparm);
+	return ret;
+}
+
 static long vvcam_isp_priv_ioctl(struct v4l2_subdev *sd,
 								unsigned int cmd, void *arg)
 {
@@ -1046,6 +1064,12 @@ static long vvcam_isp_priv_ioctl(struct v4l2_subdev *sd,
 			break;
 		case VVAM_CMD_GET_MIPI_ID:
 			ret = vvcam_isp_get_mipi_id(sd, arg);
+			break;
+		case VVCAM_PAD_GET_FPS:
+			ret = vvcam_isp_get_fps(sd, arg);
+			break;
+		case VVCAM_PAD_SET_FPS:
+			ret = vvcam_isp_set_fps(sd, arg);
 			break;
 		default:
 			break;

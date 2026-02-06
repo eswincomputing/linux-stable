@@ -141,6 +141,11 @@ typedef struct {
 	} bus;
 } sensor_mbus_config;
 
+struct vvcam_pad_streamparm {
+	uint32_t pad;
+	struct v4l2_streamparm streamparm;
+};
+
 #define VVCAM_PAD_REQUBUFS			_IOWR('V',  BASE_VIDIOC_PRIVATE + 0, struct vvcam_pad_reqbufs)
 #define VVCAM_PAD_BUF_DONE			_IOWR('V',  BASE_VIDIOC_PRIVATE + 1, struct vvcam_pad_buf)
 #define VVCAM_PAD_BUF_QUEUE			_IOWR('V',  BASE_VIDIOC_PRIVATE + 2, struct vvcam_pad_buf)
@@ -157,4 +162,7 @@ typedef struct {
 
 #define VVAM_CMD_GET_SENSOR_MBUS_CONFIG _IOR('V', BASE_VIDIOC_PRIVATE + 12, sensor_mbus_config)
 #define VVAM_CMD_GET_MIPI_ID 		_IOR('V', BASE_VIDIOC_PRIVATE + 13, int)
+
+#define VVCAM_PAD_GET_FPS			_IOWR('V',  BASE_VIDIOC_PRIVATE + 14, struct vvcam_pad_streamparm)
+#define VVCAM_PAD_SET_FPS			_IOWR('V',  BASE_VIDIOC_PRIVATE + 15, struct vvcam_pad_streamparm)
 #endif

@@ -341,3 +341,54 @@ int vvcam_isp_s_selection_event(struct vvcam_isp_dev *isp_dev,
 
 	return ret;
 }
+
+int vvcam_isp_get_fps_event(struct vvcam_isp_dev *isp_dev,
+			int pad, struct vvcam_pad_streamparm* pad_streamparm)
+{
+	struct vvcam_isp_event_pkg *event_pkg = isp_dev->event_shm.virt_addr;
+	int ret = 0;
+
+	mutex_lock(&isp_dev->event_shm.event_lock);
+	event_pkg->head.pad = pad;
+	event_pkg->head.dev = isp_dev->id;
+	event_pkg->head.eid = VVCAM_ISP_EVENT_GET_FPS;
+	event_pkg->head.shm_addr = isp_dev->event_shm.phy_addr;
+	event_pkg->head.shm_size = isp_dev->event_shm.size;
+	event_pkg->head.data_size = sizeof(struct vvcam_pad_streamparm);
+	event_pkg->seq = atomic_inc_return(&isp_dev->event_seq);
+	event_pkg->ack = 0;
+	event_pkg->ack_seq = 0;
+	event_pkg->result = 0;
+	memcpy(event_pkg->data, pad_streamparm, sizeof(struct vvcam_pad_streamparm));
+
+	ret = vvcam_isp_post_event(&isp_dev->sd, event_pkg);
+
+	memcpy(pad_streamparm, event_pkg->data, sizeof(struct vvcam_pad_streamparm));
+	mutex_unlock(&isp_dev->event_shm.event_lock);
+	return ret;
+}
+
+int vvcam_isp_set_fps_event(struct vvcam_isp_dev *isp_dev,
+			int pad, struct vvcam_pad_streamparm* pad_streamparm)
+{
+	struct vvcam_isp_event_pkg *event_pkg = isp_dev->event_shm.virt_addr;
+	int ret = 0;
+
+	mutex_lock(&isp_dev->event_shm.event_lock);
+	event_pkg->head.pad = pad;
+	event_pkg->head.dev = isp_dev->id;
+	event_pkg->head.eid = VVCAM_ISP_EVENT_SET_FPS;
+	event_pkg->head.shm_addr = isp_dev->event_shm.phy_addr;
+	event_pkg->head.shm_size = isp_dev->event_shm.size;
+	event_pkg->head.data_size = sizeof(struct vvcam_pad_streamparm);
+	event_pkg->seq = atomic_inc_return(&isp_dev->event_seq);
+	event_pkg->ack = 0;
+	event_pkg->ack_seq = 0;
+	event_pkg->result = 0;
+	memcpy(event_pkg->data, pad_streamparm, sizeof(struct vvcam_pad_streamparm));
+
+	ret = vvcam_isp_post_event(&isp_dev->sd, event_pkg);
+
+	mutex_unlock(&isp_dev->event_shm.event_lock);
+	return ret;
+}

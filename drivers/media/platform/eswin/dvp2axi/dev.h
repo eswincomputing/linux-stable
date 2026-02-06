@@ -533,6 +533,11 @@ u32 es_dvp2axi_mbus_pixelcode_to_v4l2(u32 pixelcode);
 s32 es_dvp2axi_get_sensor_vblank_def(struct es_dvp2axi_device *dev);
 s32 es_dvp2axi_get_sensor_vblank(struct es_dvp2axi_device *dev);
 
+s32 es_dvp2axi_get_sensor_hblank_def(struct es_dvp2axi_device *dev);
+s32 es_dvp2axi_get_sensor_hblank(struct es_dvp2axi_device *dev);
+
+u64 es_dvp2axi_get_sensor_pixel_rate(struct es_dvp2axi_device *dev);
+
 int es_dvp2axi_clr_unready_dev(void);
 
 const struct
