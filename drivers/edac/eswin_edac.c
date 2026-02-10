@@ -1725,7 +1725,7 @@ static int mc_probe(struct platform_device *pdev)
 	if (IS_ERR(baseaddr))
 		return PTR_ERR(baseaddr);
 
-	sys_crg_base = devm_ioremap(&pdev->dev, 0x51828000, 0x1000);
+	sys_crg_base = devm_ioremap(&pdev->dev, 0x51828000 + nid * 0x20000000, 0x1000);
 	if (IS_ERR(sys_crg_base)) {
 		return PTR_ERR(sys_crg_base);
 	}
