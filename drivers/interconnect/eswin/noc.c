@@ -1973,13 +1973,7 @@ static int win2030_noc_register_probe_common(struct device_node *np,
 		return ret;
 
 	}
-	ret = devm_request_irq(_dev, probe->stat_irq, win2030_noc_stat_irq,
-			IRQF_SHARED, "noc stat", probe);
-	if (ret) {
-		dev_err(_dev, "Error while installing stat irq %d\n",
-			(int)probe->stat_irq);
-		return ret;
-	}
+
 	list_add_tail(&probe->link, &noc_device->probes);
 
 	/*initialize register*/
@@ -2003,6 +1997,29 @@ static int win2030_noc_register_probe_common(struct device_node *np,
 		ret = win2030_noc_init_counter(&counters[j], probe, j);
 		if (ret)
 			return ret;
+	}
+
+	/* Disable alarm and statics*/
+	ret |= win2030_noc_reg_write(probe->main_ctl, PROBE_MAINCTL_ALARMEN_MASK,
+				   PROBE_MAINCTL_ALARMEN_OFFSET, 0);
+
+	ret |= win2030_noc_reg_write(probe->main_ctl, PROBE_MAINCTL_STATEN_MASK,
+			   PROBE_MAINCTL_STATEN_OFFSET, 0);
+	if (ret < 0) {
+		dev_err(probe->dev, "%s failed to disable alarm and "
+			"statics, ret %d", probe->id, ret);
+		return ret;
+	}
+
+	/* Clear alarm */
+	iowrite32(1, probe->hw_base + PROBE_STATALARMCLR);
+
+	ret = devm_request_irq(_dev, probe->stat_irq, win2030_noc_stat_irq,
+			IRQF_SHARED, "noc stat", probe);
+	if (ret) {
+		dev_err(_dev, "Error while installing stat irq %d\n",
+			(int)probe->stat_irq);
+		return ret;
 	}
 	*_probe = probe;
 	return 0;
