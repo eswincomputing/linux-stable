@@ -229,7 +229,7 @@
 	};
 
 	fragment@21 {
-		target = <&imx219_2>;
+		target = <&imx219_3>;
 		__overlay__ {
 			status="disabled";
 		};
