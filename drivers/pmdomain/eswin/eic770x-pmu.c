@@ -185,7 +185,7 @@ static int eic770x_pmu_domain_on(struct generic_pm_domain *genpd)
 
 	eic770x_pmu_set_domain_state(pmd, false); //true: power off.
 	ret = readl_poll_timeout_atomic(pmd->domain_info->reg_base + PD_DEBUG,
-					val, (val & PD_STATUS_MASK),
+					val, ((val & PD_STATUS_MASK) == PD_STATUS_MASK),
 					1, eic770x_PMU_TIMEOUT_US);
 	if (ret) {
 		dev_err(pmu->dev, "%s: failed to power on\n",
