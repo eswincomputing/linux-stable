@@ -1035,7 +1035,7 @@ static int vvcam_video_mfmt_to_vfmt( struct v4l2_subdev_format *mfmt, struct v4l
     height = f->fmt.pix.height;
     info   = v4l2_format_info(f->fmt.pix.pixelformat);
     if (info != NULL) {
-        bytesperline = info->bpp[0] * width;
+        bytesperline = ALIGN(info->bpp[0] * width, 16);
     } else {
         private_fmt = 1;
         info = vvcam_video_vfmt_info(f->fmt.pix.pixelformat);
@@ -1198,7 +1198,7 @@ static int vvcam_video_mfmt_to_vfmt( struct v4l2_subdev_format *mfmt, struct v4l
         if (private_fmt) {
             bytesperline = DIV_ROUND_UP(bytesperline, info->hdiv);
         } else {
-            bytesperline = info->bpp[i] * DIV_ROUND_UP(width, info->hdiv);
+            bytesperline = ALIGN(info->bpp[i] * DIV_ROUND_UP(width, info->hdiv), 16);
         }
         sizeimage = bytesperline * DIV_ROUND_UP(height, info->vdiv);
         f->fmt.pix.sizeimage += sizeimage;
