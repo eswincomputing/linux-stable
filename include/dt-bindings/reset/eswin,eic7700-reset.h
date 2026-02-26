@@ -110,10 +110,11 @@
 #define SW_D2D_AXI_RSTN (1 << 0)
 #define SW_D2D_CFG_RSTN (1 << 1)
 #define SW_D2D_PRST_N (1 << 2)
-#define SW_D2D_RAW_PCS_RST_N (1 << 4)
-#define SW_D2D_RX_RST_N (1 << 5)
-#define SW_D2D_TX_RST_N (1 << 6)
-#define SW_D2D_CORE_RST_N (1 << 7)
+#define SW_D2D_RAW_PCS_RST_N (1 << 3)
+#define SW_D2D_RX_RST_N (1 << 4)
+#define SW_D2D_TX_RST_N (1 << 5)
+#define SW_D2D_CORE_RST_N (1 << 6)
+#define SW_D2D_SUBSYS_RST (1 << 7)
 
 /*TCU*/
 #define SW_TCU_AXI_RSTN (1 << 0)
@@ -285,8 +286,8 @@
 #define SW_VD_AXI_RSTN (1 << 1)
 
 /*VE*/
-#define SW_VE_AXI_RSTN (1 << 0)
-#define SW_VE_CFG_RSTN (1 << 1)
+#define SW_VE_CFG_RSTN (1 << 0)
+#define SW_VE_AXI_RSTN (1 << 1)
 
 /*G2D*/
 #define SW_G2D_CORE_RSTN (1 << 0)
