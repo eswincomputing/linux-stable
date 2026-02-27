@@ -64,16 +64,6 @@ static int major_number;
 	} \
 } while(0);
 
-static int viscu_cfg(struct eswin_vi_device *es_vi_dev)
-{
-	struct regmap *regmap = es_vi_dev->syscrg_regmap;
-
-	regmap_write(regmap, VI_SUBSYSTEM_SCU_ISP_RESET, 0x0);///isp reset(sys_crg)
-	regmap_write(regmap, VI_SUBSYSTEM_SCU_ISP_RESET, 0x1);
-
-	return 0;
-}
-
 static void vi_top_register_write(struct eswin_vi_device *es_vi_dev, u32 reg,
 				  u32 val)
 {
@@ -233,7 +223,6 @@ int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, reg_value | 0x1fff8);
 	udelay(1000);
 
-	viscu_cfg(es_vi_dev);
 	vitop_intf_cfg(es_vi_dev);
 	return 0;
 }
