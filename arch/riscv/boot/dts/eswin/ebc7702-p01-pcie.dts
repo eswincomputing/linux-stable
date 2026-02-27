@@ -649,13 +649,11 @@
 &d0_npu {
 	status = "okay";
 	max_freq = <1040000000>;
-	npu_def_high_vol = <1080000>;
 	npu-supply = <&d0_npu_vcc>;
 };
 &d1_npu {
 	status = "okay";
 	max_freq = <1040000000>;
-	npu_def_high_vol = <1080000>;
 	npu-supply = <&d1_npu_vcc>;
 };
 
@@ -1398,5 +1396,16 @@
 	};
 	opp-1400000000 {
 		opp-microvolt = <800000>;
+	};
+};
+
+&npu_opp_table {
+	opp@1040000000 {
+		opp-hz = /bits/ 64 <1040000000>;
+		opp-microvolt = <980000>;
+	};
+	opp@1500000000 {
+		opp-hz = /bits/ 64 <1500000000>;
+		opp-microvolt = <1080000>;
 	};
 };
