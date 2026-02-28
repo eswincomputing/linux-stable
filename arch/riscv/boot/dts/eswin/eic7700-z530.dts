@@ -46,6 +46,9 @@
 };
 
 &d0_gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio76_default>;
+	rst-gpios = <&portc 12 GPIO_ACTIVE_LOW>;
 	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x10101010 0x1D003410 0x0>;
 	dly-param-100m = <0x10101010 0x64104610 0x10101010>;
@@ -53,6 +56,7 @@
 };
 
 &d0_gmac1 {
+	/* phy reset same to phy of gmac0*/
 	phy-mode = "rgmii-txid";
 	dly-param-1000m = <0x10101010 0x14102810 0x10101010>;
 	dly-param-100m = <0x10101010 0x3C102810 0x10101010>;

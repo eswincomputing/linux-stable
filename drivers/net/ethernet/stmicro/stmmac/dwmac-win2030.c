@@ -441,8 +441,15 @@ static int dwc_qos_probe(struct platform_device *pdev,
 		dev_info(&pdev->dev, "Reset gpio not specified\n");
 	}
 
-	if (dwc_priv->phy_reset)
-		gpiod_set_value(dwc_priv->phy_reset, 0);
+	if (dwc_priv->phy_reset) {
+		/* assert reset*/
+		gpiod_set_value_cansleep(dwc_priv->phy_reset, 1);
+		usleep_range(20000, 30000);
+		/* deassert reset*/
+		gpiod_set_value_cansleep(dwc_priv->phy_reset, 0);
+		usleep_range(80000, 90000);
+		dev_info(&pdev->dev, "phy Reset\n");
+	}
 
 	dwc_priv->rgmii_sel = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,rgmiisel");
 	if (IS_ERR(dwc_priv->rgmii_sel)){
