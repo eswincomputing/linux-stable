@@ -44,6 +44,9 @@ typedef struct esVB_K_POOL_INFO_S {
 	spinlock_t lock;
 	enum esVB_UID_E enVbUid;
 	unsigned long flag;
+        pid_t pid;
+        char comm[TASK_COMM_LEN];
+        unsigned long jiffies;
 }VB_K_POOL_INFO_S;
 
 /* MMZs info in kernel */

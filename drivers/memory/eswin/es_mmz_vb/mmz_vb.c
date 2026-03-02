@@ -41,6 +41,9 @@
 #include <linux/hashtable.h>
 #include <linux/es_proc.h>
 #include <linux/dma-resv.h>
+#include <linux/sched.h>
+#include <linux/pid.h>
+#include <linux/rculist.h>
 #include <linux/dmabuf-heap-import-helper.h>
 #include "include/linux/mmz_vb_type.h" /*must include before es_vb_user.h*/
 #include <uapi/linux/es_vb_user.h>
@@ -1055,6 +1058,11 @@ static int mmz_vb_do_create_pool(struct esVB_POOL_CONFIG_S *pool_cfg,
 		ret = -EINVAL;
 		goto out_free_block_pages;
 	}
+	pool->pid = current->pid;
+	memcpy(pool->comm, current->comm, TASK_COMM_LEN);
+	pool->comm[TASK_COMM_LEN - 1] = '\0';
+	pool->jiffies = jiffies;
+
 	*pool_out = pool;
 	return ret;
 
@@ -1644,19 +1652,63 @@ static int mmz_vb_init_partitions(void)
 	return ret;
 }
 
+const char *get_process_status(pid_t saved_pid, const char *saved_comm)
+{
+	struct pid *pid_struct;
+	struct task_struct *task;
+
+	if (saved_pid <= 0 || !saved_comm)
+		return "Invalid";
+
+	rcu_read_lock();
+
+	pid_struct = find_vpid(saved_pid);
+	if (!pid_struct) {
+		rcu_read_unlock();
+		return "Exited";
+	}
+
+	task = pid_task(pid_struct, PIDTYPE_PID);
+	if (!task) {
+		rcu_read_unlock();
+		return "Exited";
+	}
+
+	if (strcmp(task->comm, saved_comm) != 0) {
+		rcu_read_unlock();
+		return "Recycled";
+	}
+
+	if (task->exit_state & EXIT_ZOMBIE) {
+		rcu_read_unlock();
+		return "Zombie";
+	}
+
+	if (task->exit_state & EXIT_DEAD) {
+		rcu_read_unlock();
+		return "Dead";
+	}
+
+	rcu_read_unlock();
+	return "Alive";
+}
+
 static int mmz_vb_idr_iterate_show(int id, void *p, void *data)
 {
 	struct esVB_K_POOL_INFO_S *pool = (struct esVB_K_POOL_INFO_S *)p;
 	struct esVB_POOL_CONFIG_S *pool_cfg;
 	es_proc_entry_t *s = (es_proc_entry_t *)data;
+	const char *pid_state = get_process_status(pool->pid, pool->comm);
 
 	spin_lock(&pool->lock);
 	pool_cfg = &pool->poolCfg;
-	es_seq_printf(s, "\t Uid %-2d, PoolId %-4d, blkSize 0x%08llx, blkCnt %-8d, "
-		"RemapMode %d, mmzName %s, allocated blkCnt %-8d\n\r", pool->enVbUid,
+	es_seq_printf(s, "\t Uid %d, PoolId %d, blkSize 0x%llx, blkCnt %d, RemapMode %d, mmzName %s, allocated blkCnt %d, owner: [pid: %d, comm: %s, status: %s], create_jiffies:%lu, alive_time: %lus\n\r",
+                pool->enVbUid,
 		pool->poolId, pool_cfg->blkSize, pool_cfg->blkCnt,
 		pool_cfg->enRemapMode, pool_cfg->mmzName,
-		pool_cfg->blkCnt - vb_pool_get_free_block_cnt_unlock(pool));
+		pool_cfg->blkCnt - vb_pool_get_free_block_cnt_unlock(pool),
+                pool->pid, pool->comm, pid_state,
+                jiffies, (jiffies - pool->jiffies) / HZ);
 	spin_unlock(&pool->lock);
 	return 0;
 }
