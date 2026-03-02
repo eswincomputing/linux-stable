@@ -1313,11 +1313,6 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 			ret = -EIO;
 			goto err_mclk;
 		}
-		if ((val&0x0f) != 0x0C) {
-			dev_warn(dev, "control2 val mismatching %d\n", val);
-			ret = -EINVAL;
-			goto err_mclk;
-		}
 	}
 
 	if (of_node_name_prefix(dev->of_node, "es8388-0")) {
