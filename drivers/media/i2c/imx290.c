@@ -764,7 +764,7 @@ static int imx290_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_DIGITAL_GAIN:
 		if(ctrl->val < imx290->model->max_analog_gain) {
-			dev_warn(imx290->dev,
+			dev_dbg(imx290->dev,
 				       "Digital gain value %d is less than max analog gain %d, ignore digtial gain setting\n",
 				       ctrl->val, imx290->model->max_analog_gain);
 			break;

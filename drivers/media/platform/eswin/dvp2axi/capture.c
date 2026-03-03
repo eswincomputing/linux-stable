@@ -842,7 +842,7 @@ static void get_remote_sensor_sd(struct es_dvp2axi_stream *stream,
 
 		if (entity->function == MEDIA_ENT_F_CAM_SENSOR) {
 			*sensor_sd = media_entity_to_v4l2_subdev(entity);
-			dev_info(stream->dvp2axidev->dev, "Found sensor device: %s\n", (*sensor_sd)->name);
+			dev_dbg(stream->dvp2axidev->dev, "Found sensor device: %s\n", (*sensor_sd)->name);
 			break;
 		}
 
