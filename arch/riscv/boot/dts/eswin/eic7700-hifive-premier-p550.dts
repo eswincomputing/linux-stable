@@ -515,6 +515,7 @@
 
 &d0_usbdrd3_0 {
 	status = "okay";
+	eswin,usb-dual-role;
 	fixed-rx-equalization = <4>;
 };
 

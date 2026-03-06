@@ -74,6 +74,11 @@
 #define RX_EQ (1 << 9)
 #define RX_EQ_OVRD (1 << 11)
 
+#if IS_ENABLED(CONFIG_USB_ROLE_SWITCH)
+#define ESWIN_ROLE_SWITCH 1
+#else
+#define ESWIN_ROLE_SWITCH 0
+#endif
 struct dwc3_eswin {
 	int num_clocks;
 	bool connected;
@@ -88,14 +93,17 @@ struct dwc3_eswin {
 	struct notifier_block device_nb;
 	struct notifier_block host_nb;
 	struct work_struct otg_work;
+	struct work_struct dual_role_work;
 	struct mutex lock;
 	struct reset_control *vaux_rst;
 	struct device *child_dev;
 	enum usb_role new_usb_role;
+	struct usb_role_switch *es_role_sw;
 	struct gpio_desc *hub_gpio;
 	struct gpio_desc *power_gpio;
 	bool wakeup_irq_flag;
 	bool soure_wakeup_flag;
+	bool dual_role_flag;
 	struct workqueue_struct *soure_wakeup_workqueue;
 	struct delayed_work soure_wakeup_work;
 };
@@ -129,22 +137,33 @@ static ssize_t dwc3_mode_store(struct device *device,
 				size_t count)
 {
 	struct dwc3_eswin *eswin = dev_get_drvdata(device);
-	struct dwc3 *dwc = eswin->dwc;
 	enum usb_role new_role;
-	struct usb_role_switch *role_sw = dwc->role_sw;
+	int ret;
+	struct usb_role_switch *es_role_sw = eswin->es_role_sw;
 
 	if (!strncmp(buf, "1", 1) || !strncmp(buf, "host", 4)) {
 		new_role = USB_ROLE_HOST;
+		dev_info(eswin->dev, "\nforce switch to host mode\n");
 	} else if (!strncmp(buf, "0", 1) || !strncmp(buf, "peripheral", 10)) {
 		new_role = USB_ROLE_DEVICE;
+		dev_info(eswin->dev, "\nforce switch to peripheral mode\n");
 	} else {
 		dev_info(eswin->dev, "illegal dr_mode\n");
 		return count;
 	}
 	eswin->force_mode = true;
 
+	if (eswin->dwc->current_dr_role == new_role) {
+		dev_info(eswin->dev, "\nalready in the desired mode\n");
+		return count;
+	}
+
 	mutex_lock(&eswin->lock);
-	usb_role_switch_set_role(role_sw, new_role);
+	ret = usb_role_switch_set_role(es_role_sw, new_role);
+	if (ret < 0) {
+		dev_info(eswin->dev, "failed to set role via usb_role_switch:%d\n", ret);
+	}
+
 	mutex_unlock(&eswin->lock);
 
 	return count;
@@ -220,6 +239,110 @@ static int dwc3_eswin_host_notifier(struct notifier_block *nb,
 		schedule_work(&eswin->otg_work);
 
 	return NOTIFY_DONE;
+}
+
+/**
+ * We should set dole in manual since OTG's USB_ID not available.
+ * Only support:peripheral and host mode.
+ */
+static void dwc3_eswin_dual_role_work(struct work_struct *work)
+{
+	struct dwc3_eswin *eswin =
+		container_of(work, struct dwc3_eswin, dual_role_work);
+	struct dwc3 *dwc =  eswin->dwc;
+	unsigned long flags;
+	u32 desired_dr_role;
+	u32 reg;
+	int ret;
+
+	mutex_lock(&eswin->lock);
+
+	spin_lock_irqsave(&eswin->dwc->lock, flags);
+	desired_dr_role = eswin->dwc->desired_dr_role;
+	spin_unlock_irqrestore(&eswin->dwc->lock, flags);
+
+	if (desired_dr_role == eswin->dwc->current_dr_role)
+		goto out;
+
+	switch (eswin->dwc->current_dr_role) {
+	case DWC3_GCTL_PRTCAP_HOST:
+		dwc3_host_exit(eswin->dwc);
+		break;
+	case DWC3_GCTL_PRTCAP_DEVICE:
+		dwc3_gadget_exit(eswin->dwc);
+		dwc3_event_buffers_cleanup(eswin->dwc);
+		break;
+	default:
+		dev_info(eswin->dev, "unknown current_dr_role %d\n", eswin->dwc->current_dr_role);
+		goto out;
+	}
+
+		/*
+	 * When current_dr_role is not set, there's no role switching.
+	 * Only perform GCTL.CoreSoftReset when there's DRD role switching.
+	 */
+	if (eswin->dwc->current_dr_role && ((DWC3_IP_IS(DWC3) ||
+			DWC3_VER_IS_PRIOR(DWC31, 190A)) &&
+			desired_dr_role != DWC3_GCTL_PRTCAP_OTG)) {
+		reg = dwc3_readl(eswin->dwc->regs, DWC3_GCTL);
+		reg |= DWC3_GCTL_CORESOFTRESET;
+		dwc3_writel(eswin->dwc->regs, DWC3_GCTL, reg);
+
+		/*
+		 * Wait for internal clocks to synchronized. DWC_usb31 and
+		 * DWC_usb32 may need at least 50ms (less for DWC_usb3). To
+		 * keep it consistent across different IPs, let's wait up to
+		 * 100ms before clearing GCTL.CORESOFTRESET.
+		 */
+		msleep(100);
+
+		reg = dwc3_readl(eswin->dwc->regs, DWC3_GCTL);
+		reg &= ~DWC3_GCTL_CORESOFTRESET;
+		dwc3_writel(eswin->dwc->regs, DWC3_GCTL, reg);
+	}
+
+	spin_lock_irqsave(&eswin->dwc->lock, flags);
+	dwc3_set_prtcap(eswin->dwc, desired_dr_role, false);
+	spin_unlock_irqrestore(&eswin->dwc->lock, flags);
+
+	switch (desired_dr_role)
+	{
+	case DWC3_GCTL_PRTCAP_HOST:
+		ret = dwc3_host_init(eswin->dwc);
+		if (ret) {
+			dev_err(eswin->dev, "failed to initialize host\n");
+		} else {
+			phy_set_mode(eswin->dwc->usb2_generic_phy, PHY_MODE_USB_HOST);
+			phy_set_mode(eswin->dwc->usb3_generic_phy, PHY_MODE_USB_HOST);
+			if (eswin->dwc->dis_split_quirk) {
+				reg = dwc3_readl(eswin->dwc->regs, DWC3_GUCTL3);
+				reg |= DWC3_GUCTL3_SPLITDISABLE;
+				dwc3_writel(eswin->dwc->regs, DWC3_GUCTL3, reg);
+			}
+		}
+		break;
+
+	case DWC3_GCTL_PRTCAP_DEVICE:
+		dwc3_core_soft_reset(eswin->dwc);
+		dwc3_event_buffers_setup(eswin->dwc);
+
+		phy_set_mode(eswin->dwc->usb2_generic_phy, PHY_MODE_USB_DEVICE);
+		phy_set_mode(eswin->dwc->usb3_generic_phy, PHY_MODE_USB_DEVICE);
+
+		ret = dwc3_gadget_init(eswin->dwc);
+		if (ret)
+			dev_err(eswin->dwc->dev, "failed to initialize peripheral\n");
+		break;
+	default:
+		dev_info(eswin->dev, "unknown desired_dr_role %d\n", desired_dr_role);
+		goto out;
+	}
+	mutex_unlock(&eswin->lock);
+
+	return;
+
+out:
+	mutex_unlock(&eswin->lock);
 }
 
 static void dwc3_eswin_otg_extcon_evt_work(struct work_struct *work)
@@ -483,11 +606,72 @@ static int dwc3_eswin_set_gpio_power(struct device *dev, bool on)
 	return 0;
 }
 
+static int eswin_usb_dual_role_set(struct usb_role_switch *sw,
+				    enum usb_role role)
+{
+	struct dwc3_eswin *eswin = usb_role_switch_get_drvdata(sw);
+
+	u32 mode;
+	unsigned long flags;
+
+	switch (role) {
+	case USB_ROLE_HOST:
+		mode = DWC3_GCTL_PRTCAP_HOST;
+		break;
+	case USB_ROLE_DEVICE:
+		mode = DWC3_GCTL_PRTCAP_DEVICE;
+		break;
+	default:
+		if (eswin->dwc->role_switch_default_mode == USB_DR_MODE_HOST)
+			mode = DWC3_GCTL_PRTCAP_HOST;
+		else
+			mode = DWC3_GCTL_PRTCAP_DEVICE;
+		break;
+	}
+
+	spin_lock_irqsave(&eswin->dwc->lock, flags);
+	eswin->dwc->desired_dr_role = mode;
+	spin_unlock_irqrestore(&eswin->dwc->lock, flags);
+
+	queue_work(system_freezable_wq, &eswin->dual_role_work);
+
+	return 0;
+}
+
+static enum usb_role eswin_usb_dual_role_get(struct usb_role_switch *sw)
+{
+	struct dwc3_eswin *eswin = usb_role_switch_get_drvdata(sw);
+
+	unsigned long flags;
+	enum usb_role role;
+
+	spin_lock_irqsave(&eswin->dwc->lock, flags);
+	switch (eswin->dwc->current_dr_role) {
+	case DWC3_GCTL_PRTCAP_HOST:
+		role = USB_ROLE_HOST;
+		break;
+	case DWC3_GCTL_PRTCAP_DEVICE:
+		role = USB_ROLE_DEVICE;
+		break;
+	default:
+		if (eswin->dwc->role_switch_default_mode == USB_DR_MODE_HOST)
+			role = USB_ROLE_HOST;
+		else
+			role = USB_ROLE_DEVICE;
+		break;
+	}
+
+	spin_unlock_irqrestore(&eswin->dwc->lock, flags);
+
+	return role;
+}
+
 static int dwc3_eswin_probe(struct platform_device *pdev)
 {
 	struct dwc3_eswin *eswin;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node, *child;
+	struct usb_role_switch_desc eswin_dual_role_switch = {NULL};
 	struct platform_device *child_pdev;
 	unsigned int count;
 	int ret;
@@ -593,6 +777,22 @@ static int dwc3_eswin_probe(struct platform_device *pdev)
 		ret = -EPROBE_DEFER;
 		goto err2;
 	}
+
+	eswin->dual_role_flag = of_property_read_bool(np, "eswin,usb-dual-role");
+	if (ESWIN_ROLE_SWITCH && eswin->dual_role_flag) {
+		INIT_WORK(&eswin->dual_role_work, dwc3_eswin_dual_role_work);
+		eswin_dual_role_switch.fwnode = dev_fwnode(eswin->dev);
+		eswin_dual_role_switch.set = eswin_usb_dual_role_set;
+		eswin_dual_role_switch.get = eswin_usb_dual_role_get;
+		eswin_dual_role_switch.driver_data = eswin;
+		eswin->es_role_sw = usb_role_switch_register(eswin->dev, &eswin_dual_role_switch);
+		if (IS_ERR(eswin->dwc->role_sw)) {
+			dev_err(dev, "failed to register eswin role switch\n");
+			ret = PTR_ERR(eswin->dwc->role_sw);
+			goto err2;
+		}
+	}
+
 	eswin->child_dev = &child_pdev->dev;
 	ret = win2030_tbu_power(eswin->child_dev, true);
 	if (ret) {

@@ -533,6 +533,7 @@
 };
 
 &d0_usbdrd3_0 {
+	eswin,usb-dual-role;
 	status = "okay";
 };
 
