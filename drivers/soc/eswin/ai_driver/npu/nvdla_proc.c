@@ -54,8 +54,7 @@ static int npu_stat_show(struct seq_file *m, void *p)
 
 		ret = npu_pm_get(ndev);
 		if (ret < 0) {
-			dla_error("%s, %d, pm get sync err, ret=%d.\n", __func__,
-				__LINE__, ret);
+			dla_error("pm get sync err, ret=%d.\n", ret);
 			return ret;
 		}
 
@@ -149,30 +148,24 @@ static int conf_open(struct inode *inode, struct file *flip)
 	return single_open(flip, npu_conf_show, NULL);
 }
 
-static int npu_volt_show(struct seq_file *m, void *p)
+static int npu_cus_volt_show(struct seq_file *m, void *p)
 {
-	int i = 0;
-	unsigned long volt = 0;
 	struct nvdla_device *ndev = NULL;
 
-	for (i = 0; i < 2; i++)	{
-		ndev = get_nvdla_dev(i);
-		if (!ndev) {
-			continue;
-		}
-		volt = regulator_get_voltage(ndev->npu_regulator);
-
-		seq_printf(m, "npu%d volt:%lu\n", i, volt);
+	ndev = get_nvdla_dev(0);
+	if (ndev) {
+		seq_printf(m, "npu user define volt:%u\n", ndev->npu_def_high_volt);
 	}
+
 	return 0;
 }
 
-static int volt_open(struct inode *inode, struct file *flip)
+static int cus_volt_open(struct inode *inode, struct file *flip)
 {
-	return single_open(flip, npu_volt_show, NULL);
+	return single_open(flip, npu_cus_volt_show, NULL);
 }
 
-static ssize_t npu_volt_write(struct file *flip, const char __user *buffer,
+static ssize_t cus_volt_write(struct file *flip, const char __user *buffer,
 			  size_t size, loff_t *pos)
 {
 	char buf[32];
@@ -198,7 +191,7 @@ static ssize_t npu_volt_write(struct file *flip, const char __user *buffer,
 		for (i = 0; i < 2; i++) {
 			ndev = get_nvdla_dev(i);
 			if (ndev) {
-				ndev->npu_def_high_vol = 0;
+				ndev->npu_def_high_volt = 0;
 			}
 		}
 		return size;
@@ -212,12 +205,12 @@ static ssize_t npu_volt_write(struct file *flip, const char __user *buffer,
 	for (i = 0; i < 2; i++) {
 		ndev = get_nvdla_dev(i);
 		if (ndev) {
-			ret = regulator_set_voltage(ndev->npu_regulator, volt, volt);
+			ret = regulator_set_voltage(ndev->npu_regulator, volt - ndev->volt_step + 1, volt);
 			if (ret) {
-				dla_error("set npu%d voltage %lduV failed\n", i, volt);
+				dla_error("set npu%d voltage %lduV failed, err:%d\n", i, volt, ret);
 				return -EINVAL;
 			}
-			ndev->npu_def_high_vol = volt;
+			ndev->npu_def_high_volt = volt;
 		}
 	}
 	return size;
@@ -294,7 +287,7 @@ static int npu_idle_volt_show(struct seq_file *m, void *p)
 
 	ndev = get_nvdla_dev(0);
 	if (ndev) {
-		seq_printf(m, "npu idle volt:%u\n", ndev->idle_voltage);
+		seq_printf(m, "npu idle volt:%u\n", ndev->idle_volt);
 	}
 
 	return 0;
@@ -335,7 +328,7 @@ static ssize_t npu_idle_volt_write(struct file *flip, const char __user *buffer,
 	for (i = 0; i < 2; i++) {
 		ndev = get_nvdla_dev(i);
 		if (ndev) {
-			ndev->idle_voltage = volt;
+			ndev->idle_volt = volt;
 		}
 	}
 	return size;
@@ -359,11 +352,11 @@ static struct proc_ops proc_conf_fops = {
 	.proc_release = single_release,
 };
 
-static struct proc_ops proc_volt_fops = {
-	.proc_open = volt_open,
+static struct proc_ops proc_cus_volt_fops = {
+	.proc_open = cus_volt_open,
 	.proc_read = seq_read,
 	.proc_release = single_release,
-	.proc_write = npu_volt_write,
+	.proc_write = cus_volt_write,
 };
 
 static struct proc_ops proc_maxfreq_fops = {
@@ -403,9 +396,9 @@ int npu_create_procfs(void)
 		goto err_conf;
 	}
 
-	if (!proc_create("volt", 0444, proc_esnpu, &proc_volt_fops)) {
+	if (!proc_create("cus_volt", 0444, proc_esnpu, &proc_cus_volt_fops)) {
 		dla_error("error create proc volt file.\n");
-		goto err_volt;
+		goto err_cus_volt;
 	}
 
 	if (!proc_create("maxfreq", 0444, proc_esnpu, &proc_maxfreq_fops)) {
@@ -422,8 +415,8 @@ int npu_create_procfs(void)
 err_idle_volt:
 	remove_proc_entry("maxfreq", proc_esnpu);
 err_maxfreq:
-	remove_proc_entry("volt", proc_esnpu);
-err_volt:
+	remove_proc_entry("cus_volt", proc_esnpu);
+err_cus_volt:
 	remove_proc_entry("conf", proc_esnpu);
 err_conf:
 	remove_proc_entry("stat", proc_esnpu);
@@ -439,7 +432,7 @@ void npu_remove_procfs(void)
 	remove_proc_entry("info", proc_esnpu);
 	remove_proc_entry("conf", proc_esnpu);
 	remove_proc_entry("stat", proc_esnpu);
-	remove_proc_entry("volt", proc_esnpu);
+	remove_proc_entry("cus_volt", proc_esnpu);
 	remove_proc_entry("maxfreq", proc_esnpu);
 	remove_proc_entry("idle_volt", proc_esnpu);
 	remove_proc_entry("esnpu", NULL);

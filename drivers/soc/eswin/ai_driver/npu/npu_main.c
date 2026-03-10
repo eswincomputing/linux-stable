@@ -430,16 +430,18 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	}
 
 	if (target_rate > nvdla_dev->rate) { // rise freq
-		if (nvdla_dev->npu_def_high_vol) {
-			ret = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->npu_def_high_vol,
-										nvdla_dev->npu_def_high_vol);
+		if (nvdla_dev->npu_def_high_volt) {
+			ret = regulator_set_voltage(nvdla_dev->npu_regulator,
+										nvdla_dev->npu_def_high_volt - nvdla_dev->volt_step + 1,
+										nvdla_dev->npu_def_high_volt);
 		} else {
-			ret = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->freq_tbl[highset_idx].volt,
+			ret = regulator_set_voltage(nvdla_dev->npu_regulator,
+										nvdla_dev->freq_tbl[highset_idx].volt - nvdla_dev->volt_step + 1,
 										nvdla_dev->freq_tbl[highset_idx].volt);
 		}
 		if (ret) {
 			dev_err(dev, "%s %d: set voltage %duV failed\n", __func__, __LINE__,
-					nvdla_dev->npu_def_high_vol ? : nvdla_dev->freq_tbl[highset_idx].volt);
+					nvdla_dev->npu_def_high_volt ? : nvdla_dev->freq_tbl[highset_idx].volt);
 			goto out;
 		}
 
@@ -449,8 +451,8 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 			goto out;
 		}
 		mdelay(1);
-		if (!nvdla_dev->npu_def_high_vol) {
-			ret = regulator_set_voltage(nvdla_dev->npu_regulator, tbl->volt, tbl->volt);
+		if (!nvdla_dev->npu_def_high_volt) {
+			ret = regulator_set_voltage(nvdla_dev->npu_regulator, tbl->volt - nvdla_dev->volt_step + 1, tbl->volt);
 			if (ret) {
 				dev_err(dev, "%s %d: set voltage %duV failed\n", __func__, __LINE__, tbl->volt);
 				goto out;
@@ -458,16 +460,18 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 		}
 	} else if (target_rate < nvdla_dev->rate) { // lower freq
 		if (nvdla_dev->rate != nvdla_dev->freq_tbl[highset_idx].npu_rate) {
-			if (nvdla_dev->npu_def_high_vol) {
-				ret = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->npu_def_high_vol,
-											nvdla_dev->npu_def_high_vol);
+			if (nvdla_dev->npu_def_high_volt) {
+				ret = regulator_set_voltage(nvdla_dev->npu_regulator,
+											nvdla_dev->npu_def_high_volt - nvdla_dev->volt_step + 1,
+											nvdla_dev->npu_def_high_volt);
 			} else {
-				ret = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->freq_tbl[highset_idx].volt,
+				ret = regulator_set_voltage(nvdla_dev->npu_regulator,
+											nvdla_dev->freq_tbl[highset_idx].volt - nvdla_dev->volt_step + 1,
 											nvdla_dev->freq_tbl[highset_idx].volt);
 			}
 			if (ret) {
 				dev_err(dev, "%s %d: set voltage %duV failed\n", __func__, __LINE__,
-						nvdla_dev->npu_def_high_vol ? : nvdla_dev->freq_tbl[highset_idx].volt);
+						nvdla_dev->npu_def_high_volt ? : nvdla_dev->freq_tbl[highset_idx].volt);
 				goto out;
 			}
 			mdelay(DEVFREQ_VOLT_DELAY);
@@ -478,8 +482,8 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 			goto out;
 		}
 		mdelay(1);
-		if (!nvdla_dev->npu_def_high_vol) {
-			ret = regulator_set_voltage(nvdla_dev->npu_regulator, tbl->volt, tbl->volt);
+		if (!nvdla_dev->npu_def_high_volt) {
+			ret = regulator_set_voltage(nvdla_dev->npu_regulator, tbl->volt - nvdla_dev->volt_step + 1, tbl->volt);
 			if (ret) {
 				dev_err(dev, "%s %d: set voltage %duV failed\n", __func__, __LINE__, tbl->volt);
 				goto out;
@@ -492,7 +496,7 @@ static int npu_devfreq_target(struct device *dev, unsigned long *freq, u32 flags
 	nvdla_dev->freq_idx = tbl_idx;
 
 	dev_info(dev, "devfreq set npu clk rate:%ld, llc clk rate:%ld, npu volt:%d\n",
-			 tbl->npu_rate, tbl->llc_rate, nvdla_dev->npu_def_high_vol ? : tbl->volt);
+			 tbl->npu_rate, tbl->llc_rate, nvdla_dev->npu_def_high_volt ? : tbl->volt);
 
 out:
 	mutex_unlock(&nvdla_dev->devfreq_lock);
@@ -667,6 +671,7 @@ static int32_t edla_probe(struct platform_device *pdev)
 	uint32_t version;
 	uint32_t freq_idx = 0;
 	int i;
+	int target_volt;
 
 	dev_info(dev, "Eswin NPU version:%s.\n", NPU_VERSION);
 #if SMALL_PEC_MAT
@@ -692,19 +697,19 @@ static int32_t edla_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	err = of_property_read_u32(pdev->dev.of_node, "npu_def_high_vol", &nvdla_dev->npu_def_high_vol);
+	err = of_property_read_u32(pdev->dev.of_node, "npu_def_high_volt", &nvdla_dev->npu_def_high_volt);
 	if (err) {
-		nvdla_dev->npu_def_high_vol = 0;
+		nvdla_dev->npu_def_high_volt = 0;
 		err = 0;
 	}
-	dev_dbg(dev, "NPU def volt: %duv\n", nvdla_dev->npu_def_high_vol);
+	dev_dbg(dev, "NPU def volt: %duv\n", nvdla_dev->npu_def_high_volt);
 
-	err = of_property_read_u32(pdev->dev.of_node, "idle_voltage", &nvdla_dev->idle_voltage);
+	err = of_property_read_u32(pdev->dev.of_node, "idle_volt", &nvdla_dev->idle_volt);
 	if (err) {
-		nvdla_dev->idle_voltage = NPU_MIN_VOLTAGE;
+		nvdla_dev->idle_volt = NPU_MIN_VOLTAGE;
 		err = 0;
 	}
-	dev_dbg(dev, "NPU idle volt: %duv\n", nvdla_dev->idle_voltage);
+	dev_dbg(dev, "NPU idle volt: %duv\n", nvdla_dev->idle_volt);
 
 	err = regulator_enable(nvdla_dev->npu_regulator);
 	if (err < 0) {
@@ -755,18 +760,16 @@ static int32_t edla_probe(struct platform_device *pdev)
 	}
 
 	dev_dbg(dev, "NPU max frequency: %d Hz\n", nvdla_dev->max_freq);
+	if (nvdla_dev->npu_def_high_volt)
+		target_volt = nvdla_dev->npu_def_high_volt;
+	else
+		target_volt = nvdla_dev->freq_tbl[freq_idx].volt;
 
-	if (nvdla_dev->npu_def_high_vol) {
-		err = regulator_set_voltage(nvdla_dev->npu_regulator, nvdla_dev->npu_def_high_vol,
-									nvdla_dev->npu_def_high_vol);
-	} else {
-		err = regulator_set_voltage(nvdla_dev->npu_regulator,
-									nvdla_dev->freq_tbl[freq_idx].volt,
-									nvdla_dev->freq_tbl[freq_idx].volt);
-	}
-	if (err != 0) {
-		dev_err(dev, "error npu regulator volt:%duV ret:%d.\n",
-				nvdla_dev->npu_def_high_vol ? : nvdla_dev->freq_tbl[freq_idx].volt, err);
+	nvdla_dev->volt_step = regulator_list_voltage(nvdla_dev->npu_regulator, 1) -
+						   regulator_list_voltage(nvdla_dev->npu_regulator, 0);
+	err = regulator_set_voltage(nvdla_dev->npu_regulator, target_volt - nvdla_dev->volt_step + 1, target_volt);
+	if (err) {
+		dev_err(dev, "error npu regulator volt:%duV ret:%d\n", target_volt, err);
 		goto err_freq;
 	}
 	mdelay(10);
@@ -1013,9 +1016,10 @@ int __maybe_unused npu_runtime_suspend(struct device *dev)
 	}
 	ndev->rate = ndev->freq_tbl[0].npu_rate;
 
-	ret = regulator_set_voltage(ndev->npu_regulator, ndev->idle_voltage, ndev->idle_voltage);
+	ret = regulator_set_voltage(ndev->npu_regulator, ndev->idle_volt, ndev->idle_volt + ndev->volt_step);
 	if (ret) {
-		dev_err(dev, "%s set_voltage(%d) err, ret:%d.\n", __func__, ndev->idle_voltage, ret);
+		dev_err(dev, "%s set_voltage %duV failed, ret:%d.\n", __func__, 
+				ndev->idle_volt, ret);
 		mutex_unlock(&ndev->devfreq_lock);
 		return ret;
 	}
@@ -1045,15 +1049,15 @@ int __maybe_unused npu_runtime_resume(struct device *dev)
 
 	mutex_lock(&ndev->devfreq_lock);
 	volt = ndev->freq_tbl[ndev->freq_idx].volt;
-	if (ndev->npu_def_high_vol) {
-		ret = regulator_set_voltage(ndev->npu_regulator, ndev->npu_def_high_vol,
-									ndev->npu_def_high_vol);
+	if (ndev->npu_def_high_volt) {
+		ret = regulator_set_voltage(ndev->npu_regulator, ndev->npu_def_high_volt - ndev->volt_step + 1,
+									ndev->npu_def_high_volt);
 	} else {
-		ret = regulator_set_voltage(ndev->npu_regulator, volt, volt);
+		ret = regulator_set_voltage(ndev->npu_regulator, volt - ndev->volt_step + 1, volt);
 	}
 	if (ret) {
 		dev_err(dev, "%s %d: set voltage %duV failed\n", __func__, __LINE__,
-				ndev->npu_def_high_vol ? : volt);
+				ndev->npu_def_high_volt ? : volt);
 		mutex_unlock(&ndev->devfreq_lock);
 		return ret;
 	}
