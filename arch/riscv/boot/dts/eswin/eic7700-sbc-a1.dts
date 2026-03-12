@@ -546,8 +546,8 @@
 &d0_usbdrd3_1 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio23_default>;
-	hub-rst-gpios = <&porta 23 GPIO_ACTIVE_HIGH>;
+	pinctrl-0 = <&pinctrl_gpio11_default>;
+	hub-rst-gpios = <&porta 11 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_usbdrd_dwc3_1 {
