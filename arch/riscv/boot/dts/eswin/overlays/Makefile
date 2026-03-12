@@ -24,8 +24,6 @@ dtbo-$(CONFIG_SOC_ESWIN) += eic7700-sbc-a1-camera-imx219-2lanes-overlay.dtbo \
 							eic7700-hifive-premier-p550-camera-ov9281-overlay.dtbo \
 							eic7700-hifive-premier-p550-camera-imx327-overlay.dtbo \
 							eic7700-hifive-premier-p550-camera-ircut-gpio7-overlay.dtbo \
-							eic7700-d314-camera-imx327-overlay.dtbo \
-							eic7700-d314-camera-ircut-gpio7-overlay.dtbo \
 							eic7702-d560-camera-imx415-no-hdr-overlay.dtbo \
 							eic7702-d560-camera-imx415-hdr-x2-overlay.dtbo \
 							eic7702-d560-camera-imx415-hdr-x3-overlay.dtbo \
@@ -36,10 +34,8 @@ dtbo-$(CONFIG_SOC_ESWIN) += eic7700-sbc-a1-camera-imx219-2lanes-overlay.dtbo \
 							eic7702-d560-camera-imx327-overlay.dtbo \
 							eic7702-d560-camera-ircut-gpio6-overlay.dtbo \
 							eic7700-hifive-premier-p550-mipi.dtbo \
-							eic7700-d314-mipi.dtbo \
-							eic7700-evb-a2-mipi.dtbo \
-							eic7700-evb-a3-mipi.dtbo \
-							eic7700-evb-a4-mipi.dtbo \
+							eic7700-evb-mipi.dtbo \
+							eic7700-evb-simple-mipi.dtbo \
 							eic7700-sbc-a1-mipi.dtbo \
 							eic7700-ce1-mipi.dtbo \
 							eic7700-vela-mipi.dtbo \

@@ -879,6 +879,3 @@ GPIO USED ON CarrierBoard:
 	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 };
 
-&d0_dmc {
-	status = "okay";
-};

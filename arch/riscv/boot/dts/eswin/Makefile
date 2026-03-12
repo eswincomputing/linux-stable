@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							eic7700-evb.dtb \
-							eic7700-evb-a2.dtb \
-							eic7700-evb-a3.dtb \
 							eic7700-hifive-premier-p550.dtb \
 							eic7702-evb-a1.dtb \
 							eic7700-z530.dtb \
-							eic7700-d314.dtb \
 							eic7702-evb-a1-interleave.dtb \
 							eic7702-tb.dtb \
 							eic7700-sbc-a1.dtb \
@@ -26,7 +23,6 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							ebc7702-u01-pcie.dtb \
 							ebc7700-m01-pcie.dtb \
 							eic7700-vela.dtb \
-							eic7700-evb-a4.dtb \
 							vpu7702-pcie-8G.dtb \
 							vpu7702_pcie_8G_factory.dtb \
 							ebc7702-u01-pcie-a2.dtb
