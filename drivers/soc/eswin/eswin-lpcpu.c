@@ -70,7 +70,7 @@ struct lowpower_info {
 #define LPCPU_BOOT_ADDR         0x51828314
 #define LPCPU_CONFIG_ADDR       0x5880d400
 #define LPCPU_CONFIG_MAGIC      0x4c435055
-#define LPCPU_CONFIG_VERSION    3
+#define LPCPU_CONFIG_VERSION    4
 #define LPCPU_NPU_FW_MAX_SIZE   (64*1024)
 #define LPCPU_RSV_MEM_MIN_SIZE  (5*1024*1024)
 
@@ -125,6 +125,8 @@ struct lpcpu_config {
 	u64 npu_buf_1;
 	u64 npu_buf_2;
 	struct control_gpio_config gpio_config[16];
+	u8 wakeup_gpio; // bit7: 1: on, 0: off, bit0-2: gpio port, available 0-7
+	u8 wakeup_uart; // bit7: 1: on, 0: off, bit0-2: uart port, available 0-4
 };
 
 static atomic_t rcved_wake_msg;
@@ -443,6 +445,34 @@ static void lpcpu_parse_ctrl_gpio(struct platform_device *pdev, struct lpcpu_con
 	}
 }
 
+static void lpcpu_parse_wakeup_gpio(struct platform_device *pdev, struct lpcpu_config *cfg)
+{
+	u32 gpio;
+
+	if(of_property_read_u32(pdev->dev.of_node, "wakeup-gpio-port", &gpio)) {
+		gpio = (u32)(-1);
+	}
+
+	if (gpio <= 7) {
+		cfg->wakeup_gpio = (u8)(gpio | 0x80);
+		dev_info(&pdev->dev, "wakeup gpio config: %d\n", gpio);
+	}
+}
+
+static void lpcpu_parse_wakeup_uart(struct platform_device *pdev, struct lpcpu_config *cfg)
+{
+	u32 uart;
+
+	if(of_property_read_u32(pdev->dev.of_node, "wakeup-uart-port", &uart)) {
+		uart = (u32)(-1);
+	}
+
+	if (uart <= 4) {
+		cfg->wakeup_uart = (u8)(uart | 0x80);
+		dev_info(&pdev->dev, "wakeup uart config: %d\n", uart);
+	}
+}
+
 static int lpcpu_config_prepare(struct platform_device *pdev)
 {
 	void __iomem *mmio;
@@ -452,6 +482,8 @@ static int lpcpu_config_prepare(struct platform_device *pdev)
 	cfg.magic = LPCPU_CONFIG_MAGIC;
 	cfg.version = LPCPU_CONFIG_VERSION;
 	lpcpu_parse_ctrl_gpio(pdev, &cfg);
+	lpcpu_parse_wakeup_gpio(pdev, &cfg);
+	lpcpu_parse_wakeup_uart(pdev, &cfg);
 
 	// prepare npu fw and generate npu buffer address
 	if (lpcpu->rsv_mem_addr && lpcpu->rsv_mem_size >= LPCPU_RSV_MEM_MIN_SIZE) {
@@ -678,6 +710,9 @@ err_mailbox:
 err_misc:
 	devm_kfree(&pdev->dev,lpcpu);
 	lpcpu = NULL;
+	if (!numa_id) {
+		primary_lpcpu = NULL;
+	}
 	return ret;
 }
 

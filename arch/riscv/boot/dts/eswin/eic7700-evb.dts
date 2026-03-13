@@ -295,6 +295,10 @@
 
 &d0_lpcpu {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio6_default>;
+	irq-gpios = <&porta 6 GPIO_ACTIVE_LOW>;
+	wakeup-gpio-port = <6>;
 };
 &d0_dmc {
         status = "okay";

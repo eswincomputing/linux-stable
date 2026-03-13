@@ -277,6 +277,10 @@
 
 &d0_lpcpu {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio7_default>;
+	irq-gpios = <&porta 7 GPIO_ACTIVE_HIGH>;
+	wakeup-gpio-port = <7>;
 };
 &d0_dmc {
         status = "okay";

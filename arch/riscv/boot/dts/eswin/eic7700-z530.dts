@@ -235,6 +235,14 @@
 	};
 };
 
+&d0_lpcpu {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio5_default>;
+	irq-gpios = <&porta 5 GPIO_ACTIVE_HIGH>;
+	wakeup-gpio-port = <5>;
+	wakeup-uart-port = <2>;
+};
+
 /* GPIO Function Description
 	gpio0   : touch int(I)
 	gpio5   : 5g wake on host(I)

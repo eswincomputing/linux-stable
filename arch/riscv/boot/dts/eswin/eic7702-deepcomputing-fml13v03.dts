@@ -516,6 +516,7 @@
 			<54 GPIO_ACTIVE_HIGH>, <55 GPIO_ACTIVE_HIGH>,
 			<111 GPIO_ACTIVE_LOW>, <92 GPIO_ACTIVE_HIGH>,
 			<94 GPIO_ACTIVE_HIGH>;
+	wakeup-gpio-port = <0>;
 };
 
 &d1_lpcpu {

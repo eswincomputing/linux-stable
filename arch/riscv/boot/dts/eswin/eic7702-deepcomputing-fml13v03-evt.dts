@@ -480,6 +480,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio0_default>;
 	irq-gpios = <&porta 0 GPIO_ACTIVE_HIGH>;
+	wakeup-gpio-port = <0>;
 };
 &d0_dmc {
         status = "okay";
