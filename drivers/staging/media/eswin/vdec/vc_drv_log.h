@@ -34,37 +34,37 @@
 #define OUTPUT_LOG_LEVEL 0xFC
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_ERR)
-#define LOG_ERR(fmt, args...) do { pr_err("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_ERR(fmt, args...) do { pr_err("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_ERR(fmt, args...)
 #endif
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_WARN)
-#define LOG_WARN(fmt, args...) do { pr_warn("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_WARN(fmt, args...) do { pr_warn("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_WARN(fmt, args...)
 #endif
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_NOTICE)
-#define LOG_NOTICE(fmt, args...) do { pr_notice("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_NOTICE(fmt, args...) do { pr_notice("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_NOTICE(fmt, args...)
 #endif
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_INFO)
-#define LOG_INFO(fmt, args...) do { pr_info("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_INFO(fmt, args...) do { pr_info("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_INFO(fmt, args...)
 #endif
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_DBG)
-#define LOG_DBG(fmt, args...) do { pr_debug("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_DBG(fmt, args...) do { pr_debug("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_DBG(fmt, args...)
 #endif
 
 #if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_TRACE)
-#define LOG_TRACE(fmt, args...) do { pr_info("[" LOG_TAG "]" fmt, ##args); } while (0)
+#define LOG_TRACE(fmt, args...) do { pr_info("[" LOG_TAG "][pid=%u]" fmt, current->pid, ##args); } while (0)
 #else
 #define LOG_TRACE(fmt, args...)
 #endif

@@ -955,22 +955,29 @@ static void free_cmdbuf_mem(u16 cmdbuf_id)
 	wake_up_interruptible_all(&vcmd_cmdbuf_memory_wait);
 }
 
-static bi_list_node *create_cmdbuf_node(void)
+static int create_cmdbuf_node(bi_list_node **new_node)
 {
 	bi_list_node *current_node = NULL;
 	struct cmdbuf_obj *cmdbuf_obj = NULL;
 	struct noncache_mem new_cmdbuf_addr;
 	struct noncache_mem new_status_cmdbuf_addr;
 
+	if (!new_node) {
+		LOG_ERR("nullptr of addr of new_node\n");
+		return -1;
+	}
+	*new_node = NULL;
 	if (wait_event_interruptible(vcmd_cmdbuf_memory_wait,
 				     allocate_cmdbuf(&new_cmdbuf_addr,
-						     &new_status_cmdbuf_addr)))
-		return NULL;
+						     &new_status_cmdbuf_addr))) {
+		LOG_INFO("%s:%d, vcmd_cmdbuf_memory_wait aborted\n", __func__, __LINE__);
+		return -ERESTARTSYS;
+	}
 	cmdbuf_obj = create_cmdbuf_obj();
 	if (!cmdbuf_obj) {
 		LOG_DBG("%s\n", "create_cmdbuf_obj fail!");
 		free_cmdbuf_mem(new_cmdbuf_addr.cmdbuf_id);
-		return NULL;
+		return -1;
 	}
 	cmdbuf_obj->cmdbuf_bus_address = new_cmdbuf_addr.bus_address;
 	cmdbuf_obj->mmu_cmdbuf_bus_address = new_cmdbuf_addr.mmu_bus_address;
@@ -988,12 +995,13 @@ static bi_list_node *create_cmdbuf_node(void)
 		LOG_DBG("%s\n", "bi_list_create_node fail!");
 		free_cmdbuf_mem(new_cmdbuf_addr.cmdbuf_id);
 		free_cmdbuf_obj(cmdbuf_obj);
-		return NULL;
+		return -1;
 	}
 	current_node->data = (void *)cmdbuf_obj;
 	current_node->next = NULL;
 	current_node->previous = NULL;
-	return current_node;
+	*new_node = current_node;
+	return 0;
 }
 
 static void free_cmdbuf_node(bi_list_node *cmdbuf_node)
@@ -1541,6 +1549,7 @@ static long reserve_cmdbuf(struct file *filp,
 	bi_list_node *process_manager_node = NULL;
 	struct process_manager_obj *process_manager_obj = NULL;
 	unsigned long flags;
+	int ret = 0;
 
 	input_para->cmdbuf_id = 0;
 	if (input_para->cmdbuf_size > CMDBUF_MAX_SIZE)
@@ -1572,10 +1581,15 @@ static long reserve_cmdbuf(struct file *filp,
 	spin_unlock_irqrestore(&process_manager_obj->spinlock, flags);
 	if (wait_event_interruptible(
 		    process_manager_obj->wait_queue,
-		    wait_process_resource_rdy(process_manager_obj)))
-		return -1;
+		    wait_process_resource_rdy(process_manager_obj))) {
+		LOG_INFO("%s:%d, pmo wait_queue aborted\n", __func__, __LINE__);
+		return -ERESTARTSYS;
+	}
 
-	new_cmdbuf_node = create_cmdbuf_node();
+	ret = create_cmdbuf_node(&new_cmdbuf_node);
+	if (ret != 0) {
+		return ret;
+	}
 	if (!new_cmdbuf_node)
 		return -1;
 
@@ -1639,8 +1653,10 @@ static long release_cmdbuf(struct file *filp, u16 cmdbuf_id)
 	}
 	module_type = cmdbuf_obj->module_type;
 	//TODO
-	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[module_type]))
+	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[module_type])) {
+		LOG_INFO("%s:%d, reserve_cmdbuf_sem aborted\n", __func__, __LINE__);
 		return -ERESTARTSYS;
+	}
 	dev = &hantrovcmd_data[cmdbuf_obj->core_id];
 
 	//spin_lock_irqsave(dev->spinlock, flags);
@@ -1828,8 +1844,10 @@ static long link_and_run_cmdbuf(struct file *filp,
 		return -1;
 
 	if (down_interruptible(
-			&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type]))
+			&vcmd_reserve_cmdbuf_sem[cmdbuf_obj->module_type])) {
+		LOG_INFO("%s:%d, reserve_cmdbuf_sem aborted\n", __func__, __LINE__);
 		return -ERESTARTSYS;
+	}
 
 	return_value = select_vcmd(new_cmdbuf_node, input_para->nid);
 	if (return_value) {
@@ -2321,15 +2339,16 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		LOG_DBG("VCMD link and run cmdbuf\n");
 		retval = link_and_run_cmdbuf(filp, &input_para);
-		retval = copy_to_user((struct exchange_parameter __user *)arg,
-			     &input_para, sizeof(struct exchange_parameter));
-		if (retval) {
-			LOG_DBG("copy_to_user failed, returned %li\n", retval);
-			return -EFAULT;
+		if (retval == 0) {
+			retval = copy_to_user((struct exchange_parameter __user *)arg,
+					&input_para, sizeof(struct exchange_parameter));
+			if (retval) {
+				LOG_DBG("copy_to_user failed, returned %li\n", retval);
+				return -EFAULT;
+			}
 		}
 
 		return retval;
-		//break;
 	}
 
 	case HANTRO_VCMD_IOCH_WAIT_CMDBUF: {
@@ -2362,8 +2381,8 @@ long hantrovcmd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		LOG_DBG("VCMD release CMDBUF\n");
 
-		release_cmdbuf(filp, cmdbuf_id);
-		return 0;
+		retval = release_cmdbuf(filp, cmdbuf_id);
+		return retval;
 		//break;
 	}
 	case HANTRO_VCMD_IOCH_POLLING_CMDBUF: {
