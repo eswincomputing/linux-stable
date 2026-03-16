@@ -29,9 +29,24 @@
 #include <linux/log2.h>
 #include <linux/highmem.h>
 #include <linux/io.h>
+#include <linux/sort.h>
 #include <linux/kmemleak.h>
 #include "eswin_memblock.h"
 
+extern struct memblock memblock;
+#define for_each_memblock_type(i, memblock_type, rgn)			\
+	for (i = 0, rgn = &memblock_type->regions[0];			\
+	     i < memblock_type->cnt;					\
+	     i++, rgn = &memblock_type->regions[i])
+
+struct merged_range {
+    phys_addr_t start;
+    phys_addr_t end;
+};
+
+#define MAX_MERGED_RANGES 64
+static struct merged_range  __initdata merged_ranges[MAX_MERGED_RANGES];
+static int __initdata merged_count = 0;
 
 struct mem_block eswin_rsvmem_blocks[MAX_ESWIN_RSVMEM_AREAS] = {0};
 unsigned eswin_rsvmem_block_count = 0;
@@ -69,6 +84,79 @@ struct mem_block *eswin_rsvmem_get_memblock(const char *memBlkName)
 	return memblock;
 }
 EXPORT_SYMBOL(eswin_rsvmem_get_memblock);
+
+static int __init cmp_range(const void *a, const void *b)
+{
+	const struct merged_range *r1 = a;
+	const struct merged_range *r2 = b;
+	if (r1->start < r2->start)
+		return -1;
+	if (r1->start > r2->start)
+		return 1;
+	return 0;
+}
+
+static void __init do_merge_memblocks(void)
+{
+	struct memblock_region *rgn;
+	struct memblock_type *type_m = &memblock.memory;
+	int i, final_idx = 0;
+
+	if (merged_count > 0)
+		return;
+
+	for_each_memblock_type(i, type_m , rgn) {
+		if (merged_count >= MAX_MERGED_RANGES)
+			goto full;
+		merged_ranges[merged_count].start = rgn->base;
+		merged_ranges[merged_count].end = rgn->base + rgn->size;
+		merged_count++;
+	}
+
+full:
+	sort(merged_ranges, merged_count, sizeof(struct merged_range), cmp_range, NULL);
+	for (i = 0; i < merged_count; i++) {
+		if (final_idx == 0 || merged_ranges[i].start > merged_ranges[final_idx - 1].end) {
+			merged_ranges[final_idx] = merged_ranges[i];
+			final_idx++;
+		} else if (merged_ranges[i].end > merged_ranges[final_idx - 1].end) {
+			merged_ranges[final_idx - 1].end = merged_ranges[i].end;
+		}
+	}
+	merged_count = final_idx;
+
+	pr_debug("All memblock merged, got %d region:\n", final_idx);
+	for (i = 0; i < final_idx; i++)
+                pr_debug("\t Region[%d]: [%pa - %pa)\n", i,
+			&merged_ranges[i].start, &merged_ranges[i].end);
+}
+
+/*
+ * Check if a memory region is within any memory node
+ * @base: Base address of the memory region
+ * @size: Size of the reserved region
+ * @name: Name of the region.
+ * Return: 0 on success (found a containing memory node), -EINVAL on failure
+ */
+static int __init eswin_validate_memory_range(phys_addr_t base,
+	phys_addr_t size, const char *name)
+{
+	phys_addr_t end;
+	int i;
+
+	if (strstr(name, PCI_PHYS_MEM_PREFIX))
+		return 0;
+
+	do_merge_memblocks();
+	end = base + size - 1;
+	for (i = 0; i < merged_count; i++)
+		if (base >= merged_ranges[i].start && end <= merged_ranges[i].end)
+			return 0;
+
+	pr_err("Reserved Memroy %s :[%pa-%pa] not belongs to any memory node.\n",
+		name, &base, &end);
+	return -EINVAL;
+}
 
 /**
  * eswin_rsvmem_init_reserved_mem() - create eswin reserve memory from reserved memory
@@ -109,6 +197,9 @@ static int __init eswin_rsvmem_init_reserved_mem(phys_addr_t base, phys_addr_t s
 		pr_err("rsvmem block name is NULL!\n");
 		return -EINVAL;
 	}
+
+	if (eswin_validate_memory_range(base, size, name))
+		return -EINVAL;
 
 	memblock = &eswin_rsvmem_blocks[eswin_rsvmem_block_count];
 	memblock->page_num = size >> PAGE_SHIFT;
