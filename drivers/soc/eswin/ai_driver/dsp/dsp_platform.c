@@ -99,7 +99,6 @@
 #define DSP_FW_STATE_ADDR 0x5b13ffb0
 #define DSP_PERF_START_ADDR 0x5b13ffc0
 #define DIE_BASE_INTERVAL 0x20000000
-#define DSP_CORE_INTERVAL 0x40000
 
 extern bool __clk_is_enabled(struct clk *clk);
 
@@ -121,6 +120,9 @@ struct es_dsp_hw {
 	dma_addr_t pts_iova;
 	u32 pts_iova_size;
 	u32 pts_phys_base;
+
+	dma_addr_t llc_iova;
+	u32 llc_iova_size;
 
 	dma_addr_t iddr_iova;
 	u32 iddr_size;
@@ -1193,6 +1195,7 @@ int es_dsp_hw_init(struct es_dsp *dsp)
 	int ret;
 	struct device *parent;
 	struct es_dsp_subsys *subsys;
+	u32 llc_phys_base;
 	struct es_dsp_hw *hw = (struct es_dsp_hw *)dsp->hw_arg;
 
 	dev_info(dsp->dev, "\n\ndsp hw init begin\n");
@@ -1237,11 +1240,30 @@ int es_dsp_hw_init(struct es_dsp *dsp)
 	if (ret != 0) {
 		dev_err(dsp->dev, "iommu map dsp pts phy error.\n");
 		hw->pts_iova = 0;
+		goto err_pts;
+	}
+
+	hw->llc_iova = DSP_DEVICE_E31_LLC_IOVA;
+	hw->llc_iova_size = DSP_DEVICE_E31_LLC_IOVA_SIZE;
+	llc_phys_base = DSP_DEVICE_E31_LLC_BASE_ADDR + dsp->numa_id * DIE_BASE_INTERVAL;
+	ret = iommu_map_rsv_iova_with_phys(dsp->dev, (dma_addr_t)DSP_DEVICE_E31_LLC_IOVA,
+					   DSP_DEVICE_E31_LLC_IOVA_SIZE, llc_phys_base,
+					   IOMMU_MMIO);
+	if (ret != 0) {
+		dev_err(dsp->dev, "iommu map e31 llc phy error.\n");
+		hw->llc_iova = 0;
 		goto err;
 	}
+
 	dev_dbg(dsp->dev, "firmware-name:%s.\n", dsp->firmware_name);
 	return 0;
+
 err:
+	iommu_unmap_rsv_iova(dsp->dev, NULL, hw->pts_iova,
+						hw->pts_iova_size);
+	hw->pts_iova = NULL;
+
+err_pts:
 	iommu_unmap_rsv_iova(dsp->dev, dsp->firmware_addr,
 			     dsp->firmware_dev_addr, DSP_FIRMWARE_IOVA_SIZE);
 	dsp->firmware_addr = NULL;
@@ -1294,6 +1316,12 @@ void es_dsp_hw_uninit(struct es_dsp *dsp)
 		iommu_unmap_rsv_iova(dsp->dev, NULL, hw->pts_iova,
 				     hw->pts_iova_size);
 		hw->pts_iova = 0;
+	}
+
+	if (hw->llc_iova != 0) {
+		iommu_unmap_rsv_iova(dsp->dev, NULL, hw->llc_iova,
+				     hw->llc_iova_size);
+		hw->llc_iova = 0;
 	}
 }
 

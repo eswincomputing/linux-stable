@@ -52,12 +52,34 @@ struct dsp_dma_buf_ex {
     struct dsp_dma_buf buf;
 };
 #endif
+#define DSP_CORE_INTERVAL 0x40000
+#define DSP_DEVICE_E31_LLC_IOVA 0xfffb0000  // map to 0x51D88000
+#define DSP_CORE_NUM 4
+#define SHARE_FIFO_SIZE 2
+
+typedef union _dsp_poll_ctl_t {
+    struct {
+        ES_U8 prg_cnt;      //The number of program requests sent by e31
+        ES_U8 eval_cnt;     //The number of eval requests sent by e31
+        ES_U8 done_cnt;     //The number of DSP evaluation requests completed by e31
+        ES_U8 poll_ctl;     //E31 Control DSP Poll Switch Flag
+    };
+    ES_U32 ctl;
+} dsp_poll_ctl_t;
+
+typedef struct _poll_msg {
+    ES_U8 status;           //DSP task return status
+    ES_U8 resv;             //0x148 The 10th bit is unavailable
+    ES_U8 prg_cnt;          //DSP has received the number of program requests
+    ES_U8 eval_done_cnt;    //Number of eval requests completed by DSP
+} poll_msg_t;
 
 typedef enum {
     DSP_CMD_LEGACY,
     DSP_CMD_FLAT1,
     DSP_CMD_READY,
     DSP_CMD_INVALID_ICACHE,
+    DSP_CMD_POLL,
 } es_dsp_cmd;
 
 #if (defined(DSP_ENV_SIM) && DSP_ENV_SIM) || (defined(NPU_DEV_SIM) && NPU_DEV_SIM)

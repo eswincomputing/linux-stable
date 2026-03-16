@@ -500,7 +500,7 @@ static void dsp_task_work(struct work_struct *work)
 }
 
 /* 1. If the task has already executed prepare, then send a message to DSP to execute eval;
- * 2. If the task has not been executed, then send a message to let the DSP core execute prepare and eval. 
+ * 2. If the task has not been executed, then send a message to let the DSP core execute prepare and eval.
  *    After prepare is executed, there is no need to wait.
  */
 
@@ -520,7 +520,7 @@ void dsp_set_flat_func(struct es_dsp_flat1_desc *flat, u64 handle)
 EXPORT_SYMBOL(dsp_set_flat_func);
 
 /* Submit the task to the DSP's task queue:
- * 1. If no task is running, then run the prepare of this task and inform the DSP core to wait during prepare, 
+ * 1. If no task is running, then run the prepare of this task and inform the DSP core to wait during prepare,
  *    but do not send a notification after prepare.
  * 2. If a task is running, then put this task on hold.
  */
@@ -570,8 +570,8 @@ struct es_dsp *es_proc_get_dsp(int dieid, int dspid)
 /*
  * input: die_id, dspId, subscrib.
  * output: dsp_dev.
- * Note: It is very likely that when the NPU calls this interface, our DSP driver's probe has not yet been called. 
- * This is possible. Therefore, it is necessary to return EPROBE_DEFER. 
+ * Note: It is very likely that when the NPU calls this interface, our DSP driver's probe has not yet been called.
+ * This is possible. Therefore, it is necessary to return EPROBE_DEFER.
  */
 static int check_device_node_status(u32 die_id, u32 dspid)
 {

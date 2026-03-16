@@ -360,6 +360,7 @@ static void hetero_send(void *channel, msg_payload_t payload)
     pchan->produce_index++;
     peer->produce_index = pchan->produce_index;
     hmb();
+
     notify_peer_by_intr(pchan->peer);
 }
 
