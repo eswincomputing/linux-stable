@@ -113,6 +113,12 @@ enum es_dvp2axi_inf_id {
 	ES_DVP2AXI_MIPI_LVDS,
 };
 
+enum es_dvp2axi_stream_status{
+	ES_DVP2AXI_STREAM_STARTING,
+	ES_DVP2AXI_STREAM_STOPING,
+	ES_DVP2AXI_STREAM_DONE,
+};
+
 /*
  * for distinguishing cropping from senosr or usr
  */
@@ -369,7 +375,7 @@ struct es_dvp2axi_stream {
 
 	const struct dvp2axi_output_fmt	*dvp2axi_fmt_out;
 	const struct dvp2axi_input_fmt	*dvp2axi_fmt_in;
-	struct v4l2_pix_format_mplane	pixm;
+	struct v4l2_pix_format	pix;
 	struct v4l2_rect		crop[CROP_SRC_MAX];
 	struct es_dvp2axi_fps_stats		fps_stats;
 	struct es_dvp2axi_readout_stats	readout;
@@ -384,12 +390,13 @@ struct es_dvp2axi_stream {
 	u32				skip_frame;
 	u32				cur_skip_frame;
 	bool				stopping;
+	enum es_dvp2axi_stream_status status;
 	bool				crop_enable;
 	bool				crop_dyn_en;
-	bool				is_compact;
 	struct es_dvp2axi_dummy_buffer dummy_buf;
 	int bpl;
 	int bpp;
+	int detect;
 };
 
 static inline struct es_dvp2axi_buffer *to_es_dvp2axi_buffer(struct vb2_v4l2_buffer *vb)
@@ -486,7 +493,6 @@ extern struct platform_driver es_dvp2axi_plat_drv;
 #ifdef CONFIG_NUMA
 extern struct platform_driver es_dvp2axi_plat_drv_d1;
 #endif
-void es_dvp2axi_set_fps(struct es_dvp2axi_stream *stream, struct es_dvp2axi_fps *fps);
 int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 				enum es_dvp2axi_stream_mode mode);
 void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
@@ -500,7 +506,7 @@ void es_dvp2axi_vb_done_tasklet(struct es_dvp2axi_stream *stream, struct es_dvp2
 void dvp2axi_interrupt_handler(struct device *dev);
 
 void es_irq_oneframe(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
-void es_irq_err_handle(struct device *dev, struct es_dvp2axi_device *dvp2axi_dev);
+void es_irq_err_handle(struct device *dev);
 void es_dvp2axi_tasklet_err_handle(unsigned long data);
 
 const struct
@@ -525,7 +531,7 @@ void es_dvp2axi_vb_done_oneframe(struct es_dvp2axi_stream *stream,
 
 
 int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
-		       struct v4l2_pix_format_mplane *pixm,
+		       struct v4l2_pix_format *pix,
 		       bool try);
 
 u32 es_dvp2axi_mbus_pixelcode_to_v4l2(u32 pixelcode);

@@ -41,7 +41,6 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/of_address.h>
 #include "dev.h"
-#include "procfs.h"
 
 int es_dvp2axi_debug = 0;
 module_param_named(debug, es_dvp2axi_debug, int, 0644);
@@ -220,14 +219,24 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 			dvp2axi_dev->irq_stats.all_err_cnt = 0;
 		}
 
-		/* phy -> sensor */
-		for (i = 0; i < p->num_subdevs; i++) {
-			ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
-			if (on && ret < 0 && ret != -ENOIOCTLCMD &&
-			    ret != -ENODEV)
-				goto err_stream_off;
+		if(on) {
+			/* csi -> phy -> sensor */
+			for (i = 0; i < p->num_subdevs; i++) {
+				ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
+				if (on && ret < 0 && ret != -ENOIOCTLCMD &&
+					ret != -ENODEV)
+					goto err_stream_off;
+			}
+		} else {
+			/*sensor -> phy -> csi*/
+			for (i = p->num_subdevs-1; i >=0; i--) {
+				ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
+				if (on && ret < 0 && ret != -ENOIOCTLCMD &&
+					ret != -ENODEV)
+					goto err_stream_off;
+				msleep(300); // ensure all data has been sent
+			}
 		}
-
 	} else {
 		if (!on && atomic_dec_return(&p->stream_cnt) > 0)
 			return 0;
@@ -267,7 +276,7 @@ static int es_dvp2axi_pipeline_set_stream(struct es_dvp2axi_pipeline *p, bool on
 			}
 
 			/* phy -> sensor */
-			for (i = 0; i < p->num_subdevs; i++) {
+			for (i = p->num_subdevs-1; i >=0; i--) {
 				ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
 				if (on && ret < 0 && ret != -ENOIOCTLCMD &&
 				    ret != -ENODEV)
@@ -756,7 +765,7 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 	const struct es_dvp2axi_match_data *data;
 	int ret;
 
-	dev_info(dev, "es_dvp2axi driver version: v0.8\n");
+	dev_info(dev, "es_dvp2axi driver version: v0.9\n");
 
 	match = of_match_node(es_dvp2axi_plat_of_match, node);
 	if (!match) {
@@ -785,9 +794,6 @@ static int es_dvp2axi_plat_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (es_dvp2axi_proc_init(dvp2axi_dev))
-		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
-
 	dvp2axi_dev->of_notifier.notifier_call = dvp2axi_of_notifier;
 	of_overlay_notifier_register(&dvp2axi_dev->of_notifier);
 	dev_info(dvp2axi_dev->dev, "dvp2axi probe succsess!\n");
@@ -801,7 +807,6 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 
 	es_dvp2axi_plat_uninit(dvp2axi_dev);
 	es_dvp2axi_detach_hw(dvp2axi_dev);
-	es_dvp2axi_proc_cleanup(dvp2axi_dev);
 	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
 
 	return 0;

@@ -33,6 +33,7 @@
 #include <linux/es-camera-module.h>
 #include "dvp2axi.h"
 #include "dev.h"
+#include "dvp2axi_vb2.h"
 
 #define ES_DVP2AXI_DEV_MAX		7
 #define ES_DVP2AXI_HW_DRIVER_NAME	"es_dvp2axihw"
@@ -102,12 +103,17 @@ struct es_dvp2axi_hw {
 	struct regmap *vi_topcsr_regmap;
 	u32 vi_topcsr_reg;
 
+	struct dvp2axi_mem_pool* mem_pool;
+	bool is_use_dvp2axi_mem_ops;
+	spinlock_t stream_lock;
+
 	struct clk *dvp_clk;
 	struct clk *phy_cfg;
 	struct clk *phy_txclkesc;
 	struct clk *spll0_fout1;
 	struct clk *vpll_fout1;
 	struct clk *dvp_mux;
+
 };
 
 void es_dvp2axi_disable_sys_clk(struct es_dvp2axi_hw *dvp2axi_hw);

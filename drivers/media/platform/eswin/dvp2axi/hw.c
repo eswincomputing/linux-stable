@@ -78,19 +78,16 @@ static irqreturn_t es_dvp2axi_irq_handler(int irq, void *ctx)
 {
 	struct device *dev = ctx;
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
-	// unsigned int intstat_glb = 0;
-	u64 irq_start, irq_stop;
-	// int i;
+	unsigned long flags;
 
-	irq_start = ktime_get_ns();
+	spin_lock_irqsave(&dvp2axi_hw->stream_lock, flags);
 	for(int i = 0; i < 6; i++) {
 		if(irq == dvp2axi_hw->devm_irq_num[i]) {
 			es_irq_oneframe(dev, dvp2axi_hw->dvp2axi_dev[i]);
 		}
 	}
+	spin_unlock_irqrestore(&dvp2axi_hw->stream_lock, flags);
 
-	irq_stop = ktime_get_ns();
-	dvp2axi_hw->irq_time = irq_stop - irq_start;
 	return IRQ_HANDLED;
 }
 
@@ -98,17 +95,12 @@ static irqreturn_t es_dvp2axi_err_irq_handler(int irq, void *ctx)
 {
 	struct device *dev = ctx;
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
-	u64 irq_start, irq_stop;
+	unsigned long flags;
 
-	irq_start = ktime_get_ns();
-	for(int i = 0; i < ES_DVP2AXI_IRQ_NUM; i++) {
-		if(irq == dvp2axi_hw->devm_irq_num[i]) {
-			es_irq_err_handle(dev, dvp2axi_hw->dvp2axi_dev[i]);
-		}
-	}
+	spin_lock_irqsave(&dvp2axi_hw->stream_lock, flags);
+	es_irq_err_handle(dev);
+	spin_unlock_irqrestore(&dvp2axi_hw->stream_lock, flags);
 
-	irq_stop = ktime_get_ns();
-	dvp2axi_hw->irq_time = irq_stop - irq_start;
 	return IRQ_HANDLED;
 }
 
@@ -423,13 +415,29 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 
 	dvp2axi_hw->irq = irq;
 
-	// dvp2axi_hw->is_dma_sg_ops = true;
+	if (!of_property_read_bool(dev->of_node, "vb2-mem-ops")) {
+		dvp2axi_hw->mem_pool = dvp2axi_mem_pool_create(&pdev->dev,
+									"dvp2axi-pool",
+									DVP2AXI_DEFAULT_BLOCK_SIZE, DVP2AXI_DEFAULT_BLOCK_NUM);
+		if (IS_ERR(dvp2axi_hw->mem_pool)) {
+			ret = PTR_ERR(dvp2axi_hw->mem_pool);
+			dev_err(&pdev->dev, "Failed to create memory pool: %d\n", ret);
+			return ret;
+		}
+		dvp2axi_hw->is_use_dvp2axi_mem_ops = true;
+		dev_info(&pdev->dev, "DVP2AXI use dvp2axi_vb2_mem_ops\n");
+		dvp2axi_hw->mem_ops = &dvp2axi_vb2_mem_ops;
+	} else {
+		dvp2axi_hw->is_use_dvp2axi_mem_ops = false;
+		dvp2axi_hw->mem_ops = &vb2_dma_contig_memops;
+		dev_info(&pdev->dev, "DVP2AXI use vb2_dma_contig_memops\n");
+	}
+	dvp2axi_mem_pool_sysfs_init(dvp2axi_hw->mem_pool, &dev->kobj);
 	dvp2axi_hw->is_dma_sg_ops = false;
 	dvp2axi_hw->is_dma_contig = true;
-	dvp2axi_hw->mem_ops = &vb2_dma_contig_memops;
 	mutex_init(&dvp2axi_hw->dev_lock);
 	mutex_init(&dvp2axi_hw->dev_multi_chn_lock);
-
+	spin_lock_init(&dvp2axi_hw->stream_lock);
 	atomic_set(&dvp2axi_hw->power_cnt, 0);
 
 	tasklet_init(&dvp2axi_hw->dvp2axi_err_tasklet, es_dvp2axi_tasklet_err_handle,
@@ -478,6 +486,7 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 	mutex_destroy(&dvp2axi_hw->dev_multi_chn_lock);
 	tasklet_disable(&dvp2axi_hw->dvp2axi_err_tasklet);
 	tasklet_kill(&dvp2axi_hw->dvp2axi_err_tasklet);
+	dvp2axi_mem_pool_destroy(dvp2axi_hw->mem_pool);
 	return 0;
 }
 

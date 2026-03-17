@@ -2350,7 +2350,7 @@
 
 			dvp2axi: dvp2axi@51034000 {
 				compatible = "eswin,dvp2axi";
-				reg = <0x0 0x51034000 0x0 0x8000>;
+				reg = <0x0 0x51034000 0x0 0x4000>;
 				reg-names = "dvp2axi_regs";
 				interrupt-parent = <&plic0>;
 				eswin,vi_top_csr = <&vi_top_csr 0x100c 0x40>;
