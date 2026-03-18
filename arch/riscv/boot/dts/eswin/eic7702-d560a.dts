@@ -86,13 +86,6 @@
 	};
 };
 
-&npu_opp_table {
-	opp@1500000000 {
-		opp-hz = /bits/ 64 <1500000000>;
-		opp-microvolt = <1080000>;
-	};
-};
-
 &d0_dmc {
 	status = "disabled";
 };

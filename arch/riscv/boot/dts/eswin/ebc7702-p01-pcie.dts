@@ -421,12 +421,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_die0_gpio27_default>;
 	cpu-voltage-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
-	cpu-suspend-frequency = <CLK_FREQ_1400M>;
+	cpu-suspend-frequency = <1400000000>;
 };
 &d1_clock {
 	status = "okay";
 	cpu-voltage-gpios = <&porta 27 GPIO_ACTIVE_HIGH>;
-	cpu-suspend-frequency = <CLK_FREQ_1400M>;
+	cpu-suspend-frequency = <1400000000>;
 };
 
 &d0_reset {
@@ -1371,43 +1371,9 @@
 /delete-node/ &d0_map_cpu;
 /delete-node/ &d1_map_cpu;
 
-&d0_cpu_opp_table {
-	opp-700000000 {
-		opp-microvolt = <800000>;
-	};
-	opp-800000000 {
-		opp-microvolt = <800000>;
-	};
-	opp-900000000 {
-		opp-microvolt = <800000>;
-	};
-	opp-1400000000 {
-		opp-microvolt = <800000>;
-	};
-};
-
-&d1_cpu_opp_table {
-	opp-700000000 {
-		opp-microvolt = <800000>;
-	};
-	opp-800000000 {
-		opp-microvolt = <800000>;
-	};
-	opp-900000000 {
-		opp-microvolt = <800000>;
-	};
-	opp-1400000000 {
-		opp-microvolt = <800000>;
-	};
-};
-
 &npu_opp_table {
 	opp@1040000000 {
 		opp-hz = /bits/ 64 <1040000000>;
 		opp-microvolt = <980000>;
-	};
-	opp@1500000000 {
-		opp-hz = /bits/ 64 <1500000000>;
-		opp-microvolt = <1080000>;
 	};
 };

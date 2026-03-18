@@ -25,22 +25,12 @@
 	/delete-node/ opp-400000000;
 	/delete-node/ opp-500000000;
 	/delete-node/ opp-600000000;
+	/delete-node/ opp-700000000;
+	/delete-node/ opp-800000000;
 	/delete-node/ opp-1000000000;
 	/delete-node/ opp-1100000000;
 	/delete-node/ opp-1200000000;
 	/delete-node/ opp-1300000000;
-	opp-700000000 {
-		opp-microvolt = <900000>;
-	};
-	opp-800000000 {
-		opp-microvolt = <900000>;
-	};
-	opp-900000000 {
-		opp-microvolt = <900000>;
-	};
-	opp-1400000000 {
-		opp-microvolt = <900000>;
-	};
 };
 
 / {
@@ -48,44 +38,9 @@
 		compatible = "operating-points-v2";
 		opp-shared;
 
-		opp-700000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_700M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-800000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_800M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-900000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_900M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
 		opp-1400000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1400M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1500000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1500M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1600000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1600M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1700000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1700M>;
-			opp-microvolt = <900000>;
-			clock-latency-ns = <70000>;
-		};
-		opp-1800000000 {
-			opp-hz = /bits/ 64 <CLK_FREQ_1800M>;
-			opp-microvolt = <900000>;
+			opp-hz = /bits/ 64 <1400000000>;
+			opp-microvolt = <800000>;
 			clock-latency-ns = <70000>;
 		};
 	};

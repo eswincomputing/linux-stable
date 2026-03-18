@@ -40,7 +40,9 @@ dtbo-$(CONFIG_SOC_ESWIN) += eic7700-sbc-a1-camera-imx219-2lanes-overlay.dtbo \
 							eic7700-ce1-mipi.dtbo \
 							eic7700-vela-mipi.dtbo \
 							eic7702-d560-die0-mipi.dtbo \
-							eic7702-d560-die1-mipi.dtbo
+							eic7702-d560-die1-mipi.dtbo \
+							eic7700-opptable-high-performance.dtbo \
+							eic7702-opptable-high-performance.dtbo
 targets += dtbs dtbs_install
 targets += $(dtbo-y)
 always-y += $(dtbo-y)
