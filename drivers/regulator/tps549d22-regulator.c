@@ -322,18 +322,9 @@ static s32 tps549d22_get_error_flags(struct regulator_dev *rdev, u32 *flags)
 	return 0;
 }
 
-int tps549d22_list_voltage_linear_range(struct regulator_dev *rdev,
-					unsigned int selector)
-{
-	int value = 0;
-	value = regulator_desc_list_voltage_linear_range(rdev->desc, selector);
-	value = (value / 2000) * 2000;
-	return value;
-}
-
 static struct regulator_ops tps549d22_core_ops = {
 
-	.list_voltage = tps549d22_list_voltage_linear_range,
+	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
 	.set_voltage_sel = tps549d22_set_voltage_sel,
 	.get_voltage_sel = tps549d22_get_voltage_sel,
