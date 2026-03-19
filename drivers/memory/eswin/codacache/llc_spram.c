@@ -536,10 +536,12 @@ static int spram_proc_show(struct seq_file *m, void *v)
 		gen_pool_size(spram->pool) / 1024,
 		gen_pool_avail(spram->pool) / 1024);
 #if 1
+	mutex_lock(&llc_user_list->ref_lock);
 	seq_printf(m, "LLC Users(%d): \n", atomic_read(&llc_user_list->refcount));
 	list_for_each_entry(user, &llc_user_list->head, node) {
 		seq_printf(m, "%s\n", user->name);
 	}
+	mutex_unlock(&llc_user_list->ref_lock);
 #endif
 	return 0;
 }
@@ -1388,7 +1390,7 @@ static int __maybe_unused llc_resume(struct device *dev)
 		return ret;
 
 	win2030_tbu_power(dev, true);
-
+	mdelay(1);
 	ret = llc_spram_init(spram);
 	if (ret) {
 		return ret;
