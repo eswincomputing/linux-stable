@@ -125,6 +125,7 @@
 
 &d0_pmu {
 	status = "okay";
+	npu-supply = <&npu_vcc>;
 };
 
 &ddr0 {
@@ -243,7 +244,7 @@
 
 &d0_npu {
 	status = "okay";
-	npu-supply = <&npu_vcc1>;
+	npu-supply = <&npu_vcc>;
 };
 
 &d0_dsp_subsys {
@@ -658,7 +659,7 @@
 	status = "okay";
 };
 &d0_dev_llc {
-	npu-supply = <&npu_vcc1>;
+	npu-supply = <&npu_vcc>;
 	status = "okay";
 };
 

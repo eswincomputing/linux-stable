@@ -247,9 +247,11 @@
 
 &d0_pmu {
 	status = "okay";
+	npu-supply = <&d0_npu_vcc>;
 };
 &d1_pmu {
 	status = "okay";
+	npu-supply = <&d1_npu_vcc>;
 };
 
 &ddr0 {

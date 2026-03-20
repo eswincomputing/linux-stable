@@ -196,6 +196,7 @@
 
 &d0_pmu {
 	status = "okay";
+	npu-supply = <&npu_vcc>;
 };
 
 &ddr0 {
@@ -315,7 +316,7 @@
 
 &d0_npu {
 	status = "okay";
-	npu-supply = <&npu_vcc1>;
+	npu-supply = <&npu_vcc>;
 };
 
 &d0_dsp_subsys {
@@ -671,7 +672,7 @@
 		eswin,regulator_label = "Supply VDD", "NPU Voltage";
 		label = "npu_vdd";
 		regulators{
-			npu_vcc1:npu_svcc{
+			npu_vcc:npu_svcc{
 				regulator-name="NPU_SVCC";
 				regulator-min-microvolt=<700000>;
 				regulator-max-microvolt=<1120000>;
@@ -869,7 +870,7 @@
 	status = "okay";
 };
 &d0_dev_llc {
-	npu-supply = <&npu_vcc1>;
+	npu-supply = <&npu_vcc>;
 	status = "okay";
 };
 

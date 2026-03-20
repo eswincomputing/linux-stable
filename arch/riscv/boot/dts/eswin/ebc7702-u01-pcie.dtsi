@@ -317,6 +317,7 @@
 
 &d0_pmu {
 	status = "okay";
+	npu-supply=<&d0_npu_vcc>;
 	d0_pmu_pcie: win2030-pmu-controller-port@0 {
 		power_status = <2>;
 	};
@@ -330,6 +331,7 @@
 };
 &d1_pmu {
 	status = "okay";
+	npu-supply=<&d1_npu_vcc>;
 	d1_pmu_pcie: win2030-pmu-controller-port@0 {
 		power_status = <2>;
 	};
@@ -538,13 +540,13 @@
 	status = "disabled";
 };
 
-&d0_npu{
+&d0_npu {
 	status = "okay";
-	npu-supply=<&d0_npu_vcc>;
+	npu-supply = <&d0_npu_vcc>;
 };
 &d1_npu {
 	status = "okay";
-	npu-supply=<&d1_npu_vcc>;
+	npu-supply = <&d1_npu_vcc>;
 };
 
 &d0_dsp_subsys {
