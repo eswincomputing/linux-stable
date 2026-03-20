@@ -281,6 +281,7 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	unsigned long rate = 125000000;
 	int i, err, data = 0;
 	struct dwc_qos_priv *dwc_priv = (struct dwc_qos_priv *)priv;
+	struct phy_device *phydev = NULL;
 
 	switch (speed) {
 	case SPEED_1000:
@@ -338,14 +339,18 @@ static void dwc_qos_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 	{
 		dev_err(dwc_priv->dev, "failed to set TX rate: %d\n", err);
 	}
-	if (dwc_priv->stmpriv->dev->phydev->phy_id == 0x001cc916)
-		rtl8211f_wol_disable(dwc_priv->stmpriv->dev->phydev);
+
+	if (dwc_priv->stmpriv)
+		phydev = dwc_priv->stmpriv->dev->phydev;
+
+	if (phydev && phydev->phy_id == 0x001cc916)
+		rtl8211f_wol_disable(phydev);
 }
 
 static int dwc_clks_config(void *priv, bool enabled)
 {
-	int ret = 0;
 	struct dwc_qos_priv *dwc_priv = (struct dwc_qos_priv *)priv;
+	int ret;
 
 	if (enabled) {
 		ret = clk_prepare_enable(dwc_priv->cfg_clk);
@@ -357,28 +362,40 @@ static int dwc_clks_config(void *priv, bool enabled)
 		ret = clk_prepare_enable(dwc_priv->aclk);
 		if (ret < 0) {
 			dev_err(dwc_priv->dev, "failed to enable aclk: %d\n", ret);
-			return ret;
+			goto err_aclk;
 		}
 
 		ret = clk_prepare_enable(dwc_priv->clk_app);
 		if (ret) {
 			dev_err(dwc_priv->dev, "failed to enable app clk, err = %d\n", ret);
-			return ret;
+			goto err_app;
 		}
 
 		ret = clk_prepare_enable(dwc_priv->clk_tx);
 		if (ret < 0) {
 			dev_err(dwc_priv->dev, "failed to enable tx clock: %d\n", ret);
-			return ret;
+			goto err_tx;
 		}
 
 		ret = win2030_tbu_power(dwc_priv->dev, true);
 		if (ret) {
 			dev_err(dwc_priv->dev, "failed to power up tbu\n");
-			return ret;
+			goto err_tbu;
 		}
-	} else {
 
+		return 0;
+
+	err_tbu:
+		clk_disable_unprepare(dwc_priv->clk_tx);
+	err_tx:
+		clk_disable_unprepare(dwc_priv->clk_app);
+	err_app:
+		clk_disable_unprepare(dwc_priv->aclk);
+	err_aclk:
+		clk_disable_unprepare(dwc_priv->cfg_clk);
+		return ret;
+
+	} else {
 		ret = win2030_tbu_power(dwc_priv->dev, false);
 		if (ret) {
 			dev_err(dwc_priv->dev, "failed to power down tbu\n");
@@ -389,9 +406,9 @@ static int dwc_clks_config(void *priv, bool enabled)
 		clk_disable_unprepare(dwc_priv->clk_app);
 		clk_disable_unprepare(dwc_priv->aclk);
 		clk_disable_unprepare(dwc_priv->cfg_clk);
-	}
 
-	return ret;
+		return 0;
+	}
 }
 
 static void dwc_eth_dwmac_shutdown(struct platform_device *pdev)
@@ -436,9 +453,10 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	}
 
 	dwc_priv->dev = &pdev->dev;
-	dwc_priv->phy_reset = devm_gpiod_get(&pdev->dev, "rst", GPIOD_OUT_LOW);
+	dwc_priv->phy_reset = devm_gpiod_get_optional(&pdev->dev, "rst", GPIOD_OUT_LOW);
 	if (IS_ERR(dwc_priv->phy_reset)) {
-		dev_info(&pdev->dev, "Reset gpio not specified\n");
+		dev_err(&pdev->dev, "Failed to get rst GPIO: %ld\n", PTR_ERR(dwc_priv->phy_reset));
+		return PTR_ERR(dwc_priv->phy_reset);
 	}
 
 	if (dwc_priv->phy_reset) {
@@ -558,15 +576,16 @@ static int dwc_qos_probe(struct platform_device *pdev,
 
 	dwc_priv->crg_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscrg_csr");
 	if (IS_ERR(dwc_priv->crg_regmap)){
-		dev_dbg(&pdev->dev, "No syscrg_csr phandle specified\n");
-		return 0;
+		dev_err(&pdev->dev, "No syscrg_csr phandle specified\n");
+		ret = PTR_ERR(dwc_priv->crg_regmap);
+		goto err_clk;
 	}
 
 	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscrg_csr", 1,
                                     &hsp_aclk_ctrl_offset);
 	if (ret) {
 		dev_err(&pdev->dev, "can't get hsp_aclk_ctrl_offset (%d)\n", ret);
-		return ret;
+		goto err_clk;
 	}
 	regmap_read(dwc_priv->crg_regmap, hsp_aclk_ctrl_offset, &hsp_aclk_ctrl_regset);
 	hsp_aclk_ctrl_regset |= (HSP_ACLK_CLKEN | HSP_ACLK_DIVSOR);
@@ -576,21 +595,22 @@ static int dwc_qos_probe(struct platform_device *pdev,
                                     &hsp_cfg_ctrl_offset);
 	if (ret) {
 		dev_err(&pdev->dev, "can't get hsp_cfg_ctrl_offset (%d)\n", ret);
-		return ret;
+		goto err_clk;
 	}
 	regmap_write(dwc_priv->crg_regmap, hsp_cfg_ctrl_offset, HSP_CFG_CTRL_REGSET);
 
 	dwc_priv->hsp_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,hsp_sp_csr");
 	if (IS_ERR(dwc_priv->hsp_regmap)){
-		dev_dbg(&pdev->dev, "No hsp_sp_csr phandle specified\n");
-		return 0;
+		dev_err(&pdev->dev, "No hsp_sp_csr phandle specified\n");
+		ret = PTR_ERR(dwc_priv->hsp_regmap);
+		goto err_clk;
 	}
 
 	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,hsp_sp_csr", 2,
                                     &eth_phy_ctrl_offset);
 	if (ret) {
 		dev_err(&pdev->dev, "can't get eth_phy_ctrl_offset (%d)\n", ret);
-		return ret;
+		goto err_clk;
 	}
 	regmap_read(dwc_priv->hsp_regmap, eth_phy_ctrl_offset, &eth_phy_ctrl_regset);
 	eth_phy_ctrl_regset |= (ETH_TX_CLK_SEL | ETH_PHY_INTF_SELI);
@@ -600,13 +620,15 @@ static int dwc_qos_probe(struct platform_device *pdev,
                                     &eth_axi_lp_ctrl_offset);
 	if (ret) {
 		dev_err(&pdev->dev, "can't get eth_axi_lp_ctrl_offset (%d)\n", ret);
-		return ret;
+		goto err_clk;
 	}
 	regmap_write(dwc_priv->hsp_regmap, eth_axi_lp_ctrl_offset, ETH_CSYSREQ_VAL);
 
 	dwc_priv->rst = devm_reset_control_get_optional_exclusive(&pdev->dev, "ethrst");
 	if (IS_ERR(dwc_priv->rst)) {
-		return PTR_ERR(dwc_priv->rst);
+		dev_err(&pdev->dev, "ethrst gpio not specified\n");
+		ret = PTR_ERR(dwc_priv->rst);
+		goto err_clk;
 	}
 
 	ret = reset_control_reset(dwc_priv->rst);
@@ -621,6 +643,10 @@ static int dwc_qos_probe(struct platform_device *pdev,
 	plat_dat->bus_id = dwc_priv->dev_id;
 
 	return 0;
+
+err_clk:
+	dwc_clks_config(dwc_priv, false);
+	return ret;
 }
 
 static int dwc_qos_remove(struct platform_device *pdev)
@@ -629,9 +655,6 @@ static int dwc_qos_remove(struct platform_device *pdev)
 
 	reset_control_assert(dwc_priv->rst);
 	dwc_clks_config(dwc_priv, false);
-
-	if (dwc_priv->phy_reset)
-		devm_gpiod_put(&pdev->dev, dwc_priv->phy_reset);
 
 	return 0;
 }
