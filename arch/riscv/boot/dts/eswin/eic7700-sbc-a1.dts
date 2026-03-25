@@ -818,10 +818,10 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio1_default &pinctrl_gpio2_default &pinctrl_gpio3_default &pinctrl_gpio4_default
-			&pinctrl_gpio7_default &pinctrl_gpio8_default &pinctrl_gpio9_default &pinctrl_gpio10_default
-			&pinctrl_gpio22_default	&pinctrl_gpio30_default	&pinctrl_gpio31_default	&pinctrl_gpio32_default
-			&pinctrl_gpio33_default	&pinctrl_gpio39_default	&pinctrl_gpio40_default	&pinctrl_gpio41_default
-			&pinctrl_gpio62_default	&pinctrl_gpio63_default>;
+			&pinctrl_gpio8_default &pinctrl_gpio9_default &pinctrl_gpio10_default &pinctrl_gpio22_default
+			&pinctrl_gpio30_default	&pinctrl_gpio31_default	&pinctrl_gpio32_default &pinctrl_gpio33_default
+			&pinctrl_gpio39_default	&pinctrl_gpio40_default	&pinctrl_gpio41_default &pinctrl_gpio62_default
+			&pinctrl_gpio63_default>;
 };
 
 /******** pin headers *********
