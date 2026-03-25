@@ -89,7 +89,7 @@
 };
 
 &d0_i2c5 {
-	status = "okay";
+	status = "disabled";
 	/* SOC1 eeprom, read by lpcpu */
 	ina226@44 {
 		compatible = "ti,ina226";
