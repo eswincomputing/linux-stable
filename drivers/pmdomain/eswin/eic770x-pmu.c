@@ -143,15 +143,16 @@ static int eic770x_npu_register_regulator_notify(struct eic770x_domain_info *pd_
 	return -EINVAL;
 }
 
-static int eic770x_pmu_get_domain_state(struct eic770x_pmu_dev *pmd, bool *is_on)
+static bool eic770x_pmu_get_domain_state(struct eic770x_pmu_dev *pmd)
 {
-	*is_on = false;
+	bool is_on = false;
 
-	if(PD_STATUS_MASK & ioread32(pmd->domain_info->reg_base + PD_DEBUG)) {
-		*is_on = true;
+	if((PD_STATUS_MASK & ioread32(pmd->domain_info->reg_base + PD_DEBUG)) == 
+		PD_STATUS_MASK) {
+		is_on = true;
 	}
 
-	return 0;
+	return is_on;
 }
 
 static int eic770x_pmu_set_domain_state(struct eic770x_pmu_dev *pmd, bool off)
@@ -173,7 +174,7 @@ static int eic770x_pmu_domain_on(struct generic_pm_domain *genpd)
 
 	atomic_inc(&pmu->open_domains);
 
-	eic770x_pmu_get_domain_state(pmd, &is_on);
+	is_on = eic770x_pmu_get_domain_state(pmd);
 	if (is_on == true) {
 		dev_info(pmu->dev, "[%s] was already in power on state. %d opened domains.\n",
 							pmd->genpd.name,
@@ -216,7 +217,7 @@ static int eic770x_pmu_domain_off(struct generic_pm_domain *genpd)
 
 	atomic_dec(&pmu->open_domains);
 
-	eic770x_pmu_get_domain_state(pmd, &is_on);
+	is_on = eic770x_pmu_get_domain_state(pmd);
 	if (is_on == false) {
 		dev_info(pmu->dev, "[%s] was already in power off state. %d opened domains.\n",
 							pmd->genpd.name,
@@ -249,7 +250,6 @@ static int eic770x_pmu_domain_off(struct generic_pm_domain *genpd)
 static int eic770x_pmu_init_domain(struct eic770x_pmu *pmu, int index)
 {
 	struct eic770x_pmu_dev *pmd;
-	int ret;
 	bool is_on = false;
 
 	pmd = devm_kzalloc(pmu->dev, sizeof(*pmd), GFP_KERNEL);
@@ -277,10 +277,7 @@ static int eic770x_pmu_init_domain(struct eic770x_pmu *pmu, int index)
 	eic770x_pmu_domain_on(&pmd->genpd);
 #endif
 
-	ret = eic770x_pmu_get_domain_state(pmd, &is_on);
-	if (ret)
-		dev_warn(pmu->dev, "unable to get current state for %s\n",
-			 pmd->genpd.name);
+	is_on = eic770x_pmu_get_domain_state(pmd);
 
 	pmd->genpd.power_on = eic770x_pmu_domain_on;
 	pmd->genpd.power_off = eic770x_pmu_domain_off;
@@ -294,7 +291,7 @@ static int eic770x_pmu_init_domain(struct eic770x_pmu *pmu, int index)
 static int eic770x_pmu_add_domain(struct device *dev, struct eic770x_pmu *pmu)
 {
 	struct eic770x_domain_info *pd_info;
-	struct device_node *node;
+	struct device_node *node = NULL;
 	int id, nval, num_domains;
 	int ret;
 	unsigned int val[32];
@@ -309,7 +306,11 @@ static int eic770x_pmu_add_domain(struct device *dev, struct eic770x_pmu *pmu)
 	if (!pmu->domain_info)
 		return -ENOMEM;
 
+	if(!dev->of_node)
+		return -EINVAL;
+
 	num_domains = 0;
+
 	for_each_child_of_node(dev->of_node, node)
 	{
 		ret = of_property_read_u32(node, "id", &id);
@@ -426,7 +427,11 @@ static int eic770x_pmu_probe(struct platform_device *pdev)
 	if (IS_ERR(pmu->base))
 		return PTR_ERR(pmu->base);
 
-	eic770x_pmu_add_domain(dev, pmu);
+	ret = eic770x_pmu_add_domain(dev, pmu);
+	if (ret) {
+		dev_err(dev, "failed to add power domain\n");
+		return ret;
+	}
 
 	pmu->genpd = devm_kcalloc(dev, pmu->num_domains,
 				  sizeof(struct generic_pm_domain *),
