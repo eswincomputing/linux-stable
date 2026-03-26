@@ -75,6 +75,7 @@ static int send_frame_to_hw(struct win_engine *engine, u8 tiktok,
 
 int send_frame_to_npu(struct host_frame_desc *f, int tiktok)
 {
+	update_drv_perf(f->model, PERF_FRAME_SEND);
 #if (NPU_DEV_SIM != NPU_MCU_HOST)
 	struct win_engine *engine = f->executor->engine;
 #endif

@@ -335,6 +335,7 @@ void handle_event_sink_from_e31(struct win_engine *engine, u32 tiktok, u32 op_in
 	}
 
 	model = f->model;
+	update_drv_perf(model, PERF_FRAME_SINK);
 	executor = engine->cur[tiktok];
 	if (executor == NULL) {
 		dla_error("err:executor is NULL.\n");
@@ -374,6 +375,15 @@ static int get_event_sink_val(struct user_context *uctx, struct win_ioctl_args *
 	union event_union event;
 	union event_union event_ret;
 	int i;
+	struct user_model *model;
+
+	model = npu_get_model_by_id(uctx, win_arg->model_idx);
+	if (model != NULL) {
+		update_drv_perf(model, PERF_FRAME_EVENT);
+		npu_put_model(model);
+	} else {
+		dla_error("cannot get model, index: %u.\n", win_arg->model_idx);
+	}
 
 	event.event_data = -1ULL;
 	spin_lock_irqsave(&uctx->event_desc.spinlock, flags);
@@ -521,7 +531,8 @@ static int commit_new_io_tensor(struct user_context *uctx, void *arg)
 		ret = -EINVAL;
 		return ret;
 	}
-
+	memset(&model->drv_pef, 0, sizeof(npu_drv_perf_t));
+	update_drv_perf(model, PERF_FRAME_CREATE);
 	ret = create_new_frame(model->executor, &f, model, sync_flag);
 	if (unlikely(ret != win_arg->tensor_size)) {
 		dla_error("model %d io_tensor_size %d != win_arg->tensor_size %d\n", idx, ret, win_arg->tensor_size);
@@ -672,6 +683,37 @@ static int get_sram_fd(struct nvdla_device *nvdla_dev, struct win_ioctl_args *wi
 	return 0;
 }
 
+void update_drv_perf(struct user_model *model, drv_perf_type type)
+{
+	int numa_id = model->uctx->ndev->numa_id;
+	u32 curr_rtc = 0;
+
+	curr_rtc = get_perf_timer_cnt(numa_id);
+	switch (type)
+	{
+	case PERF_FRAME_CREATE:
+		model->drv_pef.FrameCreateCycle = curr_rtc;
+		break;
+	case PERF_FRAME_SEND:
+		model->drv_pef.FrameSendCycle = curr_rtc;
+		break;
+	case PERF_FRAME_SINK:
+		model->drv_pef.FrameSinkCycle = curr_rtc;
+		break;
+	case PERF_FRAME_DONE:
+		model->drv_pef.FrameDoneCycle = curr_rtc;
+		break;
+	case PERF_FRAME_RELEASE:
+		model->drv_pef.FrameReleaseCycle = curr_rtc;
+		break;
+	case PERF_FRAME_EVENT:
+		model->drv_pef.FrameEventCycle = curr_rtc;
+		break;
+	default:
+		break;
+	}
+}
+
 static int handle_perf(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
 	struct win_engine *engine = (struct win_engine *)nvdla_dev->win_engine;
@@ -679,19 +721,35 @@ static int handle_perf(struct nvdla_device *nvdla_dev, struct win_ioctl_args *wi
 	return 0;
 }
 
-static int send_perf_data_to_usr(struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
+static int send_perf_data_to_usr(struct user_context *uctx,
+								 struct nvdla_device *nvdla_dev, struct win_ioctl_args *win_arg)
 {
 	struct win_engine *engine;
 	npu_e31_perf_t *perf_data = NULL;
 	int ret = 0;
+	struct user_model *model;
+	u32 tiktok;
 
 	engine = (struct win_engine *)nvdla_dev->win_engine;
-	perf_data = engine->host_node->model_stat[engine->tiktok].op_stats;
+	tiktok = (engine->tiktok + 1) % NUM_TIKTOK;  // get current tiktok
+	perf_data = engine->host_node->model_stat[tiktok].op_stats;
 
 	if (copy_to_user((void __user *)(win_arg->data), perf_data, sizeof(npu_e31_perf_t) * MAX_OP_NUM)) {
-		dla_error("err:bad user data address.\n");
+		dla_error("err:bad user e31 perf data address.\n");
 		ret = -EFAULT;
 	}
+
+	model = npu_get_model_by_id(uctx, win_arg->model_idx);
+	if (model == NULL) {
+		dla_error("err:NULL model address.\n");
+		return 0;
+	}
+
+	if (copy_to_user((void __user *)(win_arg->pret), &model->drv_pef, sizeof(npu_drv_perf_t))) {
+		dla_error("err:bad user drv perf data address.\n");
+		ret = -EFAULT;
+	}
+	npu_put_model(model);
 
 	return ret;
 }
@@ -890,7 +948,7 @@ static long npu_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 		ret = handle_perf(npu_cdev->nvdla_dev, &win_arg);
 		break;
 	case ES_NPU_IOCTL_GET_PERF_DATA:
-		ret = send_perf_data_to_usr(npu_cdev->nvdla_dev, &win_arg);
+		ret = send_perf_data_to_usr(uctx, npu_cdev->nvdla_dev, &win_arg);
 		break;
 	case ES_NPU_IOCTL_PREPARE_DMA_BUF:
 		ret = npu_prepare_dma_buf(npu_cdev->nvdla_dev, uctx,

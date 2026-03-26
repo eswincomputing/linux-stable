@@ -32,8 +32,6 @@
 
 static struct proc_dir_entry *proc_esnpu;
 
-extern u32 get_perf_timer_cnt(u32 numa_id);
-
 static int npu_stat_show(struct seq_file *m, void *p)
 {
 	int i = 0;

@@ -103,6 +103,7 @@ struct user_model {
 	/* frame counter: Only commit == done could release model */
 	s64 frame_commit_cnt;
 	s64 frame_done_cnt;
+	npu_drv_perf_t drv_pef;
 
 	struct dla_buffer_object *model_bobj;
 	modelShmDesc_t *model_shm;
@@ -403,6 +404,17 @@ struct win_executor {
 	struct file *dsp_file[DSP_MAX_CORE_NUM];
 	kmd_dump_info_t dump_info;
 };
+
+typedef enum {
+    PERF_UNKNOWN,
+    PERF_FRAME_CREATE,
+    PERF_FRAME_SEND,
+    PERF_FRAME_SINK,
+    PERF_FRAME_DONE,
+    PERF_FRAME_EVENT,
+    PERF_FRAME_RELEASE
+}drv_perf_type;
+void update_drv_perf(struct user_model *model, drv_perf_type type);
 
 void *npu_alloc_dma_addr(struct win_executor *executor, size_t size,
 			 dma_addr_t *dma_handle, int i, gfp_t gfp);

@@ -28,10 +28,29 @@
 
 #define OPERATOR_NAME_MAXLEN 128
 
+extern u32 get_perf_timer_cnt(u32 numa_id);
 typedef struct _npu_model_perf {
+    //APIStartCycle -> TaskSubmitCycle: User-mode task scheduling time consumption
     u32 APIStartCycle;
+    //TaskSubmitCycle -> TaskDoneCycle: Time consumption for task running
+    u32 TaskSubmitCycle;
+    //TaskDoneCycle -> APIEndCycle: Time consumption for completing scheduling
+    u32 TaskDoneCycle;
     u32 APIEndCycle;
 } npu_model_perf_t;
+
+typedef struct _npu_drv_perf {
+    //FrameCreateCycle -> FrameSendCycle: Frame scheduling time consumption
+	u32 FrameCreateCycle;
+    //FrameSendCycle -> FrameDoneCycle: Time consumption for frame inference
+    u32 FrameSendCycle;
+    //FrameDoneCycle -> FrameReleaseCycle: Time consumption for completing queue scheduling
+    u32 FrameDoneCycle;
+	u32 FrameReleaseCycle;
+    //FrameSinkCycle -> FrameEventCycle: Time consumption between user mode and kernel mode
+    u32 FrameSinkCycle;
+    u32 FrameEventCycle;
+}npu_drv_perf_t;
 
 typedef struct _npu_umd_perf {
     u32 Die;
@@ -40,14 +59,6 @@ typedef struct _npu_umd_perf {
     u32 OpStartCycle;
     u32 OpEndCycle;
 } npu_umd_perf_t;
-
-typedef struct _npu_kmd_perf {
-    u32 Die;
-    u32 OpIndex;
-    u32 OpType;
-    u32 OpStartCycle;
-    u32 OpEndCycle;
-} npu_kmd_perf_t;
 
 typedef struct _npu_e31_perf {
     u32 Die;

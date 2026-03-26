@@ -309,6 +309,7 @@ static void npu_release_frame(struct khandle *h)
 	struct user_model *model;
 
 	model = f->model;
+	update_drv_perf(model, PERF_FRAME_RELEASE);
 	destroy_frame(f);
 	kernel_handle_decref(&model->handle);
 	dla_debug("npu_free_frame ok.\n");
@@ -318,7 +319,10 @@ void npu_frame_done_process(struct host_frame_desc *f)
 {
 	struct win_executor *executor = f->executor;
 	struct win_engine *engine = executor->engine;
+	struct user_model *model = f->model;
 	unsigned long flags;
+
+	update_drv_perf(model, PERF_FRAME_DONE);
 	if (f->sync_flag && f->sync_event_id != -1) {
 		complete(&f->synctask_comp);
 	} else {
