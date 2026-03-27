@@ -154,6 +154,11 @@
 	status = "okay";
 };
 
+&fan_control {
+	label = "auxiliary_fan";
+};
+
 &d1_fan_control {
+	label = "thermal_fan";
 	status = "okay";
 };

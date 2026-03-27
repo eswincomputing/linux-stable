@@ -816,7 +816,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_die1_fan_tach_default>;
 			status = "disabled";
-			label = "d1_fan_control";
+			label = "auxiliary_fan";
 			numa-node-id = <1>;
 		};
 

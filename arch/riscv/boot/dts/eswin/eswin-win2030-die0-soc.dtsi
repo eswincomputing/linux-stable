@@ -1461,7 +1461,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_die0_fan_tach_default>;
 			status = "disabled";
-			label = "fan_control";
+			label = "thermal_fan";
 			numa-node-id = <0>;
 		};
 
