@@ -69,7 +69,10 @@ MODULE_IMPORT_NS(DMA_BUF);
 #endif
 
 #define MAX_RX_TIMEOUT (msecs_to_jiffies(30000))
+
+#ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
 
 #define IPC_SERVICE_REQ_MAX_LEN sizeof(req_service_t)
 #define IPC_SERVICE_RES_MAX_LEN sizeof(res_service_t)
@@ -282,7 +285,7 @@ static int do_ipc_usermem_iova_free(struct ipc_session *session, struct sg_table
 
 	dev_dbg(dev, "%s, dmaAddr=0x%llx, phys=0x%llx\n", __func__, sg_dma_address(table->sgl), sg_phys(table->sgl));
 
-	dma_unmap_sgtable(dev, table, DMA_TO_DEVICE, 0);
+	dma_unmap_sgtable(dev, table, DMA_BIDIRECTIONAL, 0);
 
 	for_each_sgtable_page(table, &piter, 0) {
 		struct page *page = sg_page_iter_page(&piter);
@@ -384,10 +387,10 @@ static int ipc_req_data_iova_alloc(struct ipc_session *session, cipher_mem_resou
 	vma = vma_lookup(mm, addr & PAGE_MASK);
 	if (!vma) {
 		dev_err(dev, "%s, vma_lookup failed!\n", __func__);
-		return -EFAULT;
+		ret = -EFAULT;
+		goto req_failed;
 	}
 	vm_flags = vma->vm_flags;
-	mmap_read_unlock(mm);
 
 	if (vm_flags & (VM_IO | VM_PFNMAP)) {
 		dev_dbg(dev, "%s, vm_flags=0x%lx, Page-ranges managed without struct page, just pure PFN!\n", __func__, vm_flags);
@@ -399,34 +402,41 @@ static int ipc_req_data_iova_alloc(struct ipc_session *session, cipher_mem_resou
 	/* check the validation of addr and len */
 	if (addr + len > vma->vm_end) {
 		dev_err(dev, "%s, Err,addr +len exceed the end_addr of the buffer!\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto req_failed;
 	}
 
 	if(is_dmabuf == false) {
 		ret = ipc_usermem_iova_alloc(session, addr, len, &dma_addr);
 		if (ret) {
 			dev_dbg(dev, "ipc_usermem_iova_alloc, failed!, ErrCode:%d\n", ret);
-			return ret;
+			goto req_failed;
 		}
 	}
 	else {
 		dma_buf = vma->vm_private_data;
 		if (NULL == dma_buf) {
 			dev_err(dev, "%s, Err, Can't find dmabuf!\n", __func__);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto req_failed;
 		}
 
 		offset = addr - vma->vm_start;
 		ret = ipc_dmabuf_iova_alloc(session, dma_buf, offset, len, &dma_addr);
 		if (ret) {
 			dev_dbg(dev, "ipc_dmabuf_iova_alloc, failed!, ErrCode:%d\n", ret);
-			return ret;
+			goto req_failed;
 		}
 	}
+	mmap_read_unlock(mm);
 
 	pstCipher_mem_rsc_info->dma_buf = dma_buf;
 	pstDma_alloc_info->dma_addr = dma_addr;
 	return 0;
+
+req_failed:
+	mmap_read_unlock(mm);
+	return ret;
 }
 
 static int ipc_req_data_iova_free(struct ipc_session *session, cipher_mem_resource_info_t *pstCipher_mem_rsc_info)
@@ -659,7 +669,7 @@ static int ipc_ioc_get_handle_config(process_data_list_t *pstProc_data_list, uns
 
 	ret = ipc_find_handle(session, pstCreate_handle_req->handle_id, &pService_req);
 	if (ret < 0) {
-		return ret;
+		goto OUT_FREE;
 	}
 	memcpy(&pstCreate_handle_req->service_req, pService_req, sizeof(*pService_req));
 	if (copy_to_user(user_arg, pstCreate_handle_req, sizeof(cipher_create_handle_req_t))) {
@@ -742,6 +752,13 @@ static int encode_ecdh_key_req(ecdh_key_req_t *in, u8 *out)
 		       sizeof(u32));
 		len += sizeof(u32);
 
+		if (keylen > ARRAY_SIZE(in->data.agr.pubk_remote.x) ||
+		    keylen > ARRAY_SIZE(in->data.agr.pubk_remote.y)) {
+			pr_err("Invalid keylen=%d, array len of x/y = %d\n", keylen,
+				ARRAY_SIZE(in->data.agr.pubk_remote.x));
+			return -EINVAL;
+		}
+
 		memcpy(out + len, (u8 *)in->data.agr.pubk_remote.x, keylen);
 		len += keylen;
 
@@ -753,6 +770,11 @@ static int encode_ecdh_key_req(ecdh_key_req_t *in, u8 *out)
 		       sizeof(u32));
 		len += sizeof(u32);
 
+		if (keylen > ARRAY_SIZE(in->data.agr.privk_local.z)) {
+			pr_err("Invalid keylen=%d, array len of z = %d\n", keylen,
+				ARRAY_SIZE(in->data.agr.privk_local.z));
+			return -EINVAL;
+		}
 		memcpy(out + len, (u8 *)in->data.agr.privk_local.z, keylen);
 		len += keylen;
 	} else if (in->flag.opt == OPT_DRIV) {
@@ -763,6 +785,13 @@ static int encode_ecdh_key_req(ecdh_key_req_t *in, u8 *out)
 		memcpy(out + len, (u8 *)&in->data.driv.seck.keylen,
 		       sizeof(u32));
 		len += sizeof(u32);
+
+		if (keylen > ARRAY_SIZE(in->data.driv.seck.x) ||
+		    keylen > ARRAY_SIZE(in->data.driv.seck.y)) {
+			pr_err("Invalid keylen=%d, array len of x/y = %d\n", keylen,
+				ARRAY_SIZE(in->data.driv.seck.x));
+			return -EINVAL;
+		}
 
 		memcpy(out + len, (u8 *)in->data.driv.seck.x, keylen);
 		len += keylen;
@@ -1491,6 +1520,13 @@ static int ipc_session_mem_info_get(struct ipc_session *session, cipher_create_h
 	for (i = 0; i < MAX_NUM_K_DMA_ALLOC_INFO; i++)
 		session->kinfo_id[i] = -1;
 
+	if (kinfo_cnt > MAX_NUM_K_DMA_ALLOC_INFO) {
+		dev_err(dev, "kinfo_cnt(%d) is larger than the max support(%d)\n",
+			kinfo_cnt, MAX_NUM_K_DMA_ALLOC_INFO);
+		return -EFAULT;
+
+	}
+
 	pr_debug("%s:kinfo_cnt=%d\n", __func__, kinfo_cnt);
 	/* find the pstCipher_mem_rsc_infos by id */
 	for (i = 0; i < kinfo_cnt; i++) {
@@ -1750,7 +1786,7 @@ static ssize_t eswin_ipc_message_write(struct file *filp,
 	ret = get_send_reg_data(session->req_msg, reg_data, session);
 	if (ret < 0) {
 		ret = -EAGAIN;
-		goto out3;
+		goto out2;
 	}
 
 	#ifndef ES_CIPHER_QEMU_DEBUG
@@ -1758,7 +1794,7 @@ static ssize_t eswin_ipc_message_write(struct file *filp,
 	if (ret < 0){
 		ret = -EAGAIN;
 		dev_err(dev, "Failed to send message via mailbox\r\n");
-		goto out3;
+		goto out2;
 	}
 
 	atomic_set(&session->receive_data_ready, false);
@@ -1775,10 +1811,6 @@ static ssize_t eswin_ipc_message_write(struct file *filp,
 	if (ret == 0)
 		dev_err(dev, "Timeout waiting for scpu response\r\n");
 
-out3:
-	dma_free_coherent(dev, session->send_buff.size,
-			  session->send_buff.cpu_vaddr,
-			  session->send_buff.dma_addr);
 out2:
 	kfree(session->req_msg);
 
