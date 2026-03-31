@@ -1301,11 +1301,6 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 			ret = -EIO;
 			goto err_mclk;
 		}
-		if (val != 0x06) {
-			dev_info(dev, "control1 val mismatching %d\n", val);
-			ret = -EINVAL;
-			goto err_mclk;
-		}
 
 		ret = regmap_read(regmap, ES8328_CONTROL2, &val);
 		if (ret != 0) {
