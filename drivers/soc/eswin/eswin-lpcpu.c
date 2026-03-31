@@ -100,10 +100,10 @@ struct lpcpu_dev {
 	struct gpio_desc *irq_gpio;
 	u64 rsv_mem_addr;
 	u64 rsv_mem_size;
+	u32 load_event;
 };
 
 static struct lpcpu_dev *primary_lpcpu;
-static u32 load_event = FW_LOAD_UNKNOW;
 
 struct mbox_msg {
 	u32 data_l;
@@ -138,7 +138,7 @@ static void eswin_lpcpu_rx_callback(struct mbox_client *client, void *msg)
 	struct lpcpu_dev *lpcpu = platform_get_drvdata(container_of(dev, struct platform_device, dev));
 	dev_dbg(dev, "lpcpu rx callback : %llx\n",*(u64 *)msg);
 	dev_dbg(dev, "data_l= %x, data_h = %x\n",umsg->data_l,umsg->data_h);
-	load_event = *(u32 *)msg;
+	lpcpu->load_event = *(u32 *)msg;
 	wake_up(&lpcpu->waitq);
 	dev_dbg(dev, "eswin_lpcpu_rx_callback returned \n");
 	if(umsg->data_l == DDR_REFRESH_OFF_SUCC) {
@@ -398,7 +398,7 @@ static u64 lpcpu_npu_fw_prepare(struct platform_device *pdev)
 
 	// npu firmware prepare
 	if (lpcpu->rsv_mem_size < LPCPU_NPU_FW_MAX_SIZE) {
-		dev_err(&pdev->dev, "Reserved memory region to small for npu-fw!\n");
+		dev_err(&pdev->dev, "Reserved memory region too small for npu-fw!\n");
 		return 0;
 	}
 
@@ -417,6 +417,7 @@ static u64 lpcpu_npu_fw_prepare(struct platform_device *pdev)
 		iounmap(mmio);
 		return 0;
 	}
+	release_firmware(fw_p);
 	iounmap(mmio);
 
 	return fw_addr;
@@ -604,7 +605,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 
 	/* parse reserved memory for npu fw  */
 	np = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
-	if (!IS_ERR(np)) {
+	if (np) {
 		ret = of_address_to_resource(np, 0, &rsc);
 		if (!ret) {
 			lpcpu->rsv_mem_addr = rsc.start;
@@ -612,6 +613,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 			dev_info(dev, "Reserved memory region: 0x%llx, size: 0x%llx \n",
 					rsc.start, resource_size(&rsc));
 		}
+		of_node_put(np);
 	}
 
 	mutex_init(&lpcpu->lock);
@@ -658,6 +660,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		goto err_mmio;
 	}
 
+	lpcpu->load_event = FW_LOAD_UNKNOW;
 	ret = lpcpu_boot_status(lpcpu->mbox_channel);
 	if (ret < 0) {
 		dev_err(dev, "Send boot message to lpcpu via mailbox failed!\n");
@@ -665,7 +668,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 	}
 
 	timeout = wait_event_timeout(lpcpu->waitq,
-			load_event == FW_LOAD_SUCC,usecs_to_jiffies(100000));
+			lpcpu->load_event == FW_LOAD_SUCC,usecs_to_jiffies(100000));
 
 	if (!timeout) {
 		dev_err(dev, "Lpcpu is not boot!\n");
@@ -679,6 +682,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 		goto finish_probe;
 	}
 
+	lpcpu->load_event = FW_LOAD_UNKNOW;
 	ret = lpcpu_config_send(lpcpu->mbox_channel);
 	if (ret < 0) {
 		dev_warn(dev, "Send config message to lpcpu via mailbox failed!\n");
@@ -686,7 +690,7 @@ static int eswin_lpcpu_probe(struct platform_device *pdev)
 	}
 
 	timeout = wait_event_timeout(lpcpu->waitq,
-			load_event == CFG_RECV_SUCC,usecs_to_jiffies(100000));
+			lpcpu->load_event == CFG_RECV_SUCC,usecs_to_jiffies(100000));
 
 	if (!timeout) {
 		dev_warn(dev, "Send config to lpcpu not ack!\n");
@@ -703,6 +707,8 @@ finish_probe:
 	return 0;
 
 err_mmio:
+	if (lpcpu->mmio)
+		iounmap(lpcpu->mmio);
 err_clkrst:
 	mbox_free_channel(lpcpu->mbox_channel);
 err_mailbox:
@@ -720,15 +726,16 @@ static int eswin_lpcpu_remove(struct platform_device *pdev)
 {
 	struct lpcpu_dev *_dev = platform_get_drvdata(pdev);
 
-	if(_dev->numa_id == 0) {
+	if (_dev->numa_id == 0) {
 		unregister_pm_notifier(&eswin_lpcpu_notifier_block);
+		primary_lpcpu = NULL;
 	}
 
 	if (_dev->mbox_channel)
 		mbox_free_channel(_dev->mbox_channel);
 	misc_deregister(&_dev->mdev);
 	iounmap(_dev->mmio);
-	devm_kfree(&pdev->dev,_dev);
+	devm_kfree(&pdev->dev, _dev);
 	dev_dbg(&pdev->dev, "%s remove!\n", pdev->name);
 
 	return 0;
