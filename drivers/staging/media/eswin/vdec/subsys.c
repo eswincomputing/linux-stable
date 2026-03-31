@@ -239,6 +239,7 @@ int vdec_pm_runtime_get(u32 core_id) {
 
 	if (!pdev) {
 		LOG_ERR("get platform device failed for pm sync, core_id = %u\n", core_id);
+		return -1;
 	}
 
 	return pm_runtime_get_sync(&pdev->dev);
@@ -249,6 +250,7 @@ int vdec_pm_runtime_put(u32 core_id) {
 
 	if (!pdev) {
 		LOG_ERR("get platform device failed for pm put, numa_id = %u\n", core_id);
+		return -1;
 	}
 
 	pm_runtime_mark_last_busy(&pdev->dev);

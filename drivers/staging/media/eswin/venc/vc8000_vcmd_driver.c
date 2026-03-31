@@ -324,7 +324,7 @@ static void vcmd_link_cmdbuf(struct hantrovcmd_dev *dev,
 			     bi_list_node *last_linked_cmdbuf_node);
 static void vcmd_start(struct hantrovcmd_dev *dev,
 		       bi_list_node *first_linked_cmdbuf_node);
-static void create_kernel_process_manager(void);
+static int create_kernel_process_manager(void);
 
 static irqreturn_t hantrovcmd_isr(int irq, void *dev_id);
 
@@ -760,6 +760,16 @@ static void _vcmd_watchdog_start(struct hantrovcmd_dev *dev)
 static void _vcmd_watchdog_stop(struct hantrovcmd_dev *dev){
 	if (dev->watchdog_active) {
 		del_timer(&dev->watchdog_timer);
+		dev->watchdog_active = 0;
+	}
+}
+
+/**
+ * stop vcmd watchdog and wait watchdog callback
+ */
+static void _vcmd_watchdog_stop_and_sync(struct hantrovcmd_dev *dev){
+	if (dev->watchdog_active) {
+		del_timer_sync(&dev->watchdog_timer);
 		dev->watchdog_active = 0;
 	}
 }
@@ -2350,16 +2360,22 @@ static long release_process_node_cleanup(bi_list *list)
 	return 0;
 }
 
-static void create_kernel_process_manager(void)
+static int create_kernel_process_manager(void)
 {
 	bi_list_node *process_manager_node;
 	struct process_manager_obj *process_manager_obj = NULL;
 
 	process_manager_node = create_process_manager_node();
+	if (!process_manager_node) {
+		LOG_ERR("create process manager node failed\n");
+		return -1;
+	}
 	process_manager_obj =
 		(struct process_manager_obj *)process_manager_node->data;
 	process_manager_obj->filp = NULL;
 	bi_list_insert_node_tail(&global_process_manager, process_manager_node);
+
+	return 0;
 }
 
 /* Update the last JMP cmd in cmdbuf_ojb in order to jump to next_cmdbuf_obj. */
@@ -2506,8 +2522,10 @@ static int hantrovcmd_open(struct inode *inode, struct file *filp)
 	}
 	filp->private_data = (void *)fp_priv;
 	process_manager_node = create_process_manager_node();
-	if (!process_manager_node)
+	if (!process_manager_node) {
+		kfree(fp_priv);
 		return -1;
+	}
 	process_manager_obj =
 		(struct process_manager_obj *)process_manager_node->data;
 	process_manager_obj->filp = filp;
@@ -2797,76 +2815,78 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 			up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
 		}
 	} else {
-		for (core_id = 0; core_id < venc_vcmd_core_num; core_id++) {
-			if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
-					goto error;
-			spin_lock_irqsave(dev[core_id].spinlock, flags);
-			new_cmdbuf_node = dev[core_id].list_manager.head;
-			while (1) {
-				if (!new_cmdbuf_node)
-					break;
-				next_cmdbuf = new_cmdbuf_node->next;
-				cmdbuf_obj_temp = (struct cmdbuf_obj *)new_cmdbuf_node->data;
-				if (dev[core_id].hwregs && cmdbuf_obj_temp->filp == filp) {
-					if (cmdbuf_obj_temp->cmdbuf_run_done) {
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(&dev[core_id].list_manager,
-									     new_cmdbuf_node);
-						if (retVal == 1)
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-					} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 0) {
-						cmdbuf_obj_temp->cmdbuf_data_linked = 1;
-						cmdbuf_obj_temp->cmdbuf_run_done = 1;
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(
-							&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1)
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-					} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 1 &&
-						   dev[core_id].working_state == WORKING_STATE_IDLE) {
-						cmdbuf_obj_temp->cmdbuf_run_done = 1;
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(
-							&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1)
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-					} else if (cmdbuf_obj_temp->cmdbuf_data_linked ==
-							   1 && dev[core_id].working_state == WORKING_STATE_WORKING) {
-						bi_list_node *last_cmdbuf_node;
-						u32 record_last_cmdbuf_rdy_num;
-						//abort the vcmd and wait
-						//vcmd_write_register_value((const void *)dev[core_id].hwregs,dev[core_id].reg_mirror,HWIF_VCMD_START_TRIGGER,0);
-						dev->software_triger_abort = 1;
-						if (wait_event_interruptible(*dev[core_id].wait_abort_queue, wait_abort_rdy(&dev[core_id]))) {
-							spin_unlock_irqrestore(dev[core_id].spinlock, flags);
-							up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
-							dev->software_triger_abort = 0;
-							goto error;
-						}
-						dev->software_triger_abort = 0;
-						cmdbuf_obj_temp->cmdbuf_run_done = 1;
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(
-							&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1)
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-						//link
-						last_cmdbuf_node =
-							find_last_linked_cmdbuf(dev[core_id].list_manager.tail);
-						record_last_cmdbuf_rdy_num = dev[core_id].sw_cmdbuf_rdy_num;
-						vcmd_link_cmdbuf(&dev[core_id], last_cmdbuf_node);
-						//re-run
-						if (dev[core_id].sw_cmdbuf_rdy_num)
-							vcmd_start(&dev[core_id], last_cmdbuf_node);
-					}
-					release_cmdbuf_num++;
-					LOG_DBG("release reserved cmdbuf\n");
-				}
-				new_cmdbuf_node = next_cmdbuf;
-			}
-			spin_unlock_irqrestore(dev[core_id].spinlock, flags);
-			up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
-		}
+		LOG_ERR("vcmd hwid=0x%08x, unsupported\n", dev->hw_version_id);
+		return EFAULT;
+		// for (core_id = 0; core_id < venc_vcmd_core_num; core_id++) {
+		// 	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
+		// 			goto error;
+		// 	spin_lock_irqsave(dev[core_id].spinlock, flags);
+		// 	new_cmdbuf_node = dev[core_id].list_manager.head;
+		// 	while (1) {
+		// 		if (!new_cmdbuf_node)
+		// 			break;
+		// 		next_cmdbuf = new_cmdbuf_node->next;
+		// 		cmdbuf_obj_temp = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+		// 		if (dev[core_id].hwregs && cmdbuf_obj_temp->filp == filp) {
+		// 			if (cmdbuf_obj_temp->cmdbuf_run_done) {
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(&dev[core_id].list_manager,
+		// 							     new_cmdbuf_node);
+		// 				if (retVal == 1)
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 			} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 0) {
+		// 				cmdbuf_obj_temp->cmdbuf_data_linked = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_run_done = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(
+		// 					&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1)
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 			} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 1 &&
+		// 				   dev[core_id].working_state == WORKING_STATE_IDLE) {
+		// 				cmdbuf_obj_temp->cmdbuf_run_done = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(
+		// 					&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1)
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 			} else if (cmdbuf_obj_temp->cmdbuf_data_linked ==
+		// 					   1 && dev[core_id].working_state == WORKING_STATE_WORKING) {
+		// 				bi_list_node *last_cmdbuf_node;
+		// 				u32 record_last_cmdbuf_rdy_num;
+		// 				//abort the vcmd and wait
+		// 				//vcmd_write_register_value((const void *)dev[core_id].hwregs,dev[core_id].reg_mirror,HWIF_VCMD_START_TRIGGER,0);
+		// 				dev->software_triger_abort = 1;
+		// 				if (wait_event_interruptible(*dev[core_id].wait_abort_queue, wait_abort_rdy(&dev[core_id]))) {
+		// 					spin_unlock_irqrestore(dev[core_id].spinlock, flags);
+		// 					up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
+		// 					dev->software_triger_abort = 0;
+		// 					goto error;
+		// 				}
+		// 				dev->software_triger_abort = 0;
+		// 				cmdbuf_obj_temp->cmdbuf_run_done = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(
+		// 					&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1)
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 				//link
+		// 				last_cmdbuf_node =
+		// 					find_last_linked_cmdbuf(dev[core_id].list_manager.tail);
+		// 				record_last_cmdbuf_rdy_num = dev[core_id].sw_cmdbuf_rdy_num;
+		// 				vcmd_link_cmdbuf(&dev[core_id], last_cmdbuf_node);
+		// 				//re-run
+		// 				if (dev[core_id].sw_cmdbuf_rdy_num)
+		// 					vcmd_start(&dev[core_id], last_cmdbuf_node);
+		// 			}
+		// 			release_cmdbuf_num++;
+		// 			LOG_DBG("release reserved cmdbuf\n");
+		// 		}
+		// 		new_cmdbuf_node = next_cmdbuf;
+		// 	}
+		// 	spin_unlock_irqrestore(dev[core_id].spinlock, flags);
+		// 	up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
+		// }
 	}
 
 	if (release_cmdbuf_num)
@@ -2889,7 +2909,9 @@ static int hantrovcmd_release(struct inode *inode, struct file *filp)
 
 	for (u32 core_id = 0; core_id < ENC_CORE_NUM; core_id ++) {
 		/** clear the tasks for pm*/
-		while (atomic_dec_return(&(fp_priv->core_tasks[core_id])) >= 0) {
+		int n = atomic_xchg(&(fp_priv->core_tasks[core_id]), 0);
+
+		while (n --) {
 			enc_pm_runtime_put(core_id);
 		}
 	}
@@ -3906,7 +3928,11 @@ int hantroenc_vcmd_init(void)
 	LOG_INFO("module inserted. Major <%d>\n",
 		hantrovcmd_major);
 
-	create_kernel_process_manager();
+	if (create_kernel_process_manager()) {
+		LOG_ERR("create kernel process manager failed\n");
+		vcmd_release_IO();
+		goto err;
+	}
 	for (i = 0; i < MAX_VCMD_TYPE; i++) {
 		if (vcmd_type_core_num[i] == 0)
 			continue;
@@ -4035,10 +4061,10 @@ static int vcmd_reserve_IO(void)
 		hantrovcmd_data[i].hw_version_id = hwid;
 
 		/* check for vcmd HW ID */
-		if (((hwid >> 16) & 0xFFFF) != VCMD_HW_ID) {
-			LOG_INFO("vcmd: HW not found at 0x%llx\n",
+		if (((hwid >> 16) & 0xFFFF) != VCMD_HW_ID || hwid < HW_ID_1_2_1) {
+			LOG_INFO("vcmd: HW not found at 0x%llx, hwid=0x%08x\n",
 				(unsigned long long)hantrovcmd_data[i]
-					.vcmd_core_cfg.vcmd_base_addr);
+					.vcmd_core_cfg.vcmd_base_addr, hwid);
 			iounmap((void __iomem *)hantrovcmd_data[i].hwregs);
 			release_mem_region(
 				hantrovcmd_data[i].vcmd_core_cfg.vcmd_base_addr,
@@ -4698,7 +4724,7 @@ void vc8000e_vcmd_abort(u32 core_id)
 	LOG_INFO("vc8000e_vcmd_abort, core_id = %u\n", dev->core_id);
 #ifdef SUPPORT_WATCHDOG
 	/** stop watchdog timer firstly*/
-	_vcmd_watchdog_stop(dev);
+	_vcmd_watchdog_stop_and_sync(dev);
 #endif
 	/** and the wait kthread exit*/
 	_vcmd_kthread_stop();

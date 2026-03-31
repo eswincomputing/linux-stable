@@ -230,6 +230,7 @@ static int venc_device_node_scan(unsigned char *compatible)
 		if (!strcmp(prop->name, "status")) {
 			if (!strcmp((char *)prop->value, "disabled")) {
 				LOG_INFO("One venc device disabled on d2d\n");
+				of_node_put(np);
 				return -1;
 			}
 		}
@@ -671,8 +672,10 @@ static int venc_smmu_dynm_sid_init(struct platform_device *pdev, u16 module_type
 	ret = win2030_dynm_sid_enable(dev_to_node(&pdev->dev));
 	if (ret) {
 		LOG_ERR("enc Dynamic smmu stream id setting failed\n\n");
+		iounmap(venc_csr_reg);
 		return -1;
 	}
+	iounmap(venc_csr_reg);
 
 	return 0;
 }
@@ -829,6 +832,7 @@ int enc_pm_runtime_get(u32 core_id) {
 
 	if (!pdev) {
 		LOG_ERR("get platform device failed for pm sync, core_id = %u\n", core_id);
+		return -1;
 	}
 
 	return pm_runtime_get_sync(&pdev->dev);
@@ -839,6 +843,7 @@ int enc_pm_runtime_put(u32 core_id) {
 
 	if (!pdev) {
 		LOG_ERR("get platform device failed for pm put, core_id = %u\n", core_id);
+		return -1;
 	}
 
 	pm_runtime_mark_last_busy(&pdev->dev);

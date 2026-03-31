@@ -3009,77 +3009,79 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 			up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
 		}
 	} else {
-		for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
-			if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
-				return -ERESTARTSYS;
+		LOG_ERR("vcmd hwid=0x%08x, unsupported\n", dev->hw_version_id);
+		return EFAULT;
+		// for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
+		// 	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
+		// 		return -ERESTARTSYS;
 
-			spin_lock_irqsave(dev[core_id].spinlock, flags);
-			new_cmdbuf_node = dev[core_id].list_manager.head;
-			while (1) {
-				if (!new_cmdbuf_node)
-					break;
-				cmdbuf_obj_temp = (struct cmdbuf_obj *)new_cmdbuf_node->data;
-				next_cmdbuf = new_cmdbuf_node->next;
-				if (dev[core_id].hwregs && (cmdbuf_obj_temp->filp == filp)) {
-					if (cmdbuf_obj_temp->cmdbuf_run_done) {
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1) {
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-						}
-					} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 0) {
-						cmdbuf_obj_temp->cmdbuf_data_linked = 1;
-						cmdbuf_obj_temp->cmdbuf_run_done = 1;
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1) {
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-						}
-					} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 1 &&
-								dev[core_id].working_state == WORKING_STATE_IDLE) {
-						cmdbuf_obj_temp->cmdbuf_run_done = 1;
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1) {
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-						}
-					} else if (cmdbuf_obj_temp->cmdbuf_data_linked ==1 &&
-							dev[core_id].working_state == WORKING_STATE_WORKING) {
-						bi_list_node *last_cmdbuf_node;
-						u32 record_last_cmdbuf_rdy_num;
-						//abort the vcmd and wait
-						vcmd_write_register_value((const void *)dev[core_id].hwregs,
-							dev[core_id].reg_mirror,
-							HWIF_VCMD_START_TRIGGER,
-							0);
-						if (wait_event_interruptible(*dev[core_id].wait_abort_queue, wait_abort_rdy(&dev[core_id]))) {
-							spin_unlock_irqrestore(dev[core_id].spinlock, flags);
-							up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
-							return -ERESTARTSYS;
-						}
-						cmdbuf_obj_temp->cmdbuf_run_done = 1;
-						cmdbuf_obj_temp->cmdbuf_need_remove = 1;
-						retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
-						if (retVal == 1) {
-							cmdbuf_obj_temp->process_manager_obj = NULL;
-						}
-						//link
-						last_cmdbuf_node = find_last_linked_cmdbuf(dev[core_id].list_manager.tail);
-						record_last_cmdbuf_rdy_num = dev[core_id].sw_cmdbuf_rdy_num;
-						vcmd_link_cmdbuf(&dev[core_id], last_cmdbuf_node);
-						//re-run
-						if (dev[core_id].sw_cmdbuf_rdy_num)
-							vcmd_start(&dev[core_id], last_cmdbuf_node);
-					}
-					release_cmdbuf_num++;
-					LOG_DBG("release reserved cmdbuf\n");
-				}
-				new_cmdbuf_node = next_cmdbuf;
-			}
-			spin_unlock_irqrestore(dev[core_id].spinlock, flags);
+		// 	spin_lock_irqsave(dev[core_id].spinlock, flags);
+		// 	new_cmdbuf_node = dev[core_id].list_manager.head;
+		// 	while (1) {
+		// 		if (!new_cmdbuf_node)
+		// 			break;
+		// 		cmdbuf_obj_temp = (struct cmdbuf_obj *)new_cmdbuf_node->data;
+		// 		next_cmdbuf = new_cmdbuf_node->next;
+		// 		if (dev[core_id].hwregs && (cmdbuf_obj_temp->filp == filp)) {
+		// 			if (cmdbuf_obj_temp->cmdbuf_run_done) {
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1) {
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 				}
+		// 			} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 0) {
+		// 				cmdbuf_obj_temp->cmdbuf_data_linked = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_run_done = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1) {
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 				}
+		// 			} else if (cmdbuf_obj_temp->cmdbuf_data_linked == 1 &&
+		// 						dev[core_id].working_state == WORKING_STATE_IDLE) {
+		// 				cmdbuf_obj_temp->cmdbuf_run_done = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1) {
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 				}
+		// 			} else if (cmdbuf_obj_temp->cmdbuf_data_linked ==1 &&
+		// 					dev[core_id].working_state == WORKING_STATE_WORKING) {
+		// 				bi_list_node *last_cmdbuf_node;
+		// 				u32 record_last_cmdbuf_rdy_num;
+		// 				//abort the vcmd and wait
+		// 				vcmd_write_register_value((const void *)dev[core_id].hwregs,
+		// 					dev[core_id].reg_mirror,
+		// 					HWIF_VCMD_START_TRIGGER,
+		// 					0);
+		// 				if (wait_event_interruptible(*dev[core_id].wait_abort_queue, wait_abort_rdy(&dev[core_id]))) {
+		// 					spin_unlock_irqrestore(dev[core_id].spinlock, flags);
+		// 					up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
+		// 					return -ERESTARTSYS;
+		// 				}
+		// 				cmdbuf_obj_temp->cmdbuf_run_done = 1;
+		// 				cmdbuf_obj_temp->cmdbuf_need_remove = 1;
+		// 				retVal = release_cmdbuf_node(&dev[core_id].list_manager, new_cmdbuf_node);
+		// 				if (retVal == 1) {
+		// 					cmdbuf_obj_temp->process_manager_obj = NULL;
+		// 				}
+		// 				//link
+		// 				last_cmdbuf_node = find_last_linked_cmdbuf(dev[core_id].list_manager.tail);
+		// 				record_last_cmdbuf_rdy_num = dev[core_id].sw_cmdbuf_rdy_num;
+		// 				vcmd_link_cmdbuf(&dev[core_id], last_cmdbuf_node);
+		// 				//re-run
+		// 				if (dev[core_id].sw_cmdbuf_rdy_num)
+		// 					vcmd_start(&dev[core_id], last_cmdbuf_node);
+		// 			}
+		// 			release_cmdbuf_num++;
+		// 			LOG_DBG("release reserved cmdbuf\n");
+		// 		}
+		// 		new_cmdbuf_node = next_cmdbuf;
+		// 	}
+		// 	spin_unlock_irqrestore(dev[core_id].spinlock, flags);
 
-			up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
-		}
+		// 	up(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]);
+		// }
 	}
 
 	//pr_info("release_cmdbuf_num\n");
@@ -4568,10 +4570,10 @@ static int vcmd_reserve_IO(void)
 		hantrovcmd_data[i].hw_version_id = hwid;
 
 		/* check for vcmd HW ID */
-		if (((hwid >> 16) & 0xFFFF) != VCMD_HW_ID) {
-			LOG_INFO("HW not found at 0x%llx\n",
+		if (((hwid >> 16) & 0xFFFF) != VCMD_HW_ID || hwid < HW_ID_1_2_1) {
+			LOG_INFO("HW not found at 0x%llx, hwid=0x%08x\n",
 				(unsigned long long)
-				hantrovcmd_data[i].vcmd_core_cfg.vcmd_base_addr);
+				hantrovcmd_data[i].vcmd_core_cfg.vcmd_base_addr, hwid);
 			iounmap((void __iomem *)hantrovcmd_data[i].hwregs);
 			release_mem_region(
 				hantrovcmd_data[i].vcmd_core_cfg.vcmd_base_addr,

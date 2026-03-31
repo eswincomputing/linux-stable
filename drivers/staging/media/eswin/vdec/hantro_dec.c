@@ -212,8 +212,6 @@ static u32 gBaseLen; /* Base register address Length */
 /* Logic module IRQs */
 #define HXDEC_NO_IRQ                    -1
 
-#define MAX(a, b)                       (((a) > (b)) ? (a) : (b))
-
 #define DEC_IO_SIZE_MAX                                   \
 	(MAX(MAX(HANTRO_G2_DEC_REGS, HANTRO_G1_DEC_REGS), \
 	HANTRO_VC8000D_REGS) * 4)
@@ -474,6 +472,7 @@ static core_cfg config;
 
 #define CORE_TYPE_STR_CASE(ct) case (ct): return(#ct + 3)
 
+#if (OUTPUT_LOG_LEVEL & VC_LOG_LEVEL_DBG)
 static char *CoreTypeStr(enum CoreType ct)
 {
 	switch (ct) {
@@ -492,6 +491,7 @@ static char *CoreTypeStr(enum CoreType ct)
 		return "Invalid core type";
 	}
 }
+#endif
 
 #ifdef HANTRODEC_DEBUG
 
@@ -1028,9 +1028,10 @@ static long ReserveDecoder(hantrodec_t *dev,
 	/* lock a core that has specific format*/
 	if (wait_event_interruptible(hw_queue,
 				     GetDecCoreAny(&core, dev,
-						   filp, format) != 0))
-
+						   filp, format) != 0)) {
+		up(&dec_core_sem);
 		return -ERESTARTSYS;
+	}
 
 #if 0
 	if (IS_G1(dev->hw_id[core])) {
@@ -2002,7 +2003,7 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		tmp = copy_to_user((unsigned long __user *)arg,
 				   multicorebase_actual,
 		 sizeof(multicorebase_actual));
-		if (err) {
+		if (tmp) {
 			LOG_DBG("copy_to_user failed, returned %li\n", tmp);
 			return -EFAULT;
 		}
@@ -2424,7 +2425,6 @@ static long hantrodec_ioctl(struct file *filp, unsigned int cmd,
 		return 0;
 	}
 	case HANTRODEC_IOC_DMA_HEAP_PUT_IOVA: {
-		struct dmabuf_cfg dbcfg;
 		struct heap_mem *hmem, *hmem_d1;
 		unsigned int dmabuf_fd;
 		struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
@@ -2621,12 +2621,6 @@ static int hantrodec_release(struct inode *inode,
 	int n;
 	hantrodec_t *dev = &hantrodec_data;
 	struct filp_priv *fp_priv = (struct filp_priv *)filp->private_data;
-#ifdef SUPPORT_DMA_HEAP
-	struct heap_mem *h, *tmp;
-	dma_addr_t iova;
-	size_t buf_size = 0;
-	struct heap_root *root = &fp_priv->root;
-#endif
 
 	LOG_DBG("closing ...\n");
 
@@ -2662,7 +2656,9 @@ end:
 #endif
 	for (u32 core_id = 0; core_id < DEC_CORE_NUM; core_id ++) {
 		/** clear the tasks for pm*/
-		while (atomic_dec_return(&(fp_priv->core_tasks[core_id])) >= 0) {
+		int n = atomic_xchg(&(fp_priv->core_tasks[core_id]), 0);
+
+		while (n --) {
 			vdec_pm_runtime_put(core_id);
 		}
 	}
@@ -3874,8 +3870,10 @@ static int vdec_smmu_dynm_sid_init(struct platform_device *pdev, int numa_id)
 	ret = win2030_dynm_sid_enable(dev_to_node(&pdev->dev));
 	if (ret) {
 		LOG_ERR("dec Dynamic smmu stream id setting failed\n");
+		iounmap(vdec_csr_reg);
 		return -1;
 	}
+	iounmap(vdec_csr_reg);
 
 	return 0;
 }
@@ -4298,7 +4296,6 @@ static int hantro_vdec_remove(struct platform_device *pdev)
 }
 
 static int eswin_vdec_runtime_suspend(struct device *dev) {
-	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	if (!power_management) {
 		/**pm disabled */
 		return 0;

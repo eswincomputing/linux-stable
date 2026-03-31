@@ -1257,7 +1257,7 @@ static void ReleaseIO(void)
 {
 	u32 i;
 
-	for (i = 0; i <= total_subsys_num; i++) {
+	for (i = 0; i < total_subsys_num; i++) {
 		if (hantroenc_data[i].is_valid == 0)
 			continue;
 		if (hantroenc_data[i].hwregs)
