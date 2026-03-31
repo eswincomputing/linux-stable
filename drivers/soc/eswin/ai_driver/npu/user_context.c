@@ -1084,15 +1084,16 @@ static long npu_dev_ioctl_compat(struct file *flip, unsigned int cmd, unsigned l
 
 static __poll_t npu_dev_poll(struct file *file, poll_table *wait)
 {
+	unsigned long flags;
 	__poll_t mask = 0;
 	struct user_context *uctx = file->private_data;
 	poll_wait(file, &npu_waitq, wait);
-
+	spin_lock_irqsave(&uctx->event_desc.spinlock, flags);
 	if (uctx->event_desc.len > 0) {
 		dla_detail("event sinks len:%d\n", uctx->event_desc.len);
 		mask = EPOLLIN | EPOLLRDNORM;
 	}
-
+	spin_unlock_irqrestore(&uctx->event_desc.spinlock, flags);
 	return mask;
 }
 

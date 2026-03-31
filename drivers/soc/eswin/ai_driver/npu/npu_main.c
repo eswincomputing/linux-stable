@@ -206,7 +206,7 @@ int32_t dla_get_dma_address(void *driver_context, void *task_data,
 	addrDesc_t *address;
 	dma_addr_t *phys_addr = (dma_addr_t *)dst_ptr;
 	struct nvdla_task *task = (struct nvdla_task *)task_data;
-	if (index == -1 || index > task->addrlist->numAddress) {
+	if (index == -1 || index >= task->addrlist->numAddress) {
 		dla_error("dma address index is invalid, %d\n", index);
 		return -EINVAL;
 	}
@@ -241,7 +241,7 @@ int32_t dla_get_sram_address(void *driver_context, void *task_data,
 	struct nvdla_device *nvdla_dev = (struct nvdla_device *)driver_context;
 	struct nvdla_task *task = (struct nvdla_task *)task_data;
 
-	if (index == -1 || index > task->addrlist->numAddress) {
+	if (index == -1 || index >= task->addrlist->numAddress) {
 		dla_error("dma address index is invalid, %d\n", index);
 		return -EINVAL;
 	}
@@ -323,7 +323,7 @@ static struct nvdla_device *static_nvdla_dev[2] = { NULL };
 
 struct nvdla_device *get_nvdla_dev(int i)
 {
-	if (i < 0 || i > 2) {
+	if (i < 0 || i >= 2) {
 		return NULL;
 	}
 	return static_nvdla_dev[i];

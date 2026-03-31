@@ -117,6 +117,7 @@ static long dsp_ioctl_load_op(struct file *flip, dsp_ioctl_load_s __user *arg)
 		}
 		if (copy_from_user(op_dir, (void *)dsp_load.op_lib_dir, OPERATOR_DIR_MAXLEN)) {
 			ret = -EFAULT;
+			kfree(op_dir);
 			goto err;
 		}
 		dsp_debug("op_dir=%s.\n", op_dir);
@@ -350,6 +351,10 @@ static int dsp_ioctl_set_flat(struct dsp_file *dsp_file, dsp_ioctl_task_s *req,
 
 	buffer_count = req->task.bufferCntCfg + req->task.bufferCntInput +
 		       req->task.bufferCntOutput;
+
+	if (buffer_count > BUFFER_CNT_MAXSIZE) {
+		return -EINVAL;
+	}
 
 	for (i = 0; i < buffer_count; i++) {
 		u32 addr;
@@ -1101,6 +1106,7 @@ static long dsp_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			dsp_err("copy DSP version data to user err.\n");
 			return -EFAULT;
 		}
+		break;
 	case DSP_IOCTL_LOAD_OP:
 		retval = dsp_ioctl_load_op(flip, (dsp_ioctl_load_s *)arg);
 		break;
