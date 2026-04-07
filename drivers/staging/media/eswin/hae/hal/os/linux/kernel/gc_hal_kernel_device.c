@@ -68,7 +68,7 @@
 #define MAX_ISR_NOT_HANDLED_CNT 2000
 
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
-#define ESWIN_HAE_VERSION "2026012700"
+#define ESWIN_HAE_VERSION "2026040700"
 
 static gckGALDEVICE     galDevice;
 
@@ -926,6 +926,37 @@ print_ull(char dest[32], unsigned long long u)
         dest += sprintf(dest, ",%03u", t[i]);
 }
 
+static int gc_outstanding_show_state(void *m, gckDEVICE device)
+{
+    gctUINT32 i;
+    gctINT32 len = 0;
+#ifdef CONFIG_DEBUG_FS
+    void *ptr = m;
+#else
+    char *ptr = (char *)m;
+#endif
+
+    for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+        if (!device->kernels[i]) {
+            continue;
+        }
+
+        if (!device->kernels[i]->hardware) {
+            continue;
+        }
+
+        gckHARDWARE_QueryOutStandingReads(device->kernels[i]->hardware);
+
+        len = fs_printf(ptr,        "dev_id      : %d\n", device->id);
+        len += fs_printf(ptr + len, "dev_core    : %d\n", i);
+        len += fs_printf(ptr + len, "set         : 0x%x\n", device->kernels[i]->hardware->maxOutstandingReads);
+        len += fs_printf(ptr + len, "cur         : 0x%x\n", device->kernels[i]->hardware->currOutStandingReads);
+        len += fs_printf(ptr + len, "---------------------\n");
+    }
+
+    return len;
+}
+
 static int gc_idle_show_clk_state(void *m, gckDEVICE device)
 {
     gctUINT32 i;
@@ -1057,6 +1088,7 @@ static int gc_run_state_show_dev(void *m, gckDEVICE device)
         len += fs_printf(ptr + len, "commit_stamp     : %llu\n", kernel->command->commitStamp);
         len += fs_printf(ptr + len, "addr             : 0x%llx\n", kernel->command->address);
         len += fs_printf(ptr + len, "--- hardware ---\n");
+        len += fs_printf(ptr + len, "out_standing     : 0x%x\n", kernel->hardware->currOutStandingReads);
         len += fs_printf(ptr + len, "chip_power_stat  : %d\n", kernel->hardware->chipPowerState);
         len += fs_printf(ptr + len, "next_power_stat  : %d\n", kernel->hardware->nextPowerState);
         len += fs_printf(ptr + len, "power_stat       : %d\n", kernel->hardware->powerState);
@@ -1649,6 +1681,87 @@ set_clk(const char *buf)
 }
 
 static int
+gc_outstanding_show(void *m, void *data)
+{
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE device = gcvNULL;
+    gctUINT32 i;
+    int len = 0;
+
+    if (!gal_device) {
+        return 0;
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
+        }
+
+        len += gc_outstanding_show_state(m, device);
+    }
+
+    return len;
+}
+
+static int set_outstanding_reads(const char *buf)
+{
+    int ret;
+    int i;
+    gckGALDEVICE gal_device = galDevice;
+    gckDEVICE device = gcvNULL;
+    gctUINT32 data = 0;
+
+    if (!gal_device) {
+        hae_print("gal_device is NULL!\n");
+        return -ENXIO;
+    }
+
+    if (!buf) {
+        hae_print("buf pointer is NULL!\n");
+        return -EINVAL;
+    }
+
+    size_t buf_len = strlen(buf);
+    if (buf_len == 0 || buf_len > 20) {
+        hae_print("invalid buf length: %zu\n", buf_len);
+        return -EINVAL;
+    }
+
+    ret = kstrtouint(buf, 10, &data); 
+    if (ret < 0) {
+        hae_print("convert str to uint failed! ret: %d\n", ret);
+        return ret;
+    }
+
+    if (data >= 255) {
+        hae_print("hae set outstanding value: %u out of range [0-255]\n", data);
+        return -EINVAL;
+    }
+
+    for (i = 0; i < gcdDEVICE_COUNT; i++) {
+        device = gal_device->devices[i];
+        if (!device) {
+            continue;
+        }
+
+        for (i = gcvCORE_2D; i <= gcvCORE_2D1; i++) {
+            if (!device->kernels[i]) {
+                continue;
+            }
+
+            if (!device->kernels[i]->hardware) {
+                continue;
+            }
+
+            gckHARDWARE_SetOutStandingReads(device->kernels[i]->hardware, data);
+        }
+    }
+
+    return 0;
+}
+
+static int
 gc_poweroff_timeout_show(void *m, void *data)
 {
     gckGALDEVICE gal_device = galDevice;
@@ -1721,6 +1834,23 @@ debugfs_copy_from_user(char *k_buf, const char __user *buf, size_t count)
     k_buf[count] = 0;
 
     return count;
+}
+
+static int
+gc_outstanding_write(const char __user *buf, size_t count, void *data)
+{
+    size_t ret, _count;
+    char k_buf[30];
+
+    _count = min_t(size_t, count, (sizeof(k_buf) - 1));
+
+    ret = debugfs_copy_from_user(k_buf, buf, _count);
+    if (ret == -1)
+        return ret;
+
+    set_outstanding_reads(k_buf);
+
+    return ret;
 }
 
 static int
@@ -1840,6 +1970,12 @@ gc_clk_show_debugfs(struct seq_file *m, void *data)
 }
 
 int
+gc_outstanding_show_debugfs(struct seq_file *m, void *data)
+{
+    return gc_outstanding_show((void *)m, data);
+}
+
+int
 gc_poweroff_timeout_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_poweroff_timeout_show((void *)m, data);
@@ -1896,6 +2032,7 @@ static gcsINFO InfoList[] = {
     { "reserved_mem_usage", gc_reserved_mem_usage_show_debugfs, gc_vidmem_write },
     { "dump_trigger", gc_dump_trigger_show_debugfs, gc_dump_trigger_write },
     { "clk", gc_clk_show_debugfs, gc_clk_write },
+    { "outstanding", gc_outstanding_show_debugfs, gc_outstanding_write },
     { "poweroff_timeout", gc_poweroff_timeout_show_debugfs, gc_poweroff_timeout_write },
 #if gcdENABLE_MP_SWITCH
     { "core_count", gc_switch_core_count_debugfs, gc_switch_core_count_write },

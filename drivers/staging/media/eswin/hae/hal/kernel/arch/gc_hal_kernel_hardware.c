@@ -10708,6 +10708,189 @@ OnError:
 
 /*******************************************************************************
  **
+ **  gckHARDWARE_QueryOutStandingReads
+ **
+ **  Query current hardware outstanding reads info.
+ **
+ **  INPUT:
+ **
+ **      gckHARDWARE Hardware
+ **          Pointer to an gckHARDWARE object.
+ **
+ */
+gceSTATUS
+gckHARDWARE_QueryOutStandingReads(gckHARDWARE Hardware)
+{
+    gceSTATUS status;
+    gctUINT64 powerManagement = 0;
+    gctBOOL globalAcquired = gcvFALSE;
+    gceCHIPPOWERSTATE statesStored, state;
+
+    gcmkHEADER_ARG("Hardware=0x%p", Hardware);
+
+    gcmkVERIFY_ARGUMENT(Hardware != gcvNULL);
+
+    powerManagement = Hardware->options.powerManagement;
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
+
+    gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
+
+    /* Grab the global semaphore. */
+    gcmkONERROR(gckOS_AcquireSemaphore(Hardware->os, Hardware->globalSemaphore));
+
+    globalAcquired = gcvTRUE;
+
+    /* Limit 2D outstanding request. */
+    gctUINT32 data;
+
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel, 0x00414, &data));
+    Hardware->currOutStandingReads = data;
+    hae_print("hae core[%d] outstanding reads set: 0x%x, curr: 0x%x",
+        Hardware->core, Hardware->maxOutstandingReads, Hardware->currOutStandingReads);
+
+    /* Release the global semaphore. */
+    gcmkONERROR(gckOS_ReleaseSemaphore(Hardware->os, Hardware->globalSemaphore));
+
+    globalAcquired = gcvFALSE;
+
+    switch (statesStored) {
+    case gcvPOWER_OFF:
+        state = gcvPOWER_OFF_BROADCAST;
+        break;
+    case gcvPOWER_IDLE:
+        state = gcvPOWER_IDLE_BROADCAST;
+        break;
+    case gcvPOWER_SUSPEND:
+        state = gcvPOWER_SUSPEND_BROADCAST;
+        break;
+    case gcvPOWER_ON:
+        state = gcvPOWER_ON_AUTO;
+        break;
+    default:
+        state = statesStored;
+        break;
+    }
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
+
+    gcmkFOOTER_NO();
+
+    return gcvSTATUS_OK;
+
+OnError:
+    if (globalAcquired) {
+        /* Release the global semaphore. */
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Hardware->os, Hardware->globalSemaphore));
+    }
+
+    gcmkFOOTER();
+
+    return status;
+}
+
+/*******************************************************************************
+ **
+ **  gckHARDWARE_QueryOutStandingReads
+ **
+ **  Query current hardware outstanding reads info.
+ **
+ **  INPUT:
+ **
+ **      gckHARDWARE Hardware
+ **          Pointer to an gckHARDWARE object.
+ **
+ */
+gceSTATUS
+gckHARDWARE_SetOutStandingReads(gckHARDWARE Hardware, gctUINT32 value)
+{
+    gceSTATUS status;
+    gctUINT64 powerManagement = 0;
+    gctBOOL globalAcquired = gcvFALSE;
+    gceCHIPPOWERSTATE statesStored, state;
+
+    gcmkHEADER_ARG("Hardware=0x%p", Hardware);
+
+    gcmkVERIFY_ARGUMENT(Hardware != gcvNULL);
+
+    powerManagement = Hardware->options.powerManagement;
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
+
+    gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
+
+    /* Grab the global semaphore. */
+    gcmkONERROR(gckOS_AcquireSemaphore(Hardware->os, Hardware->globalSemaphore));
+
+    globalAcquired = gcvTRUE;
+
+    /* reserve high bit for 3D GPU */
+    Hardware->maxOutstandingReads = value;
+    gctUINT32 data;
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel, 0x00414, &data));
+
+    data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 7:0) - (0 ? 7:0) + 1) ==
+32) ? ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0))) | (((gctUINT32) ((gctUINT32) (Hardware->maxOutstandingReads & 0xFF) & ((gctUINT32) ((((1 ? 7:0) - (0 ? 7:0) + 1) ==
+32) ? ~0U : (~(~0U << ((1 ? 7:0) - (0 ? 7:0) + 1))))))) << (0 ? 7:0)));
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel, 0x00414, data));
+
+    hae_print("hae core[%d] set outstanding reads: 0x%x", Hardware->core, data);
+
+    /* Release the global semaphore. */
+    gcmkONERROR(gckOS_ReleaseSemaphore(Hardware->os, Hardware->globalSemaphore));
+
+    globalAcquired = gcvFALSE;
+
+    switch (statesStored) {
+    case gcvPOWER_OFF:
+        state = gcvPOWER_OFF_BROADCAST;
+        break;
+    case gcvPOWER_IDLE:
+        state = gcvPOWER_IDLE_BROADCAST;
+        break;
+    case gcvPOWER_SUSPEND:
+        state = gcvPOWER_SUSPEND_BROADCAST;
+        break;
+    case gcvPOWER_ON:
+        state = gcvPOWER_ON_AUTO;
+        break;
+    default:
+        state = statesStored;
+        break;
+    }
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
+
+    gcmkFOOTER_NO();
+
+    return gcvSTATUS_OK;
+
+OnError:
+    if (globalAcquired) {
+        /* Release the global semaphore. */
+        gcmkVERIFY_OK(gckOS_ReleaseSemaphore(Hardware->os, Hardware->globalSemaphore));
+    }
+
+    gcmkFOOTER();
+
+    return status;
+}
+
+/*******************************************************************************
+ **
  **  gckHARDWARE_QueryFrequency
  **
  **  Query current hardware frequency.

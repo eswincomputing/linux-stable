@@ -238,6 +238,7 @@ struct _gckHARDWARE {
     gcsHARDWARE_SIGNATURE       signature;
 
     gctUINT32                   maxOutstandingReads;
+    gctUINT32                   currOutStandingReads;
 
     gcsHARDWARE_PAGETABLE_ARRAY pagetableArray;
 
@@ -310,6 +311,12 @@ gckHARDWARE_ExitQueryClock(gckHARDWARE Hardware,
 
 gceSTATUS
 gckHARDWARE_QueryFrequency(gckHARDWARE Hardware);
+
+gceSTATUS
+gckHARDWARE_QueryOutStandingReads(gckHARDWARE Hardware);
+
+gceSTATUS
+gckHARDWARE_SetOutStandingReads(gckHARDWARE Hardware, gctUINT32 value);
 
 gceSTATUS
 gckHARDWARE_SetClock(gckHARDWARE Hardware, gctUINT32 MCScale, gctUINT32 SHScale);
