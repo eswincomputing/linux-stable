@@ -83,7 +83,7 @@ extern int frame_timeout;
 MODULE_IMPORT_NS(DMA_BUF);
 #define DRIVER_NAME "eswin_npu"
 
-#define NPU_CORE_CLK_HIGHEST 1500000000
+#define NPU_CORE_CLK_INIT 1040000000
 #define NPU_MIN_VOLTAGE 700000
 #define DEVFREQ_VOLT_DELAY 50
 
@@ -528,7 +528,7 @@ static int eswin_get_dev_status(struct device *dev, struct devfreq_dev_status *s
 }
 
 static struct devfreq_dev_profile npu_devfreq_profile = {
-	.initial_freq = NPU_CORE_CLK_HIGHEST,
+	.initial_freq = NPU_CORE_CLK_INIT,
 	.timer = DEVFREQ_TIMER_DELAYED,
 	.polling_ms = 1000,
 	.target = npu_devfreq_target,
@@ -560,20 +560,13 @@ static int npu_set_freq_table(struct nvdla_device *nvdla_dev)
 			return -ENOMEM;
 		}
 
-		nvdla_dev->freq_count = 2;
+		nvdla_dev->freq_count = 1;
 		/* NPU 1G HZ, LLC 800M HZ */
 		nvdla_dev->freq_tbl[0].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
 		nvdla_dev->freq_tbl[0].npu_rate = 1040000000;
 		nvdla_dev->freq_tbl[0].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
 		nvdla_dev->freq_tbl[0].llc_rate = 800000000;
-		nvdla_dev->freq_tbl[0].volt = 900000;
-
-		/* NPU 1.5G HZ, LLC 1.188G HZ*/
-		nvdla_dev->freq_tbl[1].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
-		nvdla_dev->freq_tbl[1].npu_rate = 1500000000;
-		nvdla_dev->freq_tbl[1].llc_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
-		nvdla_dev->freq_tbl[1].llc_rate = 1188000000;
-		nvdla_dev->freq_tbl[1].volt = 1050000;
+		nvdla_dev->freq_tbl[0].volt = 800000;
 
 		return 0;
 	}
