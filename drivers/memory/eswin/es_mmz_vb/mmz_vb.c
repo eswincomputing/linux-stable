@@ -929,23 +929,6 @@ static int mmz_vb_assign_pool_id(struct esVB_K_POOL_INFO_S *pool)
 	return ret < 0 ? ret : 0;
 }
 
-static int mmz_vb_remove_pool_id(struct esVB_K_POOL_INFO_S *pool, bool is_lock)
-{
-	int ret = 0;
-	struct mmz_vb_priv *vb_priv = g_mmz_vb_priv;
-	struct esVB_K_MMZ_S *partitions = &vb_priv->partitions;
-
-	if (is_lock) {
-		down_write(&partitions->idr_lock);
-	}
-
-	idr_remove(&partitions->pool_idr, pool->poolId);
-
-	if (is_lock) {
-		up_write(&partitions->idr_lock);
-	}
-	return ret < 0 ? ret : 0;
-}
 
 static int mmz_pool_insert_list(struct esVB_K_POOL_INFO_S *pool, enum esVB_UID_E uid)
 {
@@ -1030,9 +1013,6 @@ static int mmz_vb_do_create_pool(struct esVB_POOL_CONFIG_S *pool_cfg,
 	}
 	pool_cfg->blkSize = size;
 	pool->poolCfg.blkSize = pool_cfg->blkSize;
-	dev_dbg(mmz_vb_dev, "blkSize(0x%llx) from pool creation is "
-		"aligned to 0x%lx to improve performance.\n",
-		pool_cfg->blkSize, size);
 
 	// 3. alloc pages for blocks
 	for (i = 0; i < pool_cfg->blkCnt; i++) {
@@ -1058,10 +1038,11 @@ static int mmz_vb_do_create_pool(struct esVB_POOL_CONFIG_S *pool_cfg,
 		ret = -EINVAL;
 		goto out_free_block_pages;
 	}
-	pool->pid = current->pid;
+	pool->pid = current->tgid;
 	memcpy(pool->comm, current->comm, TASK_COMM_LEN);
 	pool->comm[TASK_COMM_LEN - 1] = '\0';
 	pool->jiffies = jiffies;
+	pool->pid_start_time = current->group_leader->start_time;
 
 	*pool_out = pool;
 	return ret;
@@ -1149,17 +1130,19 @@ out_free:
 }
 
 /**
- * mmz_vb_do_destory_pool - do the pool destory operation
+ * mmz_vb_do_destory_pool - do the pool destory operation, must hold idr_lock
  * @pool:	The pool
- * @is_lock:	when set true, will lock the idr when remove the idr id.
+ * @hash_locked: set as true tell me the hash lock has been locked.
  * @is_force:	when set true, will still destory the bool even the bitmap is not empty.
  */
-static int mmz_vb_do_destory_pool(struct esVB_K_POOL_INFO_S *pool, bool is_lock, bool is_force)
+static int mmz_vb_do_destory_pool(struct esVB_K_POOL_INFO_S *pool, bool hash_locked, bool is_force)
 {
 	struct esVB_POOL_CONFIG_S *poolCfg = &pool->poolCfg;
 	const char *memBlkName = poolCfg->mmzName;
 	struct mem_block *memblock = NULL;
 	struct esVB_K_BLOCK_INFO_S *blocks = NULL;
+	struct mmz_vb_priv *vb_priv = g_mmz_vb_priv;
+	struct esVB_K_MMZ_S *partitions = &vb_priv->partitions;
 	int ret = 0;
 	int i;
 
@@ -1169,6 +1152,8 @@ static int mmz_vb_do_destory_pool(struct esVB_K_POOL_INFO_S *pool, bool is_lock,
 		vb_err("%s NOT found!\n", memBlkName);
 		return -EINVAL;
 	}
+
+	lockdep_assert_held_write(&partitions->idr_lock);
 
 	if (!bitmap_empty(pool->bitmap, pool->poolCfg.blkCnt)) {
 		if (true == is_force) {
@@ -1180,14 +1165,17 @@ static int mmz_vb_do_destory_pool(struct esVB_K_POOL_INFO_S *pool, bool is_lock,
 		}
 	}
 
-
 	blocks = pool->blocks;
 	for (i = 0; i < poolCfg->blkCnt; i++) {
 		vb_blk_pages_release(memblock, &blocks[i]);
 	}
-	mmz_vb_remove_pool_id(pool, is_lock);
+	idr_remove(&partitions->pool_idr, pool->poolId);
 	if (pool->enVbUid >= VB_UID_COMMON && pool->enVbUid < VB_UID_MAX) {
+		if (!hash_locked)
+			down_write(&vb_priv->pool_lock[pool->enVbUid]);
 		hash_del(&pool->node);
+		if (!hash_locked)
+			up_write(&vb_priv->pool_lock[pool->enVbUid]);
 	}
 	bitmap_free(pool->bitmap);
 	vfree(pool->blocks);
@@ -1227,14 +1215,9 @@ static int vb_ioctl_destory_pool(void __user *user_cmd)
 		dev_dbg(mmz_vb_dev, "%s %d, pool %d not empty, waiting to destory\n",
 			__func__,__LINE__, req->PoolId);
 		return 0;
-	} else if (ret) {
-		up_write(&partitions->idr_lock);
-		dev_err(mmz_vb_dev, "%s %d, faild to destory pool, PoolId %d\n",
-			__func__,__LINE__, req->PoolId);
-		return ret;
 	}
 	up_write(&partitions->idr_lock);
-	return 0;
+	return ret;
 }
 
 /*check whether the VbConfig is legal*/
@@ -1381,6 +1364,7 @@ static int vb_ioctl_init_config(void __user *user_cmd)
 	enum esVB_UID_E enVbUid;
 	struct esVB_CONFIG_S *vb_cfg = NULL;
 	struct mmz_vb_priv *vb_priv = g_mmz_vb_priv;
+	struct esVB_K_MMZ_S *partitions = &vb_priv->partitions;
 	int i;
 	int ret = 0;
 	struct esVB_POOL_CONFIG_S *pool_cfg;
@@ -1416,11 +1400,10 @@ static int vb_ioctl_init_config(void __user *user_cmd)
 		ret = mmz_vb_do_create_pool(pool_cfg, &pool[i]);
 		if (0 != ret) {
 			while(--i >= 0) {
-				ret = mmz_vb_do_destory_pool(pool[i], true, false);
-				if (ret) {
-					dev_err(mmz_vb_dev, "%s %d, faild to destory pool!\n",
-						__func__,__LINE__);
-				}
+				down_write(&partitions->idr_lock);
+				ret = mmz_vb_do_destory_pool(pool[i], false, false);
+				up_write(&partitions->idr_lock);
+				WARN_ON(ret); // here should never fail.
 			}
 			dev_err(mmz_vb_dev, "%s %d, faild to create pool!\n",__func__, __LINE__);
 			goto out_unlock;
@@ -1444,6 +1427,7 @@ static int vb_ioctl_uninit_config(void __user *user_cmd)
 	struct esVB_K_POOL_INFO_S *pool = NULL;
 	unsigned long bkt = 0;
 	struct hlist_node *tmp_node = NULL;
+	struct esVB_K_MMZ_S *partitions = &vb_priv->partitions;
 
 	if (copy_from_user(&cmd, user_cmd, sizeof(cmd))) {
 		return -EFAULT;
@@ -1462,17 +1446,18 @@ static int vb_ioctl_uninit_config(void __user *user_cmd)
 	}
 	mutex_unlock(&vb_priv->cfg_lock[enVbUid]);
 
+	down_write(&partitions->idr_lock);
 	down_write(&vb_priv->pool_lock[enVbUid]);
 	hash_for_each_safe(vb_priv->ht[enVbUid], bkt, tmp_node, pool, node) {
 		ret = mmz_vb_do_destory_pool(pool, true, false);
 		if (ret) {
 			dev_err(mmz_vb_dev, "%s %d, faild to destory pool, PoolId %d, enVbUid %d\n",
 				__func__,__LINE__, pool->poolId, enVbUid);
-			up_write(&vb_priv->pool_lock[enVbUid]);
-			return ret;
+			set_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool->flag);
 		}
 	}
 	up_write(&vb_priv->pool_lock[enVbUid]);
+	up_write(&partitions->idr_lock);
 
 	mutex_lock(&vb_priv->cfg_lock[enVbUid]);
 	devm_kfree(mmz_vb_dev, vb_priv->pVbConfig[enVbUid]);
@@ -1552,10 +1537,45 @@ static int mmz_vb_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static void mmz_vb_destory_private_pool(void)
+{
+	struct esVB_K_MMZ_S *partitions = &g_mmz_vb_priv->partitions;
+	struct esVB_K_POOL_INFO_S *pool = NULL;
+	int ret = 0;
+	u32 id = 0;
+	u32 pool_id;
+
+	down_write(&partitions->idr_lock);
+	idr_for_each_entry(&partitions->pool_idr, pool, id) {
+                if (pool->enVbUid != VB_UID_PRIVATE)
+		        continue;
+                if (pool->pid != current->tgid || pool->pid_start_time
+                    != current->group_leader->start_time)
+                        continue;
+		pool_id = pool->poolId;
+		ret = mmz_vb_do_destory_pool(pool, false, false);
+		if (ret) {
+			dev_dbg_ratelimited(mmz_vb_dev, "Failed to destory pool %d, mark as destorying\n",
+				pool->poolId);
+			set_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool->flag);
+		} else {
+			dev_dbg_ratelimited(mmz_vb_dev, "Pool %d automatically destory, since the creator (pid %d) is dead\n",
+					    pool_id, current->pid);
+		}
+	}
+
+	up_write(&partitions->idr_lock);
+}
 static int mmz_vb_release(struct inode *inode, struct file *file)
 {
-	pr_debug("%s:%d, success!\n", __func__, __LINE__);
+	dev_info(mmz_vb_dev, "/dev/mmz_vb closed, current pid %d!\n", current->pid);
 
+	return 0;
+}
+
+static int mmz_vb_flush(struct file *, fl_owner_t id)
+{
+	mmz_vb_destory_private_pool();
 	return 0;
 }
 
@@ -1620,6 +1640,7 @@ static struct file_operations mmz_vb_fops = {
 	.unlocked_ioctl = mmz_vb_unlocked_ioctl,
 	.open        = mmz_vb_open,
 	.release    = mmz_vb_release,
+	.flush = mmz_vb_flush,
 	.mmap	= mmz_vb_mmap_pool,
 };
 
@@ -1652,45 +1673,52 @@ static int mmz_vb_init_partitions(void)
 	return ret;
 }
 
-const char *get_process_status(pid_t saved_pid, const char *saved_comm)
+typedef enum {
+	PID_DEAD,
+	PID_ALIVE,
+} pid_status;
+
+static pid_status get_process_status(struct esVB_K_POOL_INFO_S *pool)
 {
 	struct pid *pid_struct;
 	struct task_struct *task;
+	pid_t saved_pid = pool->pid;
+	pid_status ret = PID_DEAD;
 
-	if (saved_pid <= 0 || !saved_comm)
-		return "Invalid";
+	if (saved_pid <= 0)
+		return ret;
 
 	rcu_read_lock();
-
 	pid_struct = find_vpid(saved_pid);
-	if (!pid_struct) {
-		rcu_read_unlock();
-		return "Exited";
-	}
+	if (!pid_struct)
+		goto out_unlock;
 
 	task = pid_task(pid_struct, PIDTYPE_PID);
-	if (!task) {
-		rcu_read_unlock();
-		return "Exited";
-	}
+	if (!task)
+		goto out_unlock;
 
-	if (strcmp(task->comm, saved_comm) != 0) {
-		rcu_read_unlock();
-		return "Recycled";
-	}
+	if (pool->pid_start_time != task->start_time)
+		goto out_unlock;
 
-	if (task->exit_state & EXIT_ZOMBIE) {
-		rcu_read_unlock();
-		return "Zombie";
-	}
+	if (task->exit_state & EXIT_ZOMBIE)
+		goto out_unlock;
 
-	if (task->exit_state & EXIT_DEAD) {
-		rcu_read_unlock();
-		return "Dead";
-	}
+	if (task->exit_state & EXIT_DEAD)
+		goto out_unlock;
 
+	ret = PID_ALIVE;
+out_unlock:
 	rcu_read_unlock();
-	return "Alive";
+	return ret;
+}
+
+static const char *get_process_status_str(struct esVB_K_POOL_INFO_S *pool)
+{
+	pid_status status = get_process_status(pool);
+	switch (status) {
+		case PID_ALIVE:  return "Alive";
+		default: return "Dead";
+	}
 }
 
 static int mmz_vb_idr_iterate_show(int id, void *p, void *data)
@@ -1698,18 +1726,20 @@ static int mmz_vb_idr_iterate_show(int id, void *p, void *data)
 	struct esVB_K_POOL_INFO_S *pool = (struct esVB_K_POOL_INFO_S *)p;
 	struct esVB_POOL_CONFIG_S *pool_cfg;
 	es_proc_entry_t *s = (es_proc_entry_t *)data;
-	const char *pid_state = get_process_status(pool->pid, pool->comm);
+	unsigned free_cnt;
 
 	spin_lock(&pool->lock);
+	free_cnt = vb_pool_get_free_block_cnt_unlock(pool);
+	spin_unlock(&pool->lock);
+
 	pool_cfg = &pool->poolCfg;
 	es_seq_printf(s, "\t Uid %d, PoolId %d, blkSize 0x%llx, blkCnt %d, RemapMode %d, mmzName %s, allocated blkCnt %d, owner: [pid: %d, comm: %s, status: %s], create_jiffies:%lu, alive_time: %lus\n\r",
                 pool->enVbUid,
 		pool->poolId, pool_cfg->blkSize, pool_cfg->blkCnt,
 		pool_cfg->enRemapMode, pool_cfg->mmzName,
-		pool_cfg->blkCnt - vb_pool_get_free_block_cnt_unlock(pool),
-                pool->pid, pool->comm, pid_state,
+		pool_cfg->blkCnt - free_cnt,
+                pool->pid, pool->comm, get_process_status_str(pool),
                 jiffies, (jiffies - pool->jiffies) / HZ);
-	spin_unlock(&pool->lock);
 	return 0;
 }
 
@@ -1742,7 +1772,9 @@ int mmz_vb_proc_show(es_proc_entry_t *s)
 				memblock->used_peak_page_num << PAGE_SHIFT);
 	}
 	es_seq_printf(s, "-----POOL CONFIG-----\n\r");
+	down_read(&partitions->idr_lock);
 	ret = idr_for_each(&partitions->pool_idr, mmz_vb_idr_iterate_show, s);
+	up_read(&partitions->idr_lock);
 	if (ret) {
 		dev_err(mmz_vb_dev, "%s %d, failed to iterate vb pool ret %d\n",
 			__func__,__LINE__, ret);
@@ -1903,7 +1935,6 @@ static int mmz_vb_pool_exit(void)
 		if (ret) {
 			dev_err(mmz_vb_dev, "%s %d, failed to destory vb pool, ret %d\n",
 				__func__,__LINE__, ret);
-			continue;
 		}
 	}
 
@@ -2070,12 +2101,14 @@ static int vb_pool_get_block(struct esVB_K_POOL_INFO_S *pool,
 		if (atomic_inc_return(&vb_priv->allocBlkcnt) == 1) {
 			__module_get(THIS_MODULE);
 		}
-	} else {
+	}
+	spin_unlock(&pool->lock);
+
+	if (unlikely(nr >= pool_cfg->blkCnt)) {
 		dev_warn(mmz_vb_dev, "%s %d, pool %d used up, blkSize 0x%llx,"
 			"blkCnt 0x%x\n",__func__,__LINE__, pool->poolId,
 			pool_cfg->blkSize, pool_cfg->blkCnt);
 	}
-	spin_unlock(&pool->lock);
 	return ret;
 }
 
@@ -2094,37 +2127,45 @@ static int vb_get_block(struct esVB_GET_BLOCK_CMD_S *getBlkCmd,
 		down_read(&partitions->idr_lock);
 		ret = vb_find_pool_by_id_unlock(req->poolId, &pool);
 		if (ret) {
-			up_read(&partitions->idr_lock);
 			dev_err(mmz_vb_dev, "%s %d, failed to find pool by id %d!\n",__func__,__LINE__, req->poolId);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto idr_unlock;
 		}
 		if (test_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool->flag)) {
-			up_read(&partitions->idr_lock);
 			dev_err(mmz_vb_dev, "%s %d, pool %d is in destory state, not allow "
 				"to alloc block!\n",__func__,__LINE__, req->poolId);
-			return -ENOTSUPP;
+			ret = -ENOTSUPP;
+			goto idr_unlock;
 		}
 		pool_cfg = &pool->poolCfg;
 		if (req->blkSize > pool_cfg->blkSize) {
-			up_read(&partitions->idr_lock);
 			dev_err(mmz_vb_dev, "%s %d, pool blkSize 0x%llx is "
 				"smaller than request size 0x%llx\n",__func__,__LINE__,
 				pool_cfg->blkSize, req->blkSize);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto idr_unlock;
 		}
 		ret = vb_pool_get_block(pool, ppBlk);
+idr_unlock:
 		up_read(&partitions->idr_lock);
 	} else if (req->uid >= VB_UID_COMMON && req->uid < VB_UID_MAX) {
+		down_read(&partitions->idr_lock);
 		down_read(&vb_priv->pool_lock[req->uid]);
 		/*try to get block for the exact block size */
 		hash_for_each_possible(vb_priv->ht[req->uid], pool, node, PAGE_ALIGN(req->blkSize)) {
 			pool_cfg = &pool->poolCfg;
 			if (PAGE_ALIGN(req->blkSize) == pool_cfg->blkSize &&
-				!strcmp(req->mmzName, pool_cfg->mmzName)) {
-					ret = vb_pool_get_block(pool, ppBlk);
-					if (0 == ret) {
-						break;
-					}
+			    !strcmp(req->mmzName, pool_cfg->mmzName)) {
+				if (test_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool->flag)) {
+					dev_err(mmz_vb_dev, "%s %d, mod pool of uid %d is in destory state, not allow to alloc block!\n",
+						__func__,__LINE__,  req->uid);
+					ret = -ENOTSUPP;
+					goto common_unlock;
+				}
+				ret = vb_pool_get_block(pool, ppBlk);
+				if (0 == ret) {
+					break;
+				}
 			}
 		}
 		/*try to get block from the pool whose block size > req->blkSize*/
@@ -2141,55 +2182,60 @@ static int vb_get_block(struct esVB_GET_BLOCK_CMD_S *getBlkCmd,
 				}
 			}
 			if (NULL != pool_tmp) {
+				if (test_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool_tmp->flag)) {
+					dev_err(mmz_vb_dev, "%s %d, mod pool of uid %d is in destory state, not allow to alloc block!\n",
+						__func__,__LINE__,  req->uid);
+					ret = -ENOTSUPP;
+					goto common_unlock;
+				}
 				ret = vb_pool_get_block(pool_tmp, ppBlk);
 			}
 		}
+common_unlock:
 		up_read(&vb_priv->pool_lock[req->uid]);
+		up_read(&partitions->idr_lock);
 	} else {
-        dev_err(mmz_vb_dev, "%s %d, invaild uid %d\n",__func__,__LINE__, req->uid);
-    }
+        	dev_err(mmz_vb_dev, "%s %d, invaild uid %d\n",__func__,__LINE__, req->uid);
+	}
 	return ret;
 }
 
 static void vb_release_block(struct esVB_K_BLOCK_INFO_S *pBlk)
 {
-	struct esVB_K_POOL_INFO_S *pool;
+	struct esVB_K_POOL_INFO_S *pool = pBlk->pool;
 	struct mmz_vb_priv *vb_priv = g_mmz_vb_priv;
 	struct esVB_K_MMZ_S *partitions = &vb_priv->partitions;
-	bool need_destory = false;
-	struct rw_semaphore *lock;
+	s64 pool_id = -1;
 	int ret;
 
-	pool = pBlk->pool;
-
-	lock = VB_UID_PRIVATE == pool->enVbUid ? \
-		&partitions->idr_lock : &vb_priv->pool_lock[pool->enVbUid];
-	/*
-	  usually we don't need to destory pool here.
-	  so just get read lock first.
-	*/
-	down_read(lock);
+	down_read(&partitions->idr_lock); // hold idr_lock to prevent vb_pool_get_block
 	spin_lock(&pool->lock);
 	bitmap_clear(pool->bitmap, pBlk->nr, 1);
 	if (bitmap_empty(pool->bitmap, pool->poolCfg.blkCnt) &&
 		test_bit(MMZ_VB_POOL_FLAG_DESTORY, &pool->flag)) {
-			need_destory = true;
+			pool_id = pool->poolId;
 	}
 	spin_unlock(&pool->lock);
-	up_read(lock);
+	up_read(&partitions->idr_lock);
 	if (atomic_dec_return(&vb_priv->allocBlkcnt) == 0) {
 		module_put(THIS_MODULE);
 	}
 
-	if (true == need_destory) {
-		down_write(lock);
-		ret = mmz_vb_do_destory_pool(pool, false, false);
-		if (ret) {
-			dev_err(mmz_vb_dev, "%s %d, faild to destory pool, enVbUid %d, PoolId %d, ret %d\n",
-				__func__,__LINE__, pool->enVbUid, pool->poolId, ret);
-		}
-		up_write(lock);
+	if (pool_id < 0)
+		return;
+
+	down_write(&partitions->idr_lock);
+	// make sure pool still alive.
+	if (!idr_find(&partitions->pool_idr, pool_id)) {
+		up_write(&partitions->idr_lock);
+		return;
 	}
+	ret = mmz_vb_do_destory_pool(pool, false, false);
+	if (ret) {
+		dev_err(mmz_vb_dev, "Delay destory pool [enVbUid %d, PoolId %d] failed, this will leak! ret =%d\n",
+			 pool->enVbUid, pool->poolId, ret);
+	}
+	up_write(&partitions->idr_lock);
 }
 
 static int vb_is_splitted_blk(int fd, bool *isSplittedBlk)
