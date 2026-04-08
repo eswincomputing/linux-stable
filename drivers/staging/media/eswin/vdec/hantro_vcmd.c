@@ -2725,7 +2725,7 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 
 	if (!filp || !filp->private_data) {
 		LOG_ERR("vcmd release, filp=%px, private_data=%px\n", filp, filp ? filp->private_data : NULL);
-		return EFAULT;
+		return -EFAULT;
 	}
 
 	fp_priv = (struct filp_priv *)filp->private_data;
@@ -3010,7 +3010,6 @@ int hantrovcmd_release(struct inode *inode, struct file *filp)
 		}
 	} else {
 		LOG_ERR("vcmd hwid=0x%08x, unsupported\n", dev->hw_version_id);
-		return EFAULT;
 		// for (core_id = 0; core_id < total_vcmd_core_num; core_id++) {
 		// 	if (down_interruptible(&vcmd_reserve_cmdbuf_sem[dev[core_id].vcmd_core_cfg.sub_module_type]))
 		// 		return -ERESTARTSYS;
