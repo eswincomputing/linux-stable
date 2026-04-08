@@ -230,28 +230,14 @@
 	};
 };
 
-/ {
-	thermal-zones {
-		thermal0 {
-			trips {
-				threshold: trip-point0 {
-					temperature = <65000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-				target: trip-point1 {
-					temperature = <75000>;
-					hysteresis = <1000>;
-					type = "passive";
-				};
-				crit: trip-point2 {
-					temperature     = <95000>;
-					hysteresis      = <0>;
-					type            = "critical";
-				};
-			};
-		};
-	};
+&d0_trip_threshold {
+	temperature = <65000>;
+};
+&d0_trip_target {
+	temperature = <75000>;
+};
+&d0_trip_crit {
+	temperature = <95000>;
 };
 
 &d0_clock {
