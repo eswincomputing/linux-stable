@@ -12,6 +12,7 @@
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-heap.h>
 #include <linux/err.h>
 #include <linux/xarray.h>
 #include <linux/list.h>
@@ -22,7 +23,7 @@
 #include <linux/eswin_rsvmem_common.h>
 #include "include/uapi/linux/eswin_rsvmem_common.h"
 
-#define DEVNAME "eswin_heap"
+#define DEVNAME "dma_heap"
 
 #define NUM_HEAP_MINORS 128
 
@@ -398,20 +399,6 @@ out_free:
 }
 EXPORT_SYMBOL(eswin_heap_kalloc);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
-static char *eswin_heap_devnode(const struct device *dev, umode_t *mode)
-#else
-static char *eswin_heap_devnode(struct device *dev, umode_t *mode)
-#endif
-
-{
-	// return kasprintf(GFP_KERNEL, "eswin_heap/%s", dev_name(dev));
-	/* create device node under dma_heap instead of eswin_heap, so that memory lib can
-	   avoid the diverseness.
-	*/
-	return kasprintf(GFP_KERNEL, "dma_heap/%s", dev_name(dev));
-}
-
 int eswin_heap_init(void)
 {
 	int ret;
@@ -420,21 +407,28 @@ int eswin_heap_init(void)
 				  DEVNAME);
 	if (ret)
 		return ret;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
-	eswin_heap_class = class_create(DEVNAME);
-#else
-	eswin_heap_class = class_create(THIS_MODULE, DEVNAME);
-#endif
-	if (IS_ERR(eswin_heap_class)) {
-		unregister_chrdev_region(eswin_heap_devt, NUM_HEAP_MINORS);
-		return PTR_ERR(eswin_heap_class);
+
+	/*
+	* Borrow the existing dma_heap class instead of creating our own.
+	* This ensures SUBSYSTEM=dma_heap in the uevent so that OpenHarmony
+	* ueventd places the node under /dev/dma_heap/ correctly.
+	* dma_heap_init() runs at subsys_initcall (level 4), we run at
+	* module_init (level 6), so the class is guaranteed to exist here.
+	*/
+	eswin_heap_class = dma_heap_get_class();
+	if (!eswin_heap_class) {
+			pr_err("eswin_heap: dma_heap class not available\n");
+			unregister_chrdev_region(eswin_heap_devt, NUM_HEAP_MINORS);
+			return -ENODEV;
 	}
-	eswin_heap_class->devnode = eswin_heap_devnode;
 
 	return 0;
 }
 
 void eswin_heap_uninit(void)
 {
-	class_destroy(eswin_heap_class);
+	/*
+	* Do NOT call class_destroy() — we do not own dma_heap_class.
+	*/
+	unregister_chrdev_region(eswin_heap_devt, NUM_HEAP_MINORS);
 }
