@@ -244,6 +244,18 @@
 	status = "okay";
 };
 
+&d0_cpu_opp_table {
+	/delete-node/ opp-400000000;
+	/delete-node/ opp-500000000;
+	/delete-node/ opp-600000000;
+	/delete-node/ opp-700000000;
+	/delete-node/ opp-800000000;
+	/delete-node/ opp-1000000000;
+	/delete-node/ opp-1100000000;
+	/delete-node/ opp-1200000000;
+	/delete-node/ opp-1300000000;
+};
+
 &d0_reset {
 	status = "okay";
 };
