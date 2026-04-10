@@ -1639,7 +1639,7 @@ static int mmz_vb_init_partitions(void)
 	if (NULL == mmz_vb_priv)
 		return -EFAULT;
 
-	partitions = &mmz_vb_priv->partitions;;
+	partitions = &mmz_vb_priv->partitions;
 	init_rwsem(&partitions->idr_lock);
 	idr_init(&partitions->pool_idr);
 
@@ -1774,7 +1774,7 @@ static inline void mmz_vb_proc_print_help(const char *buf, int count)
 
 	kern_buf = memdup_user_nul(buf, count);
 	if (!IS_ERR(kern_buf)) {
-		if ('\n' == kern_buf[count - 1])
+		if (count > 0 && '\n' == kern_buf[count - 1])
 			kern_buf[count - 1] = '\0';
 
 		dev_err(mmz_vb_dev, "Failed to parse input. Received: '%s'\n",
@@ -2235,7 +2235,6 @@ static int vb_blk_to_pool(struct esVB_BLOCK_TO_POOL_CMD_S *blkToPoolCmd)
 
 	ret = vb_is_splitted_blk(blkToPoolCmd->fd, &isSplittedBlk);
 	if (ret) {
-		dma_buf_put(dmabuf);
 		ret = -EINVAL;
 		goto out_put_dmabuf;
 	}
@@ -2346,7 +2345,7 @@ static int vb_split_dmabuf(struct esVB_SPLIT_DMABUF_CMD_S *splitDmabufCmd)
 
 	/* Apend "_splitted" to the splitted buffer expname, so that it is identified by the suffix */
 	i = snprintf(splittedBuffer_ExpName, sizeof(splittedBuffer_ExpName), "%s_splitted", dmabuf->exp_name);
-	if (i > sizeof(splittedBuffer_ExpName)) {
+	if (i >= sizeof(splittedBuffer_ExpName)) {
 		vb_err("Length of name(%d) for the the splitted buffer exceed the max name len(%ld)!!!\n",
 			i, sizeof(splittedBuffer_ExpName));
 		ret = -EINVAL;
@@ -2452,17 +2451,19 @@ static int vb_retrieve_mem_node(struct esVB_RETRIEVE_MEM_NODE_CMD_S *retrieveMem
 		mmap_read_lock(mm);
 		vma = vma_lookup(mm, vaddr & PAGE_MASK);
 		if (!vma) {
+			mmap_read_unlock(mm);
 			pr_err("Failed to vma_lookup!\n");
 			return -EFAULT;
 		}
 		vm_flags = vma->vm_flags;
-		mmap_read_unlock(mm);
 
-		if (!(vm_flags & (VM_IO | VM_PFNMAP)) || (NULL == vma->vm_private_data)) {
+		if (!(vm_flags & (VM_IO | VM_PFNMAP)) || !vma->vm_private_data) {
+			mmap_read_unlock(mm);
 			pr_debug("This vaddr is NOT mmapped with VM_PFNMAP!\n");
 			return -EFAULT;
 		}
 		dmabuf = vma->vm_private_data;
+		mmap_read_unlock(mm);
 		ret = do_vb_retrive_mem_node(dmabuf, &retrieveMemNodeCmd->numa_node, p_mem_type);
 	}
 
