@@ -1080,6 +1080,7 @@
 			numa-node-id = <0>;
 			status = "disabled";
 			dma-noncoherent;
+			disable-wp;
 		};
 
 		sdio1: mmc@0x50470000{
