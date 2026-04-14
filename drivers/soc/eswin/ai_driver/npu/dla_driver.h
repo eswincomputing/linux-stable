@@ -87,6 +87,7 @@ struct nvdla_device {
 	struct clk *fixed_rate_clk_spll2_fout2;
 	struct clk *fixed_rate_clk_spll1_fout1;
 	struct clk *llc_aclk;
+	struct clk *aclk;
 	struct clk *mux_u_npu_llclk_3mux1_gfree;
 	struct clk *fixed_rate_clk_spll0_fout1;
 	struct clk *fixed_rate_clk_spll2_fout1;

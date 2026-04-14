@@ -67,6 +67,7 @@ module_param(npu_spram_size, int, 0644);
 MODULE_PARM_DESC(npu_spram_size, "npu spram size");
 
 struct platform_device *pdevs[2] = {NULL, NULL};
+EXPORT_SYMBOL(pdevs);
 const static uint32_t npu_llc_offset[2] = {NPU_LLC0_OFFSET, NPU_LLC1_OFFSET};
 
 static const struct of_device_id spram_dt_ids[] = {
@@ -618,22 +619,30 @@ static int llc_clk_enable(struct spram_dev *spram)
 	ret = clk_prepare_enable(spram->cfg_clk);
 	if (ret) {
 		dev_err(spram->dev, "failed to enable cfg_clk: %d\n", ret);
-		return ret;
+		goto err_cfg_clk;
 	}
 
 	ret = clk_prepare_enable(spram->llc_clk);
 	if (ret) {
 		dev_err(spram->dev, "failed to enable llc_clk: %d\n", ret);
-		return ret;
+		goto err_llc_clk;
 	}
 
 	ret = clk_prepare_enable(spram->core_clk);
 	if (ret) {
 		dev_err(spram->dev, "failed to enable core_clk: %d\n", ret);
-		return ret;
+		goto err_core_clk;
 	}
 
 	return 0;
+
+err_core_clk:
+	clk_disable_unprepare(spram->llc_clk);
+err_llc_clk:
+	clk_disable_unprepare(spram->cfg_clk);
+err_cfg_clk:
+	clk_disable_unprepare(spram->aclk);
+	return ret;
 }
 
 static int llc_clk_disable(struct spram_dev *spram)
@@ -643,6 +652,7 @@ static int llc_clk_disable(struct spram_dev *spram)
 	clk_disable_unprepare(spram->aclk);
 	clk_disable_unprepare(spram->cfg_clk);
 	clk_disable_unprepare(spram->llc_clk);
+	clk_disable_unprepare(spram->core_clk);
 
 	return 0;
 }
@@ -1293,7 +1303,6 @@ free_spram:
 }
 #endif
 
-#ifdef CONFIG_PM_SLEEP
 static int llc_sideband_query(struct device *dev)
 {
 	int ret = 0;
@@ -1358,9 +1367,14 @@ static int __maybe_unused llc_suspend(struct device *dev)
 		dev_err(dev, "llc suspend failed.\n");
 		return ret;
 	}
-	win2030_tbu_power(dev, false);
+	if (!pm_runtime_status_suspended(dev)) {
+		win2030_tbu_power(dev, false);
+	}
 	llc_rst_assert(spram);
-	llc_clk_disable(spram);
+
+	if (!pm_runtime_status_suspended(dev)) {
+		llc_clk_disable(spram);
+	}
 	regulator_disable(spram->npu_regulator);
 
 	return 0;
@@ -1396,19 +1410,44 @@ static int __maybe_unused llc_resume(struct device *dev)
 		return ret;
 	}
 
-	clk_disable_unprepare(spram->core_clk);
+	if (pm_runtime_status_suspended(dev)) {
+		win2030_tbu_power(dev, false);
+		ret = llc_clk_disable(spram);
+		if (ret != 0) {
+			dev_err(spram->dev, "llc_clk_disable error: %d\n", ret);
+			return ret;
+		}
+	}
 
 	return ret;
 }
 
-static const struct dev_pm_ops llc_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(llc_suspend, llc_resume)
-};
+int __maybe_unused llc_runtime_suspend(struct device *dev)
+{
+	struct spram_dev *spram = dev_get_drvdata(dev);
 
-#define DEV_PM_OPS (&llc_dev_pm_ops)
-#else
-#define DEV_PM_OPS NULL
-#endif /* CONFIG_PM_SLEEP */
+	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
+	win2030_tbu_power(dev, false);
+	return llc_clk_disable(spram);
+}
+
+int __maybe_unused llc_runtime_resume(struct device *dev)
+{
+	struct spram_dev *spram = dev_get_drvdata(dev);
+	int ret = 0;
+
+	dev_dbg(dev, "%s, %d, into..\n", __func__, __LINE__);
+	ret = llc_clk_enable(spram);
+	if (ret)
+		return ret;
+	win2030_tbu_power(dev, true);
+	return ret;
+}
+
+static const struct dev_pm_ops llc_dev_pm_ops = {
+	SYSTEM_SLEEP_PM_OPS(llc_suspend, llc_resume)
+	SET_RUNTIME_PM_OPS(llc_runtime_suspend, llc_runtime_resume, NULL)
+};
 
 static struct dma_buf *spram_heap_allocate(struct dma_heap *heap,
 					 unsigned long len,
@@ -1687,8 +1726,11 @@ static int llc_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "failed to create sysfs group: %d\n", ret);
 
-	clk_disable_unprepare(spram->core_clk);
-
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 10000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_mark_last_busy(&pdev->dev);
 	return 0;
 }
 
@@ -1700,6 +1742,7 @@ static int llc_remove(struct platform_device *pdev)
 	llc_rst_assert(spram);
 	llc_clk_disable(spram);
 	regulator_disable(spram->npu_regulator);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -1715,7 +1758,7 @@ static struct platform_driver llc_driver = {
 	.driver = {
 		.name = DEVICE_NAME,
 		.of_match_table = llc_dt_ids,
-		.pm	= DEV_PM_OPS,
+		.pm	= pm_sleep_ptr(&llc_dev_pm_ops),
 	},
 	.probe = llc_probe,
 	.remove  = llc_remove,
@@ -1725,4 +1768,3 @@ builtin_platform_driver(llc_driver);
 MODULE_DESCRIPTION("ESWIN LLC driver");
 MODULE_AUTHOR("Lin MIn <linmin@eswincomputing.com>");
 MODULE_LICENSE("GPL");
-

@@ -903,6 +903,14 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 		return ret;
 	}
 
+	nvdla_dev->aclk = devm_clk_get(&pdev->dev, "aclk");
+	if (IS_ERR(nvdla_dev->aclk)) {
+		ret = PTR_ERR(nvdla_dev->aclk);
+		nvdla_dev->aclk = NULL;
+		dev_err(&pdev->dev, "failed to get aclk clk, ret = %d,\n", ret);
+		return ret;
+	}
+
 	nvdla_dev->cfg_clk = devm_clk_get(&pdev->dev, "cfg_clk");
 	if (IS_ERR(nvdla_dev->cfg_clk)) {
 		ret = PTR_ERR(nvdla_dev->cfg_clk);
@@ -1113,9 +1121,10 @@ int npu_disable_clock(struct nvdla_device *ndev)
 {
 	npu_disable_mbox_clock(ndev);
 	clk_disable_unprepare(ndev->e31_core_clk);
-
 	clk_disable_unprepare(ndev->core_clk);
-
+	clk_disable_unprepare(ndev->aclk);
+	clk_disable_unprepare(ndev->llc_aclk);
+	clk_disable_unprepare(ndev->cfg_clk);
 	return 0;
 }
 
@@ -1134,6 +1143,25 @@ int npu_enable_clock(struct nvdla_device *ndev)
 		dla_error("npu enable e31 core clk err.\n");
 		goto err_e31_clk;
 	}
+
+	ret = clk_prepare_enable(ndev->aclk);
+	if (ret < 0) {
+		dla_error("npu enable aclk err.\n");
+		goto err_aclk;
+	}
+
+	ret = clk_prepare_enable(ndev->llc_aclk);
+	if (ret < 0) {
+		dla_error("npu enable llc clk err.\n");
+		goto err_llc_clk;
+	}
+
+	ret = clk_prepare_enable(ndev->cfg_clk);
+	if (ret < 0) {
+		dla_error("npu enable cfg clk err.\n");
+		goto err_cfg_clk;
+	}
+
 	ret = npu_enable_mbox_clock(ndev);
 	if (ret < 0) {
 		dla_error("npu enable mbox clock failed.\n");
@@ -1142,8 +1170,14 @@ int npu_enable_clock(struct nvdla_device *ndev)
 
 	return 0;
 err_mbox_clk:
-	clk_disable_unprepare(ndev->e31_core_clk);
+err_cfg_clk:
+	clk_disable_unprepare(ndev->cfg_clk);
+err_llc_clk:
+	clk_disable_unprepare(ndev->llc_aclk);
+err_aclk:
+	clk_disable_unprepare(ndev->aclk);
 err_e31_clk:
+	clk_disable_unprepare(ndev->e31_core_clk);
 	clk_disable_unprepare(ndev->core_clk);
 
 	return ret;
@@ -1154,23 +1188,71 @@ int npu_platform_init(void)
 	return 0;
 }
 
+extern struct platform_device *pdevs[2];
+
+static int npu_get_llc_pdev(struct nvdla_device *ndev,
+				    struct platform_device **llc_pdev)
+{
+	if (ndev->numa_id < 0 || ndev->numa_id >= ARRAY_SIZE(pdevs)) {
+		dla_error("invalid numa id %d.\n", ndev->numa_id);
+		return -EINVAL;
+	}
+
+	*llc_pdev = pdevs[ndev->numa_id];
+	if (*llc_pdev == NULL) {
+		dla_error("llc device is null for numa id %d.\n", ndev->numa_id);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
 int npu_pm_get(struct nvdla_device *ndev)
 {
+	struct platform_device *llc_pdev;
+	int ret;
+
 	if (ndev == NULL) {
 		dla_error("nvdla device is null.\n");
 		return -EINVAL;
 	}
-	return pm_runtime_resume_and_get(&ndev->pdev->dev);
+
+	ret = npu_get_llc_pdev(ndev, &llc_pdev);
+	if (ret)
+		return ret;
+
+	ret = pm_runtime_resume_and_get(&ndev->pdev->dev);
+	if (ret < 0)
+		return ret;
+
+	ret = pm_runtime_resume_and_get(&llc_pdev->dev);
+	if (ret < 0) {
+		pm_runtime_mark_last_busy(&ndev->pdev->dev);
+		pm_runtime_put_autosuspend(&ndev->pdev->dev);
+		return ret;
+	}
+
+	return 0;
 }
 
 int npu_pm_put(struct nvdla_device *ndev)
 {
+	struct platform_device *llc_pdev;
+	int ret;
+
 	if (ndev == NULL) {
 		dla_error("nvdla device is null.\n");
 		return -EINVAL;
 	}
+
+	ret = npu_get_llc_pdev(ndev, &llc_pdev);
 	pm_runtime_mark_last_busy(&ndev->pdev->dev);
 	pm_runtime_put_autosuspend(&ndev->pdev->dev);
+	if (ret)
+		return ret;
+
+	pm_runtime_mark_last_busy(&llc_pdev->dev);
+	pm_runtime_put_autosuspend(&llc_pdev->dev);
 	return 0;
 }
 
