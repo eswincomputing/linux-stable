@@ -537,7 +537,7 @@ static struct eswin_mux_clock eic7700_mux_clks[] = {
 		EIC7700_REG_OFFSET_VI_ACLK_CTRL,
 		0,
 		1,
-		0,
+		CLK_MUX_ROUND_CLOSEST,
 	},
 
 	{
@@ -549,7 +549,7 @@ static struct eswin_mux_clock eic7700_mux_clks[] = {
 		EIC7700_REG_OFFSET_VI_DWCLK_CTRL,
 		0,
 		1,
-		0,
+		CLK_MUX_ROUND_CLOSEST,
 	},
 
 	{
@@ -561,7 +561,7 @@ static struct eswin_mux_clock eic7700_mux_clks[] = {
 		EIC7700_REG_OFFSET_VI_DVP_CLK_CTRL,
 		0,
 		1,
-		0,
+		CLK_MUX_ROUND_CLOSEST,
 	},
 
 	{
@@ -573,7 +573,7 @@ static struct eswin_mux_clock eic7700_mux_clks[] = {
 		EIC7700_REG_OFFSET_VI_DIG_ISP_CLK_CTRL,
 		0,
 		1,
-		0,
+		CLK_MUX_ROUND_CLOSEST,
 	},
 
 	{
@@ -847,7 +847,7 @@ static struct eswin_divider_clock eic7700_div_clks[] = {
 	  CLK_DIVIDER_ROUND_CLOSEST, u_4_bit_special_div_table },
 
 	{ EIC7700_DIVDER_U_VI_DVP_DIV_DYNM, "divder_u_vi_dvp_div_dynm",
-	  "mux_u_vi_dig_root_2mux1_gfree", 0,
+	  "mux_u_vi_dvp_root_2mux1_gfree", 0,
 	  EIC7700_REG_OFFSET_VI_DVP_CLK_CTRL, 4, 4, CLK_DIVIDER_ROUND_CLOSEST,
 	  u_4_bit_special_div_table },
 

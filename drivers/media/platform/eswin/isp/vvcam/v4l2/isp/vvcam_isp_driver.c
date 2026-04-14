@@ -90,6 +90,10 @@
 #ifdef VVCAM_PLATFORM_REGISTER
 #include "vvcam_isp_platform.h"
 #endif
+#if defined(CONFIG_PM_DEVFREQ)
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+#endif
 #define VVCAM_ISP_NAME		"vvcam-isp-subdev"
 #define VVCAM_ISP_NAME_D1	"vvcam-isp-subdev-d1"
 
@@ -106,6 +110,17 @@
 #define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
 #define ARSMMUSID	GENMASK(15, 8)	// The sid of read operation
 #define ARSMMUSSID	GENMASK(7, 0)	// The ssid of read operation
+
+#define ISP_CLK_GET_HANDLE(dev, clk_handle, clk_name)                     \
+	{                                                                   \
+		clk_handle = devm_clk_get(dev, clk_name);                   \
+		if (IS_ERR(clk_handle)) {                                   \
+			ret = PTR_ERR(clk_handle);                          \
+			dev_err(dev, "failed to get isp %s: %d\n", clk_name, \
+				ret);                                       \
+			return ret;                                         \
+		}                                                           \
+	}
 
 struct vvcam_isp_format vvcam_isp_mp_fmts[] = {
 	{
@@ -1315,7 +1330,7 @@ static int vvcam_isp_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	isp_dev->refcnt++;
 	int ret = pm_runtime_resume_and_get(sd->dev);
 	if (ret < 0) {
-		dev_err(sd->dev, "Failed to get runtime pm, %d\n");
+		dev_err(sd->dev, "failed to get runtime pm\n");
 		return ret;
 	}
 
@@ -1666,12 +1681,125 @@ static int isp_smmu_sid_cfg(struct device* dev)
 
 }
 
+#if defined(CONFIG_PM_DEVFREQ)
+/* devfreq target function to set frequency */
+static int isp_devfreq_target(struct device *dev, unsigned long *freq,
+				 u32 flags)
+{
+	struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
+	unsigned long spll0_rate = clk_get_rate(isp_dev->spll0_fout1);
+	unsigned long vpll_rate = clk_get_rate(isp_dev->vpll_fout1);
+	unsigned long target = *freq;
+	int ret = 0;
+
+	if (pm_runtime_status_suspended(dev)) {
+		return 0;
+	}
+
+	if (!isp_dev) {
+		dev_err(dev, "isp_dev is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!isp_dev->isp_mux) {
+		dev_err(dev, "isp_mux clock is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!isp_dev->spll0_fout1 || !isp_dev->vpll_fout1) {
+		dev_err(dev, "Parent clocks are NULL\n");
+		return -EINVAL;
+	}
+
+	if (spll0_rate % target < vpll_rate % target) {
+		ret = clk_set_parent(isp_dev->isp_mux, isp_dev->spll0_fout1);
+	} else {
+		ret = clk_set_parent(isp_dev->isp_mux, isp_dev->vpll_fout1);
+	}
+
+	if (ret) {
+		dev_err(dev, "Failed to set clock parent\n");
+		return ret;
+	}
+
+	ret = clk_set_rate(isp_dev->isp_clk, target);
+	if (ret) {
+		dev_warn(dev, "isp_clk set rate failed");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int isp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
+	unsigned long rate;
+
+	rate = clk_get_rate(isp_dev->isp_clk);
+	if (rate <= 0) {
+		dev_warn(dev, "failed to get isp_clk rate");
+		return rate;
+	}
+	*freq = rate;
+
+	return 0;
+}
+
+/* devfreq profile */
+static struct devfreq_dev_profile isp_devfreq_profile = {
+	.initial_freq = 800000000,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 1000, /* Poll every 1000ms to monitor load */
+	.target = isp_devfreq_target,
+	.get_cur_freq = isp_devfreq_get_cur_freq,
+};
+#endif
+
+static int es_isp_sys_clk_init(struct platform_device *pdev,
+			      struct vvcam_isp_dev *isp_dev)
+{
+	int ret = 0;
+	struct device *dev = &pdev->dev;
+
+	ISP_CLK_GET_HANDLE(dev, isp_dev->isp_clk, "isp");
+	ISP_CLK_GET_HANDLE(dev, isp_dev->dvp_clk, "dvp");
+	ISP_CLK_GET_HANDLE(dev, isp_dev->isp_mux, "isp_mux");
+	ISP_CLK_GET_HANDLE(dev, isp_dev->phy_cfg, "phy_cfg");
+	ISP_CLK_GET_HANDLE(dev, isp_dev->phy_txclkesc, "phy_txclkesc");
+	ISP_CLK_GET_HANDLE(dev, isp_dev->spll0_fout1, "spll0_fout1");
+	ISP_CLK_GET_HANDLE(dev, isp_dev->vpll_fout1, "vpll_fout1");
+
+	return ret;
+}
+
+static int es_isp_sys_clk_enable(struct vvcam_isp_dev *isp_dev)
+{
+	clk_prepare_enable(isp_dev->isp_clk);
+	clk_prepare_enable(isp_dev->dvp_clk);
+	clk_prepare_enable(isp_dev->phy_cfg);
+	clk_prepare_enable(isp_dev->phy_txclkesc);
+	return 0;
+}
+
+static int es_isp_sys_clk_disable(struct vvcam_isp_dev *isp_dev)
+{
+	clk_disable_unprepare(isp_dev->isp_clk);
+	clk_disable_unprepare(isp_dev->dvp_clk);
+	clk_disable_unprepare(isp_dev->phy_cfg);
+	clk_disable_unprepare(isp_dev->phy_txclkesc);
+	return 0;
+}
+
 static int vvcam_isp_probe(struct platform_device *pdev)
 {
     struct device *dev = &pdev->dev;
     struct vvcam_isp_dev *isp_dev;
 	u32 reg_val;
     int ret;
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df;
+#endif
 
 #ifdef CONFIG_NUMA
 	u32 numa_id = 0;
@@ -1705,15 +1833,25 @@ static int vvcam_isp_probe(struct platform_device *pdev)
 	reg_val |= (ISP0_CLK_EN | ISP1_CLK_EN);
 	regmap_write(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, reg_val);
 
-	isp_dev->num_clks = devm_clk_bulk_get_all(isp_dev->dev, &isp_dev->clks_bulk);
-	if (isp_dev->num_clks < 0)
-		return dev_err_probe(isp_dev->dev, -ENODEV,
-				     "Failed to get isp clocks\n");
+	es_isp_sys_clk_init(pdev, isp_dev);
+	es_isp_sys_clk_enable(isp_dev);
 
-	ret = clk_bulk_prepare_enable(isp_dev->num_clks, isp_dev->clks_bulk);
-	if (ret)
-		return dev_err_probe(isp_dev->dev, ret,
-				     "Failed to enable isp clocks\n");
+#if defined(CONFIG_PM_DEVFREQ)
+
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		pr_err("%s, %d, Failed to add OPP table\n", __func__, __LINE__);
+		return ret;
+	}
+
+	df = devm_devfreq_add_device(&pdev->dev, &isp_devfreq_profile,
+				     "userspace", NULL);
+	if (IS_ERR(df)) {
+		pr_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
+		return ret;
+	}
+#endif
 
 	isp_dev->rstc = devm_reset_control_array_get_shared(&pdev->dev);
 	if (IS_ERR_OR_NULL(isp_dev->rstc)) {
@@ -1861,12 +1999,18 @@ static int vvcam_isp_remove(struct platform_device *pdev)
 static int __maybe_unused vvcam_isp_runtime_suspend(struct device *dev)
 {
     struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
+	struct device *parent = dev->parent;
 
     win2030_tbu_power(dev, false);
 
 	reset_control_assert(isp_dev->rstc);
 
-    clk_bulk_disable_unprepare(isp_dev->num_clks, isp_dev->clks_bulk);
+    es_isp_sys_clk_disable(isp_dev);
+
+	if (parent && pm_runtime_enabled(parent)) {
+		pm_runtime_mark_last_busy(parent);
+		pm_runtime_put_autosuspend(parent);
+    }
 
     return 0;
 }
@@ -1877,11 +2021,22 @@ static int __maybe_unused vvcam_isp_runtime_resume(struct device *dev)
 	struct device *parent = dev->parent;
 	struct eswin_vi_device* es_vi_dev;
 	u32 reg_val = 0;
+	int ret;
 
-	int ret = clk_bulk_prepare_enable(isp_dev->num_clks, isp_dev->clks_bulk);
-	if (ret)
-		return dev_err_probe(isp_dev->dev, ret,
-				     "Failed to enable isp clocks\n");
+	es_vi_dev = dev_get_drvdata(parent);
+	if (!es_vi_dev) {
+		return -ENODEV;
+	}
+
+	if (parent && pm_runtime_enabled(parent)) {
+        ret = pm_runtime_resume_and_get(parent);
+        if (ret < 0) {
+            dev_err(dev, "Failed to resume parent VI: %d\n", ret);
+            return ret;
+        }
+    }
+
+	es_isp_sys_clk_enable(isp_dev);
 
 	reset_control_deassert(isp_dev->rstc);
 
@@ -1890,11 +2045,6 @@ static int __maybe_unused vvcam_isp_runtime_resume(struct device *dev)
 	regmap_read(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, &reg_val);
 	reg_val |= (ISP0_CLK_EN | ISP1_CLK_EN);
 	regmap_write(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, reg_val);
-
-	es_vi_dev = dev_get_drvdata(parent);
-	if (!es_vi_dev) {
-		return -ENODEV;
-	}
 
 	eic770x_vi_init(es_vi_dev);
 

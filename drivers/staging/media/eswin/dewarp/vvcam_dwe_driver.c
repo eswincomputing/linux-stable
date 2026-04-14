@@ -1105,7 +1105,6 @@ static int vvcam_sys_clk_init(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->dw_aclk, "dw_aclk");
-	VVCAM_CLK_GET_HANDLE(dev, dw_crg->aclk_mux, "aclk_mux");
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->dw_mux, "dw_mux");
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->spll0_fout1, "spll0_fout1");
 	VVCAM_CLK_GET_HANDLE(dev, dw_crg->vpll_fout1, "vpll_fout1");
@@ -1133,23 +1132,44 @@ static int vvcam_sys_reset_release(dw_clk_rst_t *dw_crg)
 int dewarp_set_aclk_rate(dw_clk_rst_t *dw_crg, unsigned long *rate)
 {
 	int ret;
+	unsigned long spll0_rate = clk_get_rate(dw_crg->spll0_fout1);
+	unsigned long vpll_rate = clk_get_rate(dw_crg->vpll_fout1);
+	unsigned long target = *rate;
 
-	*rate = clk_round_rate(dw_crg->aclk, *rate);
-	if (*rate > 0) {
-		ret = clk_set_rate(dw_crg->aclk, *rate);
-		if (ret) {
-			dev_err(dw_crg->dev, "failed to set aclk: %d\n", ret);
-			return ret;
-		}
-		dev_dbg(dw_crg->dev, "set dev rate to %ldHZ\n", *rate);
+	if (!dw_crg->dw_mux) {
+		dev_err(dw_crg->dev, "dw_mux clock is NULL\n");
+		return -EINVAL;
 	}
+
+	if (!dw_crg->spll0_fout1 || !dw_crg->vpll_fout1) {
+		dev_err(dw_crg->dev, "Parent clocks are NULL\n");
+		return -EINVAL;
+	}
+
+	if (spll0_rate % target < vpll_rate % target) {
+		ret = clk_set_parent(dw_crg->dw_mux, dw_crg->spll0_fout1);
+	} else {
+		ret = clk_set_parent(dw_crg->dw_mux, dw_crg->vpll_fout1);
+	}
+
+	if (ret) {
+		dev_err(dw_crg->dev, "Failed to set clock parent\n");
+		return ret;
+	}
+
+	ret = clk_set_rate(dw_crg->dw_aclk, target);
+	if (ret) {
+		dev_warn(dw_crg->dev, "dw_aclk set rate failed");
+		return ret;
+	}
+
 	return 0;
 }
 
 int dewarp_get_aclk_rate(dw_clk_rst_t *dw_crg)
 {
 	unsigned long rate;
-	rate = clk_get_rate(dw_crg->aclk);
+	rate = clk_get_rate(dw_crg->dw_aclk);
 	dev_dbg(dw_crg->dev, "get dev rate %ldHZ\n", rate);
 	return rate;
 }
@@ -1176,7 +1196,7 @@ static int dewarp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
 
 	rate = dewarp_get_aclk_rate(&pdwe_dev->dw_crg);
 	if (rate <= 0) {
-		dev_err(dev, "failed to get aclk: %ld\n", rate);
+		dev_err(dev, "failed to get dw_aclk: %ld\n", rate);
 		return rate;
 	}
 	*freq = rate;
@@ -1198,26 +1218,10 @@ static int vvcam_sys_clk_config(dw_clk_rst_t *dw_crg)
 	int ret = 0;
 	long rate;
 
-	ret = clk_set_parent(dw_crg->aclk_mux, dw_crg->spll0_fout1);
-	if (ret < 0) {
-		pr_err("DW: failed to set aclk_mux parent: %d\n", ret);
-		return ret;
-	}
-
 	ret = clk_set_parent(dw_crg->dw_mux, dw_crg->vpll_fout1);
 	if (ret < 0) {
 		pr_err("DW: failed to set dw_mux parent: %d\n", ret);
 		return ret;
-	}
-
-	rate = clk_round_rate(dw_crg->aclk, VVCAM_AXI_CLK_HIGHEST);
-	if (rate > 0) {
-		ret = clk_set_rate(dw_crg->aclk, rate);
-		if (ret) {
-			pr_err("DW: failed to set aclk: %d\n", ret);
-			return ret;
-		}
-		pr_info("DW set aclk to %ldHZ\n", rate);
 	}
 
 	rate = clk_round_rate(dw_crg->dw_aclk, VVCAM_DW_CLK_HIGHEST);

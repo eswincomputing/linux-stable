@@ -164,6 +164,14 @@ struct vvcam_isp_dev {
 	unsigned long pde;
 	struct vvcam_isp_sensor_info sensor_info[VVCAM_ISP_PORT_NR];
 	enum vvcam_isp_input_type_e input_type[VVCAM_ISP_PORT_NR];
+
+	struct clk *isp_clk;
+	struct clk *dvp_clk;
+	struct clk *phy_cfg;
+	struct clk *phy_txclkesc;
+	struct clk *spll0_fout1;
+	struct clk *vpll_fout1;
+	struct clk *isp_mux;
 };
 
 #endif

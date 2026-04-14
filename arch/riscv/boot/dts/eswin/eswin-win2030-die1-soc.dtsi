@@ -2249,6 +2249,9 @@
 					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_4>,
 					 <&d1_reset SHUTTER_RST_CTRL SW_VI_SHUTTER_RSTN_5>;
 			reset-names = "axi", "cfg", "isp0", "isp1", "dvp", "sht0", "sht1", "sht2", "sht3", "sht4", "sht5";
+			operating-points-v2 = <&vi_aclk_opp_table>;
+			#cooling-cells = <2>;
+			dynamic-power-coefficient = <1000>; /*TBD*/
 			tbus = <WIN2030_TBUID_DW>;
 			numa-node-id = <1>;
 			ranges;
@@ -2268,11 +2271,16 @@
 						<&d1_clock EIC7700_CLK_VI_DVP_CLK>,
 						<&d1_clock EIC7700_CLK_VI_PHY_CFG>,
 						<&d1_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
-						<&d1_clock EIC7700_CLK_VI_SHUTTER_0>;
-				clock-names = "isp", "dvp", "phy_cfg", "phy_txclkesc", "shutter0";
+						<&d1_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
+						<&d1_clock EIC7700_SPLL0_FOUT1>,
+						<&d1_clock EIC7700_VPLL_FOUT1>;
+				clock-names = "isp", "dvp", "phy_cfg", "phy_txclkesc", "isp_mux", "spll0_fout1", "vpll_fout1";
 				resets = <&d1_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
 						<&d1_reset DVP_RST_CTRL SW_VI_DVP_RSTN>;
 				reset-names = "isp0", "dvp";
+				operating-points-v2 = <&vi_isp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				iommus = <&smmu1 WIN2030_SID_ISP0>;
 				tbus = <WIN2030_TBUID_ISP>;
 				eswin,vi_top_csr = <&d1_vi_top_csr 0x1000 0x40>;
@@ -2288,11 +2296,16 @@
 						<&d1_clock EIC7700_CLK_VI_DVP_CLK>,
 						<&d1_clock EIC7700_CLK_VI_PHY_CFG>,
 						<&d1_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
-						<&d1_clock EIC7700_CLK_VI_SHUTTER_0>;
-				clock-names = "isp", "dvp", "phy_cfg", "phy_txclkesc", "shutter0";
+						<&d1_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
+						<&d1_clock EIC7700_SPLL0_FOUT1>,
+						<&d1_clock EIC7700_VPLL_FOUT1>;
+				clock-names = "isp", "dvp", "phy_cfg", "phy_txclkesc", "isp_mux", "spll0_fout1", "vpll_fout1";
 				resets = <&d1_reset ISP1_RST_CTRL SW_VI_ISP1_RSTN>,
 						<&d1_reset DVP_RST_CTRL SW_VI_DVP_RSTN>;
 				reset-names = "isp1", "dvp";
+				operating-points-v2 = <&vi_isp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				iommus = <&smmu1 WIN2030_SID_ISP1>;
 				tbus = <WIN2030_TBUID_ISP>;
 				eswin,vi_top_csr = <&d1_vi_top_csr 0x1004 0x40>;
@@ -2332,14 +2345,13 @@
 			d1_dewarp: dewarp@71020000 {
 				compatible = "eswin,dewarp";
 				clocks = <&d1_clock EIC7700_CLK_VI_DIG_DW_CLK>,
-						<&d1_clock EIC7700_MUX_U_VI_ACLK_ROOT_2MUX1_GFREE>,
 						<&d1_clock EIC7700_MUX_U_VI_DW_ROOT_2MUX1>,
 						<&d1_clock EIC7700_SPLL0_FOUT1>,
 						<&d1_clock EIC7700_VPLL_FOUT1>;
-				clock-names = "dw_aclk", "aclk_mux", "dw_mux", "spll0_fout1", "vpll_fout1";
+				clock-names = "dw_aclk", "dw_mux", "spll0_fout1", "vpll_fout1";
 				resets = <&d1_reset VI_RST_CTRL SW_VI_DWE_RSTN>;
 				reset-names = "dwe";
-				operating-points-v2 = <&vi_opp_table>;
+				operating-points-v2 = <&vi_dw_opp_table>;
 				#cooling-cells = <2>;
 				dynamic-power-coefficient = <1000>; /*TBD*/
 				power-domains = <&d1_pmu EIC770X_PD_VI>;
@@ -2365,10 +2377,15 @@
 				clocks = <&d1_clock EIC7700_CLK_VI_DVP_CLK>,
 						<&d1_clock EIC7700_CLK_VI_PHY_CFG>,
 						<&d1_clock EIC7700_CLK_VI_PHY_TXCLKESC>,
-						<&d1_clock EIC7700_CLK_VI_SHUTTER_0>;
-				clock-names = "dvp", "phy_cfg", "phy_txclkesc", "shutter0";
+						<&d1_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
+						<&d1_clock EIC7700_SPLL0_FOUT1>,
+						<&d1_clock EIC7700_VPLL_FOUT1>;
+				clock-names = "dvp", "phy_cfg", "phy_txclkesc", "dvp_mux", "spll0_fout1", "vpll_fout1";
 				resets = <&d1_reset DVP_RST_CTRL SW_VI_DVP_RSTN>;
 				reset-names = "dvp";
+				operating-points-v2 = <&vi_dvp_opp_table>;
+				#cooling-cells = <2>;
+				dynamic-power-coefficient = <1000>; /*TBD*/
 				interrupts = <368 369 370 371 372 373 374 375>;
 				interrupt-names = "dvp0_frame_int", "dvp1_frame_int", "dvp2_frame_int",
 									"dvp3_frame_int", "dvp4_frame_int", "dvp5_frame_int",

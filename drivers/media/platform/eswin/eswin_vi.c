@@ -38,6 +38,12 @@
 #include "eswin_vi.h"
 #include "es_vi_cmn_register.h"
 
+#include <linux/pm_runtime.h>
+#if defined(CONFIG_PM_DEVFREQ)
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+#endif
+
 #define DRIVER_NAME "eswin-vi"
 #define DEVICE_NAME "eswin_vi"
 #define CLASS_NAME "eswin_vi_class"
@@ -266,7 +272,7 @@ UNUSED_FUNC static int eswin_vi_sys_clk_init(struct platform_device *pdev,
 	eswin_vi_CLK_GET_HANDLE(dev, vi_crg->cfg_clk, "cfg_clk");
 	eswin_vi_CLK_GET_HANDLE(dev, vi_crg->aclk_mux, "aclk_mux");
 	eswin_vi_CLK_GET_HANDLE(dev, vi_crg->spll0_fout1, "spll0_fout1");
-	eswin_vi_CLK_GET_HANDLE(dev, vi_crg->vpll_fout1, "vpll_fout1");
+	eswin_vi_CLK_GET_HANDLE(dev, vi_crg->spll2_fout1, "spll2_fout1");
 
 	return 0;
 }
@@ -454,6 +460,81 @@ static const struct file_operations eswin_fops = {
 	.unlocked_ioctl = eswin_ioctl,
 };
 
+#if defined(CONFIG_PM_DEVFREQ)
+/* devfreq target function to set frequency */
+static int vi_devfreq_target(struct device *dev, unsigned long *freq,
+				 u32 flags)
+{
+	struct eswin_vi_device *es_vi_dev = dev_get_drvdata(dev);
+	unsigned long spll0_rate = clk_get_rate(es_vi_dev->clk_rst.spll0_fout1);
+	unsigned long spll2_rate = clk_get_rate(es_vi_dev->clk_rst.spll2_fout1);
+	unsigned long target = *freq;
+	int ret = 0;
+
+	if (pm_runtime_status_suspended(dev)) {
+		return 0;
+	}
+
+	if (!es_vi_dev) {
+		dev_err(dev, "es_vi_dev is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!es_vi_dev->clk_rst.aclk_mux) {
+		dev_err(dev, "aclk_mux clock is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!es_vi_dev->clk_rst.spll0_fout1 || !es_vi_dev->clk_rst.spll2_fout1) {
+		dev_err(dev, "Parent clocks are NULL\n");
+		return -EINVAL;
+	}
+
+	if (spll0_rate % target < spll2_rate % target) {
+		ret = clk_set_parent(es_vi_dev->clk_rst.aclk_mux, es_vi_dev->clk_rst.spll0_fout1);
+	} else {
+		ret = clk_set_parent(es_vi_dev->clk_rst.aclk_mux, es_vi_dev->clk_rst.spll2_fout1);
+	}
+
+	if (ret) {
+		dev_err(dev, "Failed to set clock parent\n");
+		return ret;
+	}
+
+	ret = clk_set_rate(es_vi_dev->clk_rst.aclk, target);
+	if (ret) {
+		dev_warn(dev, "aclk set rate failed");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int vi_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	struct eswin_vi_device *es_vi_dev = dev_get_drvdata(dev);
+	unsigned long rate;
+
+	rate = clk_get_rate(es_vi_dev->clk_rst.aclk);
+	if (rate <= 0) {
+		dev_warn(dev, "failed to get aclk rate");
+		return rate;
+	}
+	*freq = rate;
+
+	return 0;
+}
+
+/* devfreq profile */
+static struct devfreq_dev_profile vi_devfreq_profile = {
+	.initial_freq = 800000000,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 1000, /* Poll every 1000ms to monitor load */
+	.target = vi_devfreq_target,
+	.get_cur_freq = vi_devfreq_get_cur_freq,
+};
+#endif
+
 static int eswin_vi_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -465,6 +546,9 @@ static int eswin_vi_probe(struct platform_device *pdev)
 	int numa_id = 0;
 	char class_name[32];
 	__maybe_unused struct eswin_vi_clk_rst *vi_clk_rst;
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df;
+#endif
 
 	es_vi_dev = devm_kzalloc(dev, sizeof(*es_vi_dev), GFP_KERNEL);
 	if (!es_vi_dev)
@@ -514,6 +598,22 @@ static int eswin_vi_probe(struct platform_device *pdev)
 	media_dev = es_vi_dev->media_dev;
 	es_vi_dev->dev = dev;
 	dev_set_drvdata(dev, es_vi_dev);
+
+#if defined(CONFIG_PM_DEVFREQ)
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		pr_err("%s, %d, failed to add OPP table\n", __func__, __LINE__);
+		return ret;
+	}
+
+	df = devm_devfreq_add_device(&pdev->dev, &vi_devfreq_profile,
+				     "userspace", NULL);
+	if (IS_ERR(df)) {
+		pr_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
+		return ret;
+	}
+#endif
 
 	ret = alloc_chrdev_region(&major_number, 0, 1, "eswin_vi");
 	if (ret < 0) {
@@ -631,6 +731,14 @@ static int eswin_vi_probe(struct platform_device *pdev)
 
 	es_vi_dev->of_notifier.notifier_call = eswin_vi_of_notifier;
 	of_overlay_notifier_register(&es_vi_dev->of_notifier);
+
+	pm_runtime_set_autosuspend_delay(dev, 1000);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
 
 	return 0;
 }

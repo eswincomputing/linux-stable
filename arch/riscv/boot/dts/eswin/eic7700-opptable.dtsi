@@ -152,14 +152,118 @@
 		};
 	};
 
-	vi_opp_table: opp-table@vi {
+	vi_aclk_opp_table: opp-table@aclk {
 		compatible = "operating-points-v2";
 		opp@800000000 {
 			opp-hz = /bits/ 64 <800000000>;
 			opp-microvolt = <800000>;
 		};
+		opp@693000000 {
+			opp-hz = /bits/ 64 <693000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@533000000 {
+			opp-hz = /bits/ 64 <533000000>;
+			opp-microvolt = <800000>;
+		};
 		opp@400000000 {
 			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@320000000 {
+			opp-hz = /bits/ 64 <320000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@266000000 {
+			opp-hz = /bits/ 64 <266000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
+	vi_dw_opp_table: opp-table@dw {
+		compatible = "operating-points-v2";
+		opp@594000000 {
+			opp-hz = /bits/ 64 <594000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@533000000 {
+			opp-hz = /bits/ 64 <533000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@320000000 {
+			opp-hz = /bits/ 64 <320000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@266000000 {
+			opp-hz = /bits/ 64 <266000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
+	vi_isp_opp_table: opp-table@vi {
+		compatible = "operating-points-v2";
+		opp@594000000 {
+			opp-hz = /bits/ 64 <594000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@533000000 {
+			opp-hz = /bits/ 64 <533000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@297000000 {
+			opp-hz = /bits/ 64 <297000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@266000000 {
+			opp-hz = /bits/ 64 <266000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <800000>;
+		};
+	};
+
+	vi_dvp_opp_table: opp-table@dvp {
+		compatible = "operating-points-v2";
+		opp@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@594000000 {
+			opp-hz = /bits/ 64 <594000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@533000000 {
+			opp-hz = /bits/ 64 <533000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@320000000 {
+			opp-hz = /bits/ 64 <320000000>;
+			opp-microvolt = <800000>;
+		};
+		opp@266000000 {
+			opp-hz = /bits/ 64 <266000000>;
 			opp-microvolt = <800000>;
 		};
 		opp@200000000 {

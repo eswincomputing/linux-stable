@@ -101,6 +101,13 @@ struct es_dvp2axi_hw {
 	int num_clks;
 	struct regmap *vi_topcsr_regmap;
 	u32 vi_topcsr_reg;
+
+	struct clk *dvp_clk;
+	struct clk *phy_cfg;
+	struct clk *phy_txclkesc;
+	struct clk *spll0_fout1;
+	struct clk *vpll_fout1;
+	struct clk *dvp_mux;
 };
 
 void es_dvp2axi_disable_sys_clk(struct es_dvp2axi_hw *dvp2axi_hw);

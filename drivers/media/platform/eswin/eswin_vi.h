@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * eswin_vi.h - Header file for ESWIN Video Input Driver
+ *
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
  */
 
 #ifndef _ESWIN_VI_H_
@@ -36,7 +39,7 @@ struct eswin_vi_clk_rst {
 	struct clk *aclk_mux;
 	struct clk *dw_mux;
 	struct clk *spll0_fout1;
-	struct clk *vpll_fout1;
+	struct clk *spll2_fout1;
 	struct reset_control *rstc_axi;
 	struct reset_control *rstc_cfg;
 	struct reset_control *rstc_dwe;
@@ -67,5 +70,4 @@ struct eswin_vi_device {
 
 extern int eic770x_vi_init(struct eswin_vi_device *es_vi_dev);
 extern int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev);
-
 #endif /* _ESWIN_VI_H_ */

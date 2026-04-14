@@ -45,11 +45,27 @@
 #include "../eswin_vi.h"
 #include "dvp2axi.h"
 #include "hw.h"
+#if defined(CONFIG_PM_DEVFREQ)
+#include <linux/devfreq.h>
+#include <linux/pm_opp.h>
+#endif
 
 #define AWSMMUSID	GENMASK(31, 24) // The sid of write operation
 #define AWSMMUSSID	GENMASK(23, 16) // The ssid of write operation
 #define ARSMMUSID	GENMASK(15, 8)	// The sid of read operation
 #define ARSMMUSSID	GENMASK(7, 0)	// The ssid of read operation
+
+
+#define DVP2AXI_CLK_GET_HANDLE(dev, clk_handle, clk_name)                     \
+	{                                                                   \
+		clk_handle = devm_clk_get(dev, clk_name);                   \
+		if (IS_ERR(clk_handle)) {                                   \
+			ret = PTR_ERR(clk_handle);                          \
+			dev_err(dev, "failed to get dvp2axi %s: %d\n", clk_name, \
+				ret);                                       \
+			return ret;                                         \
+		}                                                           \
+	}
 
 static const struct of_device_id es_dvp2axi_plat_of_match[] = {
 	{
@@ -182,6 +198,113 @@ static int dvp2axi_smmu_sid_cfg(struct device *dev)
 	return ret;
 }
 
+#if defined(CONFIG_PM_DEVFREQ)
+/* devfreq target function to set frequency */
+static int dvp_devfreq_target(struct device *dev, unsigned long *freq,
+				 u32 flags)
+{
+	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
+	unsigned long spll0_rate = clk_get_rate(dvp2axi_hw->spll0_fout1);
+	unsigned long vpll_rate = clk_get_rate(dvp2axi_hw->vpll_fout1);
+	unsigned long target = *freq;
+	int ret = 0;
+
+	if (pm_runtime_status_suspended(dev)) {
+		return 0;
+	}
+
+	if (!dvp2axi_hw) {
+		dev_err(dev, "dvp2axi_hw is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!dvp2axi_hw->dvp_mux) {
+		dev_err(dev, "dvp_mux clock is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!dvp2axi_hw->spll0_fout1 || !dvp2axi_hw->vpll_fout1) {
+		dev_err(dev, "Parent clocks are NULL\n");
+		return -EINVAL;
+	}
+
+	if (spll0_rate % target < vpll_rate % target) {
+		ret = clk_set_parent(dvp2axi_hw->dvp_mux, dvp2axi_hw->spll0_fout1);
+	} else {
+		ret = clk_set_parent(dvp2axi_hw->dvp_mux, dvp2axi_hw->vpll_fout1);
+	}
+
+	if (ret) {
+		dev_err(dev, "Failed to set clock parent\n");
+		return ret;
+	}
+
+	ret = clk_set_rate(dvp2axi_hw->dvp_clk, target);
+	if (ret) {
+		dev_warn(dev, "dvp_clk set rate failed");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int dvp_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
+{
+	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
+	unsigned long rate;
+
+	rate = clk_get_rate(dvp2axi_hw->dvp_clk);
+	if (rate <= 0) {
+		dev_warn(dev, "failed to get dvp_clk rate");
+		return rate;
+	}
+	*freq = rate;
+
+	return 0;
+}
+
+/* devfreq profile */
+static struct devfreq_dev_profile dvp_devfreq_profile = {
+	.initial_freq = 800000000,
+	.timer = DEVFREQ_TIMER_DELAYED,
+	.polling_ms = 1000, /* Poll every 1000ms to monitor load */
+	.target = dvp_devfreq_target,
+	.get_cur_freq = dvp_devfreq_get_cur_freq,
+};
+#endif
+
+static int es_dvp2axi_sys_clk_init(struct platform_device *pdev,
+			      struct es_dvp2axi_hw *dvp2axi_hw)
+{
+	int ret = 0;
+	struct device *dev = &pdev->dev;
+
+	DVP2AXI_CLK_GET_HANDLE(dev, dvp2axi_hw->dvp_clk, "dvp");
+	DVP2AXI_CLK_GET_HANDLE(dev, dvp2axi_hw->dvp_mux, "dvp_mux");
+	DVP2AXI_CLK_GET_HANDLE(dev, dvp2axi_hw->phy_cfg, "phy_cfg");
+	DVP2AXI_CLK_GET_HANDLE(dev, dvp2axi_hw->phy_txclkesc, "phy_txclkesc");
+	DVP2AXI_CLK_GET_HANDLE(dev, dvp2axi_hw->spll0_fout1, "spll0_fout1");
+	DVP2AXI_CLK_GET_HANDLE(dev, dvp2axi_hw->vpll_fout1, "vpll_fout1");
+
+	return ret;
+}
+
+static int es_dvp2axi_sys_clk_enable(struct es_dvp2axi_hw *dvp2axi_hw)
+{
+	clk_prepare_enable(dvp2axi_hw->dvp_clk);
+	clk_prepare_enable(dvp2axi_hw->phy_cfg);
+	clk_prepare_enable(dvp2axi_hw->phy_txclkesc);
+	return 0;
+}
+
+static int es_dvp2axi_sys_clk_disable(struct es_dvp2axi_hw *dvp2axi_hw)
+{
+	clk_disable_unprepare(dvp2axi_hw->dvp_clk);
+	clk_disable_unprepare(dvp2axi_hw->phy_cfg);
+	clk_disable_unprepare(dvp2axi_hw->phy_txclkesc);
+	return 0;
+}
+
 static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -191,6 +314,9 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	u32 reg_val;
 #ifdef CONFIG_NUMA
 	u32 numa_id = 0;
+#endif
+#if defined(CONFIG_PM_DEVFREQ)
+	struct devfreq *df;
 #endif
 
 	dvp2axi_hw = devm_kzalloc(dev, sizeof(*dvp2axi_hw), GFP_KERNEL);
@@ -216,16 +342,8 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
 
-	dvp2axi_hw->num_clks = devm_clk_bulk_get_all(dvp2axi_hw->dev, &dvp2axi_hw->clks_bulk);
-
-	if (dvp2axi_hw->num_clks < 0)
-		return dev_err_probe(dvp2axi_hw->dev, -ENODEV,
-				     "Failed to get dvp2axi clocks\n");
-
-	ret = clk_bulk_prepare_enable(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
-	if (ret)
-		return dev_err_probe(dvp2axi_hw->dev, ret,
-				     "Failed to enable dvp2axi clocks\n");
+	es_dvp2axi_sys_clk_init(pdev, dvp2axi_hw);
+	es_dvp2axi_sys_clk_enable(dvp2axi_hw);
 
 	dvp2axi_hw->rstc = devm_reset_control_array_get_shared(&pdev->dev);
 	if (IS_ERR_OR_NULL(dvp2axi_hw->rstc)) {
@@ -233,6 +351,23 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	}
 
 	reset_control_deassert(dvp2axi_hw->rstc);
+
+	#if defined(CONFIG_PM_DEVFREQ)
+
+	/* Add OPP table from device tree */
+	ret = dev_pm_opp_of_add_table(&pdev->dev);
+	if (ret) {
+		pr_err("%s, %d, failed to add OPP table\n", __func__, __LINE__);
+		return ret;
+	}
+
+	df = devm_devfreq_add_device(&pdev->dev, &dvp_devfreq_profile,
+				     "userspace", NULL);
+	if (IS_ERR(df)) {
+		pr_err("%s, %d, add devfreq failed\n", __func__, __LINE__);
+		return ret;
+	}
+#endif
 
 	ret = dvp2axi_smmu_sid_cfg(dev);
 	if (ret) {
@@ -362,6 +497,7 @@ static void es_dvp2axi_hw_shutdown(struct platform_device *pdev)
 static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
+	struct device *parent = dev->parent;
 	u32 reg_val = 0;
 
 	win2030_tbu_power(dev, false);
@@ -372,7 +508,12 @@ static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 	reg_val &= (!DVP2AXI_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
 
-	clk_bulk_disable_unprepare(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
+	es_dvp2axi_sys_clk_disable(dvp2axi_hw);
+
+	if (parent && pm_runtime_enabled(parent)) {
+		pm_runtime_mark_last_busy(parent);
+		pm_runtime_put_autosuspend(parent);
+    }
 
 	return 0;
 }
@@ -385,10 +526,20 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 	u32 reg_val = 0;
 	int ret;
 
-	ret = clk_bulk_prepare_enable(dvp2axi_hw->num_clks, dvp2axi_hw->clks_bulk);
-	if (ret)
-		return dev_err_probe(dvp2axi_hw->dev, ret,
-				     "Failed to enable dvp2axi clocks\n");
+	es_vi_dev = dev_get_drvdata(parent);
+	if (!es_vi_dev) {
+		return -ENODEV;
+	}
+
+	if (parent && pm_runtime_enabled(parent)) {
+        ret = pm_runtime_resume_and_get(parent);
+        if (ret < 0) {
+            dev_err(dev, "Failed to resume parent VI: %d\n", ret);
+            return ret;
+        }
+    }
+
+	es_dvp2axi_sys_clk_enable(dvp2axi_hw);
 
 	reset_control_deassert(dvp2axi_hw->rstc);
 
@@ -398,10 +549,7 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
 
-	es_vi_dev = dev_get_drvdata(parent);
-	if (!es_vi_dev) {
-		return -ENODEV;
-	}
+	eic770x_vi_init(es_vi_dev);
 
 	vitop_intf_cfg(es_vi_dev);
 
