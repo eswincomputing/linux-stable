@@ -1,3 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ *
+ */
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -58,6 +64,7 @@ static const struct csi2_dphy_rate_table eic7700_csi2_dphy_hw_hsfreq_ranges[] = 
 	//support 327/219/258/415 {720, {{0x1229, 0xa70}, {0x3080, 0xe1d}, {0x3280, 0xe1d},  {0x1029, 0xbf0}, {0x1229, 0xb70}, {0x1429, 0xbf0},}},
 	{912, {{0x1229, 0xa90}, {0x3080, 0xd1d}, {0x3280, 0xd1d}, {0x1029, 0xaf0}, {0x1229, 0xa90}, {0x1429, 0xaf0},}},
 	{950, {{0x1229, 0xa90}, {0x3080, 0xd1d}, {0x3280, 0xd1d}, {0x1029, 0xaf0}, {0x1229, 0xa90}, {0x1429, 0xaf0},}},
+	{960, {{0x1229, 0xa90}, {0x3080, 0xe1d}, {0x3280, 0xe1d}, {0x1029, 0xaf0}, {0x1229, 0xa90}, {0x1429, 0xaf0},}},
 	{1000, {{0x1229, 0xa90}, {0x3080, 0xd1d}, {0x3280, 0xd1d}, {0x1029, 0xaf0}, {0x1229, 0xa90}, {0x1429, 0xaf0},}},
 	{1050, {{0x1229, 0xa90}, {0x3080, 0xd1d}, {0x3280, 0xd1d}, {0x1029, 0xaf0}, {0x1229, 0xa90}, {0x1429, 0xaf0},}},
 	{1100, {{0x1229, 0xa90}, {0x3080, 0xd1d}, {0x3280, 0xd1d}, {0x1029, 0xaf0}, {0x1229, 0xa90}, {0x1429, 0xaf0},}},
@@ -255,7 +262,7 @@ static int eic770x_csi2_dphy_init(struct csi2_dphy_hw *dphy_hw, void __iomem * h
 		}
 	}
 
-	if(dphy_hw->phy_cfg_base_addr == hw) {
+	if(dphy_hw->combine_dphy_base_addr != hw) {
 		if(dphy_hw->lanes_dp_dn[0] == 0x3 && dphy_hw->lanes_dp_dn[1] == 0x3) {
 			eic770x_write_csi2_dphy_reg(hw, 0x1029      , (dphy_hw->dphy_rate_tbl.reg_vals[3].val | 0x100)) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_9
 			eic770x_write_csi2_dphy_reg(hw, 0x1229      , (dphy_hw->dphy_rate_tbl.reg_vals[4].val | 0x100)) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9
@@ -439,7 +446,7 @@ static int eic770x_csi2_dphy_init_1_5_G_high(struct csi2_dphy_hw *dphy_hw, void 
 	eic770x_write_csi2_dphy_reg(hw, 0x1229,      0x00000ab0);
 	eic770x_write_csi2_dphy_reg(hw, 0x1429,      0x00000af0);
 
-	if(dphy_hw->phy_cfg_base_addr == hw) {
+	if(dphy_hw->combine_dphy_base_addr != hw) {
 		if(dphy_hw->lanes_dp_dn[0] == 0x3 && dphy_hw->lanes_dp_dn[1] == 0x3) {
 			eic770x_write_csi2_dphy_reg(hw, 0x1029, (0x00000af0 | 0x100)) ;//CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_9
 			eic770x_write_csi2_dphy_reg(hw, 0x1229, (0x00000ab0 | 0x100)) ;//CORE_DIG_IOCTRL_RW_AFE_LANE1_CTRL_2_9

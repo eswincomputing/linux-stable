@@ -418,8 +418,7 @@ static int subdev_notifier_complete(struct v4l2_async_notifier *notifier)
 	ret = _set_pipeline_default_fmt(dev);
 	if (ret < 0)
 		goto notifier_end;
-	if (!completion_done(&dev->cmpl_ntf))
-		complete(&dev->cmpl_ntf);
+
 	v4l2_info(v4l2_dev, "Async subdev notifier completed\n");
 	return ret;
 
@@ -553,7 +552,6 @@ static int es_dvp2axi_register_platform_subdevs(struct es_dvp2axi_device *dvp2ax
 		return -EINVAL;
 	}
 
-	init_completion(&dvp2axi_dev->cmpl_ntf);
 	ret = dvp2axi_subdev_notifier(dvp2axi_dev);
 	if (ret < 0) {
 		dev_err(dvp2axi_dev->dev,

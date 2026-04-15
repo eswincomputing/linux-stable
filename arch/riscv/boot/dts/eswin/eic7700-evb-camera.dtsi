@@ -11,7 +11,7 @@
 	eswin,isp_dvp0_hor = <1920>;
 	eswin,isp_dvp0_ver = <1080>;
 	/* imx327 4lane HDR mode */
-	phy_mode = <2>; //5: 6x2lanes, 2: 3x4lanes
+	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
 	isp_connect_mode = <0>;
 	// imx327,wdr-en-2;
 
@@ -177,79 +177,144 @@
 	/* mipi csi0/csi1 */
 	status = "okay";
 	imx327_0: imx327@36 {
-			compatible = "sony,imx327lqr";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x36>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
-			assigned-clock-rates = <37125000>;
-			clock-frequency = <37125000>;
-			clock-names = "xclk";
-			power-domains = <&d0_pmu EIC770X_PD_VI>;
+		compatible = "sony,imx327lqr";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x36>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_0>;
+		assigned-clock-rates = <37125000>;
+		clock-frequency = <37125000>;
+		clock-names = "xclk";
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
-			port {
-				imx327_out0: endpoint {
-					remote-endpoint = <&mipidphy0_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <222750000 148500000>;
-				};
+		port {
+			imx327_out0: endpoint {
+				remote-endpoint = <&mipidphy0_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <445500000 297000000>;
 			};
 		};
+	};
+
+	ov2718_1: ov2718@10 {
+		compatible = "ovti,ov2718";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x10>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_1>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_1>;
+		assigned-clock-rates = <24000000>;
+		clock-frequency = <24000000>;
+		clock-names = "xvclk";
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
+
+		port {
+			ov2718_out1: endpoint {
+				remote-endpoint = <&mipidphy1_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <480000000>;
+			};
+		};
+	};
 };
 
 &d0_i2c4 {
 	/* mipi csi2/csi3 */
 	status = "okay";
 	imx327_2: imx327@36 {
-			compatible = "sony,imx327lqr";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x36>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
-			assigned-clock-rates = <37125000>;
-			clock-frequency = <37125000>;
-			clock-names = "xclk";
-			power-domains = <&d0_pmu EIC770X_PD_VI>;
+		compatible = "sony,imx327lqr";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x36>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_2>;
+		assigned-clock-rates = <37125000>;
+		clock-frequency = <37125000>;
+		clock-names = "xclk";
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
-			port {
-				imx327_out2: endpoint {
-					// remote-endpoint = <&mipi_in_ucam0>;
-					remote-endpoint = <&mipidphy2_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <222750000 148500000>;
-				};
+		port {
+			imx327_out2: endpoint {
+				remote-endpoint = <&mipidphy2_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <445500000 297000000>;
 			};
 		};
+	};
+
+	ov2718_3: ov2718@10 {
+		compatible = "ovti,ov2718";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x10>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_3>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_3>;
+		assigned-clock-rates = <24000000>;
+		clock-frequency = <24000000>;
+		clock-names = "xvclk";
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
+
+		port {
+			ov2718_out3: endpoint {
+				remote-endpoint = <&mipidphy3_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <480000000>;
+			};
+		};
+	};
 };
 
 &d0_i2c5 {
 	/* mipi csi4/csi5 */
 	status = "okay";
 	imx327_4: imx327@36 {
-			compatible = "sony,imx327lqr";
-			status = "okay";
-			address-cells = <1>;
-			size-cells = <0>;
-			reg = <0x36>;
-			clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
-			assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
-			assigned-clock-rates = <37125000>;
-			clock-frequency = <37125000>;
-			clock-names = "xclk";
-			power-domains = <&d0_pmu EIC770X_PD_VI>;
+		compatible = "sony,imx327lqr";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x36>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_4>;
+		assigned-clock-rates = <37125000>;
+		clock-frequency = <37125000>;
+		clock-names = "xclk";
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
 
-			port {
-				imx327_out4: endpoint {
-					remote-endpoint = <&mipidphy4_in_ucam0>;
-					data-lanes = <1 2 3 4>;
-					link-frequencies = /bits/ 64 <222750000 148500000>;
-				};
+		port {
+			imx327_out4: endpoint {
+				remote-endpoint = <&mipidphy4_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <445500000 297000000>;
 			};
 		};
+	};
+
+	ov2718_5: ov2718@10 {
+		compatible = "ovti,ov2718";
+		status = "okay";
+		address-cells = <1>;
+		size-cells = <0>;
+		reg = <0x10>;
+		clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_5>;
+		assigned-clocks = <&d0_clock EIC7700_CLK_VI_SHUTTER_5>;
+		assigned-clock-rates = <24000000>;
+		clock-frequency = <24000000>;
+		clock-names = "xvclk";
+		power-domains = <&d0_pmu EIC770X_PD_VI>;
+
+		port {
+			ov2718_out5: endpoint {
+				remote-endpoint = <&mipidphy5_in_ucam0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <480000000>;
+			};
+		};
+	};
 };
 
 &d0_i2c8 {
@@ -284,8 +349,8 @@
 };
 
 &csi2_dphy_hw0 {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <3 3 3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 
@@ -313,13 +378,47 @@
 				remote-endpoint = <&mipi_csi2_input>;
 			};
 		};
+	};
+};
 
+&csi2_dphy_hw1 {
+	lanes = <1 2>;
+	lanes-dp-dn = <3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "okay";
+};
+&csi2_dphy1 {
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy1_in_ucam0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&ov2718_out1>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy1_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_1_input>;
+			};
+		};
 	};
 };
 
 &csi2_dphy_hw2 {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <3 3 3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy2 {
@@ -352,9 +451,45 @@
 	};
 };
 
+&csi2_dphy_hw3 {
+	lanes = <1 2>;
+	lanes-dp-dn = <3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "okay";
+};
+
+&csi2_dphy3{
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy3_in_ucam0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&ov2718_out3>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy3_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_3_input>;
+			};
+		};
+	};
+};
+
 &csi2_dphy_hw4 {
-	lanes = <1 2 3 4>;
-	lanes-dp-dn = <3 3 3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	lanes = <1 2>;
+	lanes-dp-dn = <3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
 	status = "okay";
 };
 &csi2_dphy4 {
@@ -387,9 +522,44 @@
 	};
 };
 
+&csi2_dphy_hw5 {
+	lanes = <1 2>;
+	lanes-dp-dn = <3 3>;	// 4lanes: positive on dn/ negative on dp to hs and lp mode
+	status = "okay";
+};
+&csi2_dphy5{
+	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy5_in_ucam0: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&ov2718_out5>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy5_out: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&mipi_csi2_5_input>;
+			};
+		};
+	};
+};
+
 &mipi_csi2_0 {
 	status = "okay";
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	/* enable HDR X2 */
 	ipi2_en            = <1>;
@@ -429,8 +599,42 @@
 	};
 };
 
+&mipi_csi2_1{
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>;
+	status = "okay";
+	ipi2_en = <1>;
+	ipi2_vcid = <1>;
+	ipi3_en = <0>;
+	ipi3_vcid = <2>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_1_input: endpoint@0 {
+				remote-endpoint = <&csidphy1_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_1_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in1>;
+			};
+		};
+	};
+};
+
 &mipi_csi2_2 {
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
 	/* enable HDR X2 */
@@ -473,16 +677,49 @@
 	};
 };
 
+&mipi_csi2_3 {
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>;
+	status = "okay";
+	ipi2_en = <1>;
+	ipi2_vcid = <1>;
+	ipi3_en = <0>;
+	ipi3_vcid = <2>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_3_input: endpoint@0 {
+				remote-endpoint = <&csidphy3_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_3_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in3>;
+			};
+		};
+	};
+};
 
 &mipi_csi2_4 {
-	num_lanes = <4>;
+	num_lanes = <2>;
 	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
 	status = "okay";
 	/* enable HDR X2 */
 	ipi2_en            = <1>;
-    ipi2_vcid          = <1>;      /* data mapped to VC1 */
-    ipi3_en            = <0>;
-    ipi3_vcid          = <2>;      /* data mapped to VC2 */
+	ipi2_vcid          = <1>;      /* data mapped to VC1 */
+	ipi3_en            = <0>;
+	ipi3_vcid          = <2>;      /* data mapped to VC2 */
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -506,7 +743,7 @@
 				remote-endpoint = <&axi2dvp_mipi2_in4>;
 			};
 		};
-		
+
 		port@2 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -519,6 +756,40 @@
 };
 
 
+&mipi_csi2_5 {
+	num_lanes = <2>;
+	snps,en-ppi-width = <1>; // 1: 16-bit, 0: 8-bit
+	status = "okay";
+	/* enable HDR X2 */
+	ipi2_en            = <1>;
+	ipi2_vcid          = <1>;      /* data mapped to VC1 */
+	ipi3_en            = <0>;
+	ipi3_vcid          = <2>;      /* data mapped to VC2 */
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_5_input: endpoint@0 {
+				remote-endpoint = <&csidphy5_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_csi2_5_output0: endpoint@1 {
+				remote-endpoint = <&axi2dvp_mipi2_in5>;
+			};
+		};
+	};
+};
 
 &dvp2axi {
 	status = "okay";
@@ -528,12 +799,7 @@
 	status = "okay";
 	dvp2axi_id = <0>;
 	ports{
-		#address-cells = <1>;
-        #size-cells = <0>;
 		port@0 {
-			#address-cells = <1>;
-        	#size-cells = <0>;
-			reg = <0>;
 			axi2dvp_mipi2_in0: endpoint {
 				remote-endpoint = <&mipi_csi2_output>;
 			};
@@ -544,6 +810,12 @@
 &dvp2axi_mipi_lvds1 {
 	dvp2axi_id = <1>;
 	status = "okay";
+	port@0 {
+		axi2dvp_mipi2_in1: endpoint {
+			remote-endpoint = <&mipi_csi2_1_output0>;
+		};
+	};
+
 };
 
 &dvp2axi_mipi_lvds2 {
@@ -559,6 +831,11 @@
 &dvp2axi_mipi_lvds3 {
 	dvp2axi_id = <3>;
 	status = "okay";
+	port@0 {
+		axi2dvp_mipi2_in3: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_3_output0>;
+		};
+	};
 };
 
 &dvp2axi_mipi_lvds4 {
@@ -574,6 +851,11 @@
 &dvp2axi_mipi_lvds5 {
 	dvp2axi_id = <5>;
 	status = "okay";
+	port@0 {
+		axi2dvp_mipi2_in5: endpoint@0 {
+			remote-endpoint = <&mipi_csi2_5_output0>;
+		};
+	};
 };
 
 &vvcam_isp_0 {

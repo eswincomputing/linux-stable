@@ -466,7 +466,6 @@ struct es_dvp2axi_device {
 	spinlock_t			hdr_lock; /* lock for hdr buf sync */
 	unsigned int			csi_host_idx;
 	unsigned int			csi_host_idx_def;
-	struct completion		cmpl_ntf;
 
 	bool				iommu_en;
 	bool				is_use_dummybuf;

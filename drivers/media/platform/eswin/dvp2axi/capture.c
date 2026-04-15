@@ -1332,7 +1332,7 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 
 	mutex_lock(&dev->stream_lock);
 
-	v4l2_info(v4l2_dev,
+	v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev,
 		  "stream[%d] start stopping, total mode 0x%x, cur 0x%x\n",
 		  stream->id, stream->cur_stream_mode, mode);
 
@@ -1411,7 +1411,7 @@ void es_dvp2axi_do_stop_stream(struct es_dvp2axi_stream *stream,
 
 	stream->cur_stream_mode &= ~mode;
 	INIT_LIST_HEAD(&stream->vb_done_list);
-	v4l2_info(v4l2_dev, "stream[%d] stopping finished\n", stream->id);
+	v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev, "stream[%d] stopping finished\n", stream->id);
 	mutex_unlock(&dev->stream_lock);
 }
 
@@ -1691,7 +1691,7 @@ int es_dvp2axi_do_start_stream(struct es_dvp2axi_stream *stream,
 	u32 skip_frame = 0;
 	struct v4l2_subdev_format csi_fmt;
 
-	v4l2_info(v4l2_dev, "sensor info: %s, mbus type: %d, lanes: %d, width: %d, height: %d, code: 0x%x\n",
+	v4l2_dbg(1, es_dvp2axi_debug, v4l2_dev, "sensor info: %s, mbus type: %d, lanes: %d, width: %d, height: %d, code: 0x%x\n",
 		  sensor_info->sd ? sensor_info->sd->name : "NULL",
 		  sensor_info->mbus.type, sensor_info->lanes, stream->pixm.width, stream->pixm.height,
 		  stream->dvp2axi_fmt_in->mbus_code);
