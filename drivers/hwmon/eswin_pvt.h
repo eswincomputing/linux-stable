@@ -202,6 +202,7 @@ struct pvt_hwmon {
 	struct device *dev;
 	struct device *hwmon;
 	struct list_head entry;
+	void __iomem *data_regs;
 	void __iomem *regs;
 	int irq;
 
@@ -211,8 +212,7 @@ struct pvt_hwmon {
 	enum pvt_sensor_type sensor;
 	struct pvt_cache cache[PVT_SENSORS_NUM];
 	ktime_t timeout;
-	struct regmap *regmap;
-	u32 regmap_offset;
+	u32 data_offset;
 	const struct pvt_sensor_info *sensor_info;
 	u32 nid;
 };

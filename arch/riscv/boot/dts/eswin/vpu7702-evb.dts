@@ -1029,10 +1029,14 @@
 
 &pvt0 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-cpu";
+	eswin,data-reg = <0x0 0x58800000 0xdff8>;
 };
 
 &pvt1 {
 	status = "okay";
+	compatible = "eswin,eswin-dummy-pvt-ddr";
+	eswin,data-reg = <0x0 0x58800000 0xdffc>;
 };
 
 &wdt0 {

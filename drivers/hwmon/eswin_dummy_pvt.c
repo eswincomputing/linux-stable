@@ -42,8 +42,6 @@
 #include <linux/sysfs.h>
 #include <linux/types.h>
 #include "eswin_pvt.h"
-#include <linux/regmap.h>
-#include  <linux/mfd/syscon.h>
 #include <linux/of.h>
 
 static LIST_HEAD(eswin_pvt_dummy_dev);
@@ -218,7 +216,6 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 			 long *val)
 {
 	u32 data;
-	u32 offset;
 	const struct pvt_sensor_info *pvt_info = pvt->sensor_info;
 
 	if (!pvt_info) {
@@ -228,12 +225,7 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 
 	pvt->sensor = type;
 
-	offset = pvt->regmap_offset;
-
-	if ((type != PVT_TEMP) && (type != PVT_VOLT))
-		return -EINVAL;
-
-	regmap_read(pvt->regmap, offset, &data);
+	data = readl(pvt->data_regs + pvt->data_offset);
 
 	/****** dummy register **********
 	[16:0] stores the temperature value
@@ -241,7 +233,6 @@ static int eswin_pvt_read_data(struct pvt_hwmon *pvt, enum pvt_sensor_type type,
 	********************************/
 	if (type == PVT_TEMP)
 		*val = eswin_pvt_calc_poly(&poly_N_to_temp, (data & 0xffff));
-
 	else if (type == PVT_VOLT)
 		*val = eswin_pvt_calc_poly(&poly_N_to_volt, (data >> 16));
 	else
@@ -677,12 +668,8 @@ static void eswin_pvt_remove(void *data)
 {
 	struct pvt_hwmon *pvt = data;
 
-	if (!IS_ERR_OR_NULL(pvt->regmap)) {
-		regmap_exit(pvt->regmap);
-		pvt->regmap = NULL;
-
+	if (!list_empty(&pvt->entry))
 		list_del(&pvt->entry);
-	}
 }
 
 
@@ -719,6 +706,8 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 	struct pvt_hwmon *pvt;
 	int ret, nid;
 	const struct pvt_sensor_info *sensor_info;
+	u32 data_reg[3];
+	u64 base;
 
 	/*Get NUMA node ID*/
 	if (of_property_read_s32(pdev->dev.of_node,
@@ -747,16 +736,20 @@ static int eswin_pvt_probe(struct platform_device *pdev)
 	pvt->sensor_info = sensor_info;
 	pvt->nid = nid;
 
-	pvt->regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node, "eswin,syscon");
-	if (IS_ERR(pvt->regmap)) {
-		dev_err(&pdev->dev, "Failed to get syscon regmap\n");
-		return PTR_ERR(pvt->regmap);
+	ret = of_property_read_u32_array(pdev->dev.of_node, "eswin,data-reg",
+					 data_reg, ARRAY_SIZE(data_reg));
+	if (ret) {
+		dev_err(&pdev->dev, "can't get eswin,data-reg (%d)\n", ret);
+		return ret;
 	}
 
-	ret = of_property_read_u32_index(pdev->dev.of_node, "eswin,syscon", 1, &pvt->regmap_offset);
-	if (ret) {
-		dev_err(&pdev->dev, "can't get pvt reg offset (%d)\n", ret);
-		return ret;
+	base = ((u64)data_reg[0] << 32) | data_reg[1];
+	pvt->data_offset = data_reg[2];
+	pvt->data_regs = devm_ioremap(&pdev->dev, base,
+				      pvt->data_offset + sizeof(u32));
+	if (!pvt->data_regs) {
+		dev_err(&pdev->dev, "Failed to map dummy pvt data register\n");
+		return -ENOMEM;
 	}
 
 	ret = eswin_pvt_request_regs(pvt);
