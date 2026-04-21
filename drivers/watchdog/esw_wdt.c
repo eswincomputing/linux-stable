@@ -393,7 +393,6 @@ static int esw_wdt_probe(struct platform_device *pdev) {
 err_mbox:
     mbox_free_channel(wdt->mbox_channel);
 err_misc:
-    devm_kfree(&pdev->dev, wdt);
     return ret;
 }
 
