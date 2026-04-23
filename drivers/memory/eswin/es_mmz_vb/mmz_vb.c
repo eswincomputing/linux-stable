@@ -1568,7 +1568,7 @@ static void mmz_vb_destory_private_pool(void)
 }
 static int mmz_vb_release(struct inode *inode, struct file *file)
 {
-	dev_info(mmz_vb_dev, "/dev/mmz_vb closed, current pid %d!\n", current->pid);
+	dev_dbg_ratelimited(mmz_vb_dev, "/dev/mmz_vb closed, current pid %d!\n", current->tgid);
 
 	return 0;
 }
@@ -1788,7 +1788,7 @@ static int es_refresh_mempeak(struct mem_block *memblock, void *data)
 {
         size_t cur_used = memblock->page_num - es_num_free_pages(memblock);
         memblock->used_peak_page_num = cur_used;
-        dev_info(mmz_vb_dev, "memory block %s, refresh peak_page_num as cur_used 0x%lx\n",
+        dev_dbg(mmz_vb_dev, "memory block %s, refresh peak_page_num as cur_used 0x%lx\n",
                 memblock->name, cur_used);
         return 0;
 }
