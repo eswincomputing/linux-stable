@@ -388,8 +388,9 @@ static int vvcam_isp_probe(struct platform_device *pdev)
 		goto error_request_isp_irq;
 	}
 
-	ret = devm_request_irq(&pdev->dev, isp_dev->mi_irq, vvcam_isp_mi_irq_handler,
-				IRQF_TRIGGER_HIGH | IRQF_SHARED, dev_name(&pdev->dev), isp_dev);
+	ret = devm_request_threaded_irq(&pdev->dev, isp_dev->mi_irq, NULL,
+		vvcam_isp_mi_irq_handler, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+		dev_name(&pdev->dev), isp_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "can't request mi irq\n");
 		goto error_request_mi_irq;
