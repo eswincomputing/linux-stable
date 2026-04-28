@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/regulator/eta,eta355e.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ETA355E step-down switching regulator
+
+maintainers:
+  - Your Company <your.email@example.com>
+
+description: |
+  The ETA355E is a step-down switching regulator with I2C interface.
+  It supports dynamic voltage scaling, PFM/PWM mode selection, and
+  configurable slew rate. The output voltage is programmable from
+  0.6V to 1.23V in 10mV steps (0..63). A VSEL pin selects between
+  two independent voltage registers (VOUT0 and VOUT1).
+
+allOf:
+  - $ref: regulator.yaml#
+
+properties:
+  compatible:
+    const: eta,eta355e
+
+  reg:
+    maxItems: 1
+    description: I2C device address.
+
+  vsel-gpios:
+    maxItems: 1
+    description:
+      GPIO used to select the active voltage register. When low (0),
+      register 0x00 (VOUT0) is used; when high (1), register 0x01
+      (VOUT1) is used. If absent, register 0x00 is assumed.
+
+  eta,slew-rate:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7]
+    description: |
+      Slew rate selection for voltage changes. The value corresponds
+      to one of the following rates (in µV/µs):
+        0: 64000
+        1: 32000
+        2: 16000
+        3: 8000
+        4: 4000
+        5: 2000
+        6: 1000
+        7: 500
+
+  regulator-active-discharge:
+    description:
+      Enable active discharge of the output capacitor when the regulator
+      is disabled. This sets the OUT_DIS bit in the control register.
+    type: boolean
+
+  # Standard regulator properties (from regulator.yaml) are allowed,
+  # including regulator-min-microvolt, regulator-max-microvolt,
+  # regulator-boot-on, regulator-always-on, etc.
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        regulator@60 {
+            compatible = "eta,eta355e";
+            reg = <0x60>;
+            vsel-gpios = <&gpio 5 GPIO_ACTIVE_HIGH>;
+            eta,slew-rate = <3>;   /* 8000 µV/µs */
+            regulator-active-discharge;
+            regulator-min-microvolt = <600000>;
+            regulator-max-microvolt = <1230000>;
+            regulator-boot-on;
+        };
+    };

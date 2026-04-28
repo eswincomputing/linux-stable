@@ -372,6 +372,15 @@ config REGULATOR_DB8500_PRCMU
 	  This driver supports the voltage domain regulators controlled by the
 	  DB8500 PRCMU
 
+config REGULATOR_ETA355E
+	tristate "ETA355E voltage regulator driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver supports ETA355E single output step-down regulator.
+	  The ETA355E is a high-efficiency DC-to-DC switching regulator
+	  with I2C interface for dynamic voltage scaling.
+
 config REGULATOR_FAN53555
 	tristate "Fairchild FAN53555 Regulator"
 	depends on I2C
