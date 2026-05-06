@@ -1848,47 +1848,17 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	struct es_dvp2axi_hw *dvp2axi_hw = stream->dvp2axidev->hw_dev;
 	uint32_t bpl = 0;
 	uint32_t dvpx_bpl = 0;
-	uint32_t dvp2axi_ctrl2, dvp2axi_ctrl33;
+	uint32_t dvp2axi_ctrl33;
 	uint32_t dvp2axi_bpp;
+	uint32_t csr0, csr1, csr2;
 	int ret = 0;
 
 	stream->frame_phase = DVP2AXI_CSI_FRAME_UNREADY;
-	switch(stream->id) {
-		case 0:
-			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK ) >> 20;
-			break;
-		case 1:
-			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP1_PIXEL_WIDTH_MASK ) >> 25;
-			break;
-		case 2:
-			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR) & VI_DVP2AXI_CTRL2_DVP2_PIXEL_WIDTH_MASK ) >> 0;
-			break;
-		case 3:
-			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR) & VI_DVP2AXI_CTRL2_DVP3_PIXEL_WIDTH_MASK ) >> 5;
-			break;
-		case 4:
-			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR) & VI_DVP2AXI_CTRL2_DVP4_PIXEL_WIDTH_MASK ) >> 10;
-			break;
-		case 5:
-			dvp2axi_bpp = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR) & VI_DVP2AXI_CTRL2_DVP5_PIXEL_WIDTH_MASK ) >> 15;
-			break;
-		default:
-			pr_err("start streaming stream->id = 0x%x not support\n", stream->id);
-			return -EINVAL;
-	}
+	dvp2axi_bpp = stream->bpp;
+	stream->frame_idx = 0;
 
 	if (stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888) {
 		dvp2axi_bpp = dvp2axi_bpp * 3;
-	}
-
-	/* outstanding 16 and dvp2axi 2-5 bpp */
-	dvp2axi_ctrl2 = (DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR) | (DVP2AXI_OUTSTANDING_SIZE-1) << 24);
-	DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, dvp2axi_ctrl2);
-
-	if (stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888) {
-		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (stream->pixm.width  * 3) | (stream->pixm.height << 16));
-	} else {
-		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (stream->pixm.width ) | (stream->pixm.height << 16));
 	}
 
 	if(stream->crop_enable) {
@@ -1908,23 +1878,87 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	}
 
 	mutex_lock(&dvp2axi_hw->dev_multi_chn_lock);
-	if(stream->id == 0 || stream->id == 2 || stream->id == 4)  {
-		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4);
+
+	//set axi burstlen
+	csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
+	DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, (csr0 & (~VI_DVP2AXI_CTRL0_AXI_BURST_LEN_MASK)) | (es_dvp2axi_axi_burst_len << 7));
+
+	//set qos and ots
+	dev_dbg(dvp2axi_hw->dev, "outs 0x%x, wqos 0x%x \n", es_dvp2axi_ots, es_dvp2axi_wqos);
+	csr2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR);
+	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, ((csr2 & 0xfffff) | (es_dvp2axi_ots << 24) | (es_dvp2axi_wqos << 20)));
+
+	switch(stream->id) {
+	case 0:
+		csr1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR, (csr1 & (~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK)) | (dvp2axi_bpp << 20));
+		break;
+	case 1:
+		csr1 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL1_CSR, (csr1 & (~VI_DVP2AXI_CTRL1_DVP1_PIXEL_WIDTH_MASK)) | (dvp2axi_bpp << 25));
+		break;
+	case 2:
+		csr2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, (csr2 & (~VI_DVP2AXI_CTRL2_DVP2_PIXEL_WIDTH_MASK)) | (dvp2axi_bpp));
+		break;
+	case 3:
+		csr2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, (csr2 & (~VI_DVP2AXI_CTRL2_DVP3_PIXEL_WIDTH_MASK)) | (dvp2axi_bpp << 5));
+		break;
+	case 4:
+		csr2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, (csr2 & (~VI_DVP2AXI_CTRL2_DVP4_PIXEL_WIDTH_MASK)) | (dvp2axi_bpp << 10));
+		break;
+	case 5:
+		csr2 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL2_CSR, (csr2 & (~VI_DVP2AXI_CTRL2_DVP5_PIXEL_WIDTH_MASK)) | (dvp2axi_bpp << 15));
+		break;
+	default:
+		dev_warn(dvp2axi_hw->dev, "unsupported stream id %d \n", stream->id);
+		break;
+	}
+
+	//rgb888 and raw 8bit need to shift right
+	if(stream->dvp2axi_fmt_out->fmt_type == CSI_WRDDR_TYPE_RGB888 || stream->dvp2axi_fmt_out->fmt_type == CSI_WRDDR_TYPE_RAW8){
+		csr0 = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
+		DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, csr0 | (1 << (stream->id + VI_DVP2AXI_CTRL0_DVP_DATA_SHIFT_BIT)));
+	}else {
+		csr0 = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
+		DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, csr0 & (~(1 << (stream->id + VI_DVP2AXI_CTRL0_DVP_DATA_SHIFT_BIT))));
+	}
+
+	//set frame width and height
+	if(stream->dvp2axi_fmt_out->fmt_type == CSI_WRDDR_TYPE_RGB888)
+		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4, (stream->pixm.width * 3) | (stream->pixm.height << 16));
+	else {
+		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id  * 0x4, (stream->pixm.width) | (stream->pixm.height << 16));
+	}
+
+	if(stream->id % 2 == 0) { // 0/2/4 stream
+		uint32_t reg_offset = stream->id / 2 * 0x4;
+		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + reg_offset);
 		dvp2axi_ctrl33 =(dvp2axi_ctrl33 & 0xffff0000) | dvpx_bpl;
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4, dvp2axi_ctrl33);
-	} else {
-		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + reg_offset, dvp2axi_ctrl33);
+	} else { // 1/3/5 stream
+		uint32_t reg_offset = ((stream->id - 1) / 2) * 0x4;
+		dvp2axi_ctrl33 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + reg_offset);
 		dvp2axi_ctrl33 |= (dvp2axi_ctrl33 & 0xffff) | (dvpx_bpl << 16);
-		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, dvp2axi_ctrl33);
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_CTRL33_CSR + reg_offset, dvp2axi_ctrl33);
+	}
+
+	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, (0x1 << (stream->id +2)));
+	if(stream->id < 3) {
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT0_CSR, (0x3 << stream->id) | (0x3 << (stream->id +9)));
+	} else {
+		DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT1_CSR, (0x3 << (stream->id - 3)) | (0x3 << (stream->id +6)));
 	}
 
 	es_dvp2axi_assign_new_buffer_oneframe(stream , ES_DVP2AXI_YUV_ADDR_STATE_INIT);
 
-	DVP2AXI_HalWriteReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR, (0x1 << (stream->id +2)));
 	dvp2axi_hw_irq_mask(dvp2axi_hw, stream->id, 0);
 	dvp2axi_hw_irq_axi(stream->dvp2axidev->hw_dev, 0);
 
-	uint32_t csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
+	csr0 = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_CTRL0_CSR);
 	if((csr0 & 0x3f) == 0)
 		dvp2axi_hw_soft_reset(stream->dvp2axidev->hw_dev);
 	csr0 = csr0 | (1 << stream->id);
@@ -1978,7 +2012,6 @@ static int es_dvp2axi_init_vb2_queue(struct vb2_queue *q,
 	// q->gfp_flags = GFP_DMA32;
 	dma_set_mask_and_coherent(q->dev, DMA_BIT_MASK(32));
 	if (hw_dev->is_dma_contig)
-		// q->dma_attrs = DMA_ATTR_FORCE_CONTIGUOUS;
 		q->dma_attrs = 0;//DMA_ATTR_FORCE_CONTIGUOUS;
 
 	return vb2_queue_init(q);
@@ -1991,18 +2024,14 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	const struct dvp2axi_output_fmt *fmt;
 	const struct dvp2axi_input_fmt *dvp2axi_fmt_in = NULL;
 	struct v4l2_rect input_rect;
-	unsigned int imagesize = 0, planes;
+	unsigned int imagesize = 0;
+	u32 planes = 0;
 	u32 xsubs = 1, ysubs = 1, i;
 	struct esmodule_hdr_cfg hdr_cfg;
 	struct csi_channel_info *channel_info = &dev->channels[stream->id];
 	int ret;
 	struct es_dvp2axi_hw *hw_dev = stream->dvp2axidev->hw_dev;
 	int fmt_w_h_val;
-	// int dvp2axi_bpp;
-	int dvp2axi_bpp_clear;
-	int dvp2axi_mode_clear;
-	int date_shift;
-	int axi_burst_len;
 
 	for (i = 0; i < ES_DVP2AXI_MAX_PLANE; i++)
 		memset(&pixm->plane_fmt[i], 0,
@@ -2028,11 +2057,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		return -EINVAL;
 	pr_debug("%s:%d input_rect.width:%d height:%d \n", __func__, __LINE__, input_rect.width, input_rect.height);
 	fmt_w_h_val = (input_rect.height << 16) | (input_rect.width);
-	// DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR, fmt_w_h_val);
-	DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4, fmt_w_h_val);
-
-	axi_burst_len = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
-	DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, axi_burst_len | (1<<7));
 
 	if (dev->terminal_sensor.sd) {
 		ret = v4l2_subdev_call(dev->terminal_sensor.sd, core, ioctl,
@@ -2046,13 +2070,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		dev->terminal_sensor.raw_rect = input_rect;
 	}
 
-	/* DVP2AXI has not scale function,
-	 * the size should not be larger than input
-	 */
-	pr_debug("input_rect.width = 0x%x \n", input_rect.width);
-	pr_debug("input_rect.height = 0x%x \n", input_rect.height);
-	pr_debug("pixm->width = 0x%x \n", pixm->width);
-	pr_debug("pixm->height = 0x%x \n", pixm->height);
 	pixm->width =
 		clamp_t(u32, pixm->width, DVP2AXI_MIN_WIDTH, input_rect.width);
 	pixm->height =
@@ -2102,7 +2119,6 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		     dvp2axi_fmt_in->mbus_code == MEDIA_BUS_FMT_SPD_2X8)) {
 			stream->is_compact = false;
 		}
-		pr_debug("*** modet fmt->fmt_type = 0x%x ***\n",fmt->fmt_type);
 		mutex_lock(&hw_dev->dev_multi_chn_lock);
 		if (fmt->fmt_type == DVP2AXI_FMT_TYPE_RAW && stream->is_compact &&
 		    (dev->active_sensor->mbus.type == V4L2_MBUS_CSI2_DPHY ||
@@ -2110,54 +2126,15 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 		     dev->active_sensor->mbus.type == V4L2_MBUS_CCP2) &&
 		    fmt->csi_fmt_val != CSI_WRDDR_TYPE_RGB888 &&
 		    fmt->csi_fmt_val != CSI_WRDDR_TYPE_RGB565) {
-			// bpl = ALIGN(width * fmt->raw_bpp / 8, 256);
-			// dvp2axi_bpp = (readl(dev->hw_dev->base_addr+VI_DVP2AXI_CTRL1_CSR) & VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK ) >> 20;
-			// if(dvp2axi_bpp == 16) {
-			// 	bpl = ALIGN(width * ALIGN(fmt->raw_bpp, 16) / 8, 256);
-			// } else {
-			// 	bpl = ALIGN(width * fmt->raw_bpp / 8, 256);
-			// }
-			pr_debug("*** raw width = 0x%x ***\n", width);
-			// dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
-			switch(stream->id) {
-				case 0:
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
-					break;
-				case 1:
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP1_PIXEL_WIDTH_MASK;
-					break;
-				case 2:
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL2_CSR) & ~VI_DVP2AXI_CTRL2_DVP2_PIXEL_WIDTH_MASK;
-					break;
-				case 3:
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL2_CSR) & ~VI_DVP2AXI_CTRL2_DVP3_PIXEL_WIDTH_MASK;
-					break;
-				case 4:
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL2_CSR) & ~VI_DVP2AXI_CTRL2_DVP4_PIXEL_WIDTH_MASK;
-					break;
-				case 5:
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL2_CSR) & ~VI_DVP2AXI_CTRL2_DVP5_PIXEL_WIDTH_MASK;
-					break;
-			}
 			if(fmt->raw_bpp >= 10) {
 				bpl = ALIGN(width * ALIGN(fmt->raw_bpp, 16) / 8, 256);
-				if(stream->id == 0 || stream->id == 1) {
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((16 & 0x1F) << (20 + stream->id * 5)));
-				} else {
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL2_CSR, dvp2axi_bpp_clear | ((16 & 0x1F) << ((stream->id - 2) * 5)));
-				}
+				stream->bpp = 16;
+				stream->bpl = bpl;
 			} else {
 				bpl = ALIGN(width * fmt->raw_bpp / 8, 256);
-				date_shift = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
-				DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, date_shift | (1 << (8+stream->id)));
-				if(stream->id == 0 || stream->id == 1) {
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((fmt->raw_bpp & 0x1F) << (20 + stream->id * 5)));
-				} else {
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL2_CSR, dvp2axi_bpp_clear | ((fmt->raw_bpp & 0x1F) << ((stream->id - 2) * 5)));
-				}
+				stream->bpp = fmt->raw_bpp;
+				stream->bpl = bpl;
 			}
-			dvp2axi_mode_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~(0x3 << (8 + stream->id * 2));
-			DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_RAW & 0x3) << (8 + stream->id * 2)));
 		} else {
 			if (fmt->fmt_type == DVP2AXI_FMT_TYPE_RAW &&
 			    stream->is_compact &&
@@ -2165,47 +2142,16 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 			    fmt->csi_fmt_val != CSI_WRDDR_TYPE_RGB565 &&
 			    dev->chip_id >= CHIP_EIC770X_DVP2AXI) {
 				bpl = ALIGN(width * fmt->raw_bpp / 8, 256);
+				stream->bpl = bpl;
 			} else {
+				bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt, i);
 				if(fmt->fmt_type == DVP2AXI_FMT_TYPE_YUV){
-					//YUV
-					pr_debug("*** mode yuv ***\n");
-					dvp2axi_mode_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~0x300;
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_YUV & 0x3) << 8));
-					bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt,
-										i);
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((bpp & 0x1F) << 20));
 					bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
-					pr_debug("*** mode yuv width = 0x%x ***\n", width);
-					pr_debug("*** mode yuv bpp = 0x%x ***\n", bpp);
-					pr_debug("*** mode yuv DVP2AXI_YUV_STORED_BIT_WIDTH = 0x%x ***\n", DVP2AXI_YUV_STORED_BIT_WIDTH);
-					pr_debug("*** mode yuv bpl = 0x%x ***\n", bpl);
+					stream->bpl = bpl;
 				}
 				if(fmt->csi_fmt_val == CSI_WRDDR_TYPE_RGB888){
-					//RGB888
-					date_shift = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
-					DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, date_shift | (1 << (8+stream->id)));
-
-					// axi_burst_len = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
-					// DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, axi_burst_len | (1<<7));
-
-					dvp2axi_mode_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~0x300;
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_mode_clear | ((DVP_PIXEL_MODE_RAW & 0x3) << 8));
-					bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt, i);
-
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4,   (width*3) | (height << 16));
-
-					dvp2axi_bpp_clear = DVP2AXI_HalReadReg(hw_dev, VI_DVP2AXI_CTRL1_CSR) & ~VI_DVP2AXI_CTRL1_DVP0_PIXEL_WIDTH_MASK;
-					DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL1_CSR, dvp2axi_bpp_clear | ((bpp & 0x1F) << 20));
-					//bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
 					bpl = ALIGN(width * 3 * bpp / 8, 16);
-					//while ((bpl % 3) != 0) bpl += 256;
-
-					if(stream->id == 0 || stream->id == 2 || stream->id == 4) {
-						DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL33_CSR + (stream->id / 2) * 0x4, bpl);
-					} else {
-						DVP2AXI_HalWriteReg(hw_dev, VI_DVP2AXI_CTRL33_CSR + ((stream->id - 1) / 2) * 0x4, bpl << 16);
-					}
+					stream->bpl = bpl;
 				}
 			}
 		}
@@ -3385,7 +3331,7 @@ static void es_dvp2axi_init_dummy_vb2(struct es_dvp2axi_device *dev,
 	buf->vb2_queue.gfp_flags = GFP_KERNEL | GFP_DMA32;
 	buf->vb2_queue.dma_dir = DMA_BIDIRECTIONAL;
 	if (dev->hw_dev->is_dma_contig)
-		attrs |= DMA_ATTR_FORCE_CONTIGUOUS;
+		attrs |= 0;
 	buf->vb2_queue.dma_attrs = attrs;
 	buf->vb.vb2_queue = &buf->vb2_queue;
 }

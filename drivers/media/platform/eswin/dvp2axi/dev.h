@@ -156,6 +156,9 @@ struct es_dvp2axi_buffer {
 };
 
 extern int es_dvp2axi_debug;
+extern int es_dvp2axi_ots;
+extern int es_dvp2axi_wqos;
+extern int es_dvp2axi_axi_burst_len;
 
 /*
  * struct es_dvp2axi_sensor_info - Sensor infomations
@@ -385,6 +388,8 @@ struct es_dvp2axi_stream {
 	bool				crop_dyn_en;
 	bool				is_compact;
 	struct es_dvp2axi_dummy_buffer dummy_buf;
+	int bpl;
+	int bpp;
 };
 
 static inline struct es_dvp2axi_buffer *to_es_dvp2axi_buffer(struct vb2_v4l2_buffer *vb)
