@@ -22,6 +22,8 @@
 
 #include <linux/es-camera-module.h>
 
+#include <linux/minmax.h>
+
 static int es_camera_debug = 0;
 module_param_named(debug, es_camera_debug, int, 0644);
 MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable");
@@ -71,7 +73,15 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 #define IMX415_HMAX_MAX		  0xffff
 #define IMX415_HMAX_MULTIPLIER	  12
 #define IMX415_SHR0		  IMX415_REG_24BIT(0x3050)
+#define IMX415_SHR1       IMX415_REG_24BIT(0x3054)
+#define IMX415_SHR2       IMX415_REG_24BIT(0x3058)
+#define IMX415_RHS1       IMX415_REG_24BIT(0x3060)
+#define IMX415_RHS2       IMX415_REG_24BIT(0x3064)
 #define IMX415_GAIN_PCG_0	  IMX415_REG_16BIT(0x3090)
+#define IMX415_GAIN_PGC_1       IMX415_REG_16BIT(0x3092)
+#define IMX415_GAIN_PGC_2       IMX415_REG_16BIT(0x3094)
+#define IMX415_GAIN_PGC_FIDMD   IMX415_REG_8BIT(0x3260)
+
 #define IMX415_AGAIN_MIN	  0
 #define IMX415_AGAIN_MAX	  0xF0
 #define IMX415_AGAIN_STEP	  1
@@ -153,6 +163,8 @@ static const struct imx415_reg imx415_hdr2_10bit_3864x2192_1485M_regs[] = {
     { IMX415_REG_8BIT(0x3054), 0x09 },
     { IMX415_REG_8BIT(0x3058), 0x3E },
     { IMX415_REG_8BIT(0x3060), 0x4D },
+	// { IMX415_REG_8BIT(0x3060), 0x7D },
+	// { IMX415_REG_8BIT(0x3061), 0x01 },
     { IMX415_REG_8BIT(0x3064), 0x4A },
     { IMX415_REG_8BIT(0x30CF), 0x01 },
     { IMX415_REG_8BIT(0x3118), 0xA0 },
@@ -187,6 +199,8 @@ static const struct imx415_reg imx415_hdr3_10bit_3864x2192_1485M_regs[] = {
     { IMX415_REG_8BIT(0x3054), 0x0D },
     { IMX415_REG_8BIT(0x3058), 0x9E },
     { IMX415_REG_8BIT(0x3060), 0x91 },
+	// { IMX415_REG_8BIT(0x3060), 0x6D },
+	// { IMX415_REG_8BIT(0x3061), 0x05 },
     { IMX415_REG_8BIT(0x3064), 0xC2 },
     { IMX415_REG_8BIT(0x30CF), 0x03 },
     { IMX415_REG_8BIT(0x3118), 0xC0 },
@@ -779,6 +793,11 @@ struct imx415 {
 	struct v4l2_ctrl *hdr_mode_ctrl;
 	u32 hdr_mode;
 
+	u32 rhs1;
+	u32 rhs2;
+	u32 cur_vmax;
+	u32 fsc_multiplier;
+
 	/* Use our own mutex to protect ctrl handler / subdev state on kernels
 	 * that don't embed a mutex inside v4l2_subdev. This prevents NULL
 	 * derefs for sensor->subdev.lock on older kernels.
@@ -1134,6 +1153,7 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 	const struct imx415_reg *reg;
 	unsigned int i;
 	int ret = 0;
+	u32 vmax_val;
 
 	if (mode >= ARRAY_SIZE(supported_modes)) {
 		dev_err(sensor->dev, "Mode %d not supported\n", mode);
@@ -1147,15 +1167,13 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 			return ret;
 	}
 
-
 	switch (sensor->hdr_mode) {
 	case HDR_X2:
 		dev_dbg(sensor->dev, "Applying HDR X2 specific configuration\n");
 		for (i = 0; i < ARRAY_SIZE(imx415_hdr2_10bit_3864x2192_1485M_regs); ++i) {
 			reg = &imx415_hdr2_10bit_3864x2192_1485M_regs[i];
 			ret = imx415_write(sensor, reg->address, reg->val);
-			if (ret)
-				return ret;
+			if (ret) return ret;
 		}
 		break;
 	case HDR_X3:
@@ -1163,8 +1181,7 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 		for (i = 0; i < ARRAY_SIZE(imx415_hdr3_10bit_3864x2192_1485M_regs); ++i) {
 			reg = &imx415_hdr3_10bit_3864x2192_1485M_regs[i];
 			ret = imx415_write(sensor, reg->address, reg->val);
-			if (ret)
-				return ret;
+			if (ret) return ret;
 		}
 		break;
 	default:
@@ -1175,15 +1192,37 @@ static int imx415_set_mode(struct imx415 *sensor, int mode)
 	for (i = 0; i < IMX415_NUM_CLK_PARAM_REGS; ++i) {
 		reg = &sensor->clk_params->regs[i];
 		ret = imx415_write(sensor, reg->address, reg->val);
-		if (ret)
-			return ret;
+		if (ret) return ret;
 	}
 
 	ret = imx415_write(sensor, IMX415_LANEMODE,
 				sensor->num_data_lanes == 2 ? IMX415_LANEMODE_2 :
 								IMX415_LANEMODE_4);
 
-	return ret;
+	if (sensor->hdr_mode != NO_HDR) {
+		ret = imx415_read(sensor, IMX415_RHS1);
+		if (ret < 0) {
+			dev_warn(sensor->dev, "Failed to read RHS1, ret=%d\n", ret);
+		} else {
+			sensor->rhs1 = ret;
+			dev_dbg(sensor->dev, "RHS1 = 0x%x\n", sensor->rhs1);
+		}
+
+		ret = imx415_read(sensor, IMX415_RHS2);
+		if (ret < 0) {
+			dev_warn(sensor->dev, "Failed to read RHS2, ret=%d\n", ret);
+		} else {
+			sensor->rhs2 = ret;
+			dev_dbg(sensor->dev, "RHS2 = 0x%x\n", sensor->rhs2);
+		}
+
+	}
+
+	vmax_val = imx415_read(sensor, IMX415_VMAX);
+	if (vmax_val >= 0)
+		sensor->cur_vmax = vmax_val;
+
+	return 0;
 }
 
 static int imx415_setup(struct imx415 *sensor, struct v4l2_subdev_state *state)
@@ -1226,6 +1265,29 @@ static int imx415_stream_on(struct imx415 *sensor)
 	ret = imx415_wakeup(sensor);
 	if (ret)
 		return ret;
+
+	ret = imx415_read(sensor, IMX415_RHS1);
+	if (ret >= 0) {
+		sensor->rhs1 = ret;
+		dev_dbg(sensor->dev, "RHS1 read = 0x%06x\n", sensor->rhs1);
+	} else {
+		dev_warn(sensor->dev, "Failed to read RHS1\n");
+	}
+
+	ret = imx415_read(sensor, IMX415_RHS2);
+	if (ret >= 0) {
+		sensor->rhs2 = ret;
+		dev_dbg(sensor->dev, "RHS2 read = 0x%06x\n", sensor->rhs2);
+	} else {
+		dev_warn(sensor->dev, "Failed to read RHS2\n");
+	}
+
+	ret = imx415_read(sensor, IMX415_GAIN_PGC_FIDMD);
+	if (ret >= 0) {
+		dev_dbg(sensor->dev, "GAIN_PGC_FIDMD = 0x%x\n", ret);
+	} else {
+		dev_warn(sensor->dev, "Failed to read GAIN_PGC_FIDMD\n");
+	}
 
 	return imx415_write(sensor, IMX415_XMSTA, IMX415_XMSTA_START);
 }
@@ -1438,9 +1500,183 @@ static long imx415_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	struct esmodule_hdr_cfg *hdr_cfg;
 	u64 current_lane_rate;
 	int new_mode;
+	u32 exposure_lines;
+	u32 fsc;
+	u32 shr0, shr1, shr2;
+	u32 rhs1, rhs2;
+	u32 gain_val;
 	int ret = 0;
 
 	switch (cmd) {
+	case ESMODULE_SET_SHR0:
+		shr0 = *(u32 *)arg;
+		dev_dbg(sensor->dev, "write SHR0 = 0x%x\n", shr0);
+		return imx415_write(sensor, IMX415_SHR0, shr0);
+
+	case ESMODULE_SET_SHR1:
+		shr1 = *(u32 *)arg;
+		dev_dbg(sensor->dev, "write SHR1 = 0x%x\n", shr1);
+		return imx415_write(sensor, IMX415_SHR1, shr1);
+
+	case ESMODULE_SET_SHR2:
+		shr2 = *(u32 *)arg;
+		dev_dbg(sensor->dev, "write SHR2 = 0x%x\n", shr2);
+		return imx415_write(sensor, IMX415_SHR2, shr2);
+
+	case ESMODULE_SET_LONG_EXPOSURE:
+		exposure_lines = *(u32 *)arg;
+
+		if (sensor->hdr_mode == NO_HDR)
+			return -EINVAL;
+
+		fsc = sensor->cur_vmax * sensor->fsc_multiplier;
+
+		if (sensor->hdr_mode == HDR_X2) {
+			u32 rhs_limit = sensor->rhs1 + 9;
+			u32 max_exp_lines = fsc - rhs_limit;
+
+			if (exposure_lines > max_exp_lines)
+				exposure_lines = max_exp_lines;
+			if (exposure_lines < 8)
+				exposure_lines = 8;
+
+			shr0 = fsc - exposure_lines;
+			shr0 &= ~1;
+			if (shr0 < (sensor->rhs1 + 9))
+				shr0 = (sensor->rhs1 + 9) & ~1;
+			if (shr0 > (fsc - 8))
+				shr0 = (fsc - 8) & ~1;
+		} else {
+			/* SHR0 = 3n, (RHS2 + 13) ≤ SHR0 ≤ (FSC - 12) */
+			u32 min_shr0 = ((sensor->rhs2 + 13) + 2) / 3 * 3;
+			u32 max_shr0 = (fsc - 12) / 3 * 3;
+
+			if (exposure_lines > (fsc - min_shr0))
+				exposure_lines = fsc - min_shr0;
+			if (exposure_lines < (fsc - max_shr0))
+				exposure_lines = fsc - max_shr0;
+
+			shr0 = fsc - exposure_lines;
+			shr0 = clamp(shr0, min_shr0, max_shr0);
+			shr0 = (shr0 / 3) * 3;
+		}
+
+		dev_dbg(sensor->dev, "LONG_EXP: req=%u fsc=%u shr0=0x%x\n",
+			 *(u32 *)arg, fsc, shr0);
+		ret = imx415_write(sensor, IMX415_SHR0, shr0);
+		break;
+
+	case ESMODULE_SET_SHORT1_EXPOSURE:
+		exposure_lines = *(u32 *)arg;
+		if (sensor->hdr_mode == NO_HDR)
+			return -EINVAL;
+
+		if (sensor->hdr_mode == HDR_X2) {
+			rhs1 = sensor->rhs1;
+			u32 max_short_lines = rhs1 - 9;
+
+			if (exposure_lines > max_short_lines)
+				exposure_lines = max_short_lines;
+			if (exposure_lines < 1)
+				exposure_lines = 1;
+
+			shr1 = rhs1 - exposure_lines;
+			shr1 = ((shr1 - 1) | 1) + 1;
+			if (shr1 < 9)
+				shr1 = 9;
+			if (shr1 > (rhs1 - 8))
+				shr1 = (rhs1 - 8) | 1;
+		} else {
+			/* SHR1 = 3n+1, 13 ≤ SHR1 ≤ (RHS1 - 12) */
+			rhs1 = sensor->rhs1;
+			u32 min_shr1 = 13;
+			u32 max_shr1 = (rhs1 - 12) / 3 * 3 + 1;
+
+			u32 max_exp_lines = rhs1 - min_shr1;
+			u32 min_exp_lines = rhs1 - max_shr1;
+
+			if (exposure_lines > max_exp_lines)
+				exposure_lines = max_exp_lines;
+			if (exposure_lines < min_exp_lines)
+				exposure_lines = min_exp_lines;
+
+			shr1 = rhs1 - exposure_lines;
+			shr1 = clamp(shr1, min_shr1, max_shr1);
+			shr1 = ((shr1 - 1) / 3) * 3 + 1;  /* 3n+1 */
+		}
+
+		dev_dbg(sensor->dev, "SHORT1_EXP: req=%u rhs1=0x%x shr1=0x%x\n",
+			 *(u32 *)arg, sensor->rhs1, shr1);
+		ret = imx415_write(sensor, IMX415_SHR1, shr1);
+		break;
+
+	case ESMODULE_SET_SHORT2_EXPOSURE:
+		exposure_lines = *(u32 *)arg;
+
+		if (sensor->hdr_mode != HDR_X3) {
+			dev_err(sensor->dev, "SHORT2_EXPOSURE only for DOL3\n");
+			return -EINVAL;
+		}
+
+		/* SHR2 = 3n+2, (RHS1 + 13) ≤ SHR2 ≤ (RHS2 - 12) */
+		rhs1 = sensor->rhs1;
+		rhs2 = sensor->rhs2;
+		u32 min_shr2 = rhs1 + 13;
+		u32 max_shr2 = (rhs2 - 12) / 3 * 3 + 2;
+
+		u32 max_exp_lines = rhs2 - min_shr2;
+		u32 min_exp_lines = rhs2 - max_shr2;
+
+		if (exposure_lines > max_exp_lines)
+			exposure_lines = max_exp_lines;
+		if (exposure_lines < min_exp_lines)
+			exposure_lines = min_exp_lines;
+
+		shr2 = rhs2 - exposure_lines;
+		shr2 = clamp(shr2, min_shr2, max_shr2);
+		shr2 = ((shr2 - 2) / 3) * 3 + 2;
+
+		dev_dbg(sensor->dev, "SHORT2_EXP: req=%u rhs2=0x%x shr2=0x%x\n",
+			 *(u32 *)arg, rhs2, shr2);
+		ret = imx415_write(sensor, IMX415_SHR2, shr2);
+		break;
+
+	case ESMODULE_GET_RHS1:
+		*(u32 *)arg = sensor->rhs1;
+		dev_dbg(sensor->dev, "GET_RHS1 = 0x%x\n", sensor->rhs1);
+		break;
+
+	case ESMODULE_GET_RHS2:
+		*(u32 *)arg = sensor->rhs2;
+		dev_dbg(sensor->dev, "GET_RHS2 = 0x%x\n", sensor->rhs2);
+		break;
+
+	case ESMODULE_SET_LONG_GAIN:
+		gain_val = *(u32 *)arg;
+		dev_dbg(sensor->dev, "LONG GAIN: received long gain reg = 0x%x (%u)\n", gain_val, gain_val);
+		ret = imx415_write(sensor, IMX415_GAIN_PCG_0, gain_val);
+		break;
+
+	case ESMODULE_SET_SHORT1_GAIN:
+        gain_val = *(u32 *)arg;
+		dev_dbg(sensor->dev, "SHORT GAIN: received short1 gain reg = 0x%x (%u)\n", gain_val, gain_val);
+        if (sensor->hdr_mode == NO_HDR) {
+            dev_err(sensor->dev, "Not in HDR mode, cannot set short1 gain\n");
+            return -EINVAL;
+        }
+        ret = imx415_write(sensor, IMX415_GAIN_PGC_1, gain_val);
+        break;
+
+	case ESMODULE_SET_SHORT2_GAIN:
+        gain_val = *(u32 *)arg;
+		dev_dbg(sensor->dev, "set short2 gain reg=0x%x\n", gain_val);
+        if (sensor->hdr_mode != HDR_X3) {
+            dev_err(sensor->dev, "Not in DOL3 mode, cannot set short2 gain\n");
+            return -EINVAL;
+        }
+        ret = imx415_write(sensor, IMX415_GAIN_PGC_2, gain_val);
+        break;
+
 	case ESMODULE_GET_HDR_CFG:
 		hdr_cfg = (struct esmodule_hdr_cfg *)arg;
 		hdr_cfg->hdr_mode = sensor->hdr_mode;
@@ -1455,6 +1691,8 @@ static long imx415_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			dev_err(sensor->dev, "Invalid HDR mode: %d\n", hdr_cfg->hdr_mode);
 			return -EINVAL;
 		}
+
+		dev_dbg(sensor->dev, "HDR mode: %d\n", hdr_cfg->hdr_mode);
 
 		/* TODO: support sensor streaming can change HDR MODE */
 		if (sensor->streaming) {
@@ -1474,9 +1712,17 @@ static long imx415_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		sensor->cur_mode = new_mode;
 		sensor->hdr_mode = hdr_cfg->hdr_mode;
 
+		switch (sensor->hdr_mode) {
+			case NO_HDR: sensor->fsc_multiplier = 1; break;
+			case HDR_X2: sensor->fsc_multiplier = 2; break;
+			case HDR_X3: sensor->fsc_multiplier = 4; break;
+			default: sensor->fsc_multiplier = 1;
+		}
+
 		dev_dbg(sensor->dev, "HDR mode set to %d. Configuration will be applied on next stream start.\n",
 					sensor->hdr_mode);
 		break;
+
 
 	default:
 		return -ENOIOCTLCMD;
