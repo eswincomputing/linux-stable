@@ -56,7 +56,8 @@
 #define TPS549D22_CMD_STATUS_IOUT 0x7B
 #define TPS549D22_CMD_STATUS_CML 0x7E
 
-#define TPS549D22_VOLT_STEP 2170 // uV
+//#define TPS549D22_VOLT_STEP 2170 // uV
+// #define TPS549D22_VOLT_STEP 2543
 #define TPS549D22_MASK_VOUT_VALUE 0x3FF
 #define TPS549D22_MASK_OPERATION_ENABLE 0X80
 
@@ -65,6 +66,7 @@ struct TPS549D22_DRIVER_DATA {
 	struct i2c_client *client;
 	struct mutex config_lock;
 	char tps549d22_label[2][20];
+	u32 vout_step;
 };
 
 static struct of_regulator_match tps549d22_matches[] = {
@@ -73,11 +75,11 @@ static struct of_regulator_match tps549d22_matches[] = {
 	},
 };
 
-static inline u32 tps549d22_volt2reg(u32 vlot_uv)
+static inline u32 tps549d22_volt2reg(struct TPS549D22_DRIVER_DATA *data,  u32 vlot_uv)
 {
 	u32 value = 0;
 
-	value = DIV_ROUND_CLOSEST(vlot_uv, TPS549D22_VOLT_STEP);
+	value = DIV_ROUND_CLOSEST(vlot_uv, data->vout_step);
 	return value;
 }
 
@@ -208,12 +210,12 @@ static u32 tps549d22_get_vout(struct TPS549D22_DRIVER_DATA *data)
 {
 	u32 get_value = tps549d22_read_mask_word(
 		data, TPS549D22_CMD_VOUT_COMMAND, TPS549D22_MASK_VOUT_VALUE);
-	return (get_value * TPS549D22_VOLT_STEP / 1000);
+	return (get_value * data->vout_step / 1000);
 }
 
 static s32 tps549d22_set_vout(struct TPS549D22_DRIVER_DATA *data, u32 volt_uv)
 {
-	u16 new_value = tps549d22_volt2reg(volt_uv);
+	u16 new_value = tps549d22_volt2reg(data, volt_uv);
 
 	const struct regulation_constraints *constraints =
 		&tps549d22_matches[0].init_data->constraints;
@@ -256,7 +258,7 @@ int tps549d22_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 static struct linear_range tps549d22_ext_ranges[] = {
-	REGULATOR_LINEAR_RANGE(666000, 307, 614, TPS549D22_VOLT_STEP),
+	REGULATOR_LINEAR_RANGE(666000, 307, 614, -1)
 };
 
 /**
@@ -306,7 +308,7 @@ static s32 tps549d22_get_voltage_sel(struct regulator_dev *rdev)
 	index = tps549d22_read_mask_word(data, TPS549D22_CMD_VOUT_COMMAND,
 					 TPS549D22_MASK_VOUT_VALUE);
 	index = index - DIV_ROUND_CLOSEST(tps549d22_ext_ranges->min,
-					  TPS549D22_VOLT_STEP);
+					  data->vout_step);
 	dev_dbg(dev, "%s index:%d\n", __FUNCTION__, index);
 	return index;
 }
@@ -551,8 +553,10 @@ static s32 tps549d22_init_data(struct TPS549D22_DRIVER_DATA *data,
 	tps549d22_ext_ranges->min_sel = 0;
 	tps549d22_ext_ranges->max_sel =
 		DIV_ROUND_CLOSEST(constraints->max_uV - constraints->min_uV,
-				  TPS549D22_VOLT_STEP) +
+				  data->vout_step) +
 		1;
+	tps549d22_ext_ranges->step = data->vout_step;
+
 	tps549d22_regulator_desc.n_voltages =
 		tps549d22_ext_ranges->max_sel - tps549d22_ext_ranges->min_sel;
 	dev_dbg(dev,
@@ -581,6 +585,7 @@ static s32 tps549d22_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct device_node *np, *parent;
 	const char *output_names[2];
+	u32 vout_factor;
 
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_BYTE_DATA)) {
@@ -599,7 +604,25 @@ static s32 tps549d22_probe(struct i2c_client *client)
 	np = of_node_get(dev->of_node);
 	if (!np)
 		return -EINVAL;
+	/*
+	 * 1. set_vout_factor according hardware design Vfb divider.
+	 * 2. set_vout_factor = (Rtop / Rbottom) + 1; and 
+	 *    the result vout_factor = (set_vout_factor * 19531)/10000.
+	 * 3. if not set_vout_factor property in dts, so use the default value 2170, 
+	 * 	this value is for old board, and old board set_vout_factor = 1.1, so
+	 * 	the vout_factor = (1.1 * 19531)/10000 = 2170.
+	 * 4. The value 19531(uV) is from Spec datasheet, it means the basic resolution.
+	 *
+	 */
+	ret = of_property_read_u32(np, "set_vout_factor", &vout_factor);
+	pr_debug("%s, %d, vout_factor=%d\n", __func__, __LINE__, vout_factor);
+	if (ret) {
+		vout_factor = 2170;
+	} else {
+		vout_factor = DIV_ROUND_UP(vout_factor * 19531, 10000);
+	}
 
+	data->vout_step = vout_factor;
 	/* Get 'regulators' subnode */
 	parent = of_get_child_by_name(np, "regulators");
 	if (!parent) {

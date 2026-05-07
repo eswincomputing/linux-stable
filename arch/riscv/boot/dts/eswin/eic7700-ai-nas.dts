@@ -686,6 +686,7 @@
 		eswin,regulator_default-microvolt=<1000000>;
 		eswin,regulator_label = "Supply VDD", "D0 NPU Voltage";
 		label = "npu_vdd";
+		set_vout_factor = <1000>;
 		regulators{
 			npu_vcc:npu_svcc{
 				regulator-name="D0_NPU_SVCC";
