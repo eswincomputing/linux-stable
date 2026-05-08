@@ -431,6 +431,10 @@ error_register_procfs:
 	return ret;
 }
 
+static int es_isp_ots = 4;
+module_param_named(outstanding, es_isp_ots, int, 0644);
+MODULE_PARM_DESC(outstanding,"outstanding 4/8/16/32, default 4");
+
 static int vvcam_isp_remove(struct platform_device *pdev)
 {
 	struct vvcam_isp_dev *isp_dev;
