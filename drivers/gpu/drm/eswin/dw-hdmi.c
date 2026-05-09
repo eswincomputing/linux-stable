@@ -322,10 +322,10 @@ static void repo_hpd_event(struct work_struct *p_work)
 	u8 phy_stat = hdmi_readb(hdmi, HDMI_PHY_STAT0);
 
 	mutex_lock(&hdmi->mutex);
-	if ((phy_stat & HDMI_PHY_HPD) && (phy_stat & HDMI_PHY_RX_SENSE))
-		hdmi->rxsense = true;
-	else
+	if ((phy_stat & HDMI_PHY_HPD)==0)
 		hdmi->rxsense = false;
+	else
+		hdmi->rxsense = true;
 	mutex_unlock(&hdmi->mutex);
 
 	if (hdmi->bridge.dev) {
@@ -3605,7 +3605,7 @@ static void dw_hdmi_bridge_atomic_disable(struct drm_bridge *bridge,
 					  struct drm_bridge_state *old_state)
 {
 	struct dw_hdmi *hdmi = bridge->driver_private;
-
+	dev_dbg(hdmi->dev, "%s %d\n", __func__, __LINE__);
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = true;
 	hdmi->curr_conn = NULL;
@@ -3629,19 +3629,19 @@ static void dw_hdmi_bridge_atomic_enable(struct drm_bridge *bridge,
 		dev_err(hdmi->dev, "[%s %d]connector or crtc is NULL\n", __func__, __LINE__);
 		return;
 	}
-
+	dev_dbg(hdmi->dev, "%s %d\n", __func__, __LINE__);
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = false;
 	hdmi->curr_conn = connector;
 	hdmi->curr_crtc = crtc;
 	phy_state = hdmi_readb(hdmi, HDMI_PHY_STAT0);
 	/*only phd in and rxsense is normal, we can power on*/
-	if ((phy_state & HDMI_PHY_HPD) && (phy_state & HDMI_PHY_RX_SENSE)) {
+	if ((phy_state & HDMI_PHY_HPD)==0) {
+		hdmi->rxsense = false;
+	} else {
 		hdmi->rxsense = true;
 		dw_hdmi_update_power(hdmi);
 		dw_hdmi_update_phy_mask(hdmi);
-	} else {
-		hdmi->rxsense = false;
 	}
 	handle_plugged_change(hdmi, true);
 	mutex_unlock(&hdmi->mutex);
@@ -3741,11 +3741,10 @@ void dw_hdmi_setup_rx_sense(struct dw_hdmi *hdmi, bool hpd, bool rx_sense)
 		 * at least iMX6S versions of the phy.
 		 */
 		dev_info(hdmi->dev, "[%s %d]hpd=%d, rxsense=%d\n", __func__, __LINE__, hpd, rx_sense);
-		if (hpd && rx_sense)
-			hdmi->rxsense = true;
-		else
+		if (hpd  == 0)
 			hdmi->rxsense = false;
-
+		else
+			hdmi->rxsense = true;
 		dw_hdmi_update_power(hdmi);
 		dw_hdmi_update_phy_mask(hdmi);
 	}
