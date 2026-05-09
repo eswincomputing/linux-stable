@@ -2196,10 +2196,11 @@
 					 <&d1_clock EIC7700_MUX_U_VI_DVP_ROOT_2MUX1_GFREE>,
 					 <&d1_clock EIC7700_MUX_U_VI_DIG_ISP_ROOT_2MUX1_GFREE>,
 					 <&d1_clock EIC7700_SPLL0_FOUT1>,
+					 <&d1_clock EIC7700_SPLL2_FOUT1>,
 					 <&d1_clock EIC7700_VPLL_FOUT1>;
 			clock-names = "aclk", "cfg_clk", "isp_aclk", "dvp_clk", "phy_cfg",
 							"phy_escclk", "sht0", "sht1", "sht2", "sht3", "sht4",
-							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "vpll_fout1";
+							"sht5", "aclk_mux", "dvp_mux", "isp_mux", "spll0_fout1", "spll2_fout1", "vpll_fout1";
 			resets = <&d1_reset VI_RST_CTRL SW_VI_AXI_RSTN>,
 					 <&d1_reset VI_RST_CTRL SW_VI_CFG_RSTN>,
 					 <&d1_reset ISP0_RST_CTRL SW_VI_ISP0_RSTN>,
