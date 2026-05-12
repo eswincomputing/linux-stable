@@ -143,7 +143,6 @@ struct es501x_DRIVER_DATA {
 static u32 es501x_get_vout(struct es501x_DRIVER_DATA *data);
 static int es501x_regulator_enable(struct regulator_dev *rdev);
 static int es501x_regulator_disable(struct regulator_dev *rdev);
-static u8 es501x_volt2reg(struct es501x_DRIVER_DATA *data, u32 volt_mv);
 static int es501x_regulator_is_enabled(struct regulator_dev *rdev);
 /* Set VRANGE mode */
 static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrange)
@@ -182,28 +181,6 @@ static int es501x_set_vrange(struct i2c_client *client, enum es501x_vrange vrang
     return 0;
 }
 
-/* Calculate VSET value based on voltage - accurately implement the table formula */
-static int es501x_uv_to_vset(unsigned int uV, const struct es501x_voltage_config *config)
-{
-    int vset;
-
-    if (uV < config->base_uv) {
-        pr_warn("Voltage %u uV below base %u uV, using minimum\n", uV, config->base_uv);
-        return 0;
-    }
-
-    /* VOUT = base + VSET × step */
-    vset = (uV - config->base_uv) / config->step_uv;
-
-    if (vset > config->max_vset) {
-        pr_warn("Voltage %u uV exceeds maximum, clamping to %u uV\n", 
-                uV, config->base_uv + config->max_vset * config->step_uv);
-        vset = config->max_vset;
-    }
-
-    return vset;
-}
-
 static struct of_regulator_match es501x_matches[] = {
     { .name = "vdd_soc_cpu" },
     { .name = "npu_svcc"   },
@@ -227,112 +204,6 @@ static inline s32 es501x_str2ul(const char *buf, u32 *value)
 	return ret;
 }
 
-static u8 es501x_read_byte(struct es501x_DRIVER_DATA *data, u8 command)
-{
-	int ret = 0;
-	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_read_byte_data(data->client, command);
-	mutex_unlock(&data->config_lock);
-	if (ret < 0)
-	{
-		dev_err(&data->client->dev, "get command:0x%x value error:%d\n", command,
-				ret);
-		return 0xff;
-	}
-	return (u8)ret;
-}
-
-static s32 es501x_write_byte(struct es501x_DRIVER_DATA *data, u8 command, u8 val)
-{
-	int ret = 0;
-	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_write_byte_data(data->client, command, val);
-	mutex_unlock(&data->config_lock);
-	if (ret < 0)
-	{
-		dev_err(&data->client->dev, "set command:0x%x value:0x%x error:%d\n",
-				command, val, ret);
-	}
-	return ret;
-}
-
-static s32 es501x_update_byte(struct es501x_DRIVER_DATA *data, u8 command, u8 mask, u8 val)
-{
-	u8 old_value = 0;
-	u8 new_value = 0;
-	if (0 != (~mask & val))
-	{
-		dev_err(&data->client->dev, "command:0x%x,input:0x%x outrange mask:0x%x\n",
-				command, val, mask);
-		return -EINVAL;
-	}
-	old_value = es501x_read_byte(data, command);
-	new_value = ~mask & old_value;
-	new_value = new_value | val;
-	return es501x_write_byte(data, command, new_value);
-}
-
-static u16 es501x_read_word(struct es501x_DRIVER_DATA *data, u8 command)
-{
-	int ret = 0;
-	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_read_word_data(data->client, command);
-	mutex_unlock(&data->config_lock);
-	if (ret < 0)
-	{
-		dev_err(&data->client->dev, "get command:0x%x value error:%d\n", command,
-				ret);
-		return 0xffff;
-	}
-	return (u16)ret;
-}
-
-static u16 es501x_read_mask_word(struct es501x_DRIVER_DATA *data, u8 command, u16 mask)
-{
-	u16 ret = es501x_read_word(data, command);
-	return (ret & mask);
-}
-
-static s32 es501x_write_word(struct es501x_DRIVER_DATA *data, u8 command, u16 val)
-{
-	int ret = 0;
-	mutex_lock(&data->config_lock);
-	ret = i2c_smbus_write_word_data(data->client, command, val);
-	mutex_unlock(&data->config_lock);
-	if (ret < 0)
-	{
-		dev_err(&data->client->dev, "set command:0x%x value:0x%x error:%d\n",
-				command, val, ret);
-	}
-	return ret;
-}
-
-static s32 es501x_update_word(struct es501x_DRIVER_DATA *data, u8 command, u16 mask, u16 val)
-{
-	u16 old_value = 0;
-	u16 new_value = 0;
-	if (0 != (~mask & val))
-	{
-		dev_err(&data->client->dev, "command:0x%x,input:0x%x outrange mask:0x%x\n",
-				command, val, mask);
-		return -EINVAL;
-	}
-	old_value = es501x_read_word(data, command);
-	new_value = ~mask & old_value;
-	new_value = new_value | val;
-	return es501x_write_word(data, command, new_value);
-}
-
-/*
-static int es501x_get_enable(struct es501x_DRIVER_DATA *data)
-{
-	u8 cache = 0;
-
-	cache = es501x_read_byte(data, es501x_CMD_OPERATION);
-
-	return ((cache >> 7) & 0x1);
-}
-*/
 static const struct hwmon_channel_info *es501x_info[] = {
 	HWMON_CHANNEL_INFO(in,  // Voltage monitor
         HWMON_I_INPUT | HWMON_I_LABEL | HWMON_I_ENABLE),
@@ -453,47 +324,7 @@ static struct hwmon_chip_info es501x_chip_info = {
 	.info = es501x_info,
 
 };
-#if 0
-static s32 es501x_set_vout(struct es501x_DRIVER_DATA *data, u32 volt_uv)
-{
-	u8 new_value = es501x_volt2reg(data, volt_uv);
-	const struct regulation_constraints *constraints = data->constraints;
 
-	if ((volt_uv > (constraints->max_uV)) || (volt_uv < (constraints->min_uV)))
-	{
-		dev_err(&data->rdev->dev, "max:%duV,min:%duV,now:%duV\n",
-				(constraints->max_uV), constraints->min_uV, volt_uv);
-		return -EINVAL;
-	}
-
-    int ret;
-    unsigned int current_ctrl2;
-
-    /* Read the current value of the CONTROL2 register */
-    current_ctrl2 = i2c_smbus_read_byte_data(data->client, ES501X_CONTROL2_REG);
-    if (current_ctrl2 < 0) {
-        dev_err(&data->rdev->dev, "Failed to read CONTROL2 register\n");
-    }
-    u8 value = (u8)current_ctrl2;
-	dev_err(&data->rdev->dev, "Eswin:%s read CONTROL2 value=%d\n",__func__, value);
-
-    /* Write to VSET register */
-    ret = i2c_smbus_write_byte_data(data->client, ES501X_VSET_REG, new_value);
-    if (ret < 0) {
-        dev_err(&data->rdev->dev, "Failed to set VSET register to 0x%02x\n", new_value);
-        return ret;
-    }
-
-    dev_info(&data->rdev->dev, "Voltage: volt_mv=%u uV, VSET=0x%02x, actual=%u uV\n",
-             volt_mv, new_value, value);
-
-	return ret;
-}
-#endif
-static s32 es501x_set_vout(struct es501x_DRIVER_DATA *data, u32 volt_uv){
-	dev_err(data->dev, "Eswin:%s todo\n", __func__);
-	return 0;
-}
 static ssize_t es501x_vout_show(struct device *d,
 								struct device_attribute *attr, char *buf)
 {
@@ -509,31 +340,6 @@ static ssize_t es501x_vout_store(struct device *dev,
 	dev_err(dev, "Eswin:%s todo\n", __func__);
 	return count;
 }
-#if 0
-static ssize_t es501x_vout_store(struct device *d,
-								 struct device_attribute *attr,
-								 const char *buf, size_t count)
-{
-	struct i2c_client *client = to_i2c_client(d);
-	struct es501x_DRIVER_DATA *data = i2c_get_clientdata(client);
-	u32 volt_value = 0;
-	int ret = 0;
-	ret = es501x_str2ul(buf, &volt_value);
-
-	if (ret)
-	{
-		return ret;
-	}
-	dev_err(&client->dev, "Eswin:%s call es501x_set_vout volt_value=%d\n", __func__, volt_value);
-	ret = es501x_set_vout(data, volt_value);
-	if (0 != ret)
-	{
-		return ret;
-	}
-	return count;
-}
-DEVICE_ATTR(es501x_vout, 0600, es501x_vout_show, es501x_vout_store);
-#endif
 
 DEVICE_ATTR(es501x_vout, 0600,
             es501x_vout_show,
@@ -545,16 +351,6 @@ static struct attribute *es501x_attrs[] = {
 	NULL};
 
 ATTRIBUTE_GROUPS(es501x);
-
-static u8 es501x_volt2reg(struct es501x_DRIVER_DATA *data, u32 uV)
-{
-    const struct es501x_voltage_config *cfg = data->vconfig;
-
-    if (uV < cfg->base_uv)
-        return 0;
-
-    return DIV_ROUND_CLOSEST(uV - cfg->base_uv, cfg->step_uv);
-}
 
 static u32 es501x_reg2volt(struct es501x_DRIVER_DATA *data, u8 vset)
 {
@@ -582,20 +378,6 @@ static int es501x_get_vset(struct i2c_client *client)
     return vset;
 }
 
-/* Read the current VRANGE configuration */
-static int es501x_get_vrange(struct i2c_client *client)
-{
-    int ctrl2;
-
-    ctrl2 = i2c_smbus_read_byte_data(client, ES501X_CONTROL2_REG);
-    if (ctrl2 < 0) {
-        dev_err(&client->dev, "Failed to read CONTROL2 register\n");
-        return ctrl2;
-    }
-
-    return (ctrl2 & ES501X_VRANGE_MASK) >> ES501X_VRANGE_SHIFT;
-}
-
 /* Regulator operation function */
 static int es501x_get_voltage_sel(struct regulator_dev *rdev)
 {
@@ -618,33 +400,7 @@ static int es501x_set_voltage_sel(struct regulator_dev *rdev, unsigned selector)
         return ret;
     return 0;
 }
-/*
-int es501x_regulator_enable(struct regulator_dev *rdev)
-{
-	struct i2c_client *client = to_i2c_client(rdev->dev.parent);
-	struct es501x_DRIVER_DATA *data = i2c_get_clientdata(client);
-	dev_dbg(&rdev->dev, "%s.%d\n", __FUNCTION__, __LINE__);
-	return es501x_update_byte(data, es501x_CMD_OPERATION,
-							  es501x_MASK_OPERATION_ENABLE,
-							  es501x_MASK_OPERATION_ENABLE);
-}
 
-int es501x_regulator_disable(struct regulator_dev *rdev)
-{
-	struct i2c_client *client = to_i2c_client(rdev->dev.parent);
-	struct es501x_DRIVER_DATA *data = i2c_get_clientdata(client);
-	dev_dbg(&rdev->dev, "%s.%d\n", __FUNCTION__, __LINE__);
-	return es501x_update_byte(data, es501x_CMD_OPERATION,
-							  es501x_MASK_OPERATION_ENABLE, 0);
-}
-int es501x_regulator_is_enabled(struct regulator_dev *rdev)
-{
-	struct i2c_client *client = to_i2c_client(rdev->dev.parent);
-	struct es501x_DRIVER_DATA *data = i2c_get_clientdata(client);
-	dev_dbg(&rdev->dev, "%s.%d\n", __FUNCTION__, __LINE__);
-	return es501x_get_enable(data);
-}
-*/
 static int es501x_regulator_initvolt(struct regulator_dev *rdev)
 {
     struct es501x_DRIVER_DATA *data = rdev_get_drvdata(rdev);
@@ -799,21 +555,35 @@ static int es501x_of_parse_cb(struct device_node *np,
                              const struct regulator_desc *desc,
                              struct regulator_config *config)
 {
-    struct regulator_init_data *init_data = config->init_data;
+    const struct regulator_init_data *init_data = config->init_data;
+    struct regulator_init_data *new_init_data;
     struct regulation_constraints *c;
 
     if (!init_data)
         return 0;
 
-    c = &init_data->constraints;
+    c = devm_kzalloc(config->dev, sizeof(*c), GFP_KERNEL);
+    if (!c)
+        return -ENOMEM;
 
-    /* ES501x does NOT support current limit */
-    c->min_uA = 0;
-    c->max_uA = 0;
+    *c = init_data->constraints;
 
-    /* ES501x does NOT support OVP / UVP */
+    if (!c->min_uA && !c->max_uA) {
+        c->min_uA = 0;
+        c->max_uA = 0;
+    }
+
     c->over_voltage_detection = false;
     c->under_voltage_detection = false;
+
+    new_init_data = devm_kzalloc(config->dev, sizeof(*new_init_data), GFP_KERNEL);
+    if (!new_init_data)
+        return -ENOMEM;
+
+    *new_init_data = *init_data;
+    new_init_data->constraints = *c;
+
+    config->init_data = new_init_data;
 
     return 0;
 }
@@ -1050,7 +820,7 @@ static s32 es501x_probe(struct i2c_client *client)
     hwmon_dev = devm_hwmon_device_register_with_info(
         dev, client->name, data, &es501x_chip_info, es501x_groups);
     if (IS_ERR(hwmon_dev)) {
-        dev_err(dev, "Eswin failed to register hwmon device %d\n", PTR_ERR(hwmon_dev));
+        dev_err(dev, "Eswin failed to register hwmon device %ld\n", PTR_ERR(hwmon_dev));
         return PTR_ERR(hwmon_dev);
     }
 
