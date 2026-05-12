@@ -85,7 +85,7 @@
 			tlb-split;
 			numa-node-id = <0>;
 			clocks = <&d0_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_0>;
-			operating-points-v2 = <&d0_cpu_opp_table>;
+			operating-points-v2 = <&cpu_opp_table>;
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <800>;
 			cpu-idle-states = <&CPU_RET>;
@@ -131,7 +131,7 @@
 			tlb-split;
 			numa-node-id = <0>;
 			clocks = <&d0_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_1>;
-			operating-points-v2 = <&d0_cpu_opp_table>;
+			operating-points-v2 = <&cpu_opp_table>;
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <800>;
 			cpu-idle-states = <&CPU_RET>;
@@ -177,7 +177,7 @@
 			tlb-split;
 			numa-node-id = <0>;
 			clocks = <&d0_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_2>;
-			operating-points-v2 = <&d0_cpu_opp_table>;
+			operating-points-v2 = <&cpu_opp_table>;
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <800>;
 			cpu-idle-states = <&CPU_RET>;
@@ -223,7 +223,7 @@
 			tlb-split;
 			numa-node-id = <0>;
 			clocks = <&d0_clock EIC7700_CLK_CPU_EXT_SRC_CORE_CLK_3>;
-			operating-points-v2 = <&d0_cpu_opp_table>;
+			operating-points-v2 = <&cpu_opp_table>;
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <800>;
 			cpu-idle-states = <&CPU_RET>;

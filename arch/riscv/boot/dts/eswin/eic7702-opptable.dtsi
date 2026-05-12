@@ -21,7 +21,7 @@
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "eic7700-opptable.dtsi"
 
-&d0_cpu_opp_table {
+&cpu_opp_table {
 	/delete-node/ opp-400000000;
 	/delete-node/ opp-500000000;
 	/delete-node/ opp-600000000;
@@ -31,17 +31,4 @@
 	/delete-node/ opp-1100000000;
 	/delete-node/ opp-1200000000;
 	/delete-node/ opp-1300000000;
-};
-
-/ {
-	d1_cpu_opp_table: opp-table-d1@cpu {
-		compatible = "operating-points-v2";
-		opp-shared;
-
-		opp-1400000000 {
-			opp-hz = /bits/ 64 <1400000000>;
-			opp-microvolt = <800000>;
-			clock-latency-ns = <70000>;
-		};
-	};
 };

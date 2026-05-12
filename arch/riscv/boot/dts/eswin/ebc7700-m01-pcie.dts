@@ -41,7 +41,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EBC7700-M01 A1";
-	compatible = "eswin,eic7x";
 
 	aliases {
 		serial0 = &d0_uart0;
@@ -227,6 +226,29 @@
 			gpios = <&porta 6 GPIO_ACTIVE_LOW>;
 		};
 	};
+
+	reg_vdd_cpux: vdd-cpux-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc0v8";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+};
+
+&cpu_0 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_1 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_2 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_3 {
+	cpu-supply = <&reg_vdd_cpux>;
 };
 
 &d0_trip_threshold {

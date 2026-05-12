@@ -216,8 +216,6 @@
 				compatible = "eswin,eic7700-clock";
 				#clock-cells = <1>;
 				numa-node-id = <0>;
-				cpu-default-frequency = <1400000000>;
-				operating-points-v2 = <&d0_cpu_opp_table>;
 			};
 		};
 

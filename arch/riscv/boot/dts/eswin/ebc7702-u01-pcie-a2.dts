@@ -26,7 +26,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EBC7702-U01 A2";
-	compatible = "eswin,eic7x";
 
 	/* die0 gpio68 system led */
 	leds {

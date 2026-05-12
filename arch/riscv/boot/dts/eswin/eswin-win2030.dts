@@ -41,7 +41,6 @@
 	#size-cells = <2>;
 	/*model = "SiFive HiFive Unmatched A00";*/
 	model = "ESWIN WIN2030";
-	compatible = "eswin,eic7x";
 
 #if ((CHIPLET_AND_DIE & 0x2) || (CHIPLET_AND_DIE == 0x0))
     aliases {

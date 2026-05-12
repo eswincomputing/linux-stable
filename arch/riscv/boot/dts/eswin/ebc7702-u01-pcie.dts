@@ -24,7 +24,6 @@
 
 / {
 	model = "ESWIN EBC7702-U01 A1";
-	compatible = "eswin,eic7x";
 
 	/* die1 gpio68 system led */
 	leds {

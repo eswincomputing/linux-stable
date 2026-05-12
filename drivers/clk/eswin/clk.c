@@ -28,20 +28,8 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/util_macros.h>
-#include <linux/gpio/consumer.h>
-#include <linux/devfreq.h>
-#include <linux/pm_opp.h>
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 #include "clk.h"
-
-#define DEFAULT_CPU_VOLTAGE VOLTAGE_0_8V
-
-struct cpu_info {
-	uint64_t cpu_freqhz[MAX_NUMNODES];
-	enum voltage_level cpu_current_voltage[MAX_NUMNODES];
-};
-struct cpu_info g_cpu_info = {.cpu_freqhz = {0}, .cpu_current_voltage = {DEFAULT_CPU_VOLTAGE}};
-static DEFINE_MUTEX(lock);
 
 struct clk_hw *eswin_clk_find_parent(struct eswin_clock_data *data,
 				     char *parent_name)
@@ -140,27 +128,6 @@ err:
 	return PTR_ERR(clk);
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_fixed_rate);
-
-static int eswin_clk_set_cpu_voltage(struct gpio_desc *cpu_voltage_gpio,
-				     enum voltage_level target_voltage)
-{
-	if (!cpu_voltage_gpio)
-		return -ENODEV;
-
-	switch (target_voltage) {
-	case VOLTAGE_0_9V:
-		gpiod_set_value(cpu_voltage_gpio, 1);
-		break;
-	case VOLTAGE_0_8V:
-		gpiod_set_value(cpu_voltage_gpio, 0);
-		break;
-	default:
-		pr_err("%s %d: unsupport  voltage %d\n", __func__, __LINE__,
-		       target_voltage);
-		return -EINVAL;
-	}
-	return 0;
-}
 
 static int eswin_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *fbdiv_val,
 			  u32 *refdiv_val, u64 rate,
@@ -322,10 +289,6 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	char clk_cpu_aclk_div2_name[50] = { 0 };
 	char clk_cpu_lp_pll_name[50] = { 0 };
 	char clk_cpu_pll_name[50] = { 0 };
-	enum voltage_level cpu_target_voltage = VOLTAGE_0_8V;
-	unsigned long max_rate = rate;
-	struct dev_pm_opp *opp;
-	unsigned long target_volt;
 
 	ret = eswin_calc_pll(&frac_val, &postdiv1_val, &fbdiv_val, &refdiv_val,
 			     (u64)rate, clk);
@@ -414,50 +377,8 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 			clk_disable_unprepare(clk_cpu_lp_pll);
 			goto switch_back;
 		}
+		pr_info("cluster%d target rate %ld\n", clk->numa_id, rate);
 
-		mutex_lock(&lock);
-		if (clk->numa_id >= 0) {
-			g_cpu_info.cpu_freqhz[clk->numa_id] = rate;
-			max_rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ?
-				g_cpu_info.cpu_freqhz[0] : g_cpu_info.cpu_freqhz[1];
-		}
-		/*
-		 * The CPU clock has now switched to the LP_PLL,
-		 * so we can adjust the CPU's supply voltage
-		 * If the board cpu voltage does not support boosting to 0.9V,
-		 * then the frequency cannot exceed 1.6GHz.
-		 */
-		opp = devfreq_recommended_opp(clk->dev, &max_rate, 1);
-		if (IS_ERR(opp)) {
-			mutex_unlock(&lock);
-			return PTR_ERR(opp);
-		}
-
-		target_volt = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
-		cpu_target_voltage = target_volt > VOLTAGE_0_8V ? VOLTAGE_0_9V:VOLTAGE_0_8V;
-
-		if (g_cpu_info.cpu_current_voltage[clk->numa_id] != cpu_target_voltage) {
-			ret = eswin_clk_set_cpu_voltage(clk->cpu_voltage_gpio,
-							cpu_target_voltage);
-			if (ret) {
-				pr_warn("cluster%d failed to change cpu to %s voltage, not support rate %ld\n",
-						clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
-				mutex_unlock(&lock);
-				goto switch_back;
-			} else {
-				pr_info("cluster%d change to %s voltage, target rate %ld\n",
-						clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
-				/*all die voltage has been changed,shouled be change the value together.*/
-				for (int die_index = 0; die_index < MAX_NUMNODES; die_index++)
-					g_cpu_info.cpu_current_voltage[die_index] = cpu_target_voltage;
-			}
-		} else {
-			pr_info("cluster%d keep %s voltage, target rate %ld\n",
-					clk->numa_id, cpu_target_voltage == VOLTAGE_0_9V?"high":"low", rate);
-		}
-
-		mutex_unlock(&lock);
 	}
 
 	/*first disable pll */
@@ -708,34 +629,11 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 	struct clk *clk = NULL;
 	struct clk_init_data init;
 	int i;
-	static struct gpio_desc *cpu_voltage_gpio;
 
 	p_clk = devm_kzalloc(dev, sizeof(*p_clk) * nums, GFP_KERNEL);
 
 	if (!p_clk)
 		return;
-	/*
-	 *In the D2D system, the boost operation is performed using the GPIO on Die0.
-	 *However, the same GPIO pin cannot be acquired twice, so special handling is implemented:
-	 *Once the GPIO is acquired,the other driver simply uses it directly
-	 */
-	cpu_voltage_gpio =
-		IS_ERR_OR_NULL(cpu_voltage_gpio) ?
-			devm_gpiod_get(dev, "cpu-voltage", GPIOD_OUT_HIGH) :
-			cpu_voltage_gpio;
-	if (IS_ERR_OR_NULL(cpu_voltage_gpio)) {
-		dev_warn(dev, "failed to get cpu voltage gpio, unable to adjust CPU voltage\n");
-		cpu_voltage_gpio = NULL;
-	} else {
-		/*cpu default freq is 1400M, the voltage should be VOLTAGE_0_8V*/
-		eswin_clk_set_cpu_voltage(cpu_voltage_gpio, DEFAULT_CPU_VOLTAGE);
-	}
-
-	mutex_lock(&lock);
-	if(data->numa_id >= 0)
-		g_cpu_info.cpu_freqhz[data->numa_id] = CLK_FREQ_1400M;
-
-	mutex_unlock(&lock);
 
 	for (i = 0; i < nums; i++) {
 		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
@@ -793,7 +691,6 @@ void eswin_clk_register_pll(struct eswin_pll_clock *clks, int nums,
 		p_clk->lock_width = clks[i].lock_width;
 
 		p_clk->hw.init = &init;
-		p_clk->cpu_voltage_gpio = cpu_voltage_gpio;
 		clk = clk_register(dev, &p_clk->hw);
 		if (IS_ERR(clk)) {
 			devm_kfree(dev, p_clk);

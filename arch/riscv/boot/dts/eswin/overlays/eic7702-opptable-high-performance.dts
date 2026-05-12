@@ -9,7 +9,7 @@
 
 / {
 	fragment@0 {
-		target =  <&d0_cpu_opp_table>;
+		target =  <&cpu_opp_table>;
 		__overlay__ {
 			opp-1400000000 {
 				opp-microvolt = <900000>;
@@ -38,35 +38,6 @@
 	};
 
 	fragment@1 {
-		target =  <&d1_cpu_opp_table>;
-		__overlay__ {
-			opp-1400000000 {
-				opp-microvolt = <900000>;
-			};
-			opp-1500000000 {
-				opp-hz = /bits/ 64 <1500000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <70000>;
-			};
-			opp-1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <70000>;
-			};
-			opp-1700000000 {
-				opp-hz = /bits/ 64 <1700000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <70000>;
-			};
-			opp-1800000000 {
-				opp-hz = /bits/ 64 <1800000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <70000>;
-			};
-		};
-	};
-
-	fragment@2 {
 		target =  <&npu_opp_table>;
 		__overlay__ {
 			opp@1188000000 {
@@ -80,4 +51,3 @@
 		};
 	};
 };
-

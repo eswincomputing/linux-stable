@@ -9,7 +9,7 @@
 
 / {
 	fragment@0 {
-		target =  <&d0_cpu_opp_table>;
+		target =  <&cpu_opp_table>;
 		__overlay__ {
 			opp-1500000000 {
 				opp-hz = /bits/ 64 <1500000000>;

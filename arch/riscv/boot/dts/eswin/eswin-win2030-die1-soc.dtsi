@@ -32,6 +32,7 @@
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/gpio/gpio.h>
 / {
+	compatible = "eswin,eic7702";
 	thermal-zones {
 		d1_thermal: d1_thermal0 {
 			polling-delay-passive = <500>; /*ms*/
@@ -205,8 +206,6 @@
 				compatible = "eswin,eic7700-clock";
 				#clock-cells = <1>;
 				numa-node-id = <1>;
-				cpu-default-frequency = <1400000000>;
-				operating-points-v2 = <&d1_cpu_opp_table>;
 			};
 		};
 

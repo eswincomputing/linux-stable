@@ -24,7 +24,6 @@
 
 / {
 	model = "ESWIN EIC7702 D560A";
-	compatible = "eswin,eic770x";
 };
 
 &spi0 {

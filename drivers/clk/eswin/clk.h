@@ -204,7 +204,6 @@ struct eswin_clk_pll {
 	void __iomem *status_reg;
 	u8 lock_shift;
 	u8 lock_width;
-	struct gpio_desc *cpu_voltage_gpio;
 };
 
 struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev, int nr_clks);

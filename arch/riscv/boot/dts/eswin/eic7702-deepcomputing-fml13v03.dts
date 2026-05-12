@@ -250,6 +250,36 @@
 		reset-gpios = <&d1_porta 18 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
+
+	reg_vdd_cpux: vdd-cpux-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "vdd-cpux";
+		regulator-type = "voltage";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <900000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio94_default>;
+		gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		gpios-states = <0>;
+		states = <800000 0>, <900000 1>;
+	};
+
+	eswin_cpufreq {
+		compatible = "eswin,eic772x-cpufreq";
+		status = "okay";
+	};
+};
+
+&cpu_0 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_4 {
+	cpu-supply = <&reg_vdd_cpux>;
 };
 
 &D1CACHE {
@@ -263,15 +293,11 @@
 
 &d0_clock {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio94_default>;
-	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 	cpu-suspend-frequency = <1400000000>;
 };
 
 &d1_clock {
 	status = "okay";
-	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 	cpu-suspend-frequency = <1400000000>;
 };
 

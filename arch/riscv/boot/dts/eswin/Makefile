@@ -14,7 +14,6 @@ dtb-$(CONFIG_SOC_ESWIN) += eswin-win2030.dtb \
 							vpu7702-pcie.dtb \
 							vpu7702-evb.dtb \
 							eic7702-deepcomputing-fml13v03.dtb \
-							eic7702-deepcomputing-fml13v03-evt.dtb \
 							eic7700-ce1.dtb \
 							ebc7702-u01-evb.dtb \
 							ebc7700-m01-evb.dtb \

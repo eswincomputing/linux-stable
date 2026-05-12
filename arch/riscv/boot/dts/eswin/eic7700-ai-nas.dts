@@ -40,7 +40,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EIC7700 EVB";
-	compatible = "eswin,eic7x";
 
 	aliases {
 		serial0 = &d0_uart0;
@@ -160,6 +159,23 @@
 			gpios = <&porta 26 GPIO_ACTIVE_LOW>;
 		};
 	};
+
+	reg_vdd_cpux: vdd-cpux-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "vdd-cpux";
+		regulator-type = "voltage";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <900000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio95_default>;
+		gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		gpios-states = <0>;
+		states = <800000 0>, <900000 1>;
+	};
 };
 
 &pinctrl_gpio26_default {
@@ -170,11 +186,24 @@
     };
 };
 
+&cpu_0 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_1 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_2 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_3 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
 &d0_clock {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio95_default>;
-	cpu-voltage-gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_reset {

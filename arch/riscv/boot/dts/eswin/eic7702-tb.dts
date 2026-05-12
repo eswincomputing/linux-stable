@@ -43,7 +43,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EIC7702 TB";
-	compatible = "eswin,eic7x";
 
 	aliases {
 		serial0 = &d0_uart0;
@@ -185,6 +184,36 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 	};
+
+	reg_vdd_cpux: vdd-cpux-regulator {
+		compatible = "regulator-gpio";
+		regulator-name = "vdd-cpux";
+		regulator-type = "voltage";
+		regulator-boot-on;
+		regulator-always-on;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <900000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio19_default>;
+		gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		gpios-states = <0>;
+		states = <800000 0>, <900000 1>;
+	};
+
+	eswin_cpufreq {
+		compatible = "eswin,eic772x-cpufreq";
+		status = "okay";
+	};
+};
+
+&cpu_0 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_4 {
+	cpu-supply = <&reg_vdd_cpux>;
 };
 
 &D1CACHE {
@@ -198,14 +227,10 @@
 
 &d0_clock {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio19_default>;
-	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
 };
 
 &d1_clock {
 	status = "okay";
-	cpu-voltage-gpios = <&porta 19 GPIO_ACTIVE_HIGH>;
 };
 
 &d0_reset {

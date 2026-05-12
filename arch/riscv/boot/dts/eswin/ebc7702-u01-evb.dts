@@ -43,7 +43,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EBC7702-U01 EVB";
-	compatible = "eswin,eic7x";
 
 	aliases {
 		serial0 = &d0_uart0;
@@ -285,6 +284,24 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 	};
+	reg_vdd_cpux: vdd-cpux-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc0v8";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+	eswin_cpufreq {
+		compatible = "eswin,eic772x-cpufreq";
+		status = "okay";
+	};
+};
+
+&cpu_0 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_4 {
+	cpu-supply = <&reg_vdd_cpux>;
 };
 
 &D1CACHE {

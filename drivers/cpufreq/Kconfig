@@ -313,4 +313,21 @@ config QORIQ_CPUFREQ
 	  which are capable of changing the CPU's frequency dynamically.
 
 endif
+
+if SOC_ESWIN
+config ESWIN_EIC7X_CPUFREQ
+    bool "Multi-cluster DVFS driver"
+
+    depends on CPU_FREQ
+    depends on PM_OPP
+    depends on REGULATOR
+    depends on OF
+    depends on SMP
+
+    select ENERGY_MODEL
+
+    help
+      Generic DVFS driver for multi-cluster systems
+      with shared regulator support.
+endif
 endmenu

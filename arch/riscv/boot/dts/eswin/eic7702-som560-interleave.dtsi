@@ -43,7 +43,6 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	model = "ESWIN EIC7702 SOM560";
-	compatible = "eswin,eic7x";
 
 	aliases {
 		serial0 = &d0_uart0;
@@ -201,32 +200,43 @@
 				<1 1 10>;
 	};
 
-	vdd_soc: regulator-0 {
+	reg_vdd_cpux: vdd-cpux-regulator {
 		compatible = "regulator-gpio";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_die0_gpio21_default>;
-		regulator-name = "soc-adjust";
-		regulator-min-microvolt = <800000>;
-		regulator-max-microvolt = <900000>;
+		regulator-name = "vdd-cpux";
+		regulator-type = "voltage";
 		regulator-boot-on;
 		regulator-always-on;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <900000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_die0_gpio94_default>;
+		gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		gpios = <&portd 10 GPIO_ACTIVE_HIGH>;
-		gpios-states = <1>;
-		states = <800000 0x0>, <900000 0x1>;
+		gpios-states = <0>;
+		states = <800000 0>, <900000 1>;
 	};
+
+	eswin_cpufreq {
+		compatible = "eswin,eic772x-cpufreq";
+		status = "okay";
+	};
+};
+
+&cpu_0 {
+	cpu-supply = <&reg_vdd_cpux>;
+};
+
+&cpu_4 {
+	cpu-supply = <&reg_vdd_cpux>;
 };
 
 &d0_clock {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_die0_gpio94_default>;
-	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 };
 
 &d1_clock {
 	status = "okay";
-	cpu-voltage-gpios = <&portc 30 GPIO_ACTIVE_HIGH>;
 };
 
 &D1CACHE {

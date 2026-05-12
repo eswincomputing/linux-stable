@@ -21,7 +21,7 @@
 #include <dt-bindings/clock/eswin,eic7700-clock.h>
 
 / {
-	d0_cpu_opp_table: opp-table-d0@cpu {
+	cpu_opp_table: opp-table@cpu {
 		compatible = "operating-points-v2";
 		opp-shared;
 
