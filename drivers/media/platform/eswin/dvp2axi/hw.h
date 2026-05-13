@@ -58,6 +58,10 @@ enum es_dvp2axi_chip_id {
 	CHIP_EIC770X_DVP2AXI,
 };
 
+extern int es_dvp2axi_ots;
+extern int es_dvp2axi_wqos;
+extern int es_dvp2axi_axi_burst_len;
+
 struct es_dvp2axi_hw_match_data {
 	int chip_id;
 	const char * const *clks;
@@ -96,7 +100,6 @@ struct es_dvp2axi_hw {
 	bool				is_eic770xs2;
 	atomic_t 			dvp2axi_errirq_cnts[ES_DVP2AXI_ERRIRQ_NUM]; 
 	struct mutex		dev_multi_chn_lock;
-	struct tasklet_struct		dvp2axi_err_tasklet;
 	struct clk_bulk_data	*clks_bulk;
 	struct reset_control *rstc;
 	int num_clks;

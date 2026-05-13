@@ -289,6 +289,115 @@ static int es_dvp2axi_sys_clk_enable(struct es_dvp2axi_hw *dvp2axi_hw)
 	return 0;
 }
 
+int es_dvp2axi_ots = 0xff;
+int es_dvp2axi_wqos = 0;
+int es_dvp2axi_axi_burst_len = 1;
+
+static ssize_t es_dvp2axi_show_outstanding(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", es_dvp2axi_ots);
+	return ret;
+}
+
+static ssize_t es_dvp2axi_store_outstanding(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t len)
+{
+	int val = 0;
+	int ret = 0;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (!ret) {
+		if (val >= 1 && val <= 255)
+			es_dvp2axi_ots = val;
+		else
+			dev_warn(dev, "invalid outstanding value, range (1-255)\n");
+	} else {
+		dev_err(dev, "set outstanding failed, ret %d\n", ret);
+	}
+	return len;
+}
+
+static ssize_t es_dvp2axi_show_wqos(struct device *dev,
+				      struct device_attribute *attr,
+				      char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", es_dvp2axi_wqos);
+	return ret;
+}
+
+static ssize_t es_dvp2axi_store_wqos(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t len)
+{
+	int val = 0;
+	int ret = 0;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (!ret) {
+		if (val >= 0 && val <= 15)
+			es_dvp2axi_wqos = val;
+		else
+			dev_warn(dev, "invalid wqos value, range (0-15)\n");
+	} else {
+		dev_err(dev, "set wqos failed, ret %d\n", ret);
+	}
+	return len;
+}
+
+static ssize_t es_dvp2axi_show_burstlen(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", es_dvp2axi_axi_burst_len);
+	return ret;
+}
+
+static ssize_t es_dvp2axi_store_burstlen(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t len)
+{
+	int val = 0;
+	int ret = 0;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (!ret) {
+		if (val >= 0 && val <= 1)
+			es_dvp2axi_axi_burst_len = val;
+		else
+			dev_warn(dev, "invalid burstlen value, range (0-1)\n");
+	} else {
+		dev_err(dev, "set burstlen failed, ret %d\n", ret);
+	}
+	return len;
+}
+
+static DEVICE_ATTR(outstanding, S_IWUSR | S_IRUSR, es_dvp2axi_show_outstanding,
+		   es_dvp2axi_store_outstanding);
+static DEVICE_ATTR(wqos, S_IWUSR | S_IRUSR, es_dvp2axi_show_wqos,
+		   es_dvp2axi_store_wqos);
+static DEVICE_ATTR(burstlen, S_IWUSR | S_IRUSR, es_dvp2axi_show_burstlen,
+		   es_dvp2axi_store_burstlen);
+
+static struct attribute *dev_attrs[] = {
+	&dev_attr_outstanding.attr,
+	&dev_attr_wqos.attr,
+	&dev_attr_burstlen.attr,
+	NULL,
+};
+
+static struct attribute_group dev_attr_grp = {
+	.attrs = dev_attrs,
+};
+
 static int es_dvp2axi_sys_clk_disable(struct es_dvp2axi_hw *dvp2axi_hw)
 {
 	clk_disable_unprepare(dvp2axi_hw->dvp_clk);
@@ -317,6 +426,9 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, dvp2axi_hw);
 	dvp2axi_hw->dev = dev;
+
+	if (sysfs_create_group(&pdev->dev.kobj, &dev_attr_grp))
+		return -ENODEV;
 
 	dvp2axi_hw->vi_topcsr_regmap = syscon_regmap_lookup_by_phandle(dvp2axi_hw->dev->of_node, "eswin,vi_top_csr");
     if (IS_ERR(dvp2axi_hw->vi_topcsr_regmap)) {
@@ -440,11 +552,6 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 	spin_lock_init(&dvp2axi_hw->stream_lock);
 	atomic_set(&dvp2axi_hw->power_cnt, 0);
 
-	tasklet_init(&dvp2axi_hw->dvp2axi_err_tasklet, es_dvp2axi_tasklet_err_handle,
-		(unsigned long)dvp2axi_hw);
-
-	tasklet_enable(&dvp2axi_hw->dvp2axi_err_tasklet);
-
 #ifdef CONFIG_NUMA
 	ret = of_property_read_u32(dev->of_node, "numa-node-id", &numa_id);
 	if(ret) {
@@ -484,9 +591,12 @@ static int es_dvp2axi_plat_remove(struct platform_device *pdev)
 
 	mutex_destroy(&dvp2axi_hw->dev_lock);
 	mutex_destroy(&dvp2axi_hw->dev_multi_chn_lock);
-	tasklet_disable(&dvp2axi_hw->dvp2axi_err_tasklet);
-	tasklet_kill(&dvp2axi_hw->dvp2axi_err_tasklet);
+
+	dvp2axi_mem_pool_sysfs_cleanup(dvp2axi_hw->mem_pool);
 	dvp2axi_mem_pool_destroy(dvp2axi_hw->mem_pool);
+
+	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
+
 	return 0;
 }
 

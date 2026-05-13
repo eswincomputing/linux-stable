@@ -2205,13 +2205,6 @@ static const struct v4l2_ioctl_ops es_dvp2axi_v4l2_ioctl_ops = {
 	.vidioc_default = es_dvp2axi_ioctl_default,
 };
 
-//do softreset
-void es_dvp2axi_tasklet_err_handle(unsigned long data)
-{
-	struct es_dvp2axi_hw *dvp2axi_hw = (struct es_dvp2axi_hw *)data;
-	dvp2axi_hw_soft_reset(dvp2axi_hw);
-}
-
 void es_dvp2axi_vb_done_oneframe(struct es_dvp2axi_stream *stream,
 			    struct vb2_v4l2_buffer *vb_done)
 {
@@ -2520,13 +2513,11 @@ void es_irq_err_handle(struct device *dev)
 {
 	u32 vi_dvp2axi_int_err;
 	struct es_dvp2axi_hw *dvp2axi_hw =  dev_get_drvdata(dev);
-	// struct es_dvp2axi_stream *stream = &dvp2axi_dev->stream[ES_DVP2AXI_STREAM_DVP2AXI];
 	vi_dvp2axi_int_err = DVP2AXI_HalReadReg(dvp2axi_hw, VI_DVP2AXI_INT2_CSR);
 
 	dev_err_ratelimited(dev, "vi_dvp2axi_int_err 0x%x\n", vi_dvp2axi_int_err);
 
 	if((vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_FULL) || (vi_dvp2axi_int_err & VI_DVP2AXI_INT2_AXI_IDBUFFER_AFULL)) {
-		// tasklet_schedule(&dvp2axi_hw->dvp2axi_err_tasklet);
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[0]);
 		atomic_inc(&dvp2axi_hw->dvp2axi_errirq_cnts[8]);
 	}

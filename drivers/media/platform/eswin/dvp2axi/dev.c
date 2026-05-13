@@ -46,18 +46,6 @@ int es_dvp2axi_debug = 0;
 module_param_named(debug, es_dvp2axi_debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-7)");
 
-int es_dvp2axi_ots=0xff;
-module_param_named(outstanding, es_dvp2axi_ots, int, 0644);
-MODULE_PARM_DESC(outstanding, "outstanding range (0-255)");
-
-int es_dvp2axi_wqos=0;
-module_param_named(wqos_cfg, es_dvp2axi_wqos, int, 0644);
-MODULE_PARM_DESC(wqos_cfg, "wqos range (0-15)");
-
-int es_dvp2axi_axi_burst_len=1;
-module_param_named(burstlen, es_dvp2axi_axi_burst_len, int, 0644);
-MODULE_PARM_DESC(burstlen, "axi burst len (0-1), 0: length eq 8, 1: length eq 16");
-
 static DEFINE_MUTEX(es_dvp2axi_dev_mutex);
 static LIST_HEAD(es_dvp2axi_device_list);
 
