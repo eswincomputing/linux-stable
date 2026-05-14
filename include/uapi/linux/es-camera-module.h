@@ -47,85 +47,31 @@
 #define ESMODULE_GET_MODULE_INFO \
 	_IOR('V', BASE_VIDIOC_PRIVATE + 0, struct esmodule_inf)
 
-#define ESMODULE_AWB_CFG \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 1, struct esmodule_awb_cfg)
-
-#define ESMODULE_AF_CFG \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 2, struct esmodule_af_cfg)
-
-#define ESMODULE_LSC_CFG \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 3, struct esmodule_lsc_cfg)
-
 #define ESMODULE_GET_HDR_CFG \
 	_IOR('V', BASE_VIDIOC_PRIVATE + 4, struct esmodule_hdr_cfg)
 
 #define ESMODULE_SET_HDR_CFG \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 5, struct esmodule_hdr_cfg)
 
-#define ESMODULE_SET_CONVERSION_GAIN _IOW('V', BASE_VIDIOC_PRIVATE + 6, __u32)
-
-#define ESMODULE_GET_LVDS_CFG \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 7, struct esmodule_lvds_cfg)
-
-#define ESMODULE_SET_DPCC_CFG \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 8, struct esmodule_dpcc_cfg)
-
-#define ESMODULE_GET_NR_SWITCH_THRESHOLD \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 9, struct esmodule_nr_switch_threshold)
-
 #define ESMODULE_SET_QUICK_STREAM _IOW('V', BASE_VIDIOC_PRIVATE + 10, __u32)
 
-#define ESMODULE_GET_BT656_INTF_TYPE _IOR('V', BASE_VIDIOC_PRIVATE + 11, __u32)
+#define ESMODULE_SET_LONG_EXPOSURE    _IOW('V', BASE_VIDIOC_PRIVATE + 11, __u32)
+#define ESMODULE_SET_SHORT1_EXPOSURE    _IOW('V', BASE_VIDIOC_PRIVATE + 12, __u32)
+#define ESMODULE_SET_SHORT2_EXPOSURE    _IOW('V', BASE_VIDIOC_PRIVATE + 13, __u32)
 
-#define ESMODULE_GET_VC_FMT_INFO \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 12, struct esmodule_vc_fmt_info)
+#define ESMODULE_SET_LONG_GAIN    _IOW('V', BASE_VIDIOC_PRIVATE + 14, __u32)
+#define ESMODULE_SET_SHORT1_GAIN    _IOW('V', BASE_VIDIOC_PRIVATE + 15, __u32)
+#define ESMODULE_SET_SHORT2_GAIN    _IOW('V', BASE_VIDIOC_PRIVATE + 16, __u32)
 
-#define ESMODULE_GET_VC_HOTPLUG_INFO \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 13, struct esmodule_vc_hotplug_info)
+#define ESMODULE_GET_RHS1    _IOR('V', BASE_VIDIOC_PRIVATE + 17, __u32)
+#define ESMODULE_GET_RHS2    _IOR('V', BASE_VIDIOC_PRIVATE + 18, __u32)
 
-#define ESMODULE_GET_START_STREAM_SEQ _IOR('V', BASE_VIDIOC_PRIVATE + 14, __u32)
-
-#define ESMODULE_GET_VICAP_RST_INFO \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 15, struct esmodule_vicap_reset_info)
-
-#define ESMODULE_SET_VICAP_RST_INFO \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 16, struct esmodule_vicap_reset_info)
-
-#define ESMODULE_GET_BT656_MBUS_INFO \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 17, struct esmodule_bt656_mbus_info)
-
-#define ESMODULE_GET_DCG_RATIO \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 18, struct esmodule_dcg_ratio)
-
-#define ESMODULE_GET_SONY_BRL _IOR('V', BASE_VIDIOC_PRIVATE + 19, __u32)
+#define ESMODULE_SET_SHR0   _IOW('V', BASE_VIDIOC_PRIVATE + 19, __u32)
+#define ESMODULE_SET_SHR1   _IOW('V', BASE_VIDIOC_PRIVATE + 20, __u32)
+#define ESMODULE_SET_SHR2   _IOW('V', BASE_VIDIOC_PRIVATE + 21, __u32)
 
 #define ESMODULE_GET_CHANNEL_INFO \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 20, struct esmodule_channel_info)
-
-#define ESMODULE_GET_SYNC_MODE _IOR('V', BASE_VIDIOC_PRIVATE + 21, __u32)
-
-#define ESMODULE_SET_SYNC_MODE _IOW('V', BASE_VIDIOC_PRIVATE + 22, __u32)
-
-#define ESMODULE_SET_MCLK \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 23, struct esmodule_mclk_data)
-
-#define ESMODULE_SET_LINK_FREQ _IOW('V', BASE_VIDIOC_PRIVATE + 24, __s64)
-
-#define ESMODULE_SET_BUS_CONFIG \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 25, struct esmodule_bus_config)
-
-#define ESMODULE_GET_BUS_CONFIG \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 26, struct esmodule_bus_config)
-
-#define ESMODULE_SET_REGISTER \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 27, struct esmodule_reg)
-
-#define ESMODULE_SYNC_I2CDEV _IOW('V', BASE_VIDIOC_PRIVATE + 28, __u8)
-
-#define ESMODULE_SYNC_I2CDEV_COMPLETE _IOW('V', BASE_VIDIOC_PRIVATE + 29, __u8)
-
-#define ESMODULE_SET_DEV_INFO \
-	_IOW('V', BASE_VIDIOC_PRIVATE + 30, struct esmodule_dev_info)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 22, struct esmodule_channel_info)
 
 #define ESMODULE_SET_CSI_DPHY_PARAM \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 31, struct esmodule_csi_dphy_param)
@@ -137,39 +83,13 @@
 
 #define ESMODULE_GET_HDMI_MODE _IOR('V', BASE_VIDIOC_PRIVATE + 34, __u32)
 
-#define ESMODULE_SET_SENSOR_INFOS \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 35, struct esmodule_sensor_infos)
-
-#define ESMODULE_GET_READOUT_LINE_CNT_PER_LINE \
-	_IOR('V', BASE_VIDIOC_PRIVATE + 36, __u32)
-
-#define ESMODULE_GET_GROUP_ID _IOR('V', BASE_VIDIOC_PRIVATE + 37, __u32)
-
-#define ESMODULE_SET_GROUP_ID _IOW('V', BASE_VIDIOC_PRIVATE + 38, __u32)
-
 #define ESMODULE_GET_CAPTURE_MODE \
 	_IOR('V', BASE_VIDIOC_PRIVATE + 39, struct esmodule_capture_info)
 
 #define ESMODULE_SET_CAPTURE_MODE \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 40, struct esmodule_capture_info)
 
-#define ESMODULE_SET_SHORT1_EXPOSURE    _IOW('V', BASE_VIDIOC_PRIVATE + 41, __u32)
-#define ESMODULE_SET_SHORT2_EXPOSURE    _IOW('V', BASE_VIDIOC_PRIVATE + 42, __u32)
 
-
-#define ESMODULE_SET_SHORT1_GAIN    _IOW('V', BASE_VIDIOC_PRIVATE + 43, __u32)
-#define ESMODULE_SET_SHORT2_GAIN    _IOW('V', BASE_VIDIOC_PRIVATE + 44, __u32)
-
-#define ESMODULE_SET_LONG_GAIN    _IOW('V', BASE_VIDIOC_PRIVATE + 45, __u32)
-
-#define ESMODULE_GET_RHS1    _IOR('V', BASE_VIDIOC_PRIVATE + 46, __u32)
-#define ESMODULE_GET_RHS2    _IOR('V', BASE_VIDIOC_PRIVATE + 47, __u32)
-
-#define ESMODULE_SET_LONG_EXPOSURE    _IOW('V', BASE_VIDIOC_PRIVATE + 48, __u32)
-
-#define ESMODULE_SET_SHR0   _IOW('V', BASE_VIDIOC_PRIVATE + 49, __u32)
-#define ESMODULE_SET_SHR1   _IOW('V', BASE_VIDIOC_PRIVATE + 50, __u32)
-#define ESMODULE_SET_SHR2   _IOW('V', BASE_VIDIOC_PRIVATE + 51, __u32)
 /*
  * HDMI to MIPI-CSI MODE IOCTL
  */
@@ -193,21 +113,6 @@ struct esmodule_mipi_lvds_bus {
 	__u32 lanes;
 	__u32 phy_mode; /* data type enum esmodule_phy_mode */
 };
-
-struct esmodule_bus_config {
-	union {
-		struct esmodule_mipi_lvds_bus bus;
-		__u32 reserved[32];
-	};
-} __attribute__((packed));
-
-struct esmodule_reg {
-	__u64 num_regs;
-	__u64 preg_addr;
-	__u64 preg_value;
-	__u64 preg_addr_bytes;
-	__u64 preg_value_bytes;
-} __attribute__((packed));
 
 /**
   * struct esmodule_base_inf - module base information
@@ -354,36 +259,6 @@ struct esmodule_inf {
 	struct esmodule_otp_module_inf module_inf;
 } __attribute__((packed));
 
-/**
-  * struct esmodule_awb_inf - module awb information
-  *
-  */
-struct esmodule_awb_cfg {
-	__u32 enable;
-	__u32 golden_r_value;
-	__u32 golden_b_value;
-	__u32 golden_gr_value;
-	__u32 golden_gb_value;
-} __attribute__((packed));
-
-/**
-  * struct esmodule_af_cfg
-  *
-  */
-struct esmodule_af_cfg {
-	__u32 enable;
-	__u32 vcm_start;
-	__u32 vcm_end;
-	__u32 vcm_dir;
-} __attribute__((packed));
-
-/**
-  * struct esmodule_lsc_cfg
-  *
-  */
-struct esmodule_lsc_cfg {
-	__u32 enable;
-} __attribute__((packed));
 
 /**
   * NO_HDR: linear mode
@@ -539,34 +414,6 @@ struct esmodule_lvds_cfg {
 	struct esmodule_lvds_frame_sync_code frm_sync_code[LVDS_CODE_GRP_MAX];
 } __attribute__((packed));
 
-/**
-  * struct esmodule_dpcc_cfg
-  * enable: 0 -> disable dpcc, 1 -> enable multiple,
-  *         2 -> enable single, 3 -> enable all;
-  * cur_single_dpcc: the strength of single dpcc;
-  * cur_multiple_dpcc: the strength of multiple dpcc;
-  * total_dpcc: the max strength;
-  */
-struct esmodule_dpcc_cfg {
-	__u32 enable;
-	__u32 cur_single_dpcc;
-	__u32 cur_multiple_dpcc;
-	__u32 total_dpcc;
-} __attribute__((packed));
-
-/**
-  * nr switch by gain
-  * direct: 0 -> up_thres LSNR to HSNR, 1 -> up_thres HSNR to LSNR
-  * up_thres: threshold of nr change from low gain to high gain
-  * down_thres: threshold of nr change from high gain to low gain;
-  * div_coeff: Coefficients converted from float to int
-  */
-struct esmodule_nr_switch_threshold {
-	__u32 direct;
-	__u32 up_thres;
-	__u32 down_thres;
-	__u32 div_coeff;
-} __attribute__((packed));
 
 /**
   * enum esmodule_bt656_intf_type
@@ -576,25 +423,6 @@ enum esmodule_bt656_intf_type {
 	BT656_STD_RAW = 0,
 	BT656_SONY_RAW,
 };
-
-/**
-  * struct esmodule_vc_fmt_info - virtual channels fmt info
-  *
-  */
-struct esmodule_vc_fmt_info {
-	__u32 width[ESMODULE_MAX_VC_CH];
-	__u32 height[ESMODULE_MAX_VC_CH];
-	__u32 fps[ESMODULE_MAX_VC_CH];
-} __attribute__((packed));
-
-/**
-  * struct esmodule_vc_hotplug_info - virtual channels hotplug status info
-  * detect_status: hotplug status
-  *     bit 0~3 means channels id, value : 0 -> plug out, 1 -> plug in.
-  */
-struct esmodule_vc_hotplug_info {
-	__u8 detect_status;
-} __attribute__((packed));
 
 /* sensor start stream sequence
   * ESMODULE_START_STREAM_DEFAULT: by default
@@ -618,23 +446,6 @@ enum esmodule_reset_src {
 	ES_RESET_SRC_ERR_HOTPLUG,
 	ES_RESET_SRC_ERR_APP,
 	ES_RESET_SRC_ERR_ISP,
-};
-
-struct esmodule_vicap_reset_info {
-	__u32 is_reset;
-	enum esmodule_reset_src src;
-} __attribute__((packed));
-
-struct esmodule_bt656_mbus_info {
-	__u32 flags;
-	__u32 id_en_bits;
-} __attribute__((packed));
-
-/* DCG ratio (float) = integer + decimal / div_coeff */
-struct esmodule_dcg_ratio {
-	__u32 integer;
-	__u32 decimal;
-	__u32 div_coeff;
 };
 
 struct esmodule_channel_info {
@@ -680,13 +491,6 @@ enum esmodule_sync_mode {
 	SLAVE_MODE,
 };
 
-struct esmodule_mclk_data {
-	__u32 enable;
-	__u32 mclk_index;
-	__u32 mclk_rate;
-	__u32 reserved[8];
-};
-
 enum csi2_dphy_vendor {
 	PHY_VENDOR_DWC = 0x0,
 };
@@ -706,10 +510,6 @@ struct esmodule_sensor_fmt {
 	__u32 sensor_index;
 	__u32 sensor_width;
 	__u32 sensor_height;
-};
-
-struct esmodule_sensor_infos {
-	struct esmodule_sensor_fmt sensor_fmt[ESMODULE_MAX_SENSOR_NUM];
 };
 
 struct esmodule_multi_dev_info {
