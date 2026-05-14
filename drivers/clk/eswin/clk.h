@@ -34,6 +34,12 @@
 #define APLL_HIGH_FREQ 983040000
 #define APLL_LOW_FREQ 225792000
 
+/*
+ * ESWIN_PRIV_DIV_MIN_2: If ESWIN_PRIV_DIV_MIN_2 is set, the minimum value of
+ *	the register is 2, i.e. the minimum division ratio is 2.
+ */
+#define ESWIN_PRIV_DIV_MIN_2	BIT(0)
+
 struct eswin_clock_data {
 	struct clk_onecell_data clk_data;
 	void __iomem *base;
@@ -103,6 +109,41 @@ struct eswin_gate_clock {
 	u8 bit_idx;
 	u8 gate_flags;
 	const char *alias;
+};
+
+struct eswin_npu_clock {
+	unsigned int	id;
+	const char	*name;
+	const char	*const *parent_names;
+	u8		num_parents;
+	unsigned long	flags;
+	int		offset;
+	u8		mux_shift;
+	u8		mux_width;
+	u8		div0_shift;
+	u8		div0_width;
+	u8		div1_shift;
+	u8		div1_width;
+	u8		div_flags;
+	u8		npu_flags;
+};
+
+struct eswin_composite_clk {
+	struct clk_hw	hw;
+	struct device	*dev;
+	int		numa_id;
+	unsigned int	id;
+	void __iomem	*reg;
+	unsigned long	flags;
+	u8		mux_shift;
+	u8		mux_width;
+	u8		div0_shift;
+	u8		div0_width;
+	u8		div1_shift;
+	u8		div1_width;
+	u8		div_flags;
+	u8		npu_flags;
+	spinlock_t	*lock; /* protect register read-modify-write cycle */
 };
 
 struct eswin_pll_clock {
@@ -182,7 +223,9 @@ int eswin_clk_register_divider(const struct eswin_divider_clock *clks, int nums,
 			       struct eswin_clock_data *data);
 int eswin_clk_register_gate(const struct eswin_gate_clock *clks, int nums,
 			    struct eswin_clock_data *data);
-
+int eswin_clk_register_composite(struct eswin_npu_clock *clks, int nums,
+				 struct eswin_clock_data *data,
+				 struct device *dev);
 int eswin_clk_register_clk(const struct eswin_clock *clks, int nums,
 			   struct eswin_clock_data *data);
 

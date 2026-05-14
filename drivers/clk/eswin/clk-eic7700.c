@@ -73,6 +73,10 @@ static const char *const npu_llclk_3mux1_gfree_mux_p[] = {
 };
 static u32 npu_llclk_3mux1_gfree_mux_p_table[] = { 0x000000, 0x000001,
 						   0x000002 };
+static const char *const npu_llc_3mux1_gfree_mux_p[] = {
+	"fixed_rate_clk_spll0_fout1", "fixed_rate_clk_spll2_fout1",
+	"fixed_rate_clk_vpll_fout1"
+};
 
 static const char *const npu_core_3mux1_gfree_mux_p[] = {
 	"fixed_rate_clk_spll1_fout1", "fixed_rate_clk_vpll_fout1",
@@ -3686,6 +3690,27 @@ static struct eswin_clock eic7700_clks[] = {
 	},
 };
 
+static struct eswin_npu_clock eic7700_npu_clks[] = {
+	{
+		EIC7700_CLK_LLC_NPU_CLK, "npu_llc_clk", npu_llc_3mux1_gfree_mux_p,
+		ARRAY_SIZE(npu_llc_3mux1_gfree_mux_p), CLK_SET_RATE_PARENT,
+		EIC7700_REG_OFFSET_NPU_LLC_CTRL, 0, 2, 4, 4, 8, 4,
+		ESWIN_PRIV_DIV_MIN_2, 1
+	},
+	{
+		EIC7700_CLK_E31_NPU_CLK, "npu_e31_clk", npu_e31_3mux1_gfree_mux_p,
+		ARRAY_SIZE(npu_e31_3mux1_gfree_mux_p), CLK_SET_RATE_PARENT,
+		EIC7700_REG_OFFSET_NPU_CORE_CTRL, 8, 2, 12, 4, 0, 0,
+		0, 0
+	},
+	{
+		EIC7700_CLK_CORE_NPU_CLK, "npu_core_clk", npu_core_3mux1_gfree_mux_p,
+		ARRAY_SIZE(npu_core_3mux1_gfree_mux_p), CLK_SET_RATE_PARENT,
+		EIC7700_REG_OFFSET_NPU_CORE_CTRL, 0, 2, 4, 4, 0, 0,
+		0, 0
+	},
+};
+
 struct cpufreq_notifier {
     struct notifier_block nb;
     int  suspend_freq;
@@ -3856,6 +3881,10 @@ static int eswin_clk_probe(struct platform_device *pdev)
 				ARRAY_SIZE(eic7700_gate_clks), clk_data);
 	eswin_clk_register_clk(eic7700_clks, ARRAY_SIZE(eic7700_clks),
 			       clk_data);
+
+	eswin_clk_register_composite(eic7700_npu_clks,
+				     ARRAY_SIZE(eic7700_npu_clks), clk_data,
+				     &pdev->dev);
 
 	eswin_cpu_clk_init(pdev);
 

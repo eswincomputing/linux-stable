@@ -418,7 +418,7 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		mutex_lock(&lock);
 		if (clk->numa_id >= 0) {
 			g_cpu_info.cpu_freqhz[clk->numa_id] = rate;
-			max_rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ? 
+			max_rate = g_cpu_info.cpu_freqhz[0] > g_cpu_info.cpu_freqhz[1] ?
 				g_cpu_info.cpu_freqhz[0] : g_cpu_info.cpu_freqhz[1];
 		}
 		/*
@@ -1048,6 +1048,300 @@ err:
 	return PTR_ERR(clk);
 }
 EXPORT_SYMBOL_GPL(eswin_clk_register_gate);
+
+static inline struct eswin_composite_clk *to_composite_clk(struct clk_hw *hw)
+{
+	return container_of(hw, struct eswin_composite_clk, hw);
+}
+
+static unsigned int _eswin_get_val(unsigned int div, unsigned long flags,
+				   u8 width)
+{
+	unsigned int maxdiv;
+
+	maxdiv = clk_div_mask(width);
+	div = div > maxdiv ? maxdiv : div;
+
+	if (flags & ESWIN_PRIV_DIV_MIN_2)
+		return (div < 2) ? 2 : div;
+
+	return div;
+}
+
+static unsigned int eswin_div_get_val(unsigned long rate,
+				      unsigned long parent_rate, u8 width,
+				      unsigned long flags)
+{
+	unsigned int div;
+
+	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+
+	return _eswin_get_val(div, flags, width);
+}
+
+static u8 clk_composite_get_parent(struct clk_hw *hw)
+{
+	struct eswin_composite_clk *cclk = to_composite_clk(hw);
+	u32 val;
+
+	val = readl_relaxed(cclk->reg) >> cclk->mux_shift;
+	val &= BIT(cclk->mux_width) - 1 ;
+
+	return clk_mux_val_to_index(hw, NULL, 0, val);
+}
+
+static int clk_composite_set_parent(struct clk_hw *hw, u8 index)
+{
+	struct eswin_composite_clk *cclk = to_composite_clk(hw);
+	u32 val = clk_mux_index_to_val(NULL, 0, index);
+	unsigned long flags = 0;
+	u32 reg;
+
+	spin_lock_irqsave(cclk->lock, flags);
+
+	reg = readl_relaxed(cclk->reg);
+	reg &= ~((BIT(cclk->mux_width) - 1) << cclk->mux_shift);
+	val = val << cclk->mux_shift;
+	reg |= val;
+	writel_relaxed(reg, cclk->reg);
+
+	spin_unlock_irqrestore(cclk->lock, flags);
+
+	return 0;
+}
+
+static int clk_composite_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long parent_rate)
+{
+	struct eswin_composite_clk *cclk = to_composite_clk(hw);
+	unsigned long flags;
+	unsigned int value;
+	u32 val, mask;
+
+	value = eswin_div_get_val(rate, parent_rate, cclk->div0_width,
+				  cclk->div_flags);
+
+	spin_lock_irqsave(cclk->lock, flags);
+
+	val = readl_relaxed(cclk->reg);
+	mask = (clk_div_mask(cclk->div0_width) << cclk->div0_shift);
+
+	if (cclk->npu_flags)
+		mask |= (clk_div_mask(cclk->div1_width) << cclk->div1_shift);
+
+	val &= ~mask;
+	val |= (u32)value << cclk->div0_shift;
+
+	if (cclk->npu_flags)
+		val |= (u32)value << cclk->div1_shift;
+
+	writel_relaxed(val, cclk->reg);
+
+	spin_unlock_irqrestore(cclk->lock, flags);
+
+	return 0;
+}
+
+static int clk_composite_set_rate_parent(struct clk_hw *hw, unsigned long rate,
+					 unsigned long parent_rate, u8 index)
+{
+	struct eswin_composite_clk *cclk = to_composite_clk(hw);
+	unsigned long flags;
+	unsigned int value_m, value_d;
+	u32 val, mask;
+
+	value_m = clk_mux_index_to_val(NULL, 0, index);
+
+	value_d = eswin_div_get_val(rate, parent_rate, cclk->div0_width,
+				    cclk->div_flags);
+
+	spin_lock_irqsave(cclk->lock, flags);
+
+	val = readl_relaxed(cclk->reg);
+
+	mask = (BIT(cclk->mux_width) - 1) << cclk->mux_shift;
+	mask |= clk_div_mask(cclk->div0_width) << cclk->div0_shift;
+
+	if (cclk->npu_flags)
+		mask |= clk_div_mask(cclk->div1_width) << cclk->div1_shift;
+
+	val &= ~mask;
+
+	val |= (u32)value_m << cclk->mux_shift;
+	val |= (u32)value_d << cclk->div0_shift;
+
+	if (cclk->npu_flags)
+		val |= (u32)value_d << cclk->div1_shift;
+
+	writel_relaxed(val, cclk->reg);
+
+	spin_unlock_irqrestore(cclk->lock, flags);
+
+	return 0;
+}
+
+static unsigned long clk_composite_recalc_rate(struct clk_hw *hw,
+					       unsigned long parent_rate)
+{
+	struct eswin_composite_clk *cclk = to_composite_clk(hw);
+	unsigned int div, val;
+
+	val = readl_relaxed(cclk->reg) >> cclk->div0_shift;
+	val &= clk_div_mask(cclk->div0_width);
+	div = _eswin_get_val(val, cclk->div_flags, cclk->div0_width);
+
+	return DIV_ROUND_UP_ULL((u64)parent_rate, div);
+}
+
+static int clk_composite_determine_rate(struct clk_hw *hw,
+				  struct clk_rate_request *req)
+{
+	struct eswin_composite_clk *cclk = to_composite_clk(hw);
+	struct clk_hw *parent_hw;
+	unsigned long parent_rate, best_rate = 0;
+	unsigned long tmp_rate, min_error = ULONG_MAX;
+	int i, num_parents, best_div = 1, best_parent_idx = 0;
+	u8 width = cclk->div0_width;
+
+	num_parents = clk_hw_get_num_parents(hw);
+
+	if (!num_parents)
+		return -EINVAL;
+
+	for (i = 0; i < num_parents; i++) {
+		parent_hw = clk_hw_get_parent_by_index(hw, i);
+		if (!parent_hw)
+			continue;
+
+		parent_rate = clk_hw_get_rate(parent_hw);
+
+		if (parent_rate == req->rate) {
+			req->rate = req->rate;
+			req->best_parent_rate = parent_rate;
+			req->best_parent_hw = parent_hw;
+			return 0;
+		}
+
+		for (int div = 1; div <= (1 << width) - 1; div++) {
+			int val = _eswin_get_val(div, cclk->div_flags, width);
+			tmp_rate = DIV_ROUND_UP_ULL((u64)parent_rate, val);
+
+			if (tmp_rate == req->rate) {
+				req->rate = req->rate;
+				req->best_parent_rate = parent_rate;
+				req->best_parent_hw = parent_hw;
+				return 0;
+			}
+
+			if (abs(tmp_rate - req->rate) < min_error) {
+				min_error = abs(tmp_rate - req->rate);
+				best_rate = tmp_rate;
+				best_div = val;
+				best_parent_idx = i;
+			}
+		}
+	}
+
+	parent_hw = clk_hw_get_parent_by_index(hw, best_parent_idx);
+	req->rate = best_rate;
+	req->best_parent_rate = clk_hw_get_rate(parent_hw);
+	req->best_parent_hw = parent_hw;
+
+	return 0;
+}
+
+static const struct clk_ops eswin_composite_clk_ops = {
+	.get_parent = clk_composite_get_parent,
+	.set_parent = clk_composite_set_parent,
+	.set_rate_and_parent = clk_composite_set_rate_parent,
+	.set_rate = clk_composite_set_rate,
+	.recalc_rate = clk_composite_recalc_rate,
+	.determine_rate = clk_composite_determine_rate,
+};
+
+int eswin_clk_register_composite(struct eswin_npu_clock *clks, int nums,
+				 struct eswin_clock_data *data,
+				 struct device *dev)
+{
+	struct clk *clk = NULL;
+	struct eswin_composite_clk *cclk = NULL;
+	struct clk_init_data init = { };
+	int i, j;
+
+	cclk = devm_kzalloc(dev, sizeof(*cclk) * nums, GFP_KERNEL);
+	if (!cclk)
+		return -ENOMEM;
+
+	for (i = 0; i < nums; i++) {
+		cclk->id = clks[i].id;
+		cclk->numa_id = data->numa_id;
+		cclk->reg = data->base + clks[i].offset;
+		cclk->mux_shift = clks[i].mux_shift;
+		cclk->mux_width = clks[i].mux_width;
+
+		cclk->div0_shift = clks[i].div0_shift;
+		cclk->div0_width = clks[i].div0_width;
+
+		cclk->div1_shift = clks[i].div1_shift;
+		cclk->div1_width = clks[i].div1_width;
+
+		cclk->div_flags = clks[i].div_flags;
+		cclk->npu_flags = clks[i].npu_flags;
+		cclk->lock = &data->lock;
+
+		char *name = kzalloc(strlen(clks[i].name) + 2 * sizeof(char) +
+					     sizeof(int),
+				     GFP_KERNEL);
+
+		char **parent_names = kzalloc(
+			sizeof(char *) * clks[i].num_parents, GFP_KERNEL);
+		if (data->numa_id < 0)
+			sprintf(name, "%s", clks[i].name);
+		else
+			sprintf(name, "d%d_%s", data->numa_id, clks[i].name);
+
+		for (j = 0; j < clks[i].num_parents; j++) {
+			parent_names[j] =
+				kzalloc(strlen(clks[i].parent_names[j]) +
+						2 * sizeof(char) + sizeof(int),
+					GFP_KERNEL);
+			if (data->numa_id < 0) {
+				sprintf(parent_names[j], "%s",
+					clks[i].parent_names[j]);
+			} else {
+				sprintf(parent_names[j], "d%d_%s",
+					data->numa_id, clks[i].parent_names[j]);
+			}
+		}
+
+		init.name = name;
+		init.flags = clks[i].flags;
+		init.parent_names = (const char *const *)parent_names;
+		init.num_parents = clks[i].num_parents;
+		init.ops = &eswin_composite_clk_ops;
+		cclk->hw.init = &init;
+
+		clk = clk_register(dev, &cclk->hw);
+		if (IS_ERR(clk)) {
+			devm_kfree(dev, cclk);
+			dev_err(dev, "%s: failed to register clock %s\n",
+				__func__, clks[i].name);
+			continue;
+		}
+
+		data->clk_data.clks[clks[i].id] = clk;
+		cclk++;
+
+		kfree(name);
+		for (j = 0; j < clks[i].num_parents; j++)
+			kfree(parent_names[j]);
+
+		kfree(parent_names);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(eswin_clk_register_composite);
 
 static const struct clk_ops clk_dummpy_ops = {
 
