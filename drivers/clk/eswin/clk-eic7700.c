@@ -1521,7 +1521,7 @@ static struct eswin_gate_clock eic7700_gate_clks[] = {
 	{
 		EIC7700_GATE_NPU_LLC_ACLK,
 		"gate_npu_llc_aclk",
-		"mux_u_npu_llclk_3mux1_gfree",
+		"npu_llc_clk",
 		CLK_SET_RATE_PARENT,
 		EIC7700_REG_OFFSET_NPU_LLC_CTRL,
 		31,
@@ -1531,7 +1531,7 @@ static struct eswin_gate_clock eic7700_gate_clks[] = {
 	{
 		EIC7700_GATE_NPU_CLK,
 		"gate_npu_clk",
-		"divder_u_npu_coreclk_div_dynm",
+		"npu_core_clk",
 		CLK_SET_RATE_PARENT,
 		EIC7700_REG_OFFSET_NPU_CORE_CTRL,
 		31,
@@ -1541,7 +1541,7 @@ static struct eswin_gate_clock eic7700_gate_clks[] = {
 	{
 		EIC7700_GATE_NPU_E31_CLK,
 		"gate_npu_e31_clk",
-		"divder_u_npu_e31_div_dynm",
+		"npu_e31_clk",
 		CLK_SET_RATE_PARENT,
 		EIC7700_REG_OFFSET_NPU_CORE_CTRL,
 		30,
