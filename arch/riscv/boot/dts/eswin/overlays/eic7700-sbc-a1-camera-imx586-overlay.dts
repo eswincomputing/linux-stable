@@ -107,4 +107,27 @@
 			status="disabled";
 		};
 	};
+
+	fragment@8 {
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@9 {
+		target = <&csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@10 {
+		target = <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <2>;
+		};
+	};
 };

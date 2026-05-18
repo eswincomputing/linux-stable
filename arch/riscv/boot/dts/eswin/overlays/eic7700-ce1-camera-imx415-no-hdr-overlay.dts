@@ -143,6 +143,7 @@
 	fragment@9 {
 		target = <&mipi_csi2_0>;
 		__overlay__ {
+			num_lanes = <4>;
 			eswin,csi-hdr-mode = <0>;
 		};
 	};
@@ -150,6 +151,7 @@
 	fragment@10 {
 		target = <&mipi_csi2_2>;
 		__overlay__ {
+			num_lanes = <4>;
 			eswin,csi-hdr-mode = <0>;
 		};
 	};
@@ -157,6 +159,7 @@
 	fragment@11 {
 		target = <&mipi_csi2_4>;
 		__overlay__ {
+			num_lanes = <4>;
 			eswin,csi-hdr-mode = <0>;
 		};
 	};
@@ -221,6 +224,37 @@
 		target = <&imx219_2>;
 		__overlay__ {
 			status="disabled";
+		};
+	};
+
+	fragment@21 {
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@22 {
+		target = <&csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@23 {
+		target = <&csi2_dphy_hw4>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@24 {
+		target = <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <2>;
 		};
 	};
 };

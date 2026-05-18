@@ -23,6 +23,14 @@
 	};
 
 	fragment@2 {
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@3 {
 		target = <&csi2_dphy_hw2>;
 		__overlay__ {
 			lanes = <1 2>;
@@ -30,7 +38,15 @@
 		};
 	};
 
-	fragment@3 {
+	fragment@4 {
+		target = <&imx219_out0>;
+		__overlay__ {
+			data-lanes = <1 2 3 4>;
+			link-frequencies = /bits/ 64 <456000000>;
+		};
+	};
+
+	fragment@5 {
 		target = <&imx219_out1>;
 		__overlay__ {
 			data-lanes = <1 2>;

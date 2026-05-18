@@ -199,4 +199,43 @@
 			status = "disabled";
 		};
 	};
+
+	fragment@16 {
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@17 {
+		target = <&csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@18 {
+		target = <&d1_csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@19 {
+		target = <&d1_csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@20 {
+		target = <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <2>;
+		};
+	};
 };
