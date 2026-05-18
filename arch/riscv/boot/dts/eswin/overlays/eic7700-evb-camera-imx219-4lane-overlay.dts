@@ -1,0 +1,182 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&vi_subsys>;
+		__overlay__ {
+			phy_mode = <2>;
+		};
+	};
+
+	fragment@1 {
+		target = <&mipidphy0_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx219_out0>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@2 {
+		target = <&mipidphy2_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx219_out1>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@3 {
+		target = <&mipidphy4_in_ucam0>;
+		__overlay__ {
+			remote-endpoint = <&imx219_out2>;
+			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	fragment@4 {
+		target = <&csi2_dphy0>;
+		__overlay__ {
+			status="okay";
+		};
+	};
+
+	fragment@5 {
+		target = <&csi2_dphy2>;
+		__overlay__ {
+			status="okay";
+		};
+	};
+
+	fragment@6 {
+		target = <&csi2_dphy4>;
+		__overlay__ {
+			status="okay";
+		};
+	};
+
+	fragment@7 {
+		target = <&d0_i2c3>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx219_0:imx219_0@10 {
+				compatible = "sony,imx219";
+				reg = <0x10>;
+				clock-names="xvclk";
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <24000000>;
+				power-domains = <&d0_pmu 2>;
+				status = "okay";
+				port {
+					imx219_out0: endpoint {
+						remote-endpoint = <&mipidphy0_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <364000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@8 {
+		target = <&d0_i2c4>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx219_1: imx219_1@10 {
+				compatible = "sony,imx219";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x10>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
+				power-domains = <&d0_pmu 2>;
+
+				port {
+					imx219_out1: endpoint {
+						remote-endpoint = <&mipidphy2_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <364000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@9 {
+		target = <&d0_i2c5>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			imx219_2: imx219@10 {
+				compatible = "sony,imx219";
+				status = "okay";
+				address-cells = <1>;
+				size-cells = <0>;
+				reg = <0x10>;
+				clocks = <&d0_clock 0x244>;
+				assigned-clocks = <&d0_clock 0x244>;
+				assigned-clock-rates = <24000000>;
+				clock-names = "xvclk";
+				power-domains = <&d0_pmu 2>;
+
+				port {
+					imx219_out2: endpoint {
+						remote-endpoint = <&mipidphy4_in_ucam0>;
+						data-lanes = <1 2 3 4>;
+						link-frequencies = /bits/ 64 <364000000>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@10 {
+		target = <&mipi_csi2_0>;
+		__overlay__ {
+			num_lanes = <4>;
+		};
+	};
+
+	fragment@11 {
+		target = <&mipi_csi2_2>;
+		__overlay__ {
+			num_lanes = <4>;
+		};
+	};
+
+	fragment@12 {
+		target = <&mipi_csi2_4>;
+		__overlay__ {
+			num_lanes = <4>;
+		};
+	};
+
+	fragment@13 {
+		target = <&csi2_dphy_hw0>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@14 {
+		target = <&csi2_dphy_hw2>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+
+	fragment@15 {
+		target = <&csi2_dphy_hw4>;
+		__overlay__ {
+			lanes = <1 2 3 4>;
+			lanes-dp-dn = <0 0 0 0>;
+		};
+	};
+};

@@ -33,6 +33,7 @@ dtbo-$(CONFIG_SOC_ESWIN) += eic7700-sbc-a1-camera-imx219-2lanes-overlay.dtbo \
 							eic7702-d560-camera-imx219-phy-mode4-overlay.dtbo \
 							eic7702-d560-camera-imx327-overlay.dtbo \
 							eic7702-d560-camera-ircut-gpio6-overlay.dtbo \
+							eic7700-evb-camera-imx219-4lane-overlay.dtbo \
 							eic7700-hifive-premier-p550-mipi.dtbo \
 							eic7700-evb-mipi.dtbo \
 							eic7700-evb-simple-mipi.dtbo \
