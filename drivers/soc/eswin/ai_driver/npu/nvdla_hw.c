@@ -918,59 +918,6 @@ int npu_dt_node_resources(struct nvdla_device *nvdla_dev)
 		dev_err(&pdev->dev, "failed to get cfg clk: %d.\n", ret);
 		return ret;
 	}
-	nvdla_dev->mux_u_npu_core_3mux1_gfree = devm_clk_get(&pdev->dev, "mux_u_npu_core_3mux1_gfree");
-	if (IS_ERR(nvdla_dev->mux_u_npu_core_3mux1_gfree)) {
-		ret = PTR_ERR(nvdla_dev->mux_u_npu_core_3mux1_gfree);
-		nvdla_dev->mux_u_npu_core_3mux1_gfree = NULL;
-		dev_err(&pdev->dev, "failed to get mux_u_npu_core_3mux1_gfree clk: %d.\n", ret);
-		return ret;
-	}
-
-	nvdla_dev->mux_u_npu_llclk_3mux1_gfree = devm_clk_get(&pdev->dev, "mux_u_npu_llclk_3mux1_gfree");
-	if (IS_ERR(nvdla_dev->mux_u_npu_llclk_3mux1_gfree)) {
-		ret = PTR_ERR(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
-		nvdla_dev->mux_u_npu_llclk_3mux1_gfree = NULL;
-		dev_err(&pdev->dev, "failed to get mux_u_npu_llclk_3mux1_gfree clk: %d, \n", ret);
-		return ret;
-	}
-
-	nvdla_dev->fixed_rate_clk_spll2_fout2 = devm_clk_get(&pdev->dev, "fixed_rate_clk_spll2_fout2");
-	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll2_fout2)) {
-		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll2_fout2);
-		nvdla_dev->fixed_rate_clk_spll2_fout2 = NULL;
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout2 clk: %d.\n", ret);
-		return ret;
-	}
-
-	nvdla_dev->fixed_rate_clk_spll1_fout1 = devm_clk_get(&pdev->dev, "fixed_rate_clk_spll1_fout1");
-	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll1_fout1)) {
-		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll1_fout1);
-		nvdla_dev->fixed_rate_clk_spll1_fout1 = NULL;
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll1_fout1 clk: %d.\n", ret);
-		return ret;
-	}
-	nvdla_dev->fixed_rate_clk_spll0_fout1 = devm_clk_get(&pdev->dev, "clk_clk_npu_llc_src0");
-	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll0_fout1)) {
-		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll0_fout1);
-		nvdla_dev->fixed_rate_clk_spll0_fout1 = NULL;
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll0_fout1 clk: %d.\n", ret);
-		return ret;
-	}
-
-	nvdla_dev->fixed_rate_clk_spll2_fout1 = devm_clk_get(&pdev->dev, "clk_clk_npu_llc_src1");
-	if (IS_ERR(nvdla_dev->fixed_rate_clk_spll2_fout1)) {
-		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_spll2_fout1);
-		nvdla_dev->fixed_rate_clk_spll2_fout1 = NULL;
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_spll2_fout1 clk: %d.\n", ret);
-		return ret;
-	}
-	nvdla_dev->fixed_rate_clk_vpll_fout1 = devm_clk_get(&pdev->dev, "fixed_rate_clk_vpll_fout1");
-	if (IS_ERR(nvdla_dev->fixed_rate_clk_vpll_fout1)) {
-		ret = PTR_ERR(nvdla_dev->fixed_rate_clk_vpll_fout1);
-		nvdla_dev->fixed_rate_clk_vpll_fout1 = NULL;
-		dev_err(&pdev->dev, "failed to get fixed_rate_clk_vpll_fout1 clk: %d.\n", ret);
-		return ret;
-	}
 
 	nvdla_dev->rstc_e31_core = devm_reset_control_get_optional(
 		&pdev->dev, "e31_core");

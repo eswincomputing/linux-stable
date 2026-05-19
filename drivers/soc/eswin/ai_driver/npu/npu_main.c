@@ -331,60 +331,22 @@ struct nvdla_device *get_nvdla_dev(int i)
 
 static int npu_set_freq_req(struct nvdla_device *nvdla_dev, struct npu_freq_param *tbl)
 {
-	struct clk *llc_parent;
-	struct clk *npu_parent;
-	unsigned long llc_rate, npu_rate;
 	unsigned long rate;
 	int ret;
 
-	llc_parent = clk_get_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
-	if (!llc_parent) {
-		dev_err(&nvdla_dev->pdev->dev, "get npu llc clock pareent err.\n");
-		return -EINVAL;
-	}
-	npu_parent = clk_get_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree);
-	if (!npu_parent) {
-		dev_err(&nvdla_dev->pdev->dev, "get npu core clock pareent err.\n");
-		return -EINVAL;
-	}
-
-	llc_rate = clk_get_rate(nvdla_dev->mux_u_npu_llclk_3mux1_gfree);
-	npu_rate = clk_get_rate(nvdla_dev->mux_u_npu_core_3mux1_gfree);
-
-	ret = clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, tbl->llc_clk_parent);
-	if (ret) {
-		dev_err(&nvdla_dev->pdev->dev, "set npu llc clock parent err = %d.\n", ret);
-		return -EINVAL;
-	}
-
-	ret = clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, tbl->npu_clk_parent);
-	if (ret) {
-		dev_err(&nvdla_dev->pdev->dev, "set npu core clock parent err = %d.\n", ret);
-		goto err_npu_core;
-	}
-
-	mdelay(10);
 	rate = clk_round_rate(nvdla_dev->llc_aclk, tbl->llc_rate);
 	ret = clk_set_rate(nvdla_dev->llc_aclk, rate);
-	if (ret) {
+	if (ret != 0) {
 		dev_err(&nvdla_dev->pdev->dev, "failed to set npu llc clock rate: %lu, ret = %d.\n", rate, ret);
-		goto err_llc_rate;
+		return ret;
 	}
 
 	rate = clk_round_rate(nvdla_dev->core_clk, tbl->npu_rate);
 	ret = clk_set_rate(nvdla_dev->core_clk, rate);
 	if (ret != 0) {
 		dev_err(&nvdla_dev->pdev->dev, "failed to set npu core_clk=%lu, ret = %d\n", rate, ret);
-		goto err_npu_rate;
 	}
-	return 0;
 
-err_npu_rate:
-	clk_set_rate(nvdla_dev->llc_aclk, llc_rate);
-err_llc_rate:
-	clk_set_parent(nvdla_dev->mux_u_npu_core_3mux1_gfree, npu_parent);
-err_npu_core:
-	clk_set_parent(nvdla_dev->mux_u_npu_llclk_3mux1_gfree, llc_parent);
 	return ret;
 }
 
@@ -562,9 +524,7 @@ static int npu_set_freq_table(struct nvdla_device *nvdla_dev)
 
 		nvdla_dev->freq_count = 1;
 		/* NPU 1G HZ, LLC 800M HZ */
-		nvdla_dev->freq_tbl[0].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
 		nvdla_dev->freq_tbl[0].npu_rate = 1040000000;
-		nvdla_dev->freq_tbl[0].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
 		nvdla_dev->freq_tbl[0].llc_rate = 800000000;
 		nvdla_dev->freq_tbl[0].volt = 800000;
 
@@ -592,24 +552,14 @@ static int npu_set_freq_table(struct nvdla_device *nvdla_dev)
 		nvdla_dev->freq_tbl[i].volt = voltage;
 
 		if (freq == 1500000000) {
-			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
-			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
 			nvdla_dev->freq_tbl[i].llc_rate = 1188000000;
 		} else if (freq == 1188000000) {
-			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_vpll_fout1;
-			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
 			nvdla_dev->freq_tbl[i].llc_rate = 800000000;
 		} else if (freq == 1040000000) {
-			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
-			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
 			nvdla_dev->freq_tbl[i].llc_rate = 800000000;
 		} else if (freq == 750000000) {
-			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll1_fout1;
-			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout1;
 			nvdla_dev->freq_tbl[i].llc_rate = 520000000;
 		} else if (freq == 520000000) {
-			nvdla_dev->freq_tbl[i].npu_clk_parent = nvdla_dev->fixed_rate_clk_spll2_fout2;
-			nvdla_dev->freq_tbl[i].llc_clk_parent = nvdla_dev->fixed_rate_clk_spll0_fout1;
 			nvdla_dev->freq_tbl[i].llc_rate = 400000000;
 		}
 

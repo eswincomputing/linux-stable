@@ -1048,19 +1048,12 @@
 						<&d1_clock EIC7700_CLK_NPU_CLK>,
 						<&d1_clock EIC7700_CLK_NPU_LLC_ACLK>,
 						<&d1_clock EIC7700_CLK_NPU_E31_CLK>,
-						<&d1_clock EIC7700_MUX_U_NPU_CORE_3MUX1_GFREE>,
-						<&d1_clock EIC7700_MUX_U_NPU_LLCLK_3MUX1_GFREE>,
-						<&d1_clock EIC7700_SPLL2_FOUT2>,
-						<&d1_clock EIC7700_SPLL1_FOUT1>,
 						<&d1_clock EIC7700_CLK_CLK_NPU_LLC_SRC0>,
-						<&d1_clock EIC7700_CLK_CLK_NPU_LLC_SRC1>,
-						<&d1_clock EIC7700_VPLL_FOUT1>;
+						<&d1_clock EIC7700_CLK_CLK_NPU_LLC_SRC1>;
 
 
 				clock-names = "aclk", "cfg_clk", "core_clk", "clk_npu_llc_aclk", "e31_core_clk",
-						"mux_u_npu_core_3mux1_gfree", "mux_u_npu_llclk_3mux1_gfree",
-						"fixed_rate_clk_spll2_fout2", "fixed_rate_clk_spll1_fout1", "clk_clk_npu_llc_src0",
-						"clk_clk_npu_llc_src1", "fixed_rate_clk_vpll_fout1";
+				"clk_clk_npu_llc_src0", "clk_clk_npu_llc_src1";
 
 
 				resets = <&d1_reset NPU_RST_CTRL SW_NPU_E31CORE_RSTN>;
