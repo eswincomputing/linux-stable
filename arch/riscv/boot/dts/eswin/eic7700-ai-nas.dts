@@ -127,9 +127,48 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 	};
+
+	gpio-key-custom {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio18_default &pinctrl_gpio19_default &pinctrl_gpio20_default>;
+
+		bi-test {
+			label = "BI-TEST";
+			linux,code = <KEY_A>;
+			gpios = <&porta 18 GPIO_ACTIVE_LOW>;
+		};
+		b-test {
+			label = "B-TEST";
+			linux,code = <KEY_B>;
+			gpios = <&porta 19 GPIO_ACTIVE_LOW>;
+		};
+		m-test {
+			label = "M-TEST";
+			linux,code = <KEY_M>;
+			gpios = <&porta 20 GPIO_ACTIVE_LOW>;
+		};
+	};
+	gpio-key-custom2 {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio26_default>;
+
+		fac-df {
+			label = "FAC-DF-KEY";
+			linux,code = <KEY_F>;
+			gpios = <&porta 26 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
 
-
+&pinctrl_gpio26_default {
+    conf {
+        groups = "gpio26_group";
+        input-enable = <1>;
+        bias-pull-up = <1>;
+    };
+};
 
 &d0_clock {
 	status = "okay";
