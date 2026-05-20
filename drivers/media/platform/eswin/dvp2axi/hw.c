@@ -624,7 +624,7 @@ static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 	reset_control_assert(dvp2axi_hw->rstc);
 
 	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
-	reg_val &= (!DVP2AXI_DVP_CLK_EN);
+	reg_val &= (~DVP2AXI_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
 
 	es_dvp2axi_sys_clk_disable(dvp2axi_hw);
