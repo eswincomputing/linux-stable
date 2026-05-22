@@ -382,17 +382,17 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 	/* Fetch reset */
 	pcie->powerup_rst = devm_reset_control_get_optional(&pdev->dev, "pcie_powerup");
 	if (IS_ERR_OR_NULL(pcie->powerup_rst)) {
-		dev_err_probe(dev, PTR_ERR(pcie->powerup_rst), "unable to get powerup reset\n");
+		return dev_err_probe(dev, PTR_ERR(pcie->powerup_rst), "unable to get powerup reset\n");
 	}
 
 	pcie->cfg_rst = devm_reset_control_get_optional(&pdev->dev, "pcie_cfg");
 	if (IS_ERR_OR_NULL(pcie->cfg_rst)) {
-		dev_err_probe(dev, PTR_ERR(pcie->cfg_rst), "unable to get cfg reset\n");
+		return dev_err_probe(dev, PTR_ERR(pcie->cfg_rst), "unable to get cfg reset\n");
 	}
 
 	pcie->perst = devm_reset_control_get_optional(&pdev->dev, "pcie_pwren");
 	if (IS_ERR_OR_NULL(pcie->perst)) {
-		dev_err_probe(dev, PTR_ERR(pcie->perst), "unable to get perst\n");
+		return dev_err_probe(dev, PTR_ERR(pcie->perst), "unable to get perst\n");
 	}
 
 	platform_set_drvdata(pdev, pcie);
@@ -401,12 +401,17 @@ static int eswin_pcie_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
 	if (err < 0) {
-		dev_err(dev, "pm_runtime_get_sync failed: %d\n", err);
+		dev_err(dev, "pm_runtime_get_sync failed, err: %d\n", err);
 		goto pm_runtime_put;
 	}
 
-	return dw_pcie_host_init(&pci->pp);
+	err =  dw_pcie_host_init(&pci->pp);
+	if (err < 0) {
+		dev_err(dev, "dw_pcie_host_init failed: %d\n", err);
+		goto pm_runtime_put;
+	}
 
+        return 0;
 pm_runtime_put:
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
