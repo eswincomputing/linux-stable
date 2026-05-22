@@ -479,17 +479,23 @@ static long pvr_compat_ioctl(struct file *file, unsigned int cmd,
 static void pvr_show_fdinfo(struct seq_file *seq_file, struct file *file)
 {
 	struct drm_file *dfile = file->private_data;
+	if (!dfile) {
+		return;
+	}
 	struct drm_device *dev = dfile->minor->dev;
 	struct drm_printer p = drm_seq_file_printer(seq_file);
 	PVRSRV_CONNECTION_PRIV *pvr_connection = dfile->driver_priv;
 	struct pvr_drm_private *priv;
 	int my_pid;
-
+	if (!dfile->pid) {
+		return;
+	}
 	/* Grab the PID from the associated drm_file->pid->numbers[0].nr */
 	my_pid = dfile->pid->numbers[0].nr;
-
+	if (!dev) {
+		return;
+	}
 	priv = (struct pvr_drm_private *)dev->dev_private;
-
 	/* Generate driver-specific keys */
 	PVRDKFTraverse((DKF_VPRINTF_FUNC*)drm_vprintf,
 	               &p,
