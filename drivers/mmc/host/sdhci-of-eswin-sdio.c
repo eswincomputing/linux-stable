@@ -30,17 +30,13 @@
 #include <linux/reset.h>
 #include "cqhci.h"
 #include "sdhci-pltfm.h"
-#include <linux/mmc/slot-gpio.h>
+
 #include <linux/eswin-win2030-sid-cfg.h>
 #include <linux/bitfield.h>
 #include <linux/iommu.h>
 #include "sdhci-eswin.h"
 
 #define ESWIN_SDHCI_SD_CQE_BASE_ADDR 0x180
-bool first_tuning = true;
-
-#define RETRY_CNT 5
-#define VALIED_CNT 5
 
 static inline void *sdhci_sdio_priv(struct eswin_sdhci_data *sdio)
 {
@@ -188,6 +184,8 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 		ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
 		host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 		if (ret) {
+			udelay(200);
+			pr_debug("%s: bad phase_code:0x%x!\n", mmc_hostname(host->mmc), i);
 			if (code_min != -1 && code_max != -1) {
 				if (code_max - code_min > code_range) {
 					code_range = code_max - code_min;
@@ -214,7 +212,7 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 		}
 	}
 
-	if (phase_code == -1 || code_range < TUNING_RANGE_THRESHOLD) {
+	if (phase_code == -1) {
 		pr_debug("%s: phase code tuning failed!\n",
 		       mmc_hostname(host->mmc));
 		eswin_sdhci_disable_card_clk(host);
@@ -223,7 +221,7 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 		return -EIO;
 	}
 
-	pr_debug("%s: set phase_code:0x%x code_range:%x\n", mmc_hostname(host->mmc), phase_code, code_range);
+	pr_debug("%s: set phase_code:0x%x\n", mmc_hostname(host->mmc), phase_code);
 
 	eswin_sdhci_disable_card_clk(host);
 	sdhci_writew(host, phase_code, VENDOR_AT_SATA_R);
@@ -236,75 +234,6 @@ static int eswin_sdhci_sdio_phase_code_tuning(struct sdhci_host *host,
 		       mmc_hostname(host->mmc), phase_code);
 		return ret;
 	}
-
-	return 0;
-}
-
-static int eswin_sdhci_sdio_delay_tuning(struct sdhci_host *host, u32 opcode)
-{
-	int score[PHY_DELAY_CODE_MAX] = {0};
-	int ret;
-	int i = 0;
-	int j = 0;
-	int cmd_error = 0;
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct eswin_sdhci_data *eswin_sdhci =
-		sdhci_pltfm_priv(pltfm_host);
-
-	for (i = 0; i < PHY_DELAY_CODE_MAX; i++) {
-		eswin_sdhci_disable_card_clk(host);
-		eswin_sdhci_sdio_config_phy_delay(host, i);
-		eswin_sdhci_enable_card_clk(host);
-		for(j = 0; j < RETRY_CNT; j++) {
-			ret = mmc_send_tuning(host->mmc, opcode, &cmd_error);
-			host->ops->reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
-			if (!ret)
-				score[i]++;
-		}
-	}
-
-	// char buf[256];
-	// int pos = 0;
-	// for (i = 0; i < PHY_DELAY_CODE_MAX; i++) {
-	// 	if (score[i] >= VALIED_CNT)
-	// 		buf[pos++] = 'O';   // 完全稳定
-	// 	else if (score[i] > 0)
-	// 		buf[pos++] = '+';   // 边缘
-	// 	else
-	// 		buf[pos++] = 'X';   // 完全失败
-	// }
-	// buf[pos] = '\0';
-	// pr_info("%s: TUNING MAP: %s\n", mmc_hostname(host->mmc), buf);
-
-	int best_len = 0;
-	int best_start = 0;
-	int best_end = 0;
-	int best = 0;
-	int margin = 0;
-	for (i = 0; i < PHY_DELAY_CODE_MAX; i++) {
-		if (score[i] >= VALIED_CNT) {
-			int start = i;
-
-			while (i < PHY_DELAY_CODE_MAX && score[i] >= VALIED_CNT)
-				i++;
-
-			int end = i - 1;
-			int len = end - start + 1;
-
-			if (len > best_len) {
-				best_len = len;
-				best_start = start;
-				best_end = end;
-			}
-		}
-	}
-
-	margin = best_len / 4;
-	best = best_start + margin + (best_len - 2 * margin) / 2;
-	pr_debug("%s: set delay:%d delay_range:%d\n", mmc_hostname(host->mmc), best, best_len);
-	eswin_sdhci_disable_card_clk(host);
-	eswin_sdhci_sdio_config_phy_delay(host, best);
-	eswin_sdhci_enable_card_clk(host);
 
 	return 0;
 }
@@ -334,13 +263,7 @@ static int eswin_sdhci_sdio_executing_tuning(struct sdhci_host *host,
 
 	eswin_sdhci_enable_card_clk(host);
 
-	if(first_tuning) {
-		ret = eswin_sdhci_sdio_delay_tuning(host, opcode);
-		if (ret < 0) {
-			return ret;
-		}
-		first_tuning = false;
-	}
+	sdhci_writew(host, 0x0, SDHCI_CMD_DATA);
 
 	ret = eswin_sdhci_sdio_phase_code_tuning(host, opcode);
 	if (ret < 0) {
@@ -388,19 +311,6 @@ static const struct cqhci_host_ops eswin_sdhci_sdio_cqhci_ops = {
 	.dumpregs = eswin_sdhci_sdio_dumpregs,
 };
 
-/*
- * SD card interrupt event callback
- */
-static void sdhci_eswin_card_event(struct sdhci_host *host)
-{
-	if (mmc_gpio_get_cd(host->mmc) > 0) {
-		pr_debug("card inserted\n", mmc_dev(host->mmc));
-		first_tuning = true;
-	} else {
-		pr_debug("card removed\n", mmc_dev(host->mmc));
-	}
-}
-
 static const struct sdhci_ops eswin_sdhci_sdio_cqe_ops = {
 	.set_clock = eswin_sdhci_sdio_set_clock,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
@@ -412,7 +322,6 @@ static const struct sdhci_ops eswin_sdhci_sdio_cqe_ops = {
 	.irq = eswin_sdhci_sdio_cqhci_irq,
 	.platform_execute_tuning = eswin_sdhci_sdio_executing_tuning,
 	.dump_vendor_regs = eswin_sdhci_dump_vendor_regs,
-	.card_event = sdhci_eswin_card_event,
 };
 
 static const struct sdhci_pltfm_data eswin_sdhci_sdio_cqe_pdata = {
