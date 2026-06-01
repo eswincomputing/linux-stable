@@ -619,16 +619,23 @@ static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 {
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
 	struct device *parent = dev->parent;
+	struct eswin_vi_device *es_vi_dev;
 	u32 reg_val = 0;
 	int parent_count;
+
+	es_vi_dev = dev_get_drvdata(parent);
+	if (!es_vi_dev)
+		return -ENODEV;
 
 	win2030_tbu_power(dev, false);
 
 	reset_control_assert(dvp2axi_hw->rstc);
 
+	mutex_lock(&es_vi_dev->vi_topcsr_lock);
 	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
 	reg_val &= (~DVP2AXI_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
+	mutex_unlock(&es_vi_dev->vi_topcsr_lock);
 
 	es_dvp2axi_sys_clk_disable(dvp2axi_hw);
 
@@ -654,9 +661,11 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 		return -ENODEV;
 	}
 
+	mutex_lock(&es_vi_dev->vi_topcsr_lock);
 	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
 	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
+	mutex_unlock(&es_vi_dev->vi_topcsr_lock);
 
 	if (parent && pm_runtime_enabled(parent)) {
         ret = pm_runtime_resume_and_get(parent);

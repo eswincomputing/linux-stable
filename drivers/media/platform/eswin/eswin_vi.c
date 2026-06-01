@@ -706,6 +706,8 @@ static int eswin_vi_probe(struct platform_device *pdev)
 		}
 	}
 
+	mutex_init(&es_vi_dev->vi_topcsr_lock);
+
 	ret = of_property_read_u32(np, "eswin,isp_dvp0_hor",
 				   &es_vi_dev->isp_dvp0_hor);
 	if (ret)

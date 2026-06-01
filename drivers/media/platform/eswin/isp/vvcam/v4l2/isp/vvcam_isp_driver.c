@@ -1817,10 +1817,11 @@ static int es_isp_sys_clk_disable(struct vvcam_isp_dev *isp_dev)
 
 static int vvcam_isp_probe(struct platform_device *pdev)
 {
-    struct device *dev = &pdev->dev;
-    struct vvcam_isp_dev *isp_dev;
+	struct device *dev = &pdev->dev;
+	struct vvcam_isp_dev *isp_dev;
 	u32 reg_val;
-    int ret;
+	u32 id = 0;
+	int ret;
 #if defined(CONFIG_PM_DEVFREQ)
 	struct devfreq *df;
 #endif
@@ -1878,6 +1879,15 @@ static int vvcam_isp_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
+
+	ret = of_property_read_u32(isp_dev->dev->of_node, "id", &id);
+	if(ret) {
+		dev_err(isp_dev->dev, "Failed to read 'id' property: %d\n", ret);
+		return ret;
+	}
+
+	isp_dev->id = id;
+	dev_info(isp_dev->dev, "ISP ID: %d\n", id);
 
 	isp_dev->rstc = devm_reset_control_array_get_shared(&pdev->dev);
 	if (IS_ERR_OR_NULL(isp_dev->rstc)) {
@@ -2026,11 +2036,27 @@ static int __maybe_unused vvcam_isp_runtime_suspend(struct device *dev)
 {
 	struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
 	struct device *parent = dev->parent;
+	struct eswin_vi_device *es_vi_dev;
 	int parent_count;
+	u32 reg_val = 0;
+
+	es_vi_dev = dev_get_drvdata(parent);
+	if (!es_vi_dev)
+		return -ENODEV;
 
 	win2030_tbu_power(dev, false);
 
 	reset_control_assert(isp_dev->rstc);
+
+	mutex_lock(&es_vi_dev->vi_topcsr_lock);
+	regmap_read(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, &reg_val);
+	if(isp_dev->id == 0) {
+		reg_val &= (~ISP0_CLK_EN);
+	} else if(isp_dev->id == 1) {
+		reg_val &= (~ISP1_CLK_EN);
+	}
+	regmap_write(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, reg_val);
+	mutex_unlock(&es_vi_dev->vi_topcsr_lock);
 
 	es_isp_sys_clk_disable(isp_dev);
 
@@ -2070,9 +2096,15 @@ static int __maybe_unused vvcam_isp_runtime_resume(struct device *dev)
 
 	win2030_tbu_power(dev, true);
 
+	mutex_lock(&es_vi_dev->vi_topcsr_lock);
 	regmap_read(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, &reg_val);
-	reg_val |= (ISP0_CLK_EN | ISP1_CLK_EN);
+	if(isp_dev->id == 0) {
+		reg_val |= ISP0_CLK_EN;
+	} else if(isp_dev->id == 1) {
+		reg_val |=ISP1_CLK_EN;
+	}
 	regmap_write(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, reg_val);
+	mutex_unlock(&es_vi_dev->vi_topcsr_lock);
 
 	eic770x_vi_init(es_vi_dev);
 
