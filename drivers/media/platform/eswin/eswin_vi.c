@@ -214,6 +214,18 @@ int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev)
 }
 EXPORT_SYMBOL(vitop_intf_cfg);
 
+int eic770x_top_clk_init(struct eswin_vi_device *es_vi_dev)
+{
+	unsigned int reg_value;
+
+	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
+	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, reg_value | 0x1fff8);
+	udelay(1000);
+
+	return 0;
+}
+EXPORT_SYMBOL(eic770x_top_clk_init);
+
 int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 {
 	struct eswin_vi_device *regmap = es_vi_dev;
@@ -224,12 +236,10 @@ int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 
 	syscrg_register_write(regmap, 0x188, 0xc0000020);
 
-	// Enable Clocks from TOP CSR
-	reg_value = vi_top_register_read(es_vi_dev, VI_TOP_CLOCK_ENABLE);
-	vi_top_register_write(es_vi_dev, VI_TOP_CLOCK_ENABLE, reg_value | 0x1fff8);
-	udelay(1000);
+	#ifndef CONFIG_ARCH_SUSPEND_POSSIBLE
+	eic770x_top_clk_init(es_vi_dev);
+	#endif
 
-	vitop_intf_cfg(es_vi_dev);
 	return 0;
 }
 EXPORT_SYMBOL(eic770x_vi_init);

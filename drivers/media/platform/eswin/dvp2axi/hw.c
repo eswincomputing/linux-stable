@@ -442,9 +442,11 @@ static int es_dvp2axi_plat_hw_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	#ifndef CONFIG_ARCH_SUSPEND_POSSIBLE
 	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
 	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
 	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
+	#endif
 
 	es_dvp2axi_sys_clk_init(pdev, dvp2axi_hw);
 	es_dvp2axi_sys_clk_enable(dvp2axi_hw);
@@ -618,6 +620,7 @@ static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 	struct es_dvp2axi_hw *dvp2axi_hw = dev_get_drvdata(dev);
 	struct device *parent = dev->parent;
 	u32 reg_val = 0;
+	int parent_count;
 
 	win2030_tbu_power(dev, false);
 
@@ -629,7 +632,8 @@ static int __maybe_unused es_dvp2axi_runtime_suspend(struct device *dev)
 
 	es_dvp2axi_sys_clk_disable(dvp2axi_hw);
 
-	if (parent && pm_runtime_enabled(parent)) {
+	parent_count = atomic_read(&parent->power.usage_count);
+	if ((parent && pm_runtime_enabled(parent)) && (parent_count)) {
 		pm_runtime_mark_last_busy(parent);
 		pm_runtime_put_autosuspend(parent);
     }
@@ -650,6 +654,10 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 		return -ENODEV;
 	}
 
+	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
+	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
+	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
+
 	if (parent && pm_runtime_enabled(parent)) {
         ret = pm_runtime_resume_and_get(parent);
         if (ret < 0) {
@@ -664,11 +672,9 @@ static int __maybe_unused es_dvp2axi_runtime_resume(struct device *dev)
 
 	win2030_tbu_power(dev, true);
 
-	regmap_read(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, &reg_val);
-	reg_val |= (DVP2AXI_DVP_CLK_EN | CTRL_DVP_CLK_EN);
-	regmap_write(dvp2axi_hw->vi_topcsr_regmap, dvp2axi_hw->vi_topcsr_reg, reg_val);
-
 	eic770x_vi_init(es_vi_dev);
+
+	eic770x_top_clk_init(es_vi_dev);
 
 	vitop_intf_cfg(es_vi_dev);
 

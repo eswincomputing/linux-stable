@@ -69,5 +69,6 @@ struct eswin_vi_device {
 };
 
 extern int eic770x_vi_init(struct eswin_vi_device *es_vi_dev);
+extern int eic770x_top_clk_init(struct eswin_vi_device *es_vi_dev);
 extern int vitop_intf_cfg(struct eswin_vi_device *es_vi_dev);
 #endif /* _ESWIN_VI_H_ */

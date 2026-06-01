@@ -1853,9 +1853,11 @@ static int vvcam_isp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	#ifndef CONFIG_ARCH_SUSPEND_POSSIBLE
 	regmap_read(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, &reg_val);
 	reg_val |= (ISP0_CLK_EN | ISP1_CLK_EN);
 	regmap_write(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, reg_val);
+	#endif
 
 	es_isp_sys_clk_init(pdev, isp_dev);
 	es_isp_sys_clk_enable(isp_dev);
@@ -2022,26 +2024,28 @@ static int vvcam_isp_remove(struct platform_device *pdev)
 
 static int __maybe_unused vvcam_isp_runtime_suspend(struct device *dev)
 {
-    struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
+	struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
 	struct device *parent = dev->parent;
+	int parent_count;
 
-    win2030_tbu_power(dev, false);
+	win2030_tbu_power(dev, false);
 
 	reset_control_assert(isp_dev->rstc);
 
-    es_isp_sys_clk_disable(isp_dev);
+	es_isp_sys_clk_disable(isp_dev);
 
-	if (parent && pm_runtime_enabled(parent)) {
+	parent_count = atomic_read(&parent->power.usage_count);
+	if ((parent && pm_runtime_enabled(parent)) && (parent_count)) {
 		pm_runtime_mark_last_busy(parent);
 		pm_runtime_put_autosuspend(parent);
-    }
+	}
 
-    return 0;
+	return 0;
 }
 
 static int __maybe_unused vvcam_isp_runtime_resume(struct device *dev)
 {
-    struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
+	struct vvcam_isp_dev *isp_dev = dev_get_drvdata(dev);
 	struct device *parent = dev->parent;
 	struct eswin_vi_device* es_vi_dev;
 	u32 reg_val = 0;
@@ -2053,12 +2057,12 @@ static int __maybe_unused vvcam_isp_runtime_resume(struct device *dev)
 	}
 
 	if (parent && pm_runtime_enabled(parent)) {
-        ret = pm_runtime_resume_and_get(parent);
-        if (ret < 0) {
-            dev_err(dev, "Failed to resume parent VI: %d\n", ret);
-            return ret;
-        }
-    }
+		ret = pm_runtime_resume_and_get(parent);
+		if (ret < 0) {
+			dev_err(dev, "Failed to resume parent VI: %d\n", ret);
+			return ret;
+		}
+	}
 
 	es_isp_sys_clk_enable(isp_dev);
 
@@ -2071,6 +2075,8 @@ static int __maybe_unused vvcam_isp_runtime_resume(struct device *dev)
 	regmap_write(isp_dev->vi_topcsr_regmap, isp_dev->vi_topcsr_reg, reg_val);
 
 	eic770x_vi_init(es_vi_dev);
+
+	eic770x_top_clk_init(es_vi_dev);
 
 	vitop_intf_cfg(es_vi_dev);
 

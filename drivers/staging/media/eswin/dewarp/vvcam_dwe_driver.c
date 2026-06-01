@@ -1421,9 +1421,11 @@ static int es_dewarp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	#ifndef CONFIG_ARCH_SUSPEND_POSSIBLE
 	regmap_read(pdriver_dev->vi_topcsr_regmap, pdriver_dev->vi_topcsr_reg, &reg_val);
 	reg_val |= DEWARP_CLK_EN;
 	regmap_write(pdriver_dev->vi_topcsr_regmap, pdriver_dev->vi_topcsr_reg, reg_val);
+	#endif
 
 	ret = vvcam_sys_reset_init(pdev, &pdwe_dev->dw_crg);
 	if (ret) {
