@@ -87,6 +87,23 @@ static int tc358762_clear_error(struct tc358762 *ctx)
 	return ret;
 }
 
+static int tc358762_read(struct tc358762 *ctx, u16 addr, u32 *val)
+{
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	ssize_t ret;
+
+	if (ctx->error)
+		return -1;
+
+	cpu_to_le16s(&addr);
+	ret = mipi_dsi_generic_read(dsi, &addr, sizeof(addr), val, sizeof(*val));
+	if (ret >= 0)
+		le32_to_cpus(val);
+
+	dev_dbg(ctx->dev, "read: addr=0x%04x data=0x%08x\n", addr, *val);
+	return ret;
+}
+
 static void tc358762_write(struct tc358762 *ctx, u16 addr, u32 val)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
@@ -115,7 +132,20 @@ static inline struct tc358762 *bridge_to_tc358762(struct drm_bridge *bridge)
 
 static int tc358762_init(struct tc358762 *ctx)
 {
+	u32 v = 0;
 	u32 lcdctrl;
+
+	int ret = tc358762_read(ctx, DSI_LANEENABLE, &v);
+	if (ret < 0) {
+		return ret;
+	}
+	if (ctx->error)
+		return tc358762_clear_error(ctx);
+
+	if (v != 0) {
+		dev_info(ctx->dev, "Already DSI_LANEENABLE (%d)\n", v);
+		return 0;
+	}
 
 	tc358762_write(ctx, DSI_LANEENABLE,
 		       LANEENABLE_L0EN | LANEENABLE_CLEN);
@@ -192,10 +222,9 @@ static void tc358762_enable(struct drm_bridge *bridge, struct drm_bridge_state *
 {
 	struct tc358762 *ctx = bridge_to_tc358762(bridge);
 	int ret;
-
 	ret = tc358762_init(ctx);
 	if (ret < 0)
-		dev_err(ctx->dev, "error initializing bridge (%d)\n", ret);
+		dev_err(ctx->dev, "Already initializing bridge\n");
 }
 
 static int tc358762_attach(struct drm_bridge *bridge,

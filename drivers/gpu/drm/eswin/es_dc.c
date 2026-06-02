@@ -1300,24 +1300,35 @@ static int dc_probe(struct platform_device *pdev)
 	}
 
 	/* reset dc first to ensure no data on axi bus */
-	if (dc->dc_arst) {
-		ret = reset_control_reset(dc->dc_arst);
-		WARN_ON(0 != ret);
-	}
+    /*
+	* Only assert hardware reset if bootloader hasn't already
+	* configured the display pipeline. When U-Boot has set up
+	* the DC for MIPI DSI output, these resets would destroy
+	* the VO subsystem state (MIPI D-PHY, clock dividers)
+	* while the bridge is still active, causing visible screen
+	* corruption. dc_hw_init handles the DC-internal soft reset
+	* to drain any pending AXI transactions.
+	*/
+	if (readl(dc->hw.reg_base + DC_DISPLAY_DPI_CONFIG - DC_REG_BASE) == 0) {
+		if (dc->dc_arst) {
+			ret = reset_control_reset(dc->dc_arst);
+			WARN_ON(0 != ret);
+		}
 
-	if (dc->dc_prst) {
-		ret = reset_control_reset(dc->dc_prst);
-		WARN_ON(0 != ret);
-	}
+		if (dc->dc_prst) {
+			ret = reset_control_reset(dc->dc_prst);
+			WARN_ON(0 != ret);
+		}
 
-	if (dc->vo_arst) {
-		ret = reset_control_reset(dc->vo_arst);
-		WARN_ON(0 != ret);
-	}
+		if (dc->vo_arst) {
+			ret = reset_control_reset(dc->vo_arst);
+			WARN_ON(0 != ret);
+		}
 
-	if (dc->vo_prst) {
-		ret = reset_control_reset(dc->vo_prst);
-		WARN_ON(0 != ret);
+		if (dc->vo_prst) {
+			ret = reset_control_reset(dc->vo_prst);
+			WARN_ON(0 != ret);
+		}
 	}
 
 	dev_set_drvdata(dev, dc);
