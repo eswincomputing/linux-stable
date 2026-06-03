@@ -755,7 +755,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* AT24C02C EEPROM */
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
@@ -765,7 +765,7 @@
 	};
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* PCA9450 & SiC451 & INA226 & PAC1934 */
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 15>;

@@ -1607,7 +1607,7 @@
 				numa-node-id = <0>;
 				i2c-sda-hold-time-ns = <0x40>;
 		};
-		d0_aon_i2c0: i2c@51830000 {
+		d0_i2c10: i2c@51830000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
 				clocks = <&d0_clock EIC7700_CLK_AON_I2C0_PCLK>;
@@ -1631,7 +1631,7 @@
 				numa-node-id = <0>;
 				i2c-sda-hold-time-ns = <0x40>;
 		};
-		d0_aon_i2c1: i2c@51838000 {
+		d0_i2c11: i2c@51838000 {
 				compatible = "snps,designware-i2c";
 				clock-frequency = <I2C_BITRATE_STANDARD>;
 				clocks = <&d0_clock EIC7700_CLK_AON_I2C1_PCLK>;

@@ -604,11 +604,11 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	status = "okay";
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* pmic es5340 */
 	status = "okay";
 	es5340@f {

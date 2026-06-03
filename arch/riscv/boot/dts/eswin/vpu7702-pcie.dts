@@ -957,7 +957,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* ADC */
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
@@ -996,7 +996,7 @@
 	};
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	status = "disabled";
 };
 

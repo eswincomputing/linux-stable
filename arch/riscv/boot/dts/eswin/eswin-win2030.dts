@@ -678,7 +678,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	status = "disabled";
 	aon_eeprom@50 {
 		compatible = "atmel,24c1024";
@@ -686,7 +686,7 @@
 	};
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	status = "disabled";
 };
 
@@ -1069,7 +1069,7 @@
 	status = "disabled";
 };
 
-&d1_aon_i2c0 {
+&d1_i2c10 {
 	status = "disabled";
 	aon_eeprom@50 {
 		compatible = "atmel,24c1024";
@@ -1077,7 +1077,7 @@
 	};
 };
 
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	status = "disabled";
 };
 

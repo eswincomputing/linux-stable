@@ -5,7 +5,7 @@
 	phy_mode = <5>; //5: 6x2lanes, 2: 3x4lanes
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* lt6911uxe */
 	status = "okay";
 	pinctrl-names = "default";

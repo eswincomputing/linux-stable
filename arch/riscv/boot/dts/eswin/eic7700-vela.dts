@@ -218,7 +218,7 @@
 	};
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	sys_power:ina226@40 {
 		compatible = "ti,ina226";
 		#io-channel-cells = <1>;

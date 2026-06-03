@@ -997,12 +997,12 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* SMBUS */
 	status = "disabled";
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	status = "disabled";
 };
 

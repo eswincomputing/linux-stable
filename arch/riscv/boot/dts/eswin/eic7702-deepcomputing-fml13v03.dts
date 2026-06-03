@@ -1466,7 +1466,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
 	i2c-sda-hold-time-ns = <0x40>;
@@ -1479,7 +1479,7 @@
 };
 
 
-&d1_aon_i2c0 {
+&d1_i2c10 {
 	status = "okay";
 	i2c-sda-hold-time-ns = <0x40>;
 	eswin,syscfg = <&d1_sys_con 0x3C0 16>;
@@ -1491,7 +1491,7 @@
 	};
 };
 
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	status = "disabled";
 };
 

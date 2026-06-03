@@ -1019,17 +1019,17 @@
 	status = "okay";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* unused */
 	status = "disabled";
 };
 
-&d1_aon_i2c0 {
+&d1_i2c10 {
 	/* unused */
 	status = "disabled";
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* d2d vp pmic(5p49v6965) & temp sensor(tmp102) & d0 npu pmic(tps549d22) */
 	status = "okay";
 	tmp102@48 {
@@ -1058,7 +1058,7 @@
 	};
 };
 
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	/* d1 npu pmic */
 	status = "okay";
 	tps549d22@10 {

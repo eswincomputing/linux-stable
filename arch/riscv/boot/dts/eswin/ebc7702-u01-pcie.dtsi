@@ -1093,19 +1093,19 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* SOC1 smbus, accessed by lpcpu */
 	status = "disabled";
 };
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	status = "disabled";
 };
 
-&d1_aon_i2c0 {
+&d1_i2c10 {
 	status = "disabled";
 };
 
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	status = "disabled";
 };
 

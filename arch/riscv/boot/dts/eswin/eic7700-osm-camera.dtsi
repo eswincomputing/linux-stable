@@ -259,7 +259,7 @@
 	};
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	//status = "okay";
 	imx219_1: imx219@10 {
 		compatible = "sony,imx219";

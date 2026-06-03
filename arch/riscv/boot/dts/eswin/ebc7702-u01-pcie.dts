@@ -40,7 +40,7 @@
 
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* d0 npu pmic */
 	status = "okay";
 	tps549d22@10 {
@@ -62,7 +62,7 @@
 	};
 };
 
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	/* d1 npu pmic */
 	status = "okay";
 	tps549d22@10 {

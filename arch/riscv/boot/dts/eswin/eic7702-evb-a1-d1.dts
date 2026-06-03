@@ -723,7 +723,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* ina226x4 & tmp102aidrlr */
 	status = "okay";
 	i2c-sda-hold-time-ns = <0x40>;
@@ -757,7 +757,7 @@
 	};
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* syr838pkc */
 	status = "okay";
 };

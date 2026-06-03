@@ -786,7 +786,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* rtc */
 	status = "okay";
 	eswin,syscfg = <&d0_sys_con 0x3C0 16>;
@@ -796,7 +796,7 @@
 	};
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* unused */
 	status = "disabled";
 };

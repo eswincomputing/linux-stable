@@ -1367,7 +1367,7 @@
 	status = "disabled";
 };
 
-&d0_aon_i2c0 {
+&d0_i2c10 {
 	/* ina226x3 */
 	status = "okay";
 	i2c-sda-hold-time-ns = <0x40>;
@@ -1401,7 +1401,7 @@
 };
 
 
-&d1_aon_i2c0 {
+&d1_i2c10 {
 	/* ina226x4 */
 	status = "okay";
 	i2c-sda-hold-time-ns = <0x40>;
@@ -1433,7 +1433,7 @@
 		#thermal-sensor-cells = <1>;
 	};
 };
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	status = "disabled";
 };
 

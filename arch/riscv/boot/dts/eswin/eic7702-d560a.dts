@@ -39,7 +39,7 @@
 	/delete-node/ tmp102@48;
 };
 
-&d0_aon_i2c1 {
+&d0_i2c11 {
 	/* temp sensor(gx112) & pmic(ES5340) */
 	/delete-node/ tps549d22@10;
 
@@ -62,7 +62,7 @@
 	};
 };
 
-&d1_aon_i2c1 {
+&d1_i2c11 {
 	/* pmic(ES5340) */
 	/delete-node/ tps549d22@10;
 
