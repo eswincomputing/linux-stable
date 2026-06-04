@@ -247,7 +247,7 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_die1_gpio30_default>;
-		int-gpios = <&d1_porta 30 GPIO_ACTIVE_HIGH>;
+		int-gpios = <&d1_porta 30 GPIO_ACTIVE_LOW>;
 		connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";

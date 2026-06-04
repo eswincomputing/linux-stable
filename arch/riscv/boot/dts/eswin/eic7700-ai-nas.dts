@@ -697,7 +697,7 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio12_default>;
-		int-gpios = <&porta 12 GPIO_ACTIVE_HIGH>;
+		int-gpios = <&porta 12 GPIO_ACTIVE_LOW>;
 		connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
@@ -807,6 +807,17 @@
 
 &pinctrl {
 	status = "okay";
+
+	pinctrl_gpio12_default: gpio12-default{
+		mux {
+			groups = "gpio12_group";
+			function = "gpio12_func";
+		};
+		conf {
+			groups = "gpio12_group";
+			input-enable = <1>;
+		};
+	};
 };
 
 /* GPIO Function Description

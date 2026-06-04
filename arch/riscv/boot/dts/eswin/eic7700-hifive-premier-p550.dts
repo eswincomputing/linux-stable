@@ -715,7 +715,7 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio5_default>;
-		int-gpios = <&porta 5 GPIO_ACTIVE_HIGH>;
+		int-gpios = <&porta 5 GPIO_ACTIVE_LOW>;
 		connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";

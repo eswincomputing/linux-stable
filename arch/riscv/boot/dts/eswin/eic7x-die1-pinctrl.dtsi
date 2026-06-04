@@ -865,7 +865,6 @@
 				conf {
 					groups = "gpio30_group";
 					input-enable = <1>;
-					bias-pull-down = <1>;
 				};
 			};
             pinctrl_die1_gpio31_default: gpio31-default{
