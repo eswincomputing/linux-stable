@@ -238,6 +238,7 @@ int eic770x_vi_init(struct eswin_vi_device *es_vi_dev)
 
 	#ifndef CONFIG_ARCH_SUSPEND_POSSIBLE
 	eic770x_top_clk_init(es_vi_dev);
+	vitop_intf_cfg(es_vi_dev);
 	#endif
 
 	return 0;
