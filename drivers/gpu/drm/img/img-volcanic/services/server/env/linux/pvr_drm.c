@@ -482,6 +482,9 @@ static void pvr_show_fdinfo(struct seq_file *seq_file, struct file *file)
 	if (!dfile) {
 		return;
 	}
+	if (!dfile->minor) {
+		return;
+	}
 	struct drm_device *dev = dfile->minor->dev;
 	struct drm_printer p = drm_seq_file_printer(seq_file);
 	PVRSRV_CONNECTION_PRIV *pvr_connection = dfile->driver_priv;
@@ -496,6 +499,9 @@ static void pvr_show_fdinfo(struct seq_file *seq_file, struct file *file)
 		return;
 	}
 	priv = (struct pvr_drm_private *)dev->dev_private;
+	if (!priv || !priv->dev_node || !pvr_connection) {
+		return;
+	}
 	/* Generate driver-specific keys */
 	PVRDKFTraverse((DKF_VPRINTF_FUNC*)drm_vprintf,
 	               &p,

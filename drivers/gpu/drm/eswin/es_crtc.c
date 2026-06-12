@@ -436,6 +436,9 @@ err_free_crtc:
 
 void es_crtc_handle_vblank(struct drm_crtc *crtc, bool underflow)
 {
+	if (!crtc || !crtc->state) {
+		return;
+	}
 	struct es_crtc_state *es_crtc_state = to_es_crtc_state(crtc->state);
 
 	drm_crtc_handle_vblank(crtc);
