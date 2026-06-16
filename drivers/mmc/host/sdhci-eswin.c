@@ -120,26 +120,22 @@ void eswin_sdhci_set_core_clock(struct sdhci_host *host,
 		return;
 	}
 
-	if (SDHCI_CLK_208M % clock == 0) {
+	if (SDHCI_CLK_416M % clock == 0) {
 		flag_sel = 1;
-		max_clk = SDHCI_CLK_208M;
+		max_clk = SDHCI_CLK_416M;
 	} else {
 		flag_sel = 0;
-		max_clk = SDHCI_CLK_200M;
+		max_clk = SDHCI_CLK_400M;
 	}
 
 	for (div = 1; div <= MAX_CORE_CLK_DIV; div++) {
 		if ((max_clk / div) <= clock)
 			break;
 	}
-	div--;
+	divide = div;
 
-	if (div == 0 || div == 1) {
-		divide = 2;
-	} else {
-		divide = (div + 1) * 2;
-	}
 	pr_debug("%s: clock:%d timing:%d\n", mmc_hostname(host->mmc), clock, host->timing);
+	pr_debug("%s: max_clk:%d div %d divide: %d\n", mmc_hostname(host->mmc), max_clk, div, divide);
 
 	eswin_sdhci_disable_card_clk(host);
 	eswin_mshc_coreclk_config(host, divide, flag_sel);

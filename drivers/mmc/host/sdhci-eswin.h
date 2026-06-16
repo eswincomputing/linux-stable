@@ -52,8 +52,8 @@
 
 #define ESWIN_SDHCI_CTRL_HS400 0x0007 // Non-standard, for eswin,these bits are 0x7
 
-#define SDHCI_CLK_208M   208000000
-#define SDHCI_CLK_200M   200000000
+#define SDHCI_CLK_416M   416000000
+#define SDHCI_CLK_400M   400000000
 
 #define AWSMMUSID GENMASK(31, 24)  // The sid of write operation
 #define AWSMMUSSID GENMASK(23, 16)  // The ssid of write operation

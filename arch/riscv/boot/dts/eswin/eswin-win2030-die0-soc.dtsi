@@ -1057,7 +1057,6 @@
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_SD0_ARSTN>;
 			reset-names = "txrx_rst","phy_rst","prstn","arstn";
 
-			sdhci-caps-mask =  <0x2 0x00000>;
 			clock-frequency = <208000000>;
 			max-frequency = <208000000>;
 			#address-cells = <1>;
@@ -1095,7 +1094,6 @@
 				<&d0_reset HSPDMA_RST_CTRL SW_HSP_SD1_ARSTN>;
 			reset-names = "txrx_rst","phy_rst","prstn","arstn";
 
-			sdhci-caps-mask =  <0x2 0x00000>;
 			clock-frequency = <208000000>;
 			max-frequency = <208000000>;
 			#address-cells = <1>;

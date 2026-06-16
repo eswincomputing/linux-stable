@@ -749,6 +749,13 @@ eswin_sdhci_sdio_register_sdclk(struct eswin_sdhci_data *eswin_sdhci_sdio,
 	return 0;
 }
 
+static void eswin_sdhci_sdio_force_sdr50(struct sdhci_host *host)
+{
+	host->caps1 &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_DDR50);
+	host->mmc->caps &= ~(MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_DDR50);
+	host->mmc->caps2 &= ~MMC_CAP2_HS200;
+}
+
 static int
 eswin_sdhci_sdio_add_host(struct eswin_sdhci_data *eswin_sdhci_sdio)
 {
@@ -757,12 +764,22 @@ eswin_sdhci_sdio_add_host(struct eswin_sdhci_data *eswin_sdhci_sdio)
 	bool dma64;
 	int ret;
 
-	if (!eswin_sdhci_sdio->has_cqe)
-		return sdhci_add_host(host);
+	if (!eswin_sdhci_sdio->has_cqe) {
+		ret = sdhci_setup_host(host);
+		if (ret)
+			return ret;
+		eswin_sdhci_sdio_force_sdr50(host);
+		ret = __sdhci_add_host(host);
+		if (ret)
+			sdhci_cleanup_host(host);
+		return ret;
+	}
 
 	ret = sdhci_setup_host(host);
 	if (ret)
 		return ret;
+
+	eswin_sdhci_sdio_force_sdr50(host);
 
 	cq_host = devm_kzalloc(host->mmc->parent, sizeof(*cq_host), GFP_KERNEL);
 	if (!cq_host) {
