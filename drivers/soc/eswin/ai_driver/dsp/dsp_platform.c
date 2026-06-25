@@ -411,7 +411,7 @@ static int dsp_send_msg_by_mbx(struct es_dsp *dsp, void *data)
 	while (true) {
 		if (count > 3) {
 			spin_unlock_irqrestore(&dsp->mbox_lock, flags);
-			dsp_err("%s, %d, tx mbxlock = 0x%x, fifo status=0x%x.\n", __func__, __LINE__, readl(dsp->mbox_tx_base + ESWIN_MBOX_WR_LOCK),
+			dsp_err("%s, %d, process_id=%d, tx mbxlock = 0x%x, fifo status=0x%x.\n", __func__, __LINE__, dsp->process_id, readl(dsp->mbox_tx_base + ESWIN_MBOX_WR_LOCK),
 					readl(dsp->mbox_tx_base + ESWIN_MBOX_FIFO_STATUS));
 			check_dsp_fw_state(dsp);
 			return -EBUSY;

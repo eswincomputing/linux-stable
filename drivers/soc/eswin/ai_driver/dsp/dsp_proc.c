@@ -28,6 +28,9 @@
 #include "dsp_main.h"
 #include "dsp_platform.h"
 
+#define DIE_CNT 2
+#define DSP_CNT 4
+
 static struct proc_dir_entry *proc_es_dsp;
 extern int dsp_log_level;
 int dsp_perf_enable = 0;
@@ -58,12 +61,10 @@ static int stats_show(struct seq_file *m, void *p)
 {
 	struct es_dsp *dsp;
 	int i,j;
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	es_dsp_perf_info perf_info;
 
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -72,7 +73,7 @@ static int stats_show(struct seq_file *m, void *p)
 				continue;
 			}
 			memcpy((void *)&perf_info, dsp->perf_reg_base, sizeof(es_dsp_perf_info));
-			seq_printf( m, "dsp%d %llu %llu\n",j*dsp_cnt + i, ktime_get_real_ns(),
+			seq_printf( m, "dsp%d %llu %llu\n",j*DSP_CNT + i, ktime_get_real_ns(),
 			            (perf_info.total_ran_time * 10000) / 495); // timer3 channel 7 clk 49.5MHz.
 		}
 	}
@@ -84,18 +85,16 @@ static int hw_info_show(struct seq_file *m, void *p)
 {
 	struct es_dsp *dsp;
 	int i,j;
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	unsigned long rate;
 
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
 			}
 			rate = es_dsp_get_rate(dsp->hw_arg);
-			seq_printf( m, "dsp%d %lu\n",j*dsp_cnt + i, rate);
+			seq_printf( m, "dsp%d %lu\n",j*DSP_CNT + i, rate);
 		}
 	}
 	return 0;
@@ -108,8 +107,6 @@ static int info_show(struct seq_file *m, void *p)
 	dsp_request_t req;
 	dsp_request_t *myreq;
 	struct timespec64 ts;
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	es_dsp_perf_info perf_info;
 	int k;
 	u32 state, cause, ps, pc;
@@ -121,8 +118,8 @@ static int info_show(struct seq_file *m, void *p)
 		m,
 		"--------------------------------DSP PARAM INFO----------------------------------\n");
 	seq_printf(m, "    DieId    CoreId     Enable   CmdTOut(s)\n");
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				seq_printf(
@@ -147,8 +144,8 @@ static int info_show(struct seq_file *m, void *p)
 		   "   %-8s\t    %-8s   %-8s   %-10s\n",
 		   "DieId", "CoreId", "fw_state", "cause", "ps", "pc",
 		   "npu_task", "dsp_task", "func_state");
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -178,10 +175,10 @@ static int info_show(struct seq_file *m, void *p)
 	seq_printf(
 		m,
 		"--------------------------dsp hw flat content--------------------------------------\n");
-	for (j = 0; j < die_cnt; j++) {
+	for (j = 0; j < DIE_CNT; j++) {
 		struct dsp_op_desc *opdesc;
 		struct dsp_hw_flat_test *hw_flat;
-		for (i = 0; i < dsp_cnt; i++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -201,9 +198,9 @@ static int info_show(struct seq_file *m, void *p)
 		m,
 		"--------------------------DSP Current Task--------------------------------------\n");
 
-	for (j = 0; j < die_cnt; j++) {
+	for (j = 0; j < DIE_CNT; j++) {
 		struct dsp_op_desc *opdesc;
-		for (i = 0; i < dsp_cnt; i++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -238,8 +235,8 @@ static int info_show(struct seq_file *m, void *p)
 		"DieId", "CoreId", "TotalIntCnt", "SendToDspCnt",
 		"FinishedTaskCnt", "FailedTaskCnt", "TimeOutTaskCnt",
 		"PendingTaskCnt", "LTaskRunTm");
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			struct es_dsp_stats *stats;
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
@@ -266,8 +263,8 @@ static int info_show(struct seq_file *m, void *p)
 	seq_printf(m, "\t%-8s\t %-8s\t %-8s\t %-8s\t %-12s\t %-12s\n", "DieId",
 		   "CoreId", "TaskCnt", "InvaldCmdCnt", "SendPrepareNpu",
 		   "SendEvalToNpu");
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			get_dsp_perf_info(&perf_info, j, i);
 			dsp = es_proc_get_dsp(j, i);
 
@@ -298,8 +295,8 @@ static int info_show(struct seq_file *m, void *p)
 		"\t%-8s\t %-8s\t %-10s\t %-10s\t %-10s\t %-10s\t %-10s\t %-8s\t %-8s\t %-8s\n",
 		"DieId", "CoreId", "TaskName", "StartTm", "PrepSTm", "PrepETm",
 		"EvalSTm", "EvalETm", "IPCSTm", "EndTm");
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			get_dsp_perf_info(&perf_info, j, i);
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
@@ -332,8 +329,8 @@ static int info_show(struct seq_file *m, void *p)
 	seq_printf(m, "\t%-8s\t %-8s\t %-8s\t %-15s\t %-10s\t %-8s\t %-10s\n",
 		   "DieId", "CoreId", "Pri", "TaskName", "TaskHnd", "TaskStat",
 		   "TaskRunTm");
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				seq_printf(
@@ -367,13 +364,11 @@ static int info_show(struct seq_file *m, void *p)
 
 static int proc_release(struct inode *inode, struct file *file)
 {
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	int i, j;
 	struct es_dsp *dsp;
 
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -388,13 +383,11 @@ static int proc_release(struct inode *inode, struct file *file)
 static int proc_info_open(struct inode *inode, struct file *file)
 {
 	int ret;
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	int i, j;
 	struct es_dsp *dsp;
 
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -425,13 +418,11 @@ err:
 static int proc_hw_info_open(struct inode *inode, struct file *file)
 {
 	int ret;
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	int i, j;
 	struct es_dsp *dsp;
 
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -462,13 +453,11 @@ err:
 static int proc_stats_open(struct inode *inode, struct file *file)
 {
 	int ret;
-	const int die_cnt = 2;
-	const int dsp_cnt = 4;
 	int i, j;
 	struct es_dsp *dsp;
 
-	for (j = 0; j < die_cnt; j++) {
-		for (i = 0; i < dsp_cnt; i++) {
+	for (j = 0; j < DIE_CNT; j++) {
+		for (i = 0; i < DSP_CNT; i++) {
 			dsp = es_proc_get_dsp(j, i);
 			if (dsp == NULL) {
 				continue;
@@ -594,9 +583,38 @@ static int perf_show(struct seq_file *m, void *p)
 	return 0;
 }
 
+static int model_use_show(struct seq_file *m, void *p)
+{
+	int i, j;
+	struct es_dsp *dsp = NULL;
+	seq_printf(m, "\n");
+	seq_printf(
+	m,
+	"--------------------DSP DRIVER MODEL_USE--------------------\n");
+
+	for (i = 0; i < DIE_CNT; i++) {
+		for (j = 0; j < DSP_CNT; j++) {
+				dsp = es_proc_get_dsp(i, j);
+				if (!dsp) {
+                	seq_printf(m, "numaid = %d, dspid = %d not found\n", i, j);
+                	continue;
+            	}
+				seq_printf(m, "numaid = %d, dspid = %d, model_use=%d\n", i, j, dsp->model_use);
+		}
+	}
+
+	return 0;
+}
+
+
 static int perf_open(struct inode *inode, struct file *flip)
 {
 	return single_open(flip, perf_show, NULL);
+}
+
+static int model_use_open(struct inode *inode, struct file *flip)
+{
+	return single_open(flip, model_use_show, NULL);
 }
 
 static ssize_t perf_write(struct file *flip, const char __user *buf,
@@ -617,6 +635,52 @@ static ssize_t perf_write(struct file *flip, const char __user *buf,
 	       dsp_perf_enable);
 
 	return size;
+}
+
+
+static ssize_t model_use_write(struct file *flip, const char __user *buf,
+			  size_t size, loff_t *pos)
+{
+	char buffer[32];
+	int numaid, dspid, val, ret;
+	struct es_dsp *dsp = NULL;
+
+    memset(buffer, 0, sizeof(buffer));
+
+    if (copy_from_user(buffer, buf, size))
+        return -EFAULT;
+
+    ret = sscanf(buffer, "%d %d %d", &numaid, &dspid, &val);
+    if (ret != 3) {
+        printk("invalid format, numaid = %d, dspid = %d, val = %d\n", numaid, dspid, val);
+        return -EINVAL;
+    }
+
+    if (numaid < 0 || numaid >= DIE_CNT) {
+        printk("model_use: numaid %d out of range [0, %d)\n", numaid, DIE_CNT);
+        return -EINVAL;
+    }
+
+    if (dspid < 0 || dspid >= DSP_CNT) {
+        printk("model_use: dspid %d out of range [0, %d)\n", dspid, DSP_CNT);
+        return -EINVAL;
+    }
+
+    if (val != 0 && val != 1) {
+        printk("model_use: val %d must be 0 or 1\n", val);
+        return -EINVAL;
+    }
+
+    dsp = es_proc_get_dsp(numaid, dspid);
+    if (!dsp) {
+        printk("model_use: dsp(%d, %d) not found\n", numaid, dspid);
+        return -ENODEV;
+    }
+
+    dsp->model_use = val;
+    printk("model_use: set dsp[%d][%d].model_use = %d\n", numaid, dspid, val);
+
+    return size;
 }
 
 static struct proc_ops proc_info_fops = {
@@ -651,6 +715,13 @@ static struct proc_ops proc_perf_fops = {
 	.proc_write = perf_write,
 };
 
+static struct proc_ops proc_model_use_fops = {
+	.proc_open = model_use_open,
+	.proc_read = seq_read,
+	.proc_release = proc_release,
+	.proc_write = model_use_write,
+};
+
 int es_dsp_init_proc(void)
 {
 	proc_es_dsp = proc_mkdir("esdsp", NULL);
@@ -678,6 +749,12 @@ int es_dsp_init_proc(void)
 		dsp_err("error create proc dsp perf file.\n");
 		goto err;
 	}
+
+	if (!proc_create("model_use", 0644, proc_es_dsp, &proc_model_use_fops)) {
+		dsp_err("error create proc dsp model_use file.\n");
+		goto err;
+	}
+
 	return 0;
 
 err:

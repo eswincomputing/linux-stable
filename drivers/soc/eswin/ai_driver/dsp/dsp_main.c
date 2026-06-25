@@ -74,6 +74,11 @@
 #define DSP_SUBSYS_HILOAD_CLK 1040000000
 #define DSP_SUBSYS_LOWLOAD_CLK 5200000
 
+#define DSP_ID_0 0
+#define DSP_ID_1 1
+#define DSP_ID_2 2
+#define DSP_ID_3 3
+
 #ifdef DEBUG
 #pragma GCC optimize("O0")
 #endif
@@ -918,6 +923,16 @@ static int es_dsp_hw_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		return ret;
 	}
+	ret = device_property_read_u32(&pdev->dev, "process-id", &(dsp->process_id));
+	if (0 != ret) {
+		dev_err(&pdev->dev, "failed to init process id\n");
+		return ret;
+	}
+	if (dsp->process_id == DSP_ID_0 || dsp->process_id == DSP_ID_1)
+		dsp->model_use = true;
+	else
+		dsp->model_use = false;
+
 	dsp->stats = (struct es_dsp_stats *)(dsp + 1);
 	dsp->stats->last_op_name = (char *)((void *)dsp + sizeof(*dsp) +
 					    sizeof(struct es_dsp_stats));

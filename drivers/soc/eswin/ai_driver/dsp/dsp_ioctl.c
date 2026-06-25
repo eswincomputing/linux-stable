@@ -99,6 +99,11 @@ static long dsp_ioctl_load_op(struct file *flip, dsp_ioctl_load_s __user *arg)
 	char op_name[OPERATOR_NAME_MAXLEN];
 	char *op_dir = NULL;
 
+	if (dsp->model_use == true) {
+			dsp_err("[%s %d]process_id=%d shouldn't load_op!!\n", __func__, __LINE__, dsp->process_id);
+			return -ENOMEM;
+		}
+
 	if (copy_from_user(&dsp_load, arg, sizeof(dsp_ioctl_load_s))) {
 		ret = -EFAULT;
 		goto err;
@@ -622,6 +627,11 @@ static long dsp_ioctl_submit_tsk_async(struct file *flip, dsp_ioctl_task_s __use
 		return ret;
 	}
 	task = &req;
+
+	if (dsp->model_use == true) {
+		dsp_err("[%s %d]process_id=%d shouldn't submit!!\n", __func__, __LINE__, dsp->process_id);
+		return -ENOMEM;
+	}
 
 	// using reserved for op_idx
 	dsp->op_idx = task->task.reserved;

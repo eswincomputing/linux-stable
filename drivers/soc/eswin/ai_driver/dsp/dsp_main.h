@@ -194,6 +194,7 @@ struct es_dsp {
 	dsp_fw_perf_t op_cur_perf;
 	atomic_t dmabuf_mapped_cnt;
 	struct devfreq *df;
+	bool model_use;
 };
 
 #define DSP_FIRMWARE_IOVA 0xfe000000
