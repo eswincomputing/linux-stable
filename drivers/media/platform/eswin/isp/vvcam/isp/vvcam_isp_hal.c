@@ -420,7 +420,6 @@ irqreturn_t vvcam_isp_fe_irq_process(struct vvcam_isp_dev *isp_dev)
 			isp_fe_ctrl |= (ISP_FE_SEL_AHBBUF) << ISP_FE_CFG_SEL_SHIFT;
 			isp_fe_ctrl |= (ISP_FE_AHB_WR_ENABLE) << ISP_FE_AHB_WRITE_SHIFT;
 			vvcam_isp_hal_write_reg(isp_dev->base, ISP_FE_CTL, isp_fe_ctrl);
-
 		}
 #endif
 		irq = true;

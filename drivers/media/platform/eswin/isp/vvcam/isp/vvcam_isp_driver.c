@@ -314,6 +314,49 @@ static int vvcam_isp_parse_params(struct vvcam_isp_dev *isp_dev,
 	return 0;
 }
 
+int vvcam_isp_ots = 0x4;
+	
+static ssize_t vvcam_isp_show_outstanding(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", vvcam_isp_ots);
+	return ret;
+}
+	
+static ssize_t vvcam_isp_store_outstanding(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t len)
+{
+	int val = 0;
+	int ret = 0;
+	
+	ret = kstrtoint(buf, 0, &val);
+	if (!ret) {
+		if (val == 4 || val == 8 || val == 16 || val == 32)
+			vvcam_isp_ots = val;
+		else
+			dev_warn(dev, "invalid outstanding value, range (4/8/16/32)\n");
+	} else {
+		dev_err(dev, "set outstanding failed, ret %d\n", ret);
+	}
+	return len;
+}
+	
+static DEVICE_ATTR(outstanding, S_IWUSR | S_IRUSR, vvcam_isp_show_outstanding,
+		   vvcam_isp_store_outstanding);
+	
+static struct attribute *dev_attrs[] = {
+	&dev_attr_outstanding.attr,
+	NULL,
+};
+
+static struct attribute_group dev_attr_grp = {
+	.attrs = dev_attrs,
+};
+
 static int vvcam_isp_probe(struct platform_device *pdev)
 {
     int ret = 0;
@@ -403,6 +446,9 @@ static int vvcam_isp_probe(struct platform_device *pdev)
 		goto error_request_fe_irq;
 	}
 
+	if (sysfs_create_group(&pdev->dev.kobj, &dev_attr_grp))
+		return -ENODEV;
+
 #if ISP_FUSA_DEBUG
 	ret = devm_request_irq(&pdev->dev, isp_dev->fusa_irq, vvcam_isp_fusa_irq_handler,
 				IRQF_TRIGGER_HIGH | IRQF_SHARED, dev_name(&pdev->dev), isp_dev);
@@ -431,10 +477,6 @@ error_register_procfs:
 	return ret;
 }
 
-static int es_isp_ots = 4;
-module_param_named(outstanding, es_isp_ots, int, 0644);
-MODULE_PARM_DESC(outstanding,"outstanding 4/8/16/32, default 4");
-
 static int vvcam_isp_remove(struct platform_device *pdev)
 {
 	struct vvcam_isp_dev *isp_dev;
@@ -448,10 +490,12 @@ static int vvcam_isp_remove(struct platform_device *pdev)
 	devm_free_irq(&pdev->dev, isp_dev->mi_irq, isp_dev);
 	devm_free_irq(&pdev->dev, isp_dev->fe_irq, isp_dev);
 
+	
 #if ISP_FUSA_DEBUG
 	devm_free_irq(&pdev->dev, isp_dev->fusa_irq, isp_dev);
 #endif
 	tasklet_kill(&isp_dev->stat_tasklet);
+	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
 
 	return 0;
 }

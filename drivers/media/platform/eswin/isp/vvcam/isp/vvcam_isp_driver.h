@@ -63,7 +63,7 @@
 #include "vvcam_isp.h"
 #include "vvcam_event.h"
 
-#define VVCAM_ISP_EVENT_ELEMS 10
+#define VVCAM_ISP_EVENT_ELEMS 30
 #define VVCAM_VI_EVENT_ELEMS 10
 struct vvcam_isp_dev {
 	phys_addr_t paddr;
