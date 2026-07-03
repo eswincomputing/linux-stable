@@ -76,7 +76,8 @@ MODULE_PARM_DESC(debug, "manual config camera parameters, 0: disable, 1: enable"
 /* V_TIMING internal */
 #define IMX219_REG_VTS			CCI_REG16(0x0160)
 #define IMX219_VTS_15FPS		0x0dc6
-#define IMX219_VTS_30FPS		0x0aa8
+// #define IMX219_VTS_30FPS		0x0aa8
+#define IMX219_VTS_30FPS		0x0ff3
 #define IMX219_VTS_30FPS_1080P		0x06e3
 #define IMX219_VTS_30FPS_BINNED		0x06e3
 #define IMX219_VTS_30FPS_640x480	0x06e3
