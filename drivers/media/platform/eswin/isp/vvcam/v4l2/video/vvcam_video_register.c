@@ -76,6 +76,7 @@
 #include "vvcam_video_event.h"
 #include "vvcam_video_driver.h"
 #include "vvcam_v4l2_std_exts.h"
+#include "../isp/vvcam_isp_driver.h"
 
 #define VVCAM_VIDEO_NAME        "vvcam-video"
 #define VVCAM_VIDEO_NAME_D1     "vvcam-video-d1"
@@ -2196,11 +2197,11 @@ static int isp_pipeline_start(struct media_entity *entity, int index, int on)
 			pad = &entity->pads[index/5*5];
 		else
 			pad = &entity->pads[0];
-        
+
 		if (!pad) {
 			break;
 		}
-        
+
 		if (!(pad->flags & MEDIA_PAD_FL_SINK)){
 			if(source != VVCAM_SENSOR)
 				pr_err("pad->flags get failed,remote source:%d\n", source);
@@ -2211,7 +2212,7 @@ static int isp_pipeline_start(struct media_entity *entity, int index, int on)
 		pad = media_pad_remote_pad_first(pad);
 		if (!pad || !is_media_entity_v4l2_subdev(pad->entity))
 			return -1; 
-        
+
 		entity = pad->entity;
 		subdev = media_entity_to_v4l2_subdev(entity);
 
@@ -2222,8 +2223,8 @@ static int isp_pipeline_start(struct media_entity *entity, int index, int on)
 			else
 				pr_debug("%s stream off\n", subdev->name);
 			if (ret != 0) {
-			pr_err("isp pipeline start failed\n");
-			return ret;
+				pr_err("isp pipeline start failed\n");
+				return -EPIPE;
 			}
 		}
 	}
@@ -2233,12 +2234,13 @@ static int isp_pipeline_start(struct media_entity *entity, int index, int on)
 static int vvcam_video_vb2_start_streaming(struct vb2_queue *queue,
                                         unsigned int count)
 {
-   struct vvcam_video_dev *vvcam_vdev = queue->drv_priv;
+    struct vvcam_video_dev *vvcam_vdev = queue->drv_priv;
     struct media_pad *pad;
     struct v4l2_subdev *subdev;
     struct vvcam_pad_stream_status stream_status;
+    struct vvcam_isp_dev *isp_dev = NULL;
     int ret = -EINVAL;
-    // struct media_pipeline pipe;
+    int i;
 
     subdev = vvcam_video_remote_subdev(vvcam_vdev);
     if (subdev) {
@@ -2254,11 +2256,29 @@ static int vvcam_video_vb2_start_streaming(struct vb2_queue *queue,
         ret = v4l2_subdev_call(subdev, core, ioctl, VVCAM_PAD_S_STREAM, &stream_status);
         if(ret) {
             pr_err("vvcam_video_vb2_start_streaming failed\n");
-            return ret;
+            goto destroy_buf;
         }
-        isp_pipeline_start(&subdev->entity, pad->index, 1);
+        ret = isp_pipeline_start(&subdev->entity, pad->index, 1);
+        if(ret == -EPIPE) {
+            pr_err("video strat stream ret = %d, name = %s\n", ret, subdev->name);
+            goto stop_stream;
+        }
         pr_debug("video strat stream ret = %d, name = %s\n", ret, subdev->name);
-        
+    }
+    return 0;
+
+stop_stream:
+    isp_pipeline_start(&subdev->entity, pad->index, 0);
+destroy_buf:
+    struct vvcam_isp_pad_data *cur_pad;
+    struct vvcam_vb2_buffer *pos, *next;
+    isp_dev = v4l2_get_subdevdata(subdev);
+    cur_pad = &isp_dev->pad_data[pad->index];
+    list_for_each_entry_safe(pos, next, &cur_pad->queue, list) {
+        list_del(&pos->list);
+    }
+    for(i = 0; i < queue->num_buffers; i++) {
+        vb2_buffer_done(queue->bufs[i], VB2_BUF_STATE_QUEUED);
     }
     return ret;
 }
