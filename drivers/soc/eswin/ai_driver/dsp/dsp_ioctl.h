@@ -51,7 +51,6 @@ struct dsp_file {
 	spinlock_t async_ll_lock;
 	wait_queue_head_t async_ll_wq;
 	struct dsp_ioctl_alloc *ioctl_alloc;
-	struct mutex xrray_lock;
 	struct xarray buf_xrray;
 	struct khandle h;
 };

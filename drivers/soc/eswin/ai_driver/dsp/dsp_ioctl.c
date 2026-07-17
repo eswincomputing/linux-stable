@@ -312,14 +312,11 @@ struct dsp_dma_buf *dsp_get_dma_buf_ex(struct dsp_file *dsp_file, int memfd)
 	struct dsp_dma_buf *dma_entry = NULL;
 	u32 addr = 0;
 
-	mutex_lock(&dsp_file->xrray_lock);
+	xa_lock(&dsp_file->buf_xrray);
 	entry = xa_load(&dsp_file->buf_xrray, memfd);
-	if (entry) {
-		dsp_debug("entry->fd=%d.\n", entry->buf.fd);
+	if (entry)
 		handle = find_kernel_handle(&dsp_file->h, entry->handle.fd, DSP_DMABUF_HANDLE_MAGIC);
-		dsp_debug("handle_fd=0x%x, refcount=%d.\n", entry->handle.fd, kref_read(&handle->refcount));
-	}
-	mutex_unlock(&dsp_file->xrray_lock);
+	xa_unlock(&dsp_file->buf_xrray);
 
 	if (!entry || !handle) {
 		dsp_debug("slow path.\n");
@@ -884,22 +881,20 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 		dsp_err("copy from user err.\n");
 		return -EINVAL;
 	}
-	mutex_lock(&dsp_file->xrray_lock);
+	xa_lock(&dsp_file->buf_xrray);
 	entry = xa_load(&dsp_file->buf_xrray, (int)buf.desc.memFd);
 	if (entry) {
 		khandle = find_kernel_handle(&dsp_file->h, entry->handle.fd, DSP_DMABUF_HANDLE_MAGIC);
 		BUG_ON(khandle == NULL);
-		dsp_debug("find %d entry, handle fd=%d.\n", entry->buf.fd, entry->handle.fd);
 		entry->count++;
 		kernel_handle_decref(khandle);
-		mutex_unlock(&dsp_file->xrray_lock);
+		xa_unlock(&dsp_file->buf_xrray);
 		return 0;
 	}
-
+	xa_unlock(&dsp_file->buf_xrray);
 	entry = kzalloc(sizeof(struct dsp_dma_buf_ex), GFP_KERNEL);
 	if (!entry) {
 		dsp_err("alloc memory for device dma buf err.\n");
-		mutex_unlock(&dsp_file->xrray_lock);
 		return -ENOMEM;
 	}
 
@@ -908,7 +903,6 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 	if (ret) {
 		dsp_err("init kernel handle err.\n");
 		kfree(entry);
-		mutex_unlock(&dsp_file->xrray_lock);
 		return ret;
 	}
 
@@ -926,8 +920,6 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 
 	kernel_handle_decref(&entry->handle);
 	entry->count = 1;
-	mutex_unlock(&dsp_file->xrray_lock);
-
 	dsp_debug("fd=0x%x, buf_desc_fd=%d,  dma_addr=0x%x.\n",
 			  entry->buf.fd, buf.desc.memFd, entry->buf.dma_addr);
 
@@ -935,8 +927,6 @@ static long dsp_ioctl_prepare_dma(struct file *flip, dsp_ioctl_pre_dma_s *arg)
 err:
 	kernel_handle_release_family(&entry->handle);
 	kernel_handle_decref(&entry->handle);
-	mutex_unlock(&dsp_file->xrray_lock);
-
 	return ret;
 }
 static long dsp_ioctl_unprepare_dma(struct file *flip, u32 *arg)
@@ -951,27 +941,26 @@ static long dsp_ioctl_unprepare_dma(struct file *flip, u32 *arg)
 		dsp_err("copy from user err.\n");
 		return -EINVAL;
 	}
-	mutex_lock(&dsp_file->xrray_lock);
+	xa_lock(&dsp_file->buf_xrray);
 	entry = xa_load(&dsp_file->buf_xrray, fd);
 	if (!entry) {
+		xa_unlock(&dsp_file->buf_xrray);
 		dsp_err("cannot find %d dmabuf entry.\n", fd);
-		mutex_unlock(&dsp_file->xrray_lock);
 		return -EINVAL;
 	}
 	BUG_ON(entry->count <= 0);
 	entry->count--;
 	if (entry->count) {
-		mutex_unlock(&dsp_file->xrray_lock);
+		xa_unlock(&dsp_file->buf_xrray);
 		return 0;
 	}
-	dsp_debug("entry->fd=%d.\n\n", entry->buf.fd);
-	khandle = find_kernel_handle(&dsp_file->h, entry->handle.fd, DSP_DMABUF_HANDLE_MAGIC);
 
+	khandle = find_kernel_handle(&dsp_file->h, entry->handle.fd, DSP_DMABUF_HANDLE_MAGIC);
 	BUG_ON(!khandle);
+	xa_unlock(&dsp_file->buf_xrray);
 	xa_erase(&dsp_file->buf_xrray, entry->buf.fd);
 	kernel_handle_release_family(khandle);
 	kernel_handle_decref(khandle);
-	mutex_unlock(&dsp_file->xrray_lock);
 	return 0;
 }
 
@@ -1212,7 +1201,6 @@ static int dsp_open(struct inode *inode, struct file *flip)
 	INIT_LIST_HEAD(&dsp_file->async_ll_complete);
 	spin_lock_init(&dsp_file->async_ll_lock);
 	init_waitqueue_head(&dsp_file->async_ll_wq);
-	mutex_init(&dsp_file->xrray_lock);
 	xa_init(&dsp_file->buf_xrray);
 
 	dsp_file->dsp = dsp;
@@ -1232,9 +1220,7 @@ static int dsp_close(struct inode *inode, struct file *flip)
 
 	dsp = dsp_file->dsp;
 	dsp_info("pid %d\n", current->pid);
-	mutex_lock(&dsp_file->xrray_lock);
 	xa_destroy(&dsp_file->buf_xrray);
-	mutex_unlock(&dsp_file->xrray_lock);
 
 	kernel_handle_addref(&dsp_file->h);
 	kernel_handle_release_family(&dsp_file->h);
