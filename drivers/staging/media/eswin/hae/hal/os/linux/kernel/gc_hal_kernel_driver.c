@@ -1533,7 +1533,7 @@ static void viv_dev_shutdown(struct platform_device *pdev)
 }
 
 #if defined(CONFIG_PM_SLEEP) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)
-static int viv_dev_suspend_power_off(const struct platform_device *dev, const gckDEVICE device)
+static int __maybe_unused viv_dev_suspend_power_off(const struct platform_device *dev, const gckDEVICE device)
 {
     gctINT32 i;
     gceSTATUS status;
@@ -1551,18 +1551,31 @@ static int viv_dev_suspend_power_off(const struct platform_device *dev, const gc
             return -1;
         }
 
-        dev_info(&dev->dev, "[%d]hard: %p, store_state: %d, power off.\n", i, device->kernels[i]->hardware, device->statesStored[i]);
+        gckHARDWARE hw = device->kernels[i]->hardware;
+        gckCOMMAND cmd = device->kernels[i]->command;
+        gctUINT64 fenceStamp = _GetFenceStamp(_GetEngineFence(device->kernels[i], gcvENGINE_RENDER));
+
+        gcmkPRINT("[HAE] suspend hw core[%u] executeCount=%u lastExecAddr=0x%llx commitStamp=%llu fence=%llu",
+                    i,
+                    hw ? hw->executeCount : 0,
+                    hw ? (gctUINT64)hw->lastExecuteAddress : 0ULL,
+                    (cmd != gcvNULL && cmd->commitStamp > 0) ? cmd->commitStamp - 1 : 0ULL,
+                    fenceStamp);
+
         status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, gcvPOWER_OFF);
         if (gcmIS_ERROR(status)) {
             dev_err(&dev->dev, "hae pm suspend %d set power off failed!\n", i);
             return -1;
         }
+
+        if (device->os)
+            gckOS_Delay(device->os, 100);
     }
 
     return 0;
 }
 
-static int viv_dev_resume_power_on(const struct platform_device *dev, const gckDEVICE device)
+static int __maybe_unused viv_dev_resume_power_on(const struct platform_device *dev, const gckDEVICE device)
 {
     gctUINT32 i;
     gceSTATUS status;
@@ -1598,13 +1611,30 @@ static int viv_dev_resume_power_on(const struct platform_device *dev, const gckD
             break;
         }
 
-        dev_info(&dev->dev, "[%d]hard: %p, store_state: %d, resume.\n", i, device->kernels[i]->hardware, statesStored);
         /* Restore states. */
         status = gckHARDWARE_SetPowerState(device->kernels[i]->hardware, statesStored);
-        if (gcmIS_ERROR(status)) {
+        if (gcmIS_SUCCESS(status)) {
+            gckHARDWARE hw = device->kernels[i]->hardware;
+            gckCOMMAND cmd = device->kernels[i]->command;
+            gctUINT64 fenceStamp = _GetFenceStamp(_GetEngineFence(device->kernels[i], gcvENGINE_RENDER));
+            gctBOOL idle = gcvFALSE;
+
+            if (hw) {
+                gckHARDWARE_QueryIdle(hw, &idle);
+            }
+
+            dev_info(&dev->dev, "[HAE] resume hw core[%u] executeCount=%u lastExecAddr=0x%llx commitStamp=%llu fence=%llu idle=%u",
+                        i, hw ? hw->executeCount : 0, hw ? (gctUINT64)hw->lastExecuteAddress : 0ULL,
+                        (cmd != gcvNULL && cmd->commitStamp > 0) ? cmd->commitStamp - 1 : 0ULL, fenceStamp, idle);
+        } else {
             dev_err(&dev->dev, "hae pm %d resume restore power state: %d failed!\n", i, statesStored);
             return -1;
         }
+
+        /* HAE test: add a short delay after resume to let the 2D hardware state
+        * stabilize before accepting the first post-resume command. */
+        if (device->os)
+            gckOS_Delay(device->os, 100);
     }
 
     return 0;

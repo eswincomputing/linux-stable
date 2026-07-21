@@ -5614,6 +5614,33 @@ OnError:
 }
 
 /*
+ * HAE: poll QueryIdle for a bounded time. Returns gcvSTATUS_OK and sets *Idle
+ * to the final idle state, or propagates a QueryIdle error.
+ */
+static gceSTATUS
+_HaePollQueryIdle(gckHARDWARE Hardware, gctUINT32 TimeoutMs, gctBOOL *Idle)
+{
+    gceSTATUS status;
+    gctUINT32 timeout = 0;
+    gctBOOL idle = gcvFALSE;
+
+    do {
+        gcmkONERROR(gckHARDWARE_QueryIdle(Hardware, &idle));
+        if (idle)
+            break;
+
+        gcmkVERIFY_OK(gckOS_Delay(Hardware->os, 10));
+        timeout += 10;
+    } while (timeout < TimeoutMs);
+
+    *Idle = idle;
+    return gcvSTATUS_OK;
+
+OnError:
+    return status;
+}
+
+/*
  * Notice: this function may return gcvSTATUS_NOT_READY, which is not an error,
  * but either not success.
  */
@@ -5632,6 +5659,21 @@ _PmStallCommand(gckHARDWARE Hardware, gckCOMMAND Command, gctBOOL Broadcast)
             goto OnError;
         }
     } else {
+        /* HAE: core17 is a mirror core whose RENDER fence is never updated.
+         * If it is already hung (QueryIdle keeps returning busy), the normal
+         * FLUSH_ALL + QueryIdle stall path will just call gckWLFE_Execute on
+         * a stuck FE and then read registers from the already-powered-off
+         * core16 during the stuck dump. Detect this early and force off. */
+        if (Hardware->core == gcvCORE_2D1) {
+            gctBOOL coreIdle = gcvFALSE;
+
+            if (gcmIS_SUCCESS(_HaePollQueryIdle(Hardware, 200, &coreIdle)) && !coreIdle) {
+                gcmkPRINT("[HAE] core17 not idle during suspend stall, force off");
+                status = gcvSTATUS_OK;
+                goto OnError;
+            }
+        }
+
         /* Wait to finish all commands. */
         status = gckCOMMAND_Stall(Command, gcvTRUE);
 
@@ -5665,6 +5707,18 @@ _PmFlushCache(gckHARDWARE Hardware, gckCOMMAND Command)
 
         /* Clock control, to ON state. */
         gcmkONERROR(_PmClockControl(Hardware, gcvPOWER_ON));
+    }
+
+    /* HAE: core17 in mirror mode can be hung; flushing a stuck FE/PE will
+     * just timeout and may trigger stuck dumps. Skip flush and force off. */
+    if (Hardware->core == gcvCORE_2D1) {
+        gctBOOL coreIdle = gcvFALSE;
+
+        if (gcmIS_SUCCESS(_HaePollQueryIdle(Hardware, 200, &coreIdle)) && !coreIdle) {
+            gcmkPRINT("[HAE] core17 not idle during flush cache, skip");
+            status = gcvSTATUS_OK;
+            goto OnError;
+        }
     }
 
     if (_IsHardwareMatch(Hardware, gcv400, 0x4645)) {
@@ -5937,7 +5991,7 @@ OnError:
     return status;
 }
 
-gceSTATUS
+static gceSTATUS
 gckHARDWARE_QchannelFlushCache(gckHARDWARE Hardware)
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -5953,6 +6007,18 @@ gckHARDWARE_QchannelFlushCache(gckHARDWARE Hardware)
 
         /* Clock control, to ON state. */
         gcmkONERROR(_PmClockControl(Hardware, gcvPOWER_ON));
+    }
+
+    /* HAE: core17 in mirror mode can be hung; flushing a stuck FE/PE will
+     * just timeout and may trigger stuck dumps. Skip flush and force off. */
+    if (Hardware->core == gcvCORE_2D1) {
+        gctBOOL coreIdle = gcvFALSE;
+
+        if (gcmIS_SUCCESS(_HaePollQueryIdle(Hardware, 200, &coreIdle)) && !coreIdle) {
+            gcmkPRINT("[HAE] core17 not idle during Qchannel flush cache, skip");
+            status = gcvSTATUS_OK;
+            goto OnError;
+        }
     }
 
     gckFUNCTION_Validate(&Hardware->functions[gcvFUNCTION_EXECUTION_FLUSH], &funcValid);

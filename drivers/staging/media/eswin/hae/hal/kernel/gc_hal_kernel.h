@@ -2032,6 +2032,17 @@ gckDEVICE_SetCommandQueue(gckDEVICE Device,
 void
 _DumpState(gckKERNEL Kernel);
 
+/* Fence helpers retained for HAE debug dumps and bottom-half unlock barrier. */
+gckFENCE
+_GetEngineFence(gckKERNEL Kernel, gceENGINE Engine);
+
+gctUINT64
+_GetFenceStamp(gckFENCE Fence);
+
+gceSTATUS
+_WaitFenceStamp(gckKERNEL Kernel, gckFENCE Fence, gctUINT64 TargetStamp,
+                 gctUINT32 TimeoutMs);
+
 #if gcdENABLE_TRUST_APPLICATION
 gceSTATUS
 gckKERNEL_MapInTrustApplicaiton(gckKERNEL Kernel,

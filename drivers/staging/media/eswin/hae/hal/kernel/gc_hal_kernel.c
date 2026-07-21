@@ -1705,6 +1705,67 @@ OnError:
     return status;
 }
 
+/*
+ * Cross-core fence helpers for suspend/resume drain and release barrier.
+ */
+gckFENCE
+_GetEngineFence(gckKERNEL Kernel, gceENGINE Engine)
+{
+    if (Kernel == gcvNULL)
+        return gcvNULL;
+
+    if (Engine == gcvENGINE_RENDER && Kernel->command != gcvNULL)
+        return Kernel->command->fence;
+
+    if (Engine == gcvENGINE_BLT && Kernel->asyncCommand != gcvNULL)
+        return Kernel->asyncCommand->fence;
+
+    return gcvNULL;
+}
+
+gctUINT64
+_GetFenceStamp(gckFENCE Fence)
+{
+    if (Fence != gcvNULL && Fence->logical != gcvNULL) {
+        gcmkVERIFY_OK(gckVIDMEM_NODE_InvalidateCache(Fence->kernel, Fence->videoMem,
+                                                      0, Fence->logical, 8));
+        return *(gctUINT64_PTR)Fence->logical;
+    }
+
+    return 0;
+}
+
+gceSTATUS
+_WaitFenceStamp(gckKERNEL Kernel, gckFENCE Fence, gctUINT64 TargetStamp,
+                  gctUINT32 TimeoutMs)
+{
+    gctUINT32 timeout = 0;
+    gctBOOL idle = gcvFALSE;
+    gceSTATUS status;
+
+    if (TargetStamp == 0)
+        return gcvSTATUS_OK;
+
+    do {
+        /* Prefer fence stamp if available. */
+        if (Fence != gcvNULL && Fence->logical != gcvNULL &&
+            _GetFenceStamp(Fence) >= TargetStamp)
+            return gcvSTATUS_OK;
+
+        /* Some cores (e.g. mirror core in combined mode) have a command
+         * object but their fence is never updated. Treat hardware idle as
+         * completion signal for those cores. */
+        status = gckHARDWARE_QueryIdle(Kernel->hardware, &idle);
+        if (gcmIS_SUCCESS(status) && idle)
+            return gcvSTATUS_OK;
+
+        gckOS_Delay(Kernel->os, 10);
+        timeout += 10;
+    } while (timeout < TimeoutMs);
+
+    return gcvSTATUS_TIMEOUT;
+}
+
 /*******************************************************************************
  **
  **  _ReleaseVideoMemory
@@ -1968,6 +2029,68 @@ OnError:
     return status;
 }
 
+/*
+* HAE debug: conservative cross-core wait before unlock.
+* Ensure all 2D cores have finished any commands that may reference
+* this node before we unmap/free it.
+*/
+
+static void _BootomHalfWatiFenceStamp(gckKERNEL Kernel, gckVIDMEM_NODE nodeObject)
+{
+    gctINT i;
+    gckDEVICE device = Kernel->device;
+    gckFENCE fence;
+    gctUINT64 target;
+    gckKERNEL k = gcvNULL;
+
+    if (device == gcvNULL) {
+        return;
+    }
+
+    for (i = gcvCORE_2D; i < gcvCORE_2D_MAX; i++) {
+        k = device->kernels[i];
+
+        if (k == gcvNULL || k->command == gcvNULL)
+            continue;
+
+        fence = _GetEngineFence(k, gcvENGINE_RENDER);
+        target = (k->command->commitStamp > 0) ?
+                    k->command->commitStamp - 1 : 0;
+
+        if (target > 0) {
+            gceSTATUS waitStatus;
+
+            /* _WaitFenceStamp falls back to hardware idle when the
+                * fence is unavailable (e.g. mirror core in combined mode).
+                * This covers cores whose command object exists but whose
+                * fence value is never updated.
+                * The 2D mirror core (core17 / gcvCORE_2D1) does not update
+                * its fence, so waiting there always falls back to idle
+                * and can block the release path for seconds if the core
+                * is hung. Use a short timeout for the mirror core; the
+                * primary 2D core keeps a longer timeout since its fence
+                * is reliable. */
+            waitStatus = _WaitFenceStamp(k, fence, target,
+                                            (i == gcvCORE_2D1) ? 200 : 5000);
+            if (waitStatus == gcvSTATUS_TIMEOUT) {
+                /* Suppress repetitive core17 timeout prints within the
+                    * same resume cycle. The mirror core fence is never
+                    * updated; once it is hung every bottom-half unlock
+                    * would spam the log. */
+                if (i == gcvCORE_2D1) {
+                    gcmkPRINT("[HAE] bottom-half unlock: node=%u core[%d] "
+                                "TIMEOUT target=%llu curStamp=%llu -- "
+                                "proceeding with unlock",
+                                nodeObject->name, i, target,
+                                _GetFenceStamp(fence));
+                }
+            }
+        }
+    }
+
+    return;
+}
+
 /*******************************************************************************
  **
  **  _BottomHalfUnlockVideoMemory
@@ -2006,6 +2129,8 @@ _BottomHalfUnlockVideoMemory(gckKERNEL Kernel, gctUINT32 ProcessID, gceVIDMEM_TY
 
 
     gcmkONERROR(gckKERNEL_GetCurrentMMU(Kernel, gcvTRUE, ProcessID, &mmu));
+
+    _BootomHalfWatiFenceStamp(Kernel, nodeObject);
 
     /* Unlock video memory, synced. */
     gcmkONERROR(gckVIDMEM_NODE_Unlock(Kernel, nodeObject, mmu, gcvNULL));

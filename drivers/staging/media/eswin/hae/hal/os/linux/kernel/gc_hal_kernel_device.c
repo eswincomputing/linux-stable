@@ -68,7 +68,7 @@
 #define MAX_ISR_NOT_HANDLED_CNT 2000
 
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
-#define ESWIN_HAE_VERSION "2026040700"
+#define ESWIN_HAE_VERSION "2026072800-6.6"
 
 static gckGALDEVICE     galDevice;
 

@@ -3551,6 +3551,63 @@ gckCOMMAND_Stall(gckCOMMAND Command, gctBOOL FromPower)
     eventObject = Command->kernel->eventObj;
     gcmkVERIFY_OBJECT(eventObject, gcvOBJ_EVENT);
 
+    if (FromPower) {
+        /*
+         * For power-off path, bypass EVENT/SIGNAL mechanism which may
+         * lose interrupt or be blocked. Use FLUSH_ALL + QueryIdle
+         * polling instead.
+         */
+        gceSTATUS flushStatus;
+        gctPOINTER buffer = gcvNULL;
+        gctUINT32 bytes = 0;
+        gctUINT32 requested = 0;
+        gctUINT32 timeout = 0;
+        gctBOOL idle = gcvFALSE;
+
+        /* Step 1: Flush all caches. */
+        flushStatus = gckHARDWARE_Flush(hardware, gcvFLUSH_ALL, gcvNULL,
+                                        &requested);
+        if (gcmIS_SUCCESS(flushStatus)) {
+            flushStatus = gckCOMMAND_Reserve(Command, requested, &buffer,
+                                             &bytes);
+            if (gcmIS_SUCCESS(flushStatus)) {
+                flushStatus = gckHARDWARE_Flush(hardware, gcvFLUSH_ALL,
+                                                buffer, &bytes);
+                if (gcmIS_SUCCESS(flushStatus)) {
+                    if (Command->feType == gcvHW_FE_END)
+                        flushStatus = gckCOMMAND_ExecuteEnd(Command,
+                                                            requested);
+                    else
+                        flushStatus = gckCOMMAND_Execute(Command,
+                                                         requested);
+                }
+            }
+        }
+
+        if (gcmIS_ERROR(flushStatus)) {
+            gcmkPRINT("galcore: core%d FLUSH_ALL failed(%d), fallback",
+                      hardware->core, flushStatus);
+        }
+
+        /* Step 2: Poll QueryIdle. */
+        do {
+            status = gckHARDWARE_QueryIdle(hardware, &idle);
+            if (gcmIS_SUCCESS(status) && idle)
+                break;
+
+            gckOS_Delay(os, 10);
+            timeout += 10;
+        } while (timeout < 1000);
+
+        if (timeout >= 1000) {
+            gcmkPRINT("galcore: core%d QueryIdle timeout, force off",
+                      hardware->core);
+        }
+
+        gcmkFOOTER_NO();
+        return gcvSTATUS_OK;
+    }
+
     /* Allocate the signal. */
     gcmkONERROR(gckOS_CreateSignal(os, gcvTRUE, &signal));
 
