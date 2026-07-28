@@ -33,6 +33,7 @@
 #include "dsp_main.h"
 #include "dsp_ioctl.h"
 #include <linux/fdtable.h>
+#include <linux/iommu.h>
 
 MODULE_IMPORT_NS(DMA_BUF);
 
