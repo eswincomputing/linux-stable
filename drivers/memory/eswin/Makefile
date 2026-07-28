@@ -12,6 +12,6 @@ obj-$(CONFIG_ESWIN_IOMMU_RSV)			+= es_iommu_rsv/
 obj-$(CONFIG_ESWIN_DMA_MEMCP)			+= es_dma_memcp/
 obj-$(CONFIG_ESWIN_MALLOC_DMABUF)		+= es_malloc_dmabuf/
 
-ES_MEM_HEADER := drivers/memory/eswin/
+ES_MEM_HEADER := $(srctree)/drivers/memory/eswin
 
-COPY_HEADERS := $(shell cp $(ES_MEM_HEADER)/*.h include/linux)
+COPY_HEADERS := $(shell cp $(ES_MEM_HEADER)/*.h $(srctree)/include/linux)

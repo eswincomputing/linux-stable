@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-only
-ccflags-y := -I$(src)
-ccflags-y += -I$(src)/common/
-ccflags-y += -I$(src)/module/
-ccflags-y += -I$(src)/chn/
-ccflags-y += -I$(src)/proc/
-ccflags-y += -I$(src)/include/
+ccflags-y := -I$(srctree)/$(src)
+ccflags-y += -I$(srctree)/$(src)/common/
+ccflags-y += -I$(srctree)/$(src)/module/
+ccflags-y += -I$(srctree)/$(src)/chn/
+ccflags-y += -I$(srctree)/$(src)/proc/
+ccflags-y += -I$(srctree)/$(src)/include/
 
 es_media_ext_drv-objs := es_media_ext_drv_main.o \
 						./chn/dev_channel.o	\
