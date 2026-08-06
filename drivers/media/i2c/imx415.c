@@ -1790,10 +1790,10 @@ static int imx415_power_on(struct imx415 *sensor)
 
 	/*
 	 * Data sheet states that 20 us are required before communication start,
-	 * but this doesn't work in all cases. Use 100 us to be on the safe
+	 * but this doesn't work in all cases. Use 500 us to be on the safe
 	 * side.
 	 */
-	usleep_range(100, 200);
+	usleep_range(500, 1000);
 
 	return 0;
 
