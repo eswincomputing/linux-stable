@@ -1342,7 +1342,7 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 	}
 
 	//rgb888 and raw 8bit need to shift right
-	if(stream->dvp2axi_fmt_out->fmt_type == CSI_WRDDR_TYPE_RGB888 || stream->dvp2axi_fmt_out->fmt_type == CSI_WRDDR_TYPE_RAW8){
+	if(stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888 || stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RAW8){
 		csr0 = DVP2AXI_HalReadReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR);
 		DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, csr0 | (1 << (stream->id + VI_DVP2AXI_CTRL0_DVP_DATA_SHIFT_BIT)));
 	}else {
@@ -1350,7 +1350,7 @@ static int es_dvp2axi_start_streaming(struct vb2_queue *queue, unsigned int coun
 		DVP2AXI_HalWriteReg(stream->dvp2axidev->hw_dev, VI_DVP2AXI_CTRL0_CSR, csr0 & (~(1 << (stream->id + VI_DVP2AXI_CTRL0_DVP_DATA_SHIFT_BIT))));
 	}
 
-	if(stream->dvp2axi_fmt_out->fmt_type == CSI_WRDDR_TYPE_RGB888)
+	if(stream->dvp2axi_fmt_out->csi_fmt_val == CSI_WRDDR_TYPE_RGB888)
 		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id * 0x4, (stream->pix.width * 3) | (stream->pix.height << 16));
 	else {
 		DVP2AXI_HalWriteReg( dvp2axi_hw, VI_DVP2AXI_CTRL3_CSR + stream->id  * 0x4, (stream->pix.width) | (stream->pix.height << 16));
@@ -1521,6 +1521,7 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 			stream->bpl = bpl;
 		} else {
 			bpp = es_dvp2axi_align_bits_per_pixel(stream, fmt, plane_index);
+			stream->bpp = bpp;
 			if(fmt->fmt_type == DVP2AXI_FMT_TYPE_YUV){
 				bpl = width * bpp / DVP2AXI_YUV_STORED_BIT_WIDTH;
 				stream->bpl = bpl;
@@ -1535,6 +1536,7 @@ int es_dvp2axi_set_fmt(struct es_dvp2axi_stream *stream,
 	size = bpl * height;
 	imagesize += size;
 	pix->sizeimage = imagesize;
+	pix->bytesperline = bpl;
 	if (!try) {
 		stream->dvp2axi_fmt_out = fmt;
 		stream->pix = *pix;
