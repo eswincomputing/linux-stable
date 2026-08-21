@@ -148,8 +148,8 @@ static unsigned int dwe_irq_num_id0 = 0, dwe_load_num_id0 = 0,
 		vse_irq_num_id0 = 0, vse_load_num_id0 = 0,
 		dwe_irq_num_id1 = 0, dwe_load_num_id1 = 0,
 		vse_irq_num_id1 = 0, vse_load_num_id1 = 0,
-		d0_src_hsize = 0, d0_src_vsize =0,
-		d1_src_vsize = 0, d1_src_hsize = 0;
+		d0_src_hsize = 1, d0_src_vsize =1,
+		d1_src_vsize = 1, d1_src_hsize = 1;
 struct device *load_dev0 = NULL;
 struct device *load_dev1 = NULL;
 static void __iomem *d0_vse_base;
@@ -896,55 +896,60 @@ static int dwe_load_read(es_proc_entry_t *s)
 {
 	u32 d0_reg_val = 0;
 
-	pm_runtime_get_sync(load_dev0);
-
-	#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
-	d0_reg_val = readl(d0_vse_base + SRC_IMG_SIZE);
-	d0_src_hsize = d0_reg_val & 0x1FFF;
-	d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
+#ifndef CONFIG_ARCH_ESWIN_EIC7702_SOC
+	if(pm_runtime_get_if_in_use(load_dev0) != 0) {
+		d0_reg_val = readl(d0_vse_base + SRC_IMG_SIZE);
+		d0_src_hsize = d0_reg_val & 0x1FFF;
+		d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
+		pm_runtime_put(load_dev0);
+	}
 	es_seq_printf(s, "dev_id          : 0\n"
-                     "hwtype          : dwe\n"
-                     "polling_ms      : %u\n"
-                     "curr_load       : %u%%\n\n"
+					 "hwtype          : dwe\n"
+					 "polling_ms      : %u\n"
+					 "curr_load       : %u%%\n\n"
 					 "dev_id          : 0\n"
-                     "hwtype          : vse\n"
-                     "polling_ms      : %u\n"
-                     "curr_load       : %u%%\n",
-	1000, dwe_load_num_id0,
-	1000, vse_load_num_id0);
-	#else
-	pm_runtime_get_sync(load_dev1);
-	u32 d1_reg_val = 0;
-	d0_reg_val = readl(d0_vse_base + SRC_IMG_SIZE);
-	d0_src_hsize = d0_reg_val & 0x1FFF;
-	d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
-	d1_reg_val = readl(d1_vse_base + SRC_IMG_SIZE);
-	d1_src_hsize = d1_reg_val & 0x1FFF;
-	d1_src_vsize = (d1_reg_val >> 16) & 0x1FFF;
-	es_seq_printf(s, "dev_id          : 0\n"
-                     "hwtype          : dwe\n"
-                     "polling_ms      : %u\n"
-                     "curr_load       : %u%%\n\n"
-					 "dev_id          : 1\n"
-                     "hwtype          : dwe\n"
-                     "polling_ms      : %u\n"
-                     "curr_load       : %u%%\n\n"
-					 "dev_id          : 0\n"
-                     "hwtype          : vse\n"
-                     "polling_ms      : %u\n"
-                     "curr_load       : %u%%\n\n"
-					 "dev_id          : 1\n"
-                     "hwtype          : vse\n"
-                     "polling_ms      : %u\n"
-                     "curr_load       : %u%%\n",
-	1000, dwe_load_num_id0,
-	1000, dwe_load_num_id1,
-	1000, vse_load_num_id0,
-	1000, vse_load_num_id1);
-	pm_runtime_put(load_dev1);
-	#endif
+					 "hwtype          : vse\n"
+					 "polling_ms      : %u\n"
+					 "curr_load       : %u%%\n",
+					 1000, dwe_load_num_id0,
+					 1000, vse_load_num_id0);
+#else
+	if(pm_runtime_get_if_in_use(load_dev0) != 0 ) {
+		d0_reg_val = readl(d0_vse_base + SRC_IMG_SIZE);
+		d0_src_hsize = d0_reg_val & 0x1FFF;
+		d0_src_vsize = (d0_reg_val >> 16) & 0x1FFF;
+		pm_runtime_put(load_dev0);
+	}
+	if(pm_runtime_get_if_in_use(load_dev1) != 0 ) {
+		u32 d1_reg_val = 0;
+		d1_reg_val = readl(d1_vse_base + SRC_IMG_SIZE);
+		d1_src_hsize = d1_reg_val & 0x1FFF;
+		d1_src_vsize = (d1_reg_val >> 16) & 0x1FFF;
+		pm_runtime_put(load_dev1);
+	}
 
-	pm_runtime_put(load_dev0);
+	es_seq_printf(s, "dev_id          : 0\n"
+					 "hwtype          : dwe\n"
+					 "polling_ms      : %u\n"
+					 "curr_load       : %u%%\n\n"
+					 "dev_id          : 1\n"
+					 "hwtype          : dwe\n"
+					 "polling_ms      : %u\n"
+					 "curr_load       : %u%%\n\n"
+					 "dev_id          : 0\n"
+					 "hwtype          : vse\n"
+					 "polling_ms      : %u\n"
+					 "curr_load       : %u%%\n\n"
+					 "dev_id          : 1\n"
+					 "hwtype          : vse\n"
+					 "polling_ms      : %u\n"
+					 "curr_load       : %u%%\n",
+					 1000, dwe_load_num_id0,
+					 1000, dwe_load_num_id1,
+					 1000, vse_load_num_id0,
+					 1000, vse_load_num_id1);
+#endif
+
 	return 0;
 }
 
