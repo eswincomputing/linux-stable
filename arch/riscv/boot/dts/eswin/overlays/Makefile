@@ -5,12 +5,14 @@ dtbo-$(CONFIG_SOC_ESWIN) += eic7700-sbc-a1-camera-imx219-2lanes-overlay.dtbo \
 							eic7700-sbc-a1-camera-imx415-no-hdr-overlay.dtbo \
 							eic7700-sbc-a1-camera-imx415-hdr-x2-overlay.dtbo \
 							eic7700-sbc-a1-camera-imx415-hdr-x3-overlay.dtbo \
+							eic7700-sbc-a1-camera-imx415-2lane-overlay.dtbo \
 							eic7700-sbc-a1-camera-imx586-overlay.dtbo \
 							eic7700-sbc-a1-camera-imx708-overlay.dtbo \
 							eic7700-sbc-a1-camera-ov5647-overlay.dtbo \
 							eic7700-sbc-a1-camera-ov9281-overlay.dtbo \
 							eic7700-sbc-a1-camera-imx327-overlay.dtbo \
 							eic7700-sbc-a1-camera-ircut-gpio9-overlay.dtbo \
+							eic7700-sbc-a1-camera-tuning-overlay.dtbo \
 							eic7700-ce1-camera-imx415-no-hdr-overlay.dtbo \
 							eic7700-ce1-camera-imx415-hdr-x2-overlay.dtbo \
 							eic7700-ce1-camera-imx415-hdr-x3-overlay.dtbo \
@@ -24,6 +26,7 @@ dtbo-$(CONFIG_SOC_ESWIN) += eic7700-sbc-a1-camera-imx219-2lanes-overlay.dtbo \
 							eic7700-hifive-premier-p550-camera-ov9281-overlay.dtbo \
 							eic7700-hifive-premier-p550-camera-imx327-overlay.dtbo \
 							eic7700-hifive-premier-p550-camera-ircut-gpio7-overlay.dtbo \
+							eic7700-hifive-premier-p550-camera-tuning-overlay.dtbo \
 							eic7702-d560-camera-imx415-no-hdr-overlay.dtbo \
 							eic7702-d560-camera-imx415-hdr-x2-overlay.dtbo \
 							eic7702-d560-camera-imx415-hdr-x3-overlay.dtbo \

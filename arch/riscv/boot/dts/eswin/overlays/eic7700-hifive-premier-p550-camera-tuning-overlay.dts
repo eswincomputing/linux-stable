@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree file for Eswin EIC7700 SoC.
+ *
+ * Copyright 2026, Beijing ESWIN Computing Technology Co., Ltd.. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 2.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&dvp2axi_mipi_lvds1>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
+
+	fragment@1 {
+		target = <&dvp2axi_mipi_lvds2>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&dvp2axi_mipi_lvds3>;
+		__overlay__ {
+			status="disabled";
+		};
+	};
+};
