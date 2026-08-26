@@ -100,5 +100,6 @@ typedef struct {
 #define VVCAM_ISP_SUBSCRIBE_EVENT	_IOW(VVCAM_ISP_IOC_MAGIC, 0x04, vvcam_subscription_t)
 #define VVCAM_ISP_UNSUBSCRIBE_EVENT	_IOW(VVCAM_ISP_IOC_MAGIC, 0x05, vvcam_subscription_t)
 #define VVCAM_ISP_DQEVENT			_IOR(VVCAM_ISP_IOC_MAGIC, 0x06, vvcam_event_t)
-
+#define VVCAM_ISP_IRQ_DISABLE			_IO(VVCAM_ISP_IOC_MAGIC, 0x07)
+#define VVCAM_ISP_IRQ_ENABLE			_IO(VVCAM_ISP_IOC_MAGIC, 0x08)
 #endif

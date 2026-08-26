@@ -209,6 +209,14 @@ static long vvcam_isp_ioctl(struct file *file,
 			break;
 		ret = copy_to_user((void __user *)arg, &event, sizeof(event));
 		break;
+	case VVCAM_ISP_IRQ_DISABLE:
+		disable_irq(isp_dev->isp_irq);
+		disable_irq(isp_dev->mi_irq);
+		break;
+	case VVCAM_ISP_IRQ_ENABLE:
+		enable_irq(isp_dev->isp_irq);
+		enable_irq(isp_dev->mi_irq);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
